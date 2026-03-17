@@ -237,8 +237,13 @@ const SettingsView: React.FC = () => {
 
     const importConfigTypeMap: Record<ImportConfig['Tipo_Fonte'], string> = {
         Conta: 'Conta Corrente',
+        'Conta Corrente': 'Conta Corrente',
+        Poupança: 'Poupança',
+        Investimento: 'Investimento',
         Cartao: 'Cartão de Crédito',
-        'Cartão Alimentação': 'Cartão Alimentação'
+        'Cartão de Crédito': 'Cartão de Crédito',
+        'Cartão Alimentação': 'Cartão Alimentação',
+        Outro: 'Outro'
     };
 
     const importHistory = useMemo(() => {
@@ -1126,9 +1131,12 @@ const ImportConfigModal: React.FC<ImportConfigModalProps> = ({ config, onClose, 
                     />
 
                     <Select label="Tipo da Fonte" name="Tipo_Fonte" value={formState.Tipo_Fonte} onChange={handleChange}>
-                        <option value="Conta">Conta Corrente</option>
-                        <option value="Cartao">Cartão de Crédito</option>
+                        <option value="Conta Corrente">Conta Corrente</option>
+                        <option value="Poupança">Poupança</option>
+                        <option value="Investimento">Investimento</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
                         <option value="Cartão Alimentação">Cartão Alimentação</option>
+                        <option value="Outro">Outro</option>
                     </Select>
 
                     <div className="flex items-end gap-2">

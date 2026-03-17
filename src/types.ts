@@ -75,7 +75,7 @@ export interface ImportConfig {
   id: string;
   Nome_Fonte: string;
   ID_Conta_Associada?: string | null; // <-- NOSSA NOVA PONTE
-  Tipo_Fonte: 'Conta' | 'Cartao' | 'Cartão Alimentação';
+  Tipo_Fonte: 'Conta' | 'Cartao' | 'Cartão Alimentação' | 'Conta Corrente' | 'Poupança' | 'Investimento' | 'Cartão de Crédito' | 'Outro';
   Fonte_Manual?: boolean; // Nova propriedade para fontes sem arquivo
   Coluna_Data?: string;
   Coluna_Descricao_1?: string;

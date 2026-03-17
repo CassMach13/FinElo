@@ -393,7 +393,7 @@ export const processStatementFile = (
 
             if (manualMapping && typeof manualMapping.invertValues === 'boolean') {
               shouldInvert = manualMapping.invertValues;
-            } else if (config && config.Tipo_Fonte === 'Cartao') {
+            } else if (config && (config.Tipo_Fonte === 'Cartao' || config.Tipo_Fonte === 'Cartão de Crédito')) {
               shouldInvert = true;
             }
 

@@ -146,9 +146,9 @@ const ImportView: React.FC = () => {
     if (!selectedConfigSource) return;
     const config = importConfigs.find(c => c.Nome_Fonte === selectedConfigSource);
     if (config) {
-      setTempSourceType(config.Tipo_Fonte as 'Conta' | 'Cartao' || 'Conta');
+      setTempSourceType(config.Tipo_Fonte as any || 'Conta');
       const rawIndices = config.Ignorar_Indices || [];
-      const isCartao = config.Tipo_Fonte === 'Cartao';
+      const isCartao = config.Tipo_Fonte === 'Cartao' || config.Tipo_Fonte === 'Cartão de Crédito';
       let shouldInvert = isCartao;
       if (rawIndices.includes(-1)) shouldInvert = true;
       if (rawIndices.includes(-2)) shouldInvert = false;
