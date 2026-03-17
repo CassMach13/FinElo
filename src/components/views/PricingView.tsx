@@ -140,6 +140,11 @@ const PricingView: React.FC = () => {
                         <li className="flex items-center gap-2"><CheckIcon /> Dashboard Completo & IA</li>
                         <li className="flex items-center gap-2"><CheckIcon /> Suporte Prioritário</li>
                     </ul>
+                    <div className="mt-4 mb-6 flex justify-center">
+                        <div className="bg-slate-800/50 border border-white/5 rounded-lg px-4 py-1.5 shadow-sm">
+                            <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">7 Dias de Garantia</span>
+                        </div>
+                    </div>
 
                     {isPremium ? (
                         <button disabled className="block w-full py-4 rounded-xl bg-green-500/20 text-green-400 font-bold text-lg text-center border border-green-500/20 cursor-default">
@@ -171,6 +176,11 @@ const PricingView: React.FC = () => {
                         <li className="flex items-center gap-2"><CheckIcon /> Importação Multi-Corretora</li>
                         <li className="flex items-center gap-2"><CheckIcon /> 1 Vaga Família Inclusa</li>
                     </ul>
+                    <div className="mt-4 mb-6 flex justify-center">
+                        <div className="bg-slate-800/50 border border-white/5 rounded-lg px-4 py-1.5 shadow-sm">
+                            <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">7 Dias de Garantia</span>
+                        </div>
+                    </div>
 
                     {user?.id && subscription?.tier === 'wealth' && subscription?.status === 'active' ? (
                         <button disabled className="block w-full py-4 rounded-xl bg-purple-500/20 text-purple-400 font-bold text-lg text-center border border-purple-500/20 cursor-default">
