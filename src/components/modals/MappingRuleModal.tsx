@@ -3,21 +3,22 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import { MappingRule, Category, Asset } from '../../types';
+import { MappingRule, Category, Asset, Transaction } from '../../types';
 
 interface MappingRuleModalProps {
     rule: MappingRule | null;
+    transaction?: Transaction | null;
     categories: Category[];
     assets: Asset[];
     onClose: () => void;
     onSave: (rule: Omit<MappingRule, 'id'>) => void;
 }
 
-const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, categories, assets, onClose, onSave }) => {
-    const [text, setText] = useState(rule?.Texto_Contido_Descricao || '');
-    const [suggestedName, setSuggestedName] = useState(rule?.Nome_Fantasia_Sugerido || '');
-    const [suggestedCategory, setSuggestedCategory] = useState(rule?.Categoria_Sugerida || '');
-    const [linkedAssetId, setLinkedAssetId] = useState(rule?.linked_asset_id || '');
+const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, transaction, categories, assets, onClose, onSave }) => {
+    const [text, setText] = useState(rule?.Texto_Contido_Descricao || transaction?.Descricao_Original || '');
+    const [suggestedName, setSuggestedName] = useState(rule?.Nome_Fantasia_Sugerido || transaction?.Nome_Fantasia || '');
+    const [suggestedCategory, setSuggestedCategory] = useState(rule?.Categoria_Sugerida || transaction?.Categoria || '');
+    const [linkedAssetId, setLinkedAssetId] = useState(rule?.linked_asset_id || transaction?.linked_asset_id || '');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -26,13 +27,18 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, categories, a
             setSuggestedName(rule.Nome_Fantasia_Sugerido);
             setSuggestedCategory(rule.Categoria_Sugerida);
             setLinkedAssetId(rule.linked_asset_id || '');
+        } else if (transaction) {
+            setText(transaction.Descricao_Original);
+            setSuggestedName(transaction.Nome_Fantasia);
+            setSuggestedCategory(transaction.Categoria);
+            setLinkedAssetId(transaction.linked_asset_id || '');
         } else {
             setText('');
             setSuggestedName('');
             setSuggestedCategory('');
             setLinkedAssetId('');
         }
-    }, [rule]);
+    }, [rule, transaction]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
