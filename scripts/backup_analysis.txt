@@ -1,0 +1,27 @@
+--- ANALYZING BACKUP FILE (2119 rows) ---
+Found 23 transactions for XP in Nov 27-30.
+2025-11-29 | Pix recebido de Ione Maria Segatto Santos | 2100
+2025-11-28 | Transferência enviada para a conta investimento | -5400
+2025-11-29 | Pix enviado para Cassio Marques Machado | -2100
+2025-11-28 | Pix recebido de Albertina de Souza Santos | 15
+2025-11-28 | Pix enviado para Ione Maria Segatto Santos | -15
+2025-11-28 | Transferência enviada para a conta investimento | -2122
+2025-11-28 | Salário recebido | 2337.86
+2025-11-28 | Salário recebido | 3116.21
+2025-11-28 | Salário recebido | 2122.08
+2025-11-28 | Salário recebido | 2135.01
+2025-11-27 | MULTIPLAN ADMINISTRADO | -17
+2025-11-27 | MV PARK ESTACIONAMENTO | -26
+2025-11-27 | RESERVA PAULISTA | -66.5
+2025-11-27 | MUNDO DOS COSMETICOS | -43
+2025-11-27 | JESMOND COMERCIO | -39.4
+2025-11-27 | JESMOND COMERCIO | -33.25
+2025-11-28 | ANACAPRI*ORDER108 | -66.19
+2025-11-28 | A98  - Compra ShellBox | -224.99
+2025-11-29 | MUNDO DOS COSMETICOS | -42
+2025-11-29 | HS PARK SAO CAETANO | -80.99
+2025-11-29 | LOJAS RENNER FL 1 | -15.92
+2025-11-29 | MULTIPLAN ADMINISTRADO | -25
+2025-11-29 | CRESCI E PERDI JARDIM | -43
+-----------------------------------
+TOTAL SUM FOUND: R$ 1465.92

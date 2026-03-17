@@ -1,0 +1,5 @@
+{
+  "name": "Personal Finance Manager",
+  "description": "An application to upload bank statements (.csv), centralize transactions, and visualize spending against budgets. It supports multiple statement formats and prevents duplicate entries.",
+  "requestFramePermissions": []
+}

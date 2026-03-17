@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <!-- Fundo escuro oficial (preto/cinza muito escuro) -->
+  <rect width="400" height="400" fill="#141414" rx="80"/>
+  
+  <!-- O novo símbolo Itaú (2023) - Quadrado com bordas arredondadas assimétricas (laranja) -->
+  <path d="M120 80 
+           h 160 
+           a 40 40 0 0 1 40 40 
+           v 80 
+           a 40 40 0 0 1 -40 40 
+           h -120 
+           a 80 80 0 0 1 -80 -80 
+           v -40 
+           a 40 40 0 0 1 40 -40 Z" 
+        fill="#FF7A00"/>
+  
+  <!-- Texto "Itaú" dentro do símbolo laranja -->
+  <text x="200" y="195" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="75" font-weight="900" fill="#141414" letter-spacing="-3" text-anchor="middle">Itaú</text>
+  
+  <!-- Texto "Personnalité" em branco, fonte elegante e moderna (nova identidade 2023) -->
+  <text x="200" y="310" font-family="'Didot', 'Bodoni MT', 'Times New Roman', serif" font-size="42" font-weight="400" fill="#FFFFFF" tracking="1" text-anchor="middle">Personnalité</text>
+</svg>

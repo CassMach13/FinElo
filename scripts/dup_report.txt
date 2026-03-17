@@ -1,0 +1,8 @@
+--- ANALYZING CSV EXPORT (2124 rows) ---
+Filtered: 65 transactions for Conta XP in Dec 2025.
+
+--- POTENTIAL DUPLICATES ---
+[2x] 2025-12-01|-77.80|PAGAMENTO DE FATURA -> Excess: R$ -77.80
+-----------------------------------
+Sets with Duplicates: 1
+Total Excess Value (Sum of Duplicates): R$ -77.80

@@ -1,0 +1,14 @@
+--- AUDIT START ---
+
+--- Processing Cassio ---
+Subtotal after Cassio: R$ -2082.36
+
+--- Processing Ione ---
+Subtotal after Ione: R$ -2229.95
+
+--- RESULTS ---
+Total "Movement" in December: R$ -2229.95
+Target Final Balance: R$ 152.78
+
+REQUIRED INITIAL BALANCE (01/12): R$ 2382.73
+-------------------------------------------

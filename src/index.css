@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-secondary text-light;
+  }
+}
+
+/* 
+   ==========================================================================
+   ULTIMATE HIGH-FIDELITY PRINT SYSTEM (SCREENSHOT STYLE)
+   ========================================================================== 
+*/
+@media print {
+  /* 1. Page Configuration */
+  @page { 
+    margin: 0.5cm !important; 
+    size: a4 portrait !important; 
+  }
+
+  /* 2. Brute Force Visibility & Stability */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    
+    /* KILL ALL ANIMATIONS & TRANSITIONS */
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    
+    /* ELIMINATE SCROLLBARS FOR STATIC PDF */
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  
+  ::-webkit-scrollbar { display: none !important; }
+
+  /* 3. Global Layout Reset - Remove Flex/Centering that causes blank pages */
+  html, body, #root, #main-layout, #main-content, main, #dashboard-content {
+    background: #1a202c !important; /* Force primary dark theme */
+    color: #f7fafc !important; 
+    
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    
+    display: block !important; /* Stop centering/flexing */
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* EXTRA: Fix for Blank P1 - sometimes #root has fixed height from Vite/React */
+  #root {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* 4. Hide Non-Content & OVERLAPPING ELEMENTS */
+  header, nav, aside, footer, 
+  .no-print, button, .tour-button, #dashboard-header, 
+  .UserAccountWidget, [class*="NavItem"], .fixed, [aria-label*="Tutorial"], 
+  .group\/tooltip, [class*="Tooltip"], .group-hover\:opacity-100, /* HIDE OVERLAPPING TOOLTIPS */
+  .swipe-action, .fab, .bottom-nav,
+  [id*="headlessui-portal"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    opacity: 0 !important;
+  }
+
+  /* 5. Dashboard Grid Reconstruction */
+  #dashboard-kpis {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important; /* 3 columns for A4 */
+    gap: 15px !important;
+    margin: 0 0 1.5rem 0 !important;
+    width: 100% !important;
+  }
+
+  /* 6. Card & Component Stability - TOTAL EXPANSION */
+  .bg-secondary, .card, [class*="Card"], .bg-slate-800, .bg-slate-900, 
+  [class*="overflow-y-auto"], [class*="overflow-x-auto"], .overflow-auto {
+    background-color: #2d3748 !important; /* Secondary dark color */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    padding: 1.25rem !important;
+    margin-bottom: 20px !important;
+    
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important; 
+    
+    display: block !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+  }
+
+  /* 7. PROGRESS BARS & GRAPHICAL BAR FIX */
+  /* Force SOLID colors for backgrounds in print as gradients/opacity usually fail */
+  .bg-emerald-500\/80, .bg-emerald-500, .bg-success { background-color: #10b981 !important; width: initial; }
+  .bg-rose-500\/80, .bg-rose-500, .bg-danger { background-color: #f43f5e !important; width: initial; }
+  .bg-highlight\/80, .bg-highlight, .bg-accent { background-color: #38b2ac !important; width: initial; }
+  .bg-yellow-500 { background-color: #eab308 !important; }
+  
+  /* Select specific inner divs of progress bars */
+  [class*="ProgressBar"] > div > div, 
+  .w-full.h-8.bg-slate-800\/80 > div,
+  .w-full.h-2.bg-slate-800 > div {
+    min-width: 2px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* 8. Text Restoration */
+  .text-2xl, .text-3xl, .font-bold {
+    color: #f7fafc !important; 
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .text-accent, [class*="text-accent"] { color: #38b2ac !important; }
+  .text-success, [class*="text-green-500"] { color: #10b981 !important; }
+  .text-danger, [class*="text-red-500"] { color: #f56565 !important; }
+  .text-gray-400, .text-gray-500 { color: #94a3b8 !important; }
+
+  /* 9. Chart Rendering Fix */
+  canvas, svg, .recharts-responsive-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 350px !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+}

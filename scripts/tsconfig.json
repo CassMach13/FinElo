@@ -1,0 +1,16 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "composite": true,
+        "noEmit": true,
+        "moduleResolution": "node",
+        "module": "CommonJS",
+        "types": [
+            "node"
+        ],
+        "esModuleInterop": true
+    },
+    "include": [
+        "*.ts"
+    ]
+}

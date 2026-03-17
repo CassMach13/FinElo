@@ -1,0 +1,465 @@
+
+import Papa from 'papaparse';
+import { Transaction, ImportConfig, MappingRule } from '../types';
+
+interface ParseResult {
+  newTransactions: Omit<Transaction, 'ID_Transacao'>[];
+  successCount: number;
+  duplicateCount: number;
+  ignoredCount: number;
+  ignoredItems: any[];
+}
+
+// Helper to parse dates like "DD/MM/YYYY" or "DD/MM/YY ..."
+const parseDate = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  const datePart = dateStr.split(' ')[0];
+  const parts = datePart.split('/');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    let year = parseInt(parts[2], 10);
+    if (year < 100) {
+      year += 2000;
+    }
+    const date = new Date(year, month, day);
+    // Check for invalid date
+    if (isNaN(date.getTime())) return null;
+    return date;
+  }
+  return null;
+};
+
+// Helper to parse monetary values like "-R$ 1.234,56" or "50,00"
+const parseValue = (valueStr: string): number | null => {
+  if (typeof valueStr !== 'string' || valueStr.trim() === '') return null;
+  // Extrai apenas números, ',', '.' e o sinal de '-'
+  const essentialChars = valueStr.replace(/[^0-9,.-]/g, '');
+  const normalized = essentialChars.replace(/\./g, '').replace(',', '.');
+  const value = parseFloat(normalized);
+  return isNaN(value) ? null : value;
+};
+
+// Helper to find and extract installment info like "1/12" from a string
+const extractInstallments = (description: string, transactionDate?: Date): { current?: number, total?: number, cleanedDescription: string } => {
+  const regex = /\s*\(?(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\)?\s*$/; // Matches (X/Y) or (X de Y) at the end of the string
+  const match = description.match(regex);
+
+  if (match) {
+    const current = parseInt(match[1], 10);
+    const total = parseInt(match[2], 10);
+
+    // Validação 1: Parcela atual não pode ser maior que o total, e ambos devem ser > 0.
+    if (current > total || current === 0 || total === 0) {
+      return { cleanedDescription: description };
+    }
+
+    // Validação 2: Se os números correspondem exatamente ao Dia/Mês da transação,
+    // é muito provável que seja a data repetida na descrição (ex: 01/04 em 01 de Abril), e não uma parcela.
+    if (transactionDate) {
+      const day = transactionDate.getDate();
+      const month = transactionDate.getMonth() + 1; // 0-indexed
+      if (current === day && total === month) {
+        return { cleanedDescription: description };
+      }
+    }
+
+    return {
+      current,
+      total,
+      cleanedDescription: description.replace(regex, '').trim()
+    };
+  }
+  return { cleanedDescription: description };
+}
+
+// Helper to normalize date for comparison, handling YYYY-MM-DD string as Local time
+const getNormalizedTime = (dateInput: string | Date): number => {
+  if (!dateInput) return 0;
+  if (dateInput instanceof Date) return dateInput.getTime();
+
+  // Handle YYYY-MM-DD specifically to ensure Local time interpretation (matching how cleanedDate is created)
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    const [y, m, d] = dateInput.split('-').map(Number);
+    return new Date(y, m - 1, d).getTime();
+  }
+
+  const d = new Date(dateInput);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+};
+
+export const parseContent = (content: string, skipLines: number = 0): Promise<{ previewRows: string[][] }> => {
+  return new Promise((resolve, reject) => {
+    let contentToParse = content;
+
+    // PRE-PROCESS: Handle "Double Quoted" CSVs
+    const lines = content.split(/[\r\n]+/);
+    const cleanedLines = lines.map(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length > 2) {
+        const unwrapped = trimmed.slice(1, -1).replace(/""/g, '"');
+        if (unwrapped.includes(',') || unwrapped.includes(';')) {
+          return unwrapped;
+        }
+      }
+      return line;
+    });
+    const cleanedContent = cleanedLines.join('\n');
+    contentToParse = cleanedContent;
+
+    if (skipLines > 0) {
+      const lines = cleanedContent.split(/[\r\n]+/);
+      if (lines.length > skipLines) {
+        contentToParse = lines.slice(skipLines).join('\n');
+      } else {
+        contentToParse = "";
+      }
+    }
+
+    Papa.parse(contentToParse, {
+      header: false,
+      skipEmptyLines: true,
+      delimiter: '', // Auto-detect
+      complete: (results) => {
+        let data = results.data as string[][];
+
+        // Retry Logic: If only 1 column found, try explicit delimiters
+        if (data.length > 0 && data[0].length === 1) {
+          // Try Comma
+          if (contentToParse.includes(',')) {
+            const commaResult = Papa.parse(contentToParse, { header: false, skipEmptyLines: true, delimiter: ',' });
+            if (commaResult.data && (commaResult.data[0] as string[]).length > 1) {
+              data = commaResult.data as string[][];
+            }
+          }
+          // Try Semicolon
+          if (data.length > 0 && data[0].length === 1 && contentToParse.includes(';')) {
+            const semiResult = Papa.parse(contentToParse, { header: false, skipEmptyLines: true, delimiter: ';' });
+            if (semiResult.data && (semiResult.data[0] as string[]).length > 1) {
+              data = semiResult.data as string[][];
+            }
+          }
+        }
+
+        resolve({ previewRows: data });
+      },
+      error: (error: Error) => {
+        reject(error);
+      }
+    });
+  });
+};
+
+export const parsePreview = (file: File): Promise<{ headers: string[], previewRows: string[][], fullContent: string }> => {
+  return new Promise((resolve, reject) => {
+    // Read the file as text first to handle it robustly
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      let text = event.target?.result as string;
+
+      // PRE-PROCESS: Handle "Double Quoted" CSVs (Ticket)
+      const lines = text.split(/[\r\n]+/);
+      const cleanedLines = lines.map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length > 2) {
+          const unwrapped = trimmed.slice(1, -1).replace(/""/g, '"');
+          if (unwrapped.includes(',') || unwrapped.includes(';')) {
+            return unwrapped;
+          }
+        }
+        return line;
+      });
+      text = cleanedLines.join('\n');
+
+      Papa.parse(text, {
+        header: false,
+        skipEmptyLines: true,
+        complete: (results) => {
+          let data = results.data as string[][];
+
+          // Retry Logic: If only 1 column found, try explicit delimiters
+          if (data.length > 0 && data[0].length === 1) {
+            console.warn('Parser Service: Auto-detect failed (1 column). Retrying with known delimiters...');
+
+            // Try Comma
+            if (text.includes(',')) {
+              const commaResult = Papa.parse(text, { header: false, skipEmptyLines: true, delimiter: ',' });
+              if (commaResult.data && (commaResult.data[0] as string[]).length > 1) {
+                console.log('Parser Service: Retry with comma successful.');
+                data = commaResult.data as string[][];
+              }
+            }
+
+            // Try Semicolon (if still 1 column)
+            if (data.length > 0 && data[0].length === 1 && text.includes(';')) {
+              const semiResult = Papa.parse(text, { header: false, skipEmptyLines: true, delimiter: ';' });
+              if (semiResult.data && (semiResult.data[0] as string[]).length > 1) {
+                console.log('Parser Service: Retry with semicolon successful.');
+                data = semiResult.data as string[][];
+              }
+            }
+          }
+
+          resolve({
+            headers: [],
+            previewRows: data,
+            fullContent: text
+          });
+        },
+        error: (error: Error) => {
+          reject(error);
+        }
+      });
+    };
+    reader.readAsText(file);
+  });
+};
+
+export const processStatementFile = (
+  file: File,
+  config: ImportConfig | null,
+  existingTransactions: Transaction[],
+  mappingRules: MappingRule[],
+  paymentDate?: Date,
+  manualMapping?: {
+    hasHeader: boolean;
+    dateColumnIndex: number;
+    descriptionColumnIndicies: number[];
+    amountColumnIndex: number;
+    installmentsColumnIndex?: number;
+    skipLines: number;
+    ignoredIndices?: number[];
+    fileContent: string;
+    sourceType?: 'Conta' | 'Cartao';
+    invertValues?: boolean;
+  }
+): Promise<ParseResult> => {
+  console.log('Parser Service v1.2 loaded - Smart Import Support');
+  return new Promise((resolve, reject) => {
+
+    const parsingLogic = (text: string) => {
+      // PRE-PROCESS: Handle "Double Quoted" CSVs (like Ticket)
+      // Some exports wrap the entire line in quotes: "Data,Desc,Val"
+      // We need to unwrap them: Data,Desc,Val
+      const lines = text.split(/[\r\n]+/);
+      const cleanedLines = lines.map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length > 2) {
+          // Check if it's really a full-line quote by seeing if there are delimiters *inside* that are not respected otherwise?
+          // Actually, if it starts and ends with quote, and contains commas, it's likely a wrapped line.
+          // But be careful of a single column file that is just "Value".
+          // Heuristic: If we unwrap it and find commas, it was likely a wrapped CSV line.
+          const unwrapped = trimmed.slice(1, -1).replace(/""/g, '"');
+          if (unwrapped.includes(',') || unwrapped.includes(';')) {
+            return unwrapped;
+          }
+        }
+        return line;
+      });
+
+      let contentToParse = cleanedLines.join('\n');
+      // let contentToParse = text; // Old logic replaced
+
+      // ... (skip lines logic is fine) ...
+      const skipLines = manualMapping ? manualMapping.skipLines : (config?.Linhas_Ignorar_Inicio || 0);
+
+      if (skipLines > 0) {
+        const lines = text.split(/[\r\n]+/);
+        contentToParse = lines.slice(skipLines).join('\n');
+      }
+
+      const shouldUseHeader = config ? config.Tem_Cabecalho : false;
+
+      Papa.parse(contentToParse, {
+        header: shouldUseHeader,
+        skipEmptyLines: true,
+        delimiter: '',
+        complete: (results) => {
+          // ... (counters) ...
+          let successCount = 0;
+          let duplicateCount = 0;
+          let ignoredCount = 0;
+          const newTransactions: Omit<Transaction, 'ID_Transacao'>[] = [];
+          const ignoredItems: any[] = [];
+          let stopProcessing = false;
+
+          let startIndex = 0;
+          if (manualMapping && manualMapping.hasHeader) {
+            startIndex = 1;
+          }
+
+          const rows = results.data as any[];
+
+          for (let i = startIndex; i < rows.length; i++) {
+            const row = rows[i];
+            if (stopProcessing) break;
+
+            if (manualMapping && manualMapping.ignoredIndices && manualMapping.ignoredIndices.includes(i)) {
+              ignoredItems.push({
+                Data: null,
+                Valor: null,
+                Descricao: `Linha ${i + 1} ignorada manualmente`,
+                Motivo: 'Ignorado pelo usuário'
+              });
+              ignoredCount++;
+              continue;
+            }
+
+            let dataBruta: { date: any; desc1: any; desc2: any; installments: any; value: any; holder: any };
+            let rawRowValues = '';
+
+            if (config) {
+              // ... existing config logic ...
+              dataBruta = {
+                date: row[config.Coluna_Data!],
+                desc1: row[config.Coluna_Descricao_1!] || '',
+                desc2: config.Coluna_Descricao_2 ? row[config.Coluna_Descricao_2] : '',
+                installments: config.Coluna_Parcelas ? row[config.Coluna_Parcelas] : '',
+                value: row[config.Coluna_Valor!],
+                holder: config.Coluna_Portador ? row[config.Coluna_Portador] : undefined,
+              };
+              rawRowValues = Object.values(row).map(v => String(v)).join(' ').toUpperCase();
+            } else if (manualMapping) {
+              const rowArray = Array.isArray(row) ? row : Object.values(row);
+
+              if (rowArray.length <= manualMapping.dateColumnIndex || rowArray.length <= manualMapping.amountColumnIndex) {
+                continue;
+              }
+
+              dataBruta = {
+                date: rowArray[manualMapping.dateColumnIndex],
+                desc1: manualMapping.descriptionColumnIndicies.map(idx => rowArray[idx]).join(' '),
+                desc2: '',
+                installments: manualMapping.installmentsColumnIndex !== undefined && manualMapping.installmentsColumnIndex >= 0 ? rowArray[manualMapping.installmentsColumnIndex] : '',
+                value: rowArray[manualMapping.amountColumnIndex],
+                holder: undefined // Not supporting holder mapping yet
+              };
+              rawRowValues = rowArray.map(v => String(v)).join(' ').toUpperCase();
+            } else {
+              continue;
+            }
+
+            // Robust description handling
+            let combinedDescription = dataBruta.desc2 ? `${dataBruta.desc1} - ${dataBruta.desc2}` : dataBruta.desc1;
+            combinedDescription = combinedDescription ? String(combinedDescription).trim() : '';
+
+            const stopText = config?.Texto_Parar_Leitura_Contendo || '';
+
+            if (stopText && rawRowValues.includes(stopText.toUpperCase())) {
+              stopProcessing = true;
+              continue;
+            }
+
+            const cleanedDate = parseDate(dataBruta.date);
+            const cleanedValue = parseValue(dataBruta.value);
+
+            if (!cleanedDate || cleanedValue === null || !combinedDescription) {
+              continue;
+            }
+
+            // Check for ignore rules
+            const ignoreRules = config?.Texto_Ignorar_Linha_Contendo || [];
+            const matchedIgnoreRule = ignoreRules.find(rule => combinedDescription.toUpperCase().includes(rule.toUpperCase()));
+
+            if (matchedIgnoreRule) {
+              ignoredItems.push({
+                Data: cleanedDate,
+                Valor: cleanedValue,
+                Descricao: combinedDescription,
+                Motivo: `Regra de Ignorar: "${matchedIgnoreRule}"`
+              });
+              ignoredCount++;
+              continue;
+            }
+
+            // Installments
+            let installmentInfo = extractInstallments(dataBruta.installments || '', cleanedDate);
+
+            const SINGLE_PAYMENT_KEYWORDS = ['PIX', 'TRANSF', 'TED', 'DOC', 'RESGATE', 'APLICACAO', 'DEBITO', 'SALDO'];
+            const isSinglePayment = SINGLE_PAYMENT_KEYWORDS.some(kw => combinedDescription.toUpperCase().includes(kw));
+
+            if (isSinglePayment) {
+              installmentInfo = { cleanedDescription: combinedDescription };
+            } else if (!installmentInfo.current) {
+              installmentInfo = extractInstallments(combinedDescription, cleanedDate);
+            }
+
+            const descriptionForMapping = installmentInfo.cleanedDescription || combinedDescription;
+
+            let finalValue = cleanedValue;
+            let finalType: 'Renda' | 'Despesa';
+
+            let shouldInvert = false;
+
+            if (manualMapping && typeof manualMapping.invertValues === 'boolean') {
+              shouldInvert = manualMapping.invertValues;
+            } else if (config && config.Tipo_Fonte === 'Cartao') {
+              shouldInvert = true;
+            }
+
+            if (shouldInvert) {
+              finalValue = -cleanedValue;
+              finalType = finalValue >= 0 ? 'Renda' : 'Despesa';
+            } else {
+              // Manual fallback or standard account
+              finalType = cleanedValue >= 0 ? 'Renda' : 'Despesa';
+            }
+
+            // Skipping implementation of duplicate check inside parser (relying on Store)
+
+            // Apply mapping rules
+            let suggestedName = descriptionForMapping;
+            let suggestedCategory = '-';
+
+            for (const rule of mappingRules) {
+              if (suggestedName.toUpperCase().includes(rule.Texto_Contido_Descricao.toUpperCase())) {
+                suggestedName = rule.Nome_Fantasia_Sugerido;
+                suggestedCategory = rule.Categoria_Sugerida;
+                break;
+              }
+            }
+
+            newTransactions.push({
+              Data: cleanedDate,
+              Data_Pagamento: paymentDate || cleanedDate,
+              Descricao_Original: combinedDescription,
+              Nome_Fantasia: suggestedName || combinedDescription,
+              Parcela_Atual: installmentInfo.current,
+              Total_Parcelas: installmentInfo.total,
+              Portador: dataBruta.holder,
+              Valor: finalValue,
+              Tipo: finalType,
+              Categoria: suggestedCategory,
+              Fonte: config ? config.Nome_Fonte : (file.name + ' (Import)'),
+              Origem: file.name,
+            });
+
+            successCount++;
+          }
+          resolve({ newTransactions, successCount, duplicateCount, ignoredCount, ignoredItems });
+        },
+        error: (error: Error) => {
+          reject(new Error(`Erro ao processar o conteúdo do CSV: ${error.message}`));
+        },
+      });
+    }
+
+    // 1. If manualMapping provides content, use it. Else read file.
+    if (manualMapping && manualMapping.fileContent) {
+      parsingLogic(manualMapping.fileContent);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          parsingLogic(event.target?.result as string);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = () => {
+        reject(new Error('Não foi possível ler o arquivo.'));
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+  });
+};
