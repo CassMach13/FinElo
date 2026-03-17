@@ -271,31 +271,35 @@ const SettingsView: React.FC = () => {
                             headers={['Nome', 'Tipo', 'Invest.', 'Essencial?']}
                             renderRow={(item: Category) => (
                                 <>
-                                    <td className="px-2 py-3 text-sm break-all max-w-[120px]">{item.Nome_Categoria}</td>
-                                    <td className={`px-2 py-3 whitespace-nowrap text-sm font-semibold ${categoryTypeColorMap[item.Tipo]}`}>
+                                    <td className="px-4 py-4 text-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
+                                            <span className="font-medium text-white">{item.Nome_Categoria}</span>
+                                        </div>
+                                    </td>
+                                    <td className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
                                         {item.Tipo === 'Renda' ? 'Entrada' : item.Tipo === 'Despesa' ? 'Saída' : 'Movimentação'}
                                     </td>
-                                    <td className="px-2 py-3 whitespace-nowrap text-sm text-center">
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                         {item.is_investment ? (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800" title="Investimento">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                                 Sim
                                             </span>
                                         ) : (
-                                            <span className="text-gray-400">-</span>
+                                            <span className="text-gray-600 font-medium">Não</span>
                                         )}
                                     </td>
-                                    <td className="px-2 py-3 whitespace-nowrap text-sm text-center">
-                                        {/* Gasto Essencial (only for Despesa/Ambos and not Investment) */}
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                         {!item.is_investment && (item.Tipo === 'Despesa' || item.Tipo === 'Ambos') ? (
                                             item.is_essential ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800" title="Essencial">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                                                     Sim
                                                 </span>
                                             ) : (
-                                                <span className="text-gray-400 text-xs">Não</span>
+                                                <span className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
                                             )
                                         ) : (
-                                            <span className="text-gray-500 text-xs">-</span>
+                                            <span className="text-gray-700">-</span>
                                         )}
                                     </td>
                                 </>
@@ -314,8 +318,8 @@ const SettingsView: React.FC = () => {
                             headers={['Categoria', 'Limite Mensal']}
                             renderRow={(item: Budget) => (
                                 <>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Categoria}</td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor_Limite_Mensal)}</td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm">{item.Categoria}</td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor_Limite_Mensal)}</td>
                                 </>
                             )}
                             onAdd={openNewBudgetModal}
@@ -354,9 +358,9 @@ const SettingsView: React.FC = () => {
                         data={mappingRules} headers={['Texto na Descrição', 'Nome Sugerido', 'Categoria Sugerida']}
                         renderRow={(item: MappingRule) => (
                             <>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Texto_Contido_Descricao}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Nome_Fantasia_Sugerido}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Categoria_Sugerida}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Texto_Contido_Descricao}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">{item.Nome_Fantasia_Sugerido}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-highlight font-semibold">{item.Categoria_Sugerida}</td>
                             </>
                         )}
                         onAdd={openNewMappingRuleModal}
@@ -409,9 +413,9 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo', 'Saldo Inicial']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Nome_Conta}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Tipo_Conta}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.Nome_Conta}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">
                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)}
                                 </td>
                             </>
@@ -434,36 +438,36 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo / Status', 'Valor Bruto', 'Dívida', 'P. Líquido (Equity)']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{item.name}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm">
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-gray-400">
+                                        <span className="text-gray-400 font-medium">
                                             {item.type === 'car' ? 'Veículo' : item.type === 'property' ? 'Imóvel' : 'Outro'}
                                         </span>
                                         {item.is_financed && (
                                             <div className="flex items-center gap-2">
-                                                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
+                                                <div className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
                                                     <div 
-                                                        className="h-full bg-highlight" 
+                                                        className="h-full bg-highlight shadow-[0_0_8px_rgba(0,195,255,0.5)]" 
                                                         style={{ width: `${((item.paid_installments || 0) / (item.total_installments || 1)) * 100}%` }}
                                                     ></div>
                                                 </div>
-                                                <span className="text-[10px] text-highlight font-bold uppercase">Financiado</span>
+                                                <span className="text-[9px] text-highlight font-black uppercase tracking-tighter shadow-sm">Financiado</span>
                                             </div>
                                         )}
                                     </div>
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-danger font-medium">
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
                                     {item.is_financed ? (
                                         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.remaining_balance || 0)
                                     ) : (
-                                        <span className="text-gray-600">-</span>
+                                        <span className="text-gray-700">-</span>
                                     )}
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-accent">
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-black text-accent bg-accent/5">
                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
                                 </td>
                             </>
@@ -486,8 +490,8 @@ const SettingsView: React.FC = () => {
                         data={importConfigs} headers={['Fonte', 'Tipo']}
                         renderRow={(item: ImportConfig) => (
                             <>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.Nome_Fonte}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{importConfigTypeMap[item.Tipo_Fonte]}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
                             </>
                         )}
                         onAdd={openNewImportConfigModal}
@@ -600,11 +604,11 @@ const SettingsView: React.FC = () => {
                         headers={['Arquivo', 'Data da Importação', 'Total', 'Importados', 'Ignorados']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.file_name}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{new Date(item.import_date).toLocaleString()}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">{item.total_transactions}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-accent">{item.imported_count}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-danger">{item.ignored_count}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
                             </>
                         )}
                         onAdd={() => { }}
@@ -870,27 +874,41 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                             {paginatedData.length === 0 && <p className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
                         </div>
 
-                        <div className="hidden lg:block bg-primary rounded-lg shadow-inner overflow-x-auto">
-                            <table className="min-w-[800px] sm:min-w-full divide-y divide-secondary">
-                                <thead className="bg-slate-700">
+                        <div className="hidden lg:block bg-primary/30 rounded-xl shadow-2xl border border-white/5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                            <table className="min-w-full divide-y divide-slate-800/50">
+                                <thead className="bg-slate-800/80 backdrop-blur-md">
                                     <tr>
-                                        {headers.map(header => <th key={header} scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">{header}</th>)}
-                                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ações</th>
+                                        {headers.map(header => <th key={header} scope="col" className="px-4 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">{header}</th>)}
+                                        <th scope="col" className="px-4 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-secondary">
+                                <tbody className="divide-y divide-slate-800/50">
                                     {paginatedData.map(item => (
-                                        <tr key={item.id}>
+                                        <tr key={item.id} className="hover:bg-white/5 transition-colors group">
                                             {renderRow(item)}
-                                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                                                {!hideEditButton && <button className="text-highlight hover:text-sky-300 font-semibold" onClick={() => onEdit(item)}>{editLabel}</button>}
-                                                <button className="text-danger hover:text-red-400 font-semibold" onClick={() => onDelete(item.id)}>Excluir</button>
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                    {!hideEditButton && (
+                                                        <button 
+                                                            className="text-highlight hover:text-white transition-colors" 
+                                                            onClick={() => onEdit(item)}
+                                                        >
+                                                            {editLabel}
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        className="text-danger hover:text-white transition-colors" 
+                                                        onClick={() => onDelete(item.id)}
+                                                    >
+                                                        Excluir
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                            {paginatedData.length === 0 && <p className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
+                            {paginatedData.length === 0 && <p className="text-center text-gray-400 py-12">Nenhum item encontrado.</p>}
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-400 gap-4">

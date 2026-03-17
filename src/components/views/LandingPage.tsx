@@ -56,11 +56,11 @@ const LandingPage: React.FC = () => {
                             <span className="text-xl font-bold tracking-tight text-white/90">FinElo</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Link to="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                            <Link to={`/login?${promoCode ? `promo=${promoCode}` : ''}`} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
                                 Entrar
                             </Link>
                             <Link
-                                to="/login"
+                                to={`/login?${promoCode ? `promo=${promoCode}` : ''}`}
                                 className="px-4 py-2 rounded-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold shadow-lg shadow-accent/20 transition-all hover:scale-105 active:scale-95"
                             >
                                 Começar Grátis
@@ -450,7 +450,10 @@ const LandingPage: React.FC = () => {
                                     7 Dias de Garantia
                                 </div>
                             </div>
-                            <Link to="/login" className="block w-full py-4 rounded-xl bg-purple-600 text-white font-bold text-lg text-center hover:bg-purple-500 shadow-lg shadow-purple-500/25 transition-all group-hover:shadow-purple-500/50">
+                            <Link 
+                                to={`/login?${promoCode ? `promo=${promoCode}` : ''}`} 
+                                className="block w-full py-4 rounded-xl bg-purple-600 text-white font-bold text-lg text-center hover:bg-purple-500 shadow-lg shadow-purple-500/25 transition-all group-hover:shadow-purple-500/50"
+                            >
                                 Garantir Acesso Vitalício
                             </Link>
                         </motion.div>
