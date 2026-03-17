@@ -263,8 +263,7 @@ const SettingsView: React.FC = () => {
             </div>
 
             <div className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div id="settings-categories">
+                <div id="settings-categories">
                         <CrudCard<Category>
                             title="Gerenciar Categorias"
                             data={sortedCategories}
@@ -350,8 +349,7 @@ const SettingsView: React.FC = () => {
                             }
                         />
                     </div>
-                </div>
-
+                
                 <div id="settings-rules" className="lg:col-span-2">
                     <CrudCard<MappingRule>
                         title="Gerenciar Regras de Mapeamento"
