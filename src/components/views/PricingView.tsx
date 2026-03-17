@@ -140,9 +140,9 @@ const PricingView: React.FC = () => {
                         <li className="flex items-center gap-2"><CheckIcon /> Dashboard Completo & IA</li>
                         <li className="flex items-center gap-2"><CheckIcon /> Suporte Prioritário</li>
                     </ul>
-                    <div className="mt-4 mb-6 flex justify-center">
-                        <div className="bg-slate-800/50 border border-white/5 rounded-lg px-4 py-1.5 shadow-sm">
-                            <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">7 Dias de Garantia</span>
+                    <div className="flex justify-center mb-6">
+                        <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                            7 Dias de Garantia
                         </div>
                     </div>
 
@@ -176,9 +176,9 @@ const PricingView: React.FC = () => {
                         <li className="flex items-center gap-2"><CheckIcon /> Importação Multi-Corretora</li>
                         <li className="flex items-center gap-2"><CheckIcon /> 1 Vaga Família Inclusa</li>
                     </ul>
-                    <div className="mt-4 mb-6 flex justify-center">
-                        <div className="bg-slate-800/50 border border-white/5 rounded-lg px-4 py-1.5 shadow-sm">
-                            <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">7 Dias de Garantia</span>
+                    <div className="flex justify-center mb-6">
+                        <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                            7 Dias de Garantia
                         </div>
                     </div>
 

@@ -408,6 +408,11 @@ const LandingPage: React.FC = () => {
                                 <li className="flex items-center gap-2"><CheckIcon /> Plano Família Opcional (+R$4,90/conta)</li>
                                 <li className="flex items-center gap-2"><CheckIcon /> Dashboard Completo & IA</li>
                             </ul>
+                            <div className="flex justify-center mb-6">
+                                <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                                    7 Dias de Garantia
+                                </div>
+                            </div>
                             <Link to="/login" className="block w-full py-4 rounded-xl bg-white/10 text-white font-bold text-lg text-center hover:bg-white/20 transition-all">
                                 Assinar PRO
                             </Link>
@@ -428,6 +433,11 @@ const LandingPage: React.FC = () => {
                                 <li className="flex items-center gap-2"><CheckIcon /> <strong>Módulo de Investimentos e Cotações</strong></li>
                                 <li className="flex items-center gap-2"><CheckIcon /> 1 Vaga Família Inclusa</li>
                             </ul>
+                            <div className="flex justify-center mb-6">
+                                <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                                    7 Dias de Garantia
+                                </div>
+                            </div>
                             <Link to="/login" className="block w-full py-4 rounded-xl bg-purple-600/20 border border-purple-600 text-purple-300 font-bold text-lg text-center hover:bg-purple-600 hover:text-white transition-all">
                                 Assinar Wealth
                             </Link>
