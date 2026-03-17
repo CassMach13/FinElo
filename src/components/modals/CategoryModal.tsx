@@ -91,7 +91,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave
                     </label>
                 </div>
 
-                {!isInvestment && (type === 'Despesa' || type === 'Ambos') && (
+                {!isInvestment && type !== 'Renda' && (
                     <div className="flex items-center gap-2">
                         <input
                             type="checkbox"
