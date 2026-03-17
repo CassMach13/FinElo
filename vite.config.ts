@@ -25,7 +25,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
       react(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
         manifest: {
           name: 'FinElo - Controle Financeiro v1.0.1',
           short_name: 'FinElo',
