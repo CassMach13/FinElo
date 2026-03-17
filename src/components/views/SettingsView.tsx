@@ -263,93 +263,275 @@ const SettingsView: React.FC = () => {
             </div>
 
             <div className="space-y-6">
+                {/* 1. Gerenciar Configurações de Importação */}
+                <div id="settings-configs" className="lg:col-span-2">
+                    <CrudCard<ImportConfig>
+                        title="Gerenciar Configurações de Importação"
+                        data={importConfigs} headers={['Fonte', 'Tipo']}
+                        renderRow={(item: ImportConfig) => (
+                            <>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
+                            </>
+                        )}
+                        onAdd={openNewImportConfigModal}
+                        onEdit={openEditImportConfigModal}
+                        onDelete={async (id) => {
+                            const config = importConfigs.find(c => c.id === id);
+                            if (!config) return;
+
+                            const confirmConfig = window.confirm(`Tem certeza que deseja remover a configuração para "${config.Nome_Fonte}"?`);
+                            if (!confirmConfig) return;
+
+                            await deleteImportConfig(id);
+
+                            if (config.ID_Conta_Associada) {
+                                const account = accounts.find(a => a.id === config.ID_Conta_Associada);
+                                const accountName = account ? account.Nome_Conta : 'a conta associada';
+
+                                if (window.confirm(`Deseja, TAMBÉM, excluir ${accountName} e todas as transações associadas?\n\nIsso limpará completamente os dados vindos desta fonte.`)) {
+                                    if (config.ID_Conta_Associada) {
+                                        await deleteAccount(config.ID_Conta_Associada);
+                                        alert('Conta e transações excluídas.');
+                                    }
+                                }
+                            }
+                        }}
+                        searchKeys={['Nome_Fonte', 'Tipo_Fonte']}
+                        searchPlaceholder="Buscar por fonte ou tipo..."
+                    />
+                </div>
+
+                {/* 2. Gerenciar Contas */}
+                <div id="settings-manage-accounts" data-tour="settings-accounts" className="lg:col-span-2 min-h-[100px]">
+                    <CrudCard<Account>
+                        title="Gerenciar Contas"
+                        data={accounts}
+                        headers={['Nome', 'Tipo', 'Saldo Inicial']}
+                        renderRow={(item) => (
+                            <>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.Nome_Conta}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)}
+                                </td>
+                            </>
+                        )}
+                        onAdd={() => { setEditingAccount(null); setAccountModalOpen(true); }}
+                        onEdit={(item) => { setEditingAccount(item); setAccountModalOpen(true); }}
+                        onDelete={async (id) => {
+                            if (window.confirm('Tem certeza? Isso excluirá a conta e TODAS as transações associadas.')) {
+                                await deleteAccount(id);
+                            }
+                        }}
+                        searchKeys={['Nome_Conta', 'Tipo_Conta']}
+                        searchPlaceholder="Buscar conta..."
+                    />
+                </div>
+
+                {/* 3. Histórico de Importações */}
+                <div id="settings-logs" className="lg:col-span-2">
+                    <CrudCard<ImportLog>
+                        title="Histórico de Importações"
+                        data={importLogs}
+                        headers={['Arquivo', 'Data da Importação', 'Total', 'Importados', 'Ignorados']}
+                        renderRow={(item) => (
+                            <>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
+                            </>
+                        )}
+                        onAdd={() => { }}
+                        onEdit={(item) => {
+                            if (item.ignored_count > 0 || item.imported_count > 0) {
+                                setSelectedLogDetails({
+                                    fileName: item.file_name,
+                                    ignoredDetails: item.ignored_details || [],
+                                    importedDetails: item.imported_details || []
+                                });
+                                setIsDetailsModalOpen(true);
+                            } else {
+                                alert('Não há transações nesta importação para visualizar.');
+                            }
+                        }}
+                        onDelete={async (id) => {
+                            const log = importLogs.find(l => l.id === id);
+                            if (log && window.confirm(`ATENÇÃO: Isso excluirá o registro de importação "${log.file_name}" E TODAS AS TRANSAÇÕES associadas a ele. Deseja continuar?`)) {
+                                await deleteImportLog(id, log.file_name);
+                            }
+                        }}
+                        searchKeys={['file_name']}
+                        searchPlaceholder="Buscar por nome do arquivo..."
+                        hideAddButton={true}
+                        hideEditButton={false}
+                        editLabel="Exibir"
+                        footer={
+                            <div className="mt-4 border-t border-slate-700 pt-4">
+                                <Button
+                                    variant="secondary"
+                                    onClick={async () => {
+                                        if (window.confirm('Isso irá verificar suas transações existentes e criar logs para importações antigas que não estão listadas aqui. Deseja continuar?')) {
+                                            const { syncLegacyImportLogs } = useAppStore.getState();
+                                            await syncLegacyImportLogs();
+                                        }
+                                    }}
+                                    className="w-full sm:w-auto"
+                                >
+                                    Sincronizar Histórico Antigo
+                                </Button>
+                            </div>
+                        }
+                    />
+                </div>
+
+                {/* 4. Gerenciar Categorias */}
                 <div id="settings-categories">
-                        <CrudCard<Category>
-                            title="Gerenciar Categorias"
-                            data={sortedCategories}
-                            headers={['Nome', 'Tipo', 'Invest.', 'Essencial?']}
-                            renderRow={(item: Category) => (
-                                <>
-                                    <td className="px-4 py-4 text-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
-                                            <span className="font-medium text-white">{item.Nome_Categoria}</span>
-                                        </div>
-                                    </td>
-                                    <td className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
-                                        {item.Tipo === 'Renda' ? 'Entrada' : item.Tipo === 'Despesa' ? 'Saída' : 'Movimentação'}
-                                    </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                                        {item.is_investment ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <CrudCard<Category>
+                        title="Gerenciar Categorias"
+                        data={sortedCategories}
+                        headers={['Nome', 'Tipo', 'Invest.', 'Essencial?']}
+                        renderRow={(item: Category) => (
+                            <>
+                                <td className="px-4 py-4 text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
+                                        <span className="font-medium text-white">{item.Nome_Categoria}</span>
+                                    </div>
+                                </td>
+                                <td className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
+                                    {item.Tipo === 'Renda' ? 'Entrada' : item.Tipo === 'Despesa' ? 'Saída' : 'Movimentação'}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                                    {item.is_investment ? (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            Sim
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-600 font-medium">Não</span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                                    {!item.is_investment && (item.Tipo === 'Despesa' || item.Tipo === 'Ambos') ? (
+                                        item.is_essential ? (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                                                 Sim
                                             </span>
                                         ) : (
-                                            <span className="text-gray-600 font-medium">Não</span>
+                                            <span className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
+                                        )
+                                    ) : (
+                                        <span className="text-gray-700">-</span>
+                                    )}
+                                </td>
+                            </>
+                        )}
+                        onAdd={openNewCategoryModal}
+                        onEdit={openEditCategoryModal}
+                        onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteCategory(id) }}
+                        searchKeys={['Nome_Categoria', 'Tipo']}
+                        searchPlaceholder="Buscar por nome ou tipo..."
+                    />
+                </div>
+
+                {/* 5. Gerenciar Orçamentos */}
+                <div id="settings-budgets">
+                    <CrudCard<Budget & { id: string }>
+                        title="Gerenciar Orçamentos"
+                        data={budgetsWithId}
+                        headers={['Categoria', 'Limite Mensal']}
+                        renderRow={(item: Budget) => (
+                            <>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm">{item.Categoria}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor_Limite_Mensal)}</td>
+                            </>
+                        )}
+                        onAdd={openNewBudgetModal}
+                        onEdit={openEditBudgetModal}
+                        onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteBudget(id) }}
+                        searchKeys={['Categoria', 'Valor_Limite_Mensal']}
+                        searchPlaceholder="Buscar por categoria ou limite..."
+                        extraHeader={
+                            <div className="flex items-center justify-center gap-4 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                <button
+                                    onClick={() => setSelectedBudgetYear(prev => prev - 1)}
+                                    className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                    title="Ano Anterior"
+                                >
+                                    <ChevronLeftIcon className="w-5 h-5" />
+                                </button>
+                                <span className="text-lg font-bold text-white min-w-[80px] text-center">
+                                    {selectedBudgetYear}
+                                </span>
+                                <button
+                                    onClick={() => setSelectedBudgetYear(prev => prev + 1)}
+                                    className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                    title="Próximo Ano"
+                                >
+                                    <ChevronRightIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        }
+                    />
+                </div>
+
+                {/* 6. Patrimônio (Ativos Fixos) */}
+                <div id="settings-manage-assets" className="lg:col-span-2">
+                    <CrudCard<Asset>
+                        title="Patrimônio (Ativos Fixos)"
+                        data={assets}
+                        headers={['Nome', 'Tipo / Status', 'Valor Bruto', 'Dívida', 'P. Líquido (Equity)']}
+                        renderRow={(item) => (
+                            <>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-gray-400 font-medium">
+                                            {item.type === 'car' ? 'Veículo' : item.type === 'property' ? 'Imóvel' : 'Outro'}
+                                        </span>
+                                        {item.is_financed && (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
+                                                    <div
+                                                        className="h-full bg-highlight shadow-[0_0_8px_rgba(0,195,255,0.5)]"
+                                                        style={{ width: `${((item.paid_installments || 0) / (item.total_installments || 1)) * 100}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-[9px] text-highlight font-black uppercase tracking-tighter shadow-sm">Financiado</span>
+                                            </div>
                                         )}
-                                    </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                                        {!item.is_investment && (item.Tipo === 'Despesa' || item.Tipo === 'Ambos') ? (
-                                            item.is_essential ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                                                    Sim
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
-                                            )
-                                        ) : (
-                                            <span className="text-gray-700">-</span>
-                                        )}
-                                    </td>
-                                </>
-                            )}
-                            onAdd={openNewCategoryModal}
-                            onEdit={openEditCategoryModal}
-                            onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteCategory(id) }}
-                            searchKeys={['Nome_Categoria', 'Tipo']}
-                            searchPlaceholder="Buscar por nome ou tipo..."
-                        />
-                    </div>
-                    <div id="settings-budgets">
-                        <CrudCard<Budget & { id: string }>
-                            title="Gerenciar Orçamentos"
-                            data={budgetsWithId}
-                            headers={['Categoria', 'Limite Mensal']}
-                            renderRow={(item: Budget) => (
-                                <>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm">{item.Categoria}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor_Limite_Mensal)}</td>
-                                </>
-                            )}
-                            onAdd={openNewBudgetModal}
-                            onEdit={openEditBudgetModal}
-                            onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteBudget(id) }}
-                            searchKeys={['Categoria', 'Valor_Limite_Mensal']}
-                            searchPlaceholder="Buscar por categoria ou limite..."
-                            extraHeader={
-                                <div className="flex items-center justify-center gap-4 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                    <button
-                                        onClick={() => setSelectedBudgetYear(prev => prev - 1)}
-                                        className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                                        title="Ano Anterior"
-                                    >
-                                        <ChevronLeftIcon className="w-5 h-5" />
-                                    </button>
-                                    <span className="text-lg font-bold text-white min-w-[80px] text-center">
-                                        {selectedBudgetYear}
-                                    </span>
-                                    <button
-                                        onClick={() => setSelectedBudgetYear(prev => prev + 1)}
-                                        className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                                        title="Próximo Ano"
-                                    >
-                                        <ChevronRightIcon className="w-5 h-5" />
-                                    </button>
-                                </div>
+                                    </div>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
+                                    {item.is_financed ? (
+                                        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.remaining_balance || 0)
+                                    ) : (
+                                        <span className="text-gray-700">-</span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-black text-accent bg-accent/5">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
+                                </td>
+                            </>
+                        )}
+                        onAdd={() => { setEditingAccount(null); setAssetModalOpen(true); }}
+                        onEdit={(item) => { setEditingAsset(item); setAssetModalOpen(true); }}
+                        onDelete={async (id) => {
+                            if (window.confirm('Excluir este ativo do seu patrimônio?')) {
+                                await deleteAsset(id);
                             }
-                        />
-                    </div>
-                
+                        }}
+                        searchKeys={['name', 'type']}
+                        searchPlaceholder="Buscar por nome ou tipo..."
+                    />
+                </div>
+
+                {/* 7. Gerenciar Regras de Mapeamento */}
                 <div id="settings-rules" className="lg:col-span-2">
                     <CrudCard<MappingRule>
                         title="Gerenciar Regras de Mapeamento"
@@ -404,127 +586,8 @@ const SettingsView: React.FC = () => {
                         }
                     />
                 </div>
-                <div id="settings-manage-accounts" data-tour="settings-accounts" className="lg:col-span-2 min-h-[100px]">
-                    <CrudCard<Account>
-                        title="Gerenciar Contas"
-                        data={accounts}
-                        headers={['Nome', 'Tipo', 'Saldo Inicial']}
-                        renderRow={(item) => (
-                            <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.Nome_Conta}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)}
-                                </td>
-                            </>
-                        )}
-                        onAdd={() => { setEditingAccount(null); setAccountModalOpen(true); }}
-                        onEdit={(item) => { setEditingAccount(item); setAccountModalOpen(true); }}
-                        onDelete={async (id) => {
-                            if (window.confirm('Tem certeza? Isso excluirá a conta e TODAS as transações associadas.')) {
-                                await deleteAccount(id);
-                            }
-                        }}
-                        searchKeys={['Nome_Conta', 'Tipo_Conta']}
-                        searchPlaceholder="Buscar conta..."
-                    />
-                </div>
-                <div id="settings-manage-assets" className="lg:col-span-2">
-                    <CrudCard<Asset>
-                        title="Patrimônio (Ativos Fixos)"
-                        data={assets}
-                        headers={['Nome', 'Tipo / Status', 'Valor Bruto', 'Dívida', 'P. Líquido (Equity)']}
-                        renderRow={(item) => (
-                            <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-gray-400 font-medium">
-                                            {item.type === 'car' ? 'Veículo' : item.type === 'property' ? 'Imóvel' : 'Outro'}
-                                        </span>
-                                        {item.is_financed && (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
-                                                    <div 
-                                                        className="h-full bg-highlight shadow-[0_0_8px_rgba(0,195,255,0.5)]" 
-                                                        style={{ width: `${((item.paid_installments || 0) / (item.total_installments || 1)) * 100}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-[9px] text-highlight font-black uppercase tracking-tighter shadow-sm">Financiado</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
-                                    {item.is_financed ? (
-                                        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.remaining_balance || 0)
-                                    ) : (
-                                        <span className="text-gray-700">-</span>
-                                    )}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-black text-accent bg-accent/5">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
-                                </td>
-                            </>
-                        )}
-                        onAdd={() => { setEditingAsset(null); setAssetModalOpen(true); }}
-                        onEdit={(item) => { setEditingAsset(item); setAssetModalOpen(true); }}
-                        onDelete={async (id) => {
-                            if (window.confirm('Excluir este ativo do seu patrimônio?')) {
-                                await deleteAsset(id);
-                            }
-                        }}
-                        searchKeys={['name', 'type']}
-                        searchPlaceholder="Buscar por nome ou tipo..."
-                    />
-                </div>
 
-                <div id="settings-configs" className="lg:col-span-2">
-                    <CrudCard<ImportConfig>
-                        title="Gerenciar Configurações de Importação"
-                        data={importConfigs} headers={['Fonte', 'Tipo']}
-                        renderRow={(item: ImportConfig) => (
-                            <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
-                            </>
-                        )}
-                        onAdd={openNewImportConfigModal}
-                        onEdit={openEditImportConfigModal}
-                        onDelete={async (id) => {
-                            const config = importConfigs.find(c => c.id === id);
-                            if (!config) return;
-
-                            const confirmConfig = window.confirm(`Tem certeza que deseja remover a configuração para "${config.Nome_Fonte}"?`);
-                            if (!confirmConfig) return;
-
-                            await deleteImportConfig(id);
-
-                            if (config.ID_Conta_Associada) {
-                                const account = accounts.find(a => a.id === config.ID_Conta_Associada);
-                                const accountName = account ? account.Nome_Conta : 'a conta associada';
-
-                                if (window.confirm(`Deseja, TAMBÉM, excluir ${accountName} e todas as transações associadas?\n\nIsso limpará completamente os dados vindos desta fonte.`)) {
-                                    // Deletar a conta. Assumimos que o banco está configurado com CASCADE ou o store limpa as transações.
-                                    // Mas por segurança, vamos deletar as transações dessa conta antes.
-                                    // Não temos ID da conta aqui diretamente no deleteAccount do context de transações, mas o deleteAccount da store deve cuidar disso ou o banco.
-                                    // Vamos confiar no deleteAccount da store por enquanto, mas seria bom garantir.
-                                    if (config.ID_Conta_Associada) {
-                                        await deleteAccount(config.ID_Conta_Associada);
-                                        alert('Conta e transações excluídas.');
-                                    }
-                                }
-                            }
-                        }}
-                        searchKeys={['Nome_Fonte', 'Tipo_Fonte']}
-                        searchPlaceholder="Buscar por fonte ou tipo..."
-                    />
-                </div>
-
-                {/* Family Plan Section */}
+                {/* 8. Plano Família (Compartilhamento) */}
                 <div id="settings-family" className="lg:col-span-2">
                     <Card className="flex flex-col">
                         <div className="flex justify-between items-center mb-4">
@@ -532,7 +595,6 @@ const SettingsView: React.FC = () => {
                                 <h2 className="text-xl font-bold text-light">Plano Família (Compartilhamento)</h2>
                                 <span className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full border border-accent/50">Novo</span>
                             </div>
-                            {/* Premium Lock */}
                             {isPremium ? (
                                 <Button onClick={() => setInviteModalOpen(true)}>Adicionar Familiar</Button>
                             ) : (
@@ -575,7 +637,6 @@ const SettingsView: React.FC = () => {
                                                             const { supabase } = await import('../../supabaseClient');
                                                             await supabase.from('family_members').delete().eq('id', member.id);
                                                             fetchFamilyMembers();
-                                                            // Se eu sou o convidado e estou saindo, recarregar assinatura
                                                             if (isReceivedInvite) {
                                                                 useAppStore.getState().fetchSubscription();
                                                             }
@@ -592,64 +653,6 @@ const SettingsView: React.FC = () => {
                             )}
                         </div>
                     </Card>
-                </div>
-
-                {/* Import Logs */}
-                <div id="settings-logs" className="lg:col-span-2">
-                    <CrudCard<ImportLog>
-                        title="Histórico de Importações"
-                        data={importLogs}
-                        headers={['Arquivo', 'Data da Importação', 'Total', 'Importados', 'Ignorados']}
-                        renderRow={(item) => (
-                            <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
-                            </>
-                        )}
-                        onAdd={() => { }}
-                        onEdit={(item) => {
-                            if (item.ignored_count > 0 || item.imported_count > 0) {
-                                setSelectedLogDetails({
-                                    fileName: item.file_name,
-                                    ignoredDetails: item.ignored_details || [],
-                                    importedDetails: item.imported_details || []
-                                });
-                                setIsDetailsModalOpen(true);
-                            } else {
-                                alert('Não há transações nesta importação para visualizar.');
-                            }
-                        }}
-                        onDelete={async (id) => {
-                            const log = importLogs.find(l => l.id === id);
-                            if (log && window.confirm(`ATENÇÃO: Isso excluirá o registro de importação "${log.file_name}" E TODAS AS TRANSAÇÕES associadas a ele. Deseja continuar?`)) {
-                                await deleteImportLog(id, log.file_name);
-                            }
-                        }}
-                        searchKeys={['file_name']}
-                        searchPlaceholder="Buscar por nome do arquivo..."
-                        hideAddButton={true}
-                        hideEditButton={false} // Show edit button to view details
-                        editLabel="Exibir" // Custom label for the action button
-                        footer={
-                            <div className="mt-4 border-t border-slate-700 pt-4">
-                                <Button
-                                    variant="secondary"
-                                    onClick={async () => {
-                                        if (window.confirm('Isso irá verificar suas transações existentes e criar logs para importações antigas que não estão listadas aqui. Deseja continuar?')) {
-                                            const { syncLegacyImportLogs } = useAppStore.getState();
-                                            await syncLegacyImportLogs();
-                                        }
-                                    }}
-                                    className="w-full sm:w-auto"
-                                >
-                                    Sincronizar Histórico Antigo
-                                </Button>
-                            </div>
-                        }
-                    />
                 </div>
             </div>
             {user?.email === 'cassiomq@gmail.com' && (
