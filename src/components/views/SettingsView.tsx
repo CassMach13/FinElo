@@ -318,7 +318,7 @@ const SettingsView: React.FC = () => {
                             <>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.Nome_Conta}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">
+                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
                                     {formatCurrency(item.Saldo_Inicial)}
                                 </td>
                             </>
