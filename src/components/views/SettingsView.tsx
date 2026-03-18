@@ -16,6 +16,7 @@ import InviteMemberModal from '../modals/InviteMemberModal';
 import AssetModal from '../modals/AssetModal';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
+import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 
 const SettingsView: React.FC = () => {
     const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, deleteTransactionsByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView } = useAppStore();
@@ -318,7 +319,7 @@ const SettingsView: React.FC = () => {
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.Nome_Conta}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)}
+                                    {formatCurrency(item.Saldo_Inicial)}
                                 </td>
                             </>
                         )}
@@ -450,7 +451,7 @@ const SettingsView: React.FC = () => {
                         renderRow={(item: Budget) => (
                             <>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm">{item.Categoria}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor_Limite_Mensal)}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{formatCurrency(item.Valor_Limite_Mensal)}</td>
                             </>
                         )}
                         onAdd={openNewBudgetModal}
@@ -510,17 +511,17 @@ const SettingsView: React.FC = () => {
                                     </div>
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                                    {formatCurrency(item.value)}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
                                     {item.is_financed ? (
-                                        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.remaining_balance || 0)
+                                        formatCurrency(item.remaining_balance || 0)
                                     ) : (
                                         <span className="text-gray-700">-</span>
                                     )}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-black text-accent bg-accent/5">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
+                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-black ${getCurrencyColorClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))} ${getCurrencyBgClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}`}>
+                                    {formatCurrency(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
                                 </td>
                             </>
                         )}

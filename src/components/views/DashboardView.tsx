@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
+import { formatCurrency } from '../../utils/formatters';
 
 import { autoStartTour } from '../../services/tourService';
 import { loadDemoData } from '../../services/demoDataService';
@@ -286,7 +287,7 @@ const DashboardView: React.FC = () => {
       .slice(0, 5);
   }, [filteredTransactions]);
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
 
   const categoryTypeMap = useMemo(() =>
     new Map(allCategories.map(c => [c.Nome_Categoria, c.Tipo]))

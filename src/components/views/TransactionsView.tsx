@@ -11,6 +11,7 @@ import Select from './../ui/Select';
 import Button from './../ui/Button';
 import { TourButton } from '../TourButton';
 
+import { formatCurrency } from '../../utils/formatters';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import AccountModal from './AccountModal';
@@ -848,7 +849,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       return displayMap.get(value as string) || String(value);
     }
     if (type === 'date') return new Date(value as Date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    if (type === 'number') return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value as number);
+    if (type === 'number') return formatCurrency(value as number);
     if (type === 'installments') return `${transaction.Parcela_Atual || 1}/${transaction.Total_Parcelas || 1}`;
     return String(value || '-');
   };
