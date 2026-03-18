@@ -315,16 +315,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   getAccountsWithCalculatedBalance: () => {
     const { accounts, transactions } = get();
-    if (!accounts.length) return [];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     return accounts.map(account => {
       const initialBalanceDate = new Date(account.Data_Saldo_Inicial).getTime();
 
       const relevantTransactionsSum = transactions
         .filter(t => {
-          const transactionDate = new Date(t.Data).getTime();
-          // A transação só é relevante se pertencer à conta E for posterior à data do saldo inicial.
-          return t.ID_Conta === account.id && transactionDate > initialBalanceDate;
+          const transactionPurchaseDate = new Date(t.Data).getTime();
+          // Use Data_Pagamento as the primary date for balance, fallback to Data
+          const paymentDateStr = t.Data_Pagamento ? new Date(t.Data_Pagamento).toISOString().split('T')[0] : new Date(t.Data).toISOString().split('T')[0];
+          
+          // A transação só é relevante se:
+          // 1. Pertencer à conta
+          // 2. For posterior à data do saldo inicial (Data de compra)
+          // 3. A data de PAGAMENTO for hoje ou no passado
+          return t.ID_Conta === account.id && 
+                 transactionPurchaseDate > initialBalanceDate &&
+                 paymentDateStr <= todayStr;
         })
         .reduce((sum, t) => sum + t.Valor, 0);
 

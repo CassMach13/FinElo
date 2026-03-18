@@ -352,17 +352,24 @@ const TransactionsView: React.FC = () => {
           const getIsoDate = (date: Date | string) => {
             if (!date) return '';
             const d = new Date(date);
-            // Pega a parte da data YYYY-MM-DD considerando UTC para evitar shifts de fuso
-            return d.toISOString().split('T')[0];
+            // Pega a parte da data YYYY-MM-DD considerando LOCAL para evitar shifts de fuso (importante para usuários no BR)
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           };
 
           const initialDateStr = getIsoDate(account.Data_Saldo_Inicial);
 
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
           const accountTransactions = transactions.filter(t => {
             if (t.ID_Conta !== account.id) return false;
+            
             const tDateStr = getIsoDate(t.Data);
-            // Inclui apenas transações que ocorreram NA ou DEPOIS da data do saldo inicial
-            return tDateStr >= initialDateStr;
+            if (tDateStr < initialDateStr) return false;
+
+            // Novidade: Filtro por data de pagamento (<= hoje)
+            const paymentDateStr = t.Data_Pagamento ? getIsoDate(t.Data_Pagamento) : getIsoDate(t.Data);
+            return paymentDateStr <= todayStr;
           });
 
           const income = accountTransactions
@@ -573,13 +580,30 @@ const TransactionsView: React.FC = () => {
                   />
                   <EditableCell key={`${t.ID_Transacao}-Valor-${t.Valor}`} transaction={t} field="Valor" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="number" className="w-28 text-sm" />
                   <td className="px-2 py-4 whitespace-nowrap text-right text-sm font-medium w-20">
-                    <div className="flex items-center justify-end gap-2">
-                      {t.Origem === 'manual' && (
-                        <button onClick={() => { if (window.confirm('Tem certeza que deseja excluir este lançamento manual?')) deleteTransaction(t.ID_Transacao) }} className="text-danger hover:text-red-400">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                          </svg>
-                        </button>
+                                       {t.Origem === 'manual' && (
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => {
+                              setEditingTransaction(t);
+                              setNewTransactionModalOpen(true);
+                            }} 
+                            className="text-accent hover:text-sky-400"
+                            title="Editar Transação"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={() => { if (window.confirm('Tem certeza que deseja excluir este lançamento manual?')) deleteTransaction(t.ID_Transacao) }} 
+                            className="text-danger hover:text-red-400"
+                            title="Excluir Transação"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       )}
                       {t.Origem !== 'manual' && (
                         <button
