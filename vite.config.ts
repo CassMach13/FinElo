@@ -45,7 +45,8 @@ export default defineConfig(({ mode }: ConfigEnv) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,webmanifest}'],
-          globIgnores: ['**/node_modules/**/*', 'demo-video.mp4'],
+          globIgnores: ['**/node_modules/**/*', 'demo-video.mp4', 'logo/FinElo_Banner_Youtube.png'],
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
           skipWaiting: true,
           clientsClaim: true,
           runtimeCaching: [

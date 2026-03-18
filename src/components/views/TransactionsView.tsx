@@ -580,7 +580,8 @@ const TransactionsView: React.FC = () => {
                   />
                   <EditableCell key={`${t.ID_Transacao}-Valor-${t.Valor}`} transaction={t} field="Valor" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="number" className="w-28 text-sm" />
                   <td className="px-2 py-4 whitespace-nowrap text-right text-sm font-medium w-20">
-                                       {t.Origem === 'manual' && (
+                    <div className="flex items-center justify-end gap-2">
+                      {t.Origem === 'manual' && (
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
