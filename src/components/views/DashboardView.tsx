@@ -194,15 +194,22 @@ const DashboardView: React.FC = () => {
   }, [filteredTransactions, investmentCategories]);
 
   // 6. Net Worth / Equity Calculations
-  const assetsTotal = useMemo(() => assets.reduce((sum, a) => sum + a.value, 0), [assets]);
+  // Bens Brutos (Soma de todos os valores de mercado)
+  const grossAssetsTotal = useMemo(() => assets.reduce((sum, a) => sum + a.value, 0), [assets]);
+  
+  // Dívidas de Financiamento (Soma de todos os saldos devedores)
+  const assetsDebtsTotal = useMemo(() => assets.reduce((sum, a) => sum + (a.remaining_balance || 0), 0), [assets]);
+
+  // Patrimônio em Bens (Líquido: Valor - Dívida)
+  const assetsNetTotal = useMemo(() => grossAssetsTotal - assetsDebtsTotal, [grossAssetsTotal, assetsDebtsTotal]);
 
   const accountsTotal = useMemo(() => {
     // We'll use the calculated balances which factor in transactions
     const calculatedAccounts = getAccountsWithCalculatedBalance();
     return calculatedAccounts.reduce((sum, acc) => sum + (acc.Saldo_Atual_Calculado || 0), 0);
-  }, [getAccountsWithCalculatedBalance]);
+  }, [getAccountsWithCalculatedBalance, accounts, transactions]); // Adicionado accounts e transactions como dependência
 
-  const totalNetWorth = useMemo(() => accountsTotal + manualInvestmentsTotal + assetsTotal, [accountsTotal, manualInvestmentsTotal, assetsTotal]);
+  const totalNetWorth = useMemo(() => accountsTotal + manualInvestmentsTotal + assetsNetTotal, [accountsTotal, manualInvestmentsTotal, assetsNetTotal]);
 
   // Cálculos de Resumo (KPIs Operacionais)
   const summary = useMemo(() => {
@@ -537,8 +544,8 @@ const DashboardView: React.FC = () => {
           value={formatCurrency(totalNetWorth)}
           icon={<ArrowsUpDownIcon />}
           variant="accent"
-          subValue={`Bens: ${formatCurrency(assetsTotal)} • Líquido: ${formatCurrency(accountsTotal + manualInvestmentsTotal)}`}
-          tooltip="Soma de todas as contas, investimentos e ativos fixos (carros, imóveis)."
+          subValue={`Bens: ${formatCurrency(grossAssetsTotal)} • Dívidas: ${formatCurrency(assetsDebtsTotal)} • Liq: ${formatCurrency(accountsTotal + manualInvestmentsTotal)}`}
+          tooltip="Seu Patrimônio Líquido Real: Soma de bens (menos dívidas) + saldo em conta e investimentos."
         />
       </div>
 
