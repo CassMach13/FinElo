@@ -65,6 +65,10 @@ const HelpView: React.FC = () => {
             answer: 'Na aba "Importar", você pode fazer upload de arquivos OFX ou colar o CSV fornecido pelo seu banco. O sistema categoriza automaticamente o que conseguir.'
         },
         {
+            question: 'Como instalar o FinElo como um aplicativo no meu celular?',
+            answer: 'No iPhone (iOS): Abra o Safari, acesse o app, clique no ícone de compartilhar (no rodapé, quadrado com uma seta para cima) e selecione "Adicionar à Tela de Início". No Android: Abra o Chrome, clique nos três pontinhos no canto superior e selecione "Instalar Aplicativo" ou "Adicionar à Tela Inicial". Isso removerá as barras do navegador e deixará o FinElo com cara de app nativo.'
+        },
+        {
             question: 'Como crio uma categoria personalizada?',
             answer: 'Vá em "Transações" -> clique no ícone de "Configurações" (ou gerenciar categorias) e adicione novas categorias conforme sua necessidade.'
         },
