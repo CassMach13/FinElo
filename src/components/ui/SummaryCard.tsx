@@ -63,9 +63,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, subValue, icon,
                 `}>
                     {value}
                 </div>
-                <div className="h-4 flex items-center"> {/* Reserve space for subValue to maintain height consistency */}
+                <div className="min-h-[1.25rem] h-auto flex items-center pb-1"> {/* Reserve space for subValue to maintain height consistency */}
                     {subValue ? (
-                        <div className="text-[10px] font-medium text-gray-500 truncate mt-1">
+                        <div className="text-[10px] font-medium text-gray-500 mt-1 whitespace-normal">
                             {subValue}
                         </div>
                     ) : (

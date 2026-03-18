@@ -501,7 +501,7 @@ const DashboardView: React.FC = () => {
       </div>
 
       {/* KPIs Cards */}
-      <div id="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-stretch">
+      <div id="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 items-stretch">
         <SummaryCard
           title="Entradas (Operacional)"
           value={formatCurrency(summary.income)}
@@ -511,7 +511,7 @@ const DashboardView: React.FC = () => {
         />
         <SummaryCard
           title="Saídas (Operacional)"
-          value={formatCurrency(summary.expense)}
+          value={formatCurrency(-summary.expense)}
           icon={<TrendingDownIcon />}
           variant="danger"
           tooltip="Soma dos gastos, excluindo dinheiro enviado para investimentos."
