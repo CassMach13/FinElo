@@ -8,14 +8,15 @@
  * resolvendo problemas de quebra de linha ou alinhamento em alguns navegadores.
  */
 export const formatCurrency = (value: number): string => {
+  const isNegative = value < 0;
+  // Usamos o valor absoluto para a formatação do Intl, e adicionamos o sinal manualmente
+  // para garantir que não haja espaços entre o '-' e o 'R$' em nenhum navegador.
   const formatted = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value);
+  }).format(Math.abs(value));
 
-  // O replace abaixo remove espaços (normais ou non-breaking) entre o sinal de menos e o R$
-  // Alguns engines de JS inserem U+00A0 ou U+202F no locale pt-BR
-  return formatted.replace(/-\s*R\$/, '-R$');
+  return isNegative ? `-${formatted}` : formatted;
 };
 
 /**

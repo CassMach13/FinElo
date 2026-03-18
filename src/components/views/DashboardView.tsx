@@ -544,7 +544,7 @@ const DashboardView: React.FC = () => {
           title="Patrimônio Total"
           value={formatCurrency(totalNetWorth)}
           icon={<ArrowsUpDownIcon />}
-          variant="accent"
+          variant={totalNetWorth >= 0 ? 'accent' : 'danger'}
           subValue={`Bens: ${formatCurrency(grossAssetsTotal)} • Dívidas: ${formatCurrency(assetsDebtsTotal)} • Liq: ${formatCurrency(accountsTotal + manualInvestmentsTotal)}`}
           tooltip="Seu Patrimônio Líquido Real: Soma de bens (menos dívidas) + saldo em conta e investimentos."
         />

@@ -53,7 +53,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, subValue, icon,
             </div>
 
             <div className="mt-auto pt-4">
-                <div className={`text-2xl font-bold tracking-tight group-hover:scale-[1.02] origin-left transition-transform duration-300 ${getVariantColor()}`}>
+                <div className={`text-2xl font-bold tracking-tight group-hover:scale-[1.02] origin-left transition-transform duration-300 whitespace-nowrap overflow-hidden text-ellipsis ${getVariantColor()}`}>
                     {value}
                 </div>
                 <div className="h-4 flex items-center"> {/* Reserve space for subValue to maintain height consistency */}
