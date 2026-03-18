@@ -24,6 +24,7 @@ import { SkeletonCard } from '../ui/Skeleton';
 const TransactionsView: React.FC = () => {
   const { transactions, accounts, assets, fetchAllData, isLoading, getSortedCategories, addTransaction, updateTransaction, deleteTransaction, deleteTransactionsByOrigin, addMappingRule, transactionFilters, setTransactionFilters, addCategory, addAccount } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
+  const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Transaction; direction: 'ascending' | 'descending' }>({ key: 'Data', direction: 'descending' });
 
@@ -36,7 +37,6 @@ const TransactionsView: React.FC = () => {
 
   // New Modals State
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
-  const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
 
@@ -567,7 +567,17 @@ const TransactionsView: React.FC = () => {
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
                   <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} />
                   <EditableCell key={`${t.ID_Transacao}-Parcela_Atual-${t.Parcela_Atual}`} transaction={t} field="Parcela_Atual" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="installments" className="w-16 text-center text-xs" />
-                  <EditableCell key={`${t.ID_Transacao}-Categoria-${t.Categoria}`} transaction={t} field="Categoria" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={['-', ...categories.filter(c => c.Tipo === 'Ambos' || c.Tipo === t.Tipo).map(c => c.Nome_Categoria).sort()]} className="w-28 text-xs truncate" />
+                  <EditableCell 
+                    key={`${t.ID_Transacao}-Categoria-${t.Categoria}`} 
+                    transaction={t} 
+                    field="Categoria" 
+                    onUpdate={handleInlineUpdate} 
+                    nonEditableFields={nonEditableImportedFields} 
+                    type="select" 
+                    options={categories.filter(c => c.Tipo === 'Ambos' || c.Tipo === t.Tipo).map(c => c.Nome_Categoria).sort()} 
+                    onOpenCreateCategory={() => setCategoryModalOpen(true)}
+                    className="w-28 text-xs truncate" 
+                  />
                   <EditableCell 
                         key={`${t.ID_Transacao}-linked_asset_id-${t.linked_asset_id}`} 
                         transaction={t} 
@@ -782,6 +792,7 @@ interface EditableCellProps {
   displayMap?: Map<string, string>; // Mapa para exibir nomes em vez de IDs
   className?: string;
   onRuleCreation?: (transaction: Transaction) => void;
+  onOpenCreateCategory?: () => void;
 }
 const EditableCell: React.FC<EditableCellProps> = ({
   transaction,
@@ -792,7 +803,8 @@ const EditableCell: React.FC<EditableCellProps> = ({
   options = [],
   displayMap,
   className = '',
-  onRuleCreation
+  onRuleCreation,
+  onOpenCreateCategory
 }) => {
   const { categories } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -873,9 +885,29 @@ const EditableCell: React.FC<EditableCellProps> = ({
     if (type === 'select') {
       return (
         <td className="p-0 border-r border-slate-800 last:border-r-0">
-          <Select value={value as string} onChange={e => setValue(e.target.value)} onBlur={handleSave} onKeyDown={handleKeyDown} autoFocus className="w-full h-full bg-slate-800 border-highlight !rounded-none">
+          <Select 
+            value={value as string} 
+            onChange={e => {
+              if (e.target.value === 'ADD_NEW_CATEGORY') {
+                onOpenCreateCategory?.();
+                setIsEditing(false);
+              } else {
+                setValue(e.target.value);
+              }
+            }} 
+            onBlur={handleSave} 
+            onKeyDown={handleKeyDown} 
+            autoFocus 
+            className="w-full h-full bg-slate-800 border-highlight !rounded-none"
+          >
             <option value="">-</option>
-            {options.map(opt => <option key={opt} value={opt}>{displayMap ? displayMap.get(opt) : opt}</option>)}
+            {options
+              .filter(opt => opt !== '' && opt !== '-')
+              .map(opt => <option key={opt} value={opt}>{displayMap ? displayMap.get(opt) : opt}</option>)
+            }
+            {field === 'Categoria' && (
+              <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">+ Adicionar Categoria</option>
+            )}
           </Select>
         </td>
       );

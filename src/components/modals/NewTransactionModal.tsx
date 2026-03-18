@@ -252,12 +252,26 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     </Select>
                     <div className="flex items-end gap-2">
                         <div className="flex-grow">
-                            <Select label="Categoria" name="Categoria" value={transaction.Categoria} onChange={handleChange} error={errors.Categoria}>
+                            <Select 
+                                label="Categoria" 
+                                name="Categoria" 
+                                value={transaction.Categoria} 
+                                onChange={(e) => {
+                                    if (e.target.value === 'ADD_NEW_CATEGORY') {
+                                        onOpenCreateCategory();
+                                    } else {
+                                        handleChange(e);
+                                    }
+                                }} 
+                                error={errors.Categoria}
+                            >
                                 <option value="">Selecione...</option>
                                 {categories
                                     .filter(c => transaction.Tipo ? (c.Tipo === 'Ambos' || c.Tipo === transaction.Tipo) : true)
+                                    .filter(c => c.Nome_Categoria !== "" && c.Nome_Categoria !== "-")
                                     .sort((a, b) => a.Nome_Categoria.localeCompare(b.Nome_Categoria))
                                     .map(c => <option key={c.id} value={c.Nome_Categoria}>{c.Nome_Categoria}</option>)}
+                                <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">+ Adicionar Categoria</option>
                             </Select>
                         </div>
                         <Button type="button" onClick={onOpenCreateCategory} className="mb-px h-[42px]" variant="secondary" title="Criar Nova Categoria">+</Button>
