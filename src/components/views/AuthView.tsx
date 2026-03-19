@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import Button from '../ui/Button';
 import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
@@ -122,10 +122,14 @@ export default function AuthView(): React.ReactElement {
       <div className="w-full max-w-sm relative z-10 flex flex-col justify-center h-full"> {/* Flex column para centralizar verticalmente */}
 
         {/* Cabeçalho Compacto */}
-        <div className="text-center mb-4"> {/* mb-8 -> mb-4 */}
-          <div className="inline-flex items-center justify-center w-32 h-32 rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600/50 shadow-2xl mb-2 overflow-hidden ring-4 ring-slate-800/50 transform hover:scale-105 transition-transform duration-500">
+        <div className="text-center mb-4">
+          <Link 
+            to="/" 
+            className="inline-flex items-center justify-center w-32 h-32 rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600/50 shadow-2xl mb-2 overflow-hidden ring-4 ring-slate-800/50 transform hover:scale-105 transition-all duration-500 hover:shadow-cyan-500/20"
+            title="Voltar ao site"
+          >
             <img src="/logo/Image_fx.png" alt="FinElo" className="w-full h-full object-cover transform scale-125" />
-          </div>
+          </Link>
         </div>
 
         {/* Card Super Compacto */}
@@ -155,14 +159,21 @@ export default function AuthView(): React.ReactElement {
                   {loading ? 'Enviando...' : 'Enviar Link de Recuperação'}
                 </Button>
               </form>
-              <p className="text-center mt-6 text-slate-500 text-xs">
-                Lembrou a senha?
-                <button
-                  onClick={() => { setIsForgotPassword(false); setError(null); setMessage(null); }}
-                  className="ml-1.5 text-cyan-400 hover:text-cyan-300 font-bold transition-colors hover:underline"
-                >
-                  Voltar para o login
-                </button>
+              <p className="text-center mt-6 text-slate-500 text-xs flex flex-col gap-3">
+                <div>
+                  Lembrou a senha?
+                  <button
+                    onClick={() => { setIsForgotPassword(false); setError(null); setMessage(null); }}
+                    className="ml-1.5 text-cyan-400 hover:text-cyan-300 font-bold transition-colors hover:underline"
+                  >
+                    Voltar para o login
+                  </button>
+                </div>
+                <div className="pt-2 border-t border-slate-800/50">
+                  <Link to="/" className="text-slate-600 hover:text-slate-400 transition-colors">
+                    Voltar ao início
+                  </Link>
+                </div>
               </p>
 
               {/* Mensagens Compactas (movidas para cá) */}
@@ -291,14 +302,21 @@ export default function AuthView(): React.ReactElement {
                 )}
 
                 {/* Link para alternar entre Login e Cadastro (movido para cá) */}
-                <div className="text-center mt-6 text-slate-500 text-xs">
-                  {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}
-                  <button
-                    onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); }}
-                    className="ml-1.5 text-cyan-400 hover:text-cyan-300 font-bold transition-colors hover:underline"
-                  >
-                    {isSignUp ? 'Entrar' : 'Criar'}
-                  </button>
+                <div className="text-center mt-6 text-slate-500 text-xs flex flex-col gap-3">
+                  <div>
+                    {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}
+                    <button
+                      onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); }}
+                      className="ml-1.5 text-cyan-400 hover:text-cyan-300 font-bold transition-colors hover:underline"
+                    >
+                      {isSignUp ? 'Entrar' : 'Criar'}
+                    </button>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800/50">
+                    <Link to="/" className="text-slate-600 hover:text-slate-400 transition-colors">
+                      Voltar ao início
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
