@@ -62,7 +62,7 @@ const HelpView: React.FC = () => {
     const faqItems = [
         {
             question: 'Como importo minhas transações bancárias?',
-            answer: 'Na aba "Importar", você pode fazer upload de arquivos OFX ou colar o CSV fornecido pelo seu banco. O sistema categoriza automaticamente o que conseguir.'
+            answer: 'Na aba "Importar", você pode fazer upload de arquivos Excel (.xlsx, .xls), OFX ou CSV fornecido pelo seu banco. O sistema categoriza automaticamente o que conseguir.'
         },
         {
             question: 'Como instalar o FinElo como um aplicativo no meu celular?',

@@ -1,5 +1,5 @@
-
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { Transaction, ImportConfig, MappingRule } from '../types';
 
 interface ParseResult {
@@ -150,12 +150,47 @@ export const parseContent = (content: string, skipLines: number = 0): Promise<{ 
   });
 };
 
+/**
+ * Converts an Excel file (XLSX, XLS, etc.) to a CSV string.
+ */
+export const convertExcelToCSV = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                // Convert to CSV string
+                const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+                resolve(csvContent);
+            } catch (error) {
+                reject(new Error('Falha ao converter arquivo Excel. Verifique se o formato é válido.'));
+            }
+        };
+        reader.onerror = () => reject(new Error('Erro ao ler arquivo Excel.'));
+        reader.readAsArrayBuffer(file);
+    });
+};
+
 export const parsePreview = (file: File): Promise<{ headers: string[], previewRows: string[][], fullContent: string }> => {
-  return new Promise((resolve, reject) => {
-    // Read the file as text first to handle it robustly
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      let text = event.target?.result as string;
+  return new Promise(async (resolve, reject) => {
+    try {
+        const fileName = file.name.toLowerCase();
+        let text = '';
+
+        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+            text = await convertExcelToCSV(file);
+        } else {
+            // Read the file as text for CSV/OFX
+            text = await new Promise<string>((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = (event) => res(event.target?.result as string);
+                reader.onerror = () => rej(new Error('Erro ao ler arquivo.'));
+                reader.readAsText(file);
+            });
+        }
 
       // PRE-PROCESS: Handle "Double Quoted" CSVs (Ticket)
       const lines = text.split(/[\r\n]+/);
@@ -210,8 +245,9 @@ export const parsePreview = (file: File): Promise<{ headers: string[], previewRo
           reject(error);
         }
       });
-    };
-    reader.readAsText(file);
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 
@@ -448,18 +484,25 @@ export const processStatementFile = (
     if (manualMapping && manualMapping.fileContent) {
       parsingLogic(manualMapping.fileContent);
     } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
+      (async () => {
         try {
-          parsingLogic(event.target?.result as string);
+          const fileName = file.name.toLowerCase();
+          let content = '';
+          if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+            content = await convertExcelToCSV(file);
+          } else {
+            content = await new Promise<string>((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = (event) => res(event.target?.result as string);
+                reader.onerror = () => rej(new Error('Erro ao ler arquivo.'));
+                reader.readAsText(file, 'UTF-8');
+            });
+          }
+          parsingLogic(content);
         } catch (error) {
           reject(error);
         }
-      };
-      reader.onerror = () => {
-        reject(new Error('Não foi possível ler o arquivo.'));
-      };
-      reader.readAsText(file, 'UTF-8');
+      })();
     }
   });
 };

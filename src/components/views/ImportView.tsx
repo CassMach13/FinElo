@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
 import { supabase } from '../../supabaseClient';
 
-import { processStatementFile, parsePreview, parseContent } from './../../services/parserService';
+import { processStatementFile, parsePreview, parseContent, convertExcelToCSV } from './../../services/parserService';
 import { NATIVE_BANK_CONFIGS, NativeBankConfig, detectBankFromContent, parseNativeBankCSV } from '../../services/parsers/nativeBankParsers';
 import Card from './../ui/Card';
 import Button from './../ui/Button';
@@ -206,9 +206,20 @@ const ImportView: React.FC = () => {
     setNotification(null);
     setIsLoading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const content = event.target?.result as string;
+        const fileName = selectedFile.name.toLowerCase();
+        let content = '';
+
+        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+            content = await convertExcelToCSV(selectedFile);
+        } else {
+            content = await new Promise<string>((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = (event) => res(event.target?.result as string);
+                reader.onerror = () => rej(new Error('Erro ao ler arquivo.'));
+                reader.readAsText(selectedFile);
+            });
+        }
+        
         setFileContent(content);
         const autoDetected = detectBankFromContent(content);
         if (autoDetected && autoDetected.id !== selectedNativeBank.id) {
@@ -234,11 +245,6 @@ const ImportView: React.FC = () => {
           await processNativeBankFile(content, selectedNativeBank, selectedFile, undefined);
         }
         setIsLoading(false);
-        if (!detectedNativeBank) {
-          // Reset selector after success if needed, but usually redirect happens or toast
-        }
-      };
-      reader.readAsText(selectedFile);
     } catch (error) {
       console.error(error);
       setNotification({ type: 'error', message: 'Erro ao ler arquivo.' });
@@ -776,7 +782,7 @@ const ImportView: React.FC = () => {
                     <input
                       id="native-file-upload"
                       type="file"
-                      accept=".csv"
+                      accept=".csv,.xlsx,.xls"
                       className="hidden"
                       onChange={handleNativeBankFileChange}
                       disabled={isLoading || (selectedNativeBank.sourceType === 'Cartao' && !nativeDueDate)}
@@ -803,7 +809,7 @@ const ImportView: React.FC = () => {
                               ? 'Selecione a conta de destino para habilitar'
                               : `Clique para enviar o extrato`}
                         </p>
-                        <p className="text-gray-400 text-sm text-center">Formato: .csv — O sistema lê tudo automaticamente ✨</p>
+                        <p className="text-gray-400 text-sm text-center">Formato: .csv, .xlsx ou .xls — O sistema lê tudo automaticamente ✨</p>
                       </>
                     )}
                   </label>
@@ -884,7 +890,7 @@ const ImportView: React.FC = () => {
                   </Select>
                 </div>
                 <div>
-                  <label htmlFor="file-upload" className="block text-sm font-medium text-gray-300 mb-1">Arquivo (.csv)</label>
+                  <label htmlFor="file-upload" className="block text-sm font-medium text-gray-300 mb-1">Arquivo (.csv, .xlsx, .xls)</label>
                   <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md hover:border-highlight transition-colors">
                     <div className="space-y-1 text-center">
                       <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
@@ -893,10 +899,10 @@ const ImportView: React.FC = () => {
                       <div className="flex text-sm text-gray-400 justify-center">
                         <label htmlFor="file-upload" className="relative cursor-pointer bg-secondary rounded-md font-medium text-highlight hover:text-sky-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-primary focus-within:ring-highlight p-1">
                           Adicionar Arquivo
-                          <input id="file-upload" type="file" className="hidden" accept=".ofx,.csv" onChange={handleFileChange} disabled={isLoading} />
+                          <input id="file-upload" type="file" className="hidden" accept=".ofx,.csv,.xlsx,.xls" onChange={handleFileChange} disabled={isLoading} />
                         </label>
                       </div>
-                      <p className="text-xs text-gray-500">CSV</p>
+                      <p className="text-xs text-gray-500">CSV, Excel ou OFX</p>
                     </div>
                   </div>
                 </div>
