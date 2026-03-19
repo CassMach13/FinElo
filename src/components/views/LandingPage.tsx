@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UploadIcon, DashboardIcon, LifebuoyIcon, TicketIcon, ArrowsUpDownIcon, SettingsIcon, LockIcon, ShieldCheckIcon, InstagramIcon, FacebookIcon, WhatsappIcon } from '../ui/icons';
+import { UploadIcon, DashboardIcon, LifebuoyIcon, TicketIcon, ArrowsUpDownIcon, SettingsIcon, LockIcon, ShieldCheckIcon, InstagramIcon, FacebookIcon, WhatsappIcon, YoutubeIcon } from '../ui/icons';
 import TermsModal from '../modals/TermsModal';
 
 const testimonials = [
@@ -476,6 +476,9 @@ const LandingPage: React.FC = () => {
                 <div className="flex justify-center gap-6 mb-8">
                     <a href="https://www.instagram.com/finelo_oficial/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent transition-colors" aria-label="Instagram">
                         <InstagramIcon className="h-6 w-6" />
+                    </a>
+                    <a href="https://www.youtube.com/@FinElo_Oficial" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent transition-colors" aria-label="YouTube">
+                        <YoutubeIcon className="h-6 w-6" />
                     </a>
                     <a href="https://www.facebook.com/profile.php?id=61586610943211" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent transition-colors" aria-label="Facebook">
                         <FacebookIcon className="h-6 w-6" />
