@@ -233,7 +233,6 @@ export const convertExcelToCSV = (file: File): Promise<string> => {
                     const addr = XLSX.utils.encode_cell({ r: 1, c }); // Row 1 = first data row
                     const cell = worksheet[addr];
                     if (cell && cell.t === 'n' && cell.w) {
-                        // If the formatted value looks like a date (contains / or -)
                         if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cell.w) || /^\d{4}-\d{2}-\d{2}/.test(cell.w)) {
                             dateColIndices.add(c);
                         }
@@ -245,24 +244,20 @@ export const convertExcelToCSV = (file: File): Promise<string> => {
                     return row.map((cell: any, colIdx: number) => {
                         if (cell === null || cell === undefined) return '';
                         
-                        // If this column is a date column and the value is a number, convert serial to date
                         if (dateColIndices.has(colIdx) && typeof cell === 'number') {
                             return excelSerialToDateStr(cell);
                         }
                         
-                        // For numbers, convert to BR format (comma as decimal separator)
                         if (typeof cell === 'number') {
-                            // Use BR-style: 1234,56
                             return cell.toFixed(2).replace('.', ',');
                         }
                         
-                        // Strings: escape if they contain the delimiter
                         const str = String(cell);
                         if (str.includes(';') || str.includes(',') || str.includes('"') || str.includes('\n')) {
                             return '"' + str.replace(/"/g, '""') + '"';
                         }
                         return str;
-                    }).join(';'); // Use semicolon as delimiter (standard for BR CSVs)
+                    }).join(';');
                 });
 
                 resolve(csvLines.join('\n'));

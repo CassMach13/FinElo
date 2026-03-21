@@ -413,6 +413,7 @@ export function parseNativeBankCSV(
 
   let data = parseResult.data as string[][];
 
+
   // Retry if only 1 column detected
   if (data.length > 0 && data[0].length === 1) {
     const altDelimiter = delimiter === ';' ? ',' : ';';
