@@ -191,7 +191,25 @@ export const parseContent = (content: string, skipLines: number = 0): Promise<{ 
 };
 
 /**
+ * Converts an Excel serial date number to a DD/MM/YYYY string.
+ * Excel serial dates count days from 1900-01-01 (with the Lotus 1-2-3 bug).
+ */
+const excelSerialToDateStr = (serial: number): string => {
+  // Excel epoch is 1900-01-01, but serial 1 = Jan 1, 1900.
+  // Also, Excel wrongly counts Feb 29, 1900, so serials > 59 need -1 adjustment.
+  const utcDays = serial - 25569; // Days since Unix epoch (1970-01-01)
+  const date = new Date(utcDays * 86400 * 1000);
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+/**
  * Converts an Excel file (XLSX, XLS, etc.) to a CSV string.
+ * Uses sheet_to_json with raw values to avoid locale-dependent formatting issues.
+ * Dates (Excel serial numbers) are converted to DD/MM/YYYY.
+ * Numbers are output as plain decimals (e.g. 174.5 → "174,50").
  */
 export const convertExcelToCSV = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -199,12 +217,55 @@ export const convertExcelToCSV = (file: File): Promise<string> => {
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const workbook = XLSX.read(data, { type: 'array' }); // NO cellDates
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                // Convert to CSV string with a fixed date format to avoid parser confusion
-                const csvContent = XLSX.utils.sheet_to_csv(worksheet, { dateNF: 'dd/mm/yyyy' });
-                resolve(csvContent);
+
+                // Get raw JSON rows (array of arrays)
+                const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, raw: true });
+
+                // Detect which columns are dates by checking the header row and cell formats
+                const dateColIndices = new Set<number>();
+                const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+                
+                // Check first data row to find date-formatted cells
+                for (let c = range.s.c; c <= range.e.c; c++) {
+                    const addr = XLSX.utils.encode_cell({ r: 1, c }); // Row 1 = first data row
+                    const cell = worksheet[addr];
+                    if (cell && cell.t === 'n' && cell.w) {
+                        // If the formatted value looks like a date (contains / or -)
+                        if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cell.w) || /^\d{4}-\d{2}-\d{2}/.test(cell.w)) {
+                            dateColIndices.add(c);
+                        }
+                    }
+                }
+
+                // Convert rows to CSV lines
+                const csvLines = rows.map((row: any[]) => {
+                    return row.map((cell: any, colIdx: number) => {
+                        if (cell === null || cell === undefined) return '';
+                        
+                        // If this column is a date column and the value is a number, convert serial to date
+                        if (dateColIndices.has(colIdx) && typeof cell === 'number') {
+                            return excelSerialToDateStr(cell);
+                        }
+                        
+                        // For numbers, convert to BR format (comma as decimal separator)
+                        if (typeof cell === 'number') {
+                            // Use BR-style: 1234,56
+                            return cell.toFixed(2).replace('.', ',');
+                        }
+                        
+                        // Strings: escape if they contain the delimiter
+                        const str = String(cell);
+                        if (str.includes(';') || str.includes(',') || str.includes('"') || str.includes('\n')) {
+                            return '"' + str.replace(/"/g, '""') + '"';
+                        }
+                        return str;
+                    }).join(';'); // Use semicolon as delimiter (standard for BR CSVs)
+                });
+
+                resolve(csvLines.join('\n'));
             } catch (error) {
                 reject(new Error('Falha ao converter arquivo Excel. Verifique se o formato é válido.'));
             }
