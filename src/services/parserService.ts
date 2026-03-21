@@ -249,7 +249,10 @@ export const convertExcelToCSV = (file: File): Promise<string> => {
                         }
                         
                         if (typeof cell === 'number') {
-                            return cell.toFixed(2).replace('.', ',');
+                            // Round to 2 decimal places FIRST to avoid IEEE 754 precision issues
+                            // e.g. 29.6199999999997 → 29.62, not 29.61
+                            const rounded = Math.round(cell * 100) / 100;
+                            return rounded.toFixed(2).replace('.', ',');
                         }
                         
                         const str = String(cell);
