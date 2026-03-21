@@ -71,7 +71,7 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                         <td className="px-6 py-4 text-sm text-white font-medium break-words max-w-xs">
                                             {item.Nome_Fantasia || '-'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-100">
+                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${(item.Valor || 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
                                             {item.Valor ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-accent font-medium">
@@ -110,7 +110,7 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                         <td className="px-6 py-4 text-sm text-gray-300 break-words max-w-xs">
                                             {item.Nome_Fantasia || '-'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${(item.Valor || 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
                                             {item.Valor ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-danger font-medium whitespace-nowrap">

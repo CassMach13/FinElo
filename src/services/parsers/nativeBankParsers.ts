@@ -236,26 +236,41 @@ const parseDate = (dateStr: string): Date | null => {
 
 const parseMonetaryValue = (valueStr: string, format: 'US' | 'BR' = 'BR'): number | null => {
   if (typeof valueStr !== 'string' || valueStr.trim() === '') return null;
-  // Remove currency symbols, spaces, plus signs, "R$", etc.
-  // Keep digits, comma, period, and leading minus
-  const cleaned = valueStr
-    .replace(/\+/g, '')
-    .replace(/R\$/g, '')
-    .replace(/\s/g, '')
-    .trim();
-
-  let withDecimalDot = cleaned;
-
+  
+  // Extrai apenas números, ',', '.' e o sinal de '-'
+  const cleaned = valueStr.replace(/[^\d,.-]/g, '');
+  
+  // Se o formato for explicitamente US ou BR, seguimos a regra fixa
   if (format === 'BR') {
-    // Handle Brazilian format: 1.234,56 → 1234.56
-    const withoutThousands = cleaned.replace(/\./g, '');
-    withDecimalDot = withoutThousands.replace(',', '.');
-  } else if (format === 'US') {
-    // Handle US format: 1,234.56 → 1234.56
-    withDecimalDot = cleaned.replace(/,/g, '');
+    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+  }
+  if (format === 'US') {
+    return parseFloat(cleaned.replace(/,/g, ''));
   }
 
-  const value = parseFloat(withDecimalDot);
+  // Caso contrário, usamos a heurística inteligente
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+  
+  let normalized = cleaned;
+  if (lastComma > lastDot) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot > lastComma) {
+    normalized = cleaned.replace(/,/g, '');
+  } else {
+    if (lastComma !== -1) {
+      normalized = cleaned.replace(',', '.');
+    } else if (lastDot !== -1) {
+      const parts = cleaned.split('.');
+      if (parts[parts.length - 1].length === 2) {
+        normalized = cleaned;
+      } else {
+        normalized = cleaned.replace(/\./g, '');
+      }
+    }
+  }
+
+  const value = parseFloat(normalized);
   return isNaN(value) ? null : value;
 };
 

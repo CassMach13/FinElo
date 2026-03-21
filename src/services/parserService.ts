@@ -12,30 +12,70 @@ interface ParseResult {
 
 // Helper to parse dates like "DD/MM/YYYY" or "DD/MM/YY ..."
 const parseDate = (dateStr: string): Date | null => {
-  if (!dateStr) return null;
-  const datePart = dateStr.split(' ')[0];
-  const parts = datePart.split('/');
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const s = dateStr.trim().split(' ')[0];
+
+  // Try DD/MM/YYYY or DD/MM/YY
+  let parts = s.split('/');
   if (parts.length === 3) {
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1;
     let year = parseInt(parts[2], 10);
-    if (year < 100) {
-      year += 2000;
-    }
+    if (year < 100) year += 2000;
     const date = new Date(year, month, day);
-    // Check for invalid date
-    if (isNaN(date.getTime())) return null;
-    return date;
+    if (!isNaN(date.getTime())) return date;
   }
+
+  // Try YYYY-MM-DD
+  parts = s.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
+    if (!isNaN(date.getTime())) return date;
+  }
+
   return null;
 };
 
-// Helper to parse monetary values like "-R$ 1.234,56" or "50,00"
+// Helper to parse monetary values like "-R$ 1.234,56" or "1234.56"
 const parseValue = (valueStr: string): number | null => {
   if (typeof valueStr !== 'string' || valueStr.trim() === '') return null;
+  
   // Extrai apenas números, ',', '.' e o sinal de '-'
-  const essentialChars = valueStr.replace(/[^0-9,.-]/g, '');
-  const normalized = essentialChars.replace(/\./g, '').replace(',', '.');
+  const cleaned = valueStr.replace(/[^\d,.-]/g, '');
+  
+  // Heurística para identificar o separador decimal:
+  // Se houver vírgula e ponto, o último é o decimal (estilo 1.234,56 ou 1,234.56)
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+  
+  let normalized = cleaned;
+  if (lastComma > lastDot) {
+    // Estilo Brasileiro: 1.234,56
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot > lastComma) {
+    // Estilo Americano: 1,234.56
+    normalized = cleaned.replace(/,/g, '');
+  } else {
+    // Apenas um tipo de separador (ou nenhum)
+    if (lastComma !== -1) {
+      // "1234,56" -> "1234.56"
+      normalized = cleaned.replace(',', '.');
+    } else if (lastDot !== -1) {
+      // Pode ser decimal "1234.56" ou milhar "1.234"
+      // Se houver 2 dígitos após o ponto no final da string, assumimos decimal
+      const parts = cleaned.split('.');
+      if (parts[parts.length - 1].length === 2) {
+        normalized = cleaned; // Já é decimal
+      } else {
+        // Provavelmente milhar ou formato sem centavos (ex: "1.000")
+        normalized = cleaned.replace(/\./g, '');
+      }
+    }
+  }
+
   const value = parseFloat(normalized);
   return isNaN(value) ? null : value;
 };
@@ -162,8 +202,8 @@ export const convertExcelToCSV = (file: File): Promise<string> => {
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                // Convert to CSV string
-                const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+                // Convert to CSV string with a fixed date format to avoid parser confusion
+                const csvContent = XLSX.utils.sheet_to_csv(worksheet, { dateNF: 'dd/mm/yyyy' });
                 resolve(csvContent);
             } catch (error) {
                 reject(new Error('Falha ao converter arquivo Excel. Verifique se o formato é válido.'));
