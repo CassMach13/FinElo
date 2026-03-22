@@ -24,6 +24,8 @@ export interface NativeBankConfig {
   portadorColIndex?: number;
   invertValues: boolean;
   numberFormat?: 'US' | 'BR'; // BR: 1.234,56 | US: 1,234.56
+  creditColIndex?: number;    // NEW: Index for Credit column (if separate)
+  debitColIndex?: number;     // NEW: Index for Debit column (if separate)
   // Optional post-parse filters
   stopAtTextContaining?: string;
   ignoreRowsContaining?: string[];
@@ -202,6 +204,47 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     ignoreRowsContaining: [],
     signatureStrings: ['date,title,amount'],
   },
+  {
+    id: 'banco-santander',
+    name: 'Santander',
+    description: 'Extrato de Conta Corrente (XLS)',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#EC0000',      // Santander Red
+    brandColorSecondary: '#CC0000',
+    logoText: 'S',
+    logoUrl: '/bank-logos/santander.png',
+    delimiter: ';',
+    skipLines: 0,               // Changed to 0: will seek for header instead
+    hasHeader: true,
+    dateColIndex: 0,
+    descColIndices: [1],
+    valueColIndex: 5,           // Default to debit col
+    creditColIndex: 4,
+    debitColIndex: 5,
+    invertValues: false,
+    signatureStrings: ['EXTRATO DE CONTA CORRENTE', 'Crédito (R$)', 'Débito (R$)'],
+  },
+  {
+    id: 'nubank-conta',
+    name: 'NuBank',
+    description: 'Extrato de Conta Corrente / NuConta',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#8A05BE',
+    brandColorSecondary: '#610188',
+    logoText: 'Nu',
+    logoUrl: '/bank-logos/nubank.png',
+    delimiter: ',',
+    skipLines: 0,
+    hasHeader: true,
+    dateColIndex: 0,
+    descColIndices: [3],
+    valueColIndex: 1,
+    invertValues: false,
+    numberFormat: 'US',
+    signatureStrings: ['Data,Valor,Identificador,Descrição'],
+  },
 ];
 
 // --- Helpers (duplicated from parserService to keep parsers self-contained) ---
@@ -308,6 +351,11 @@ const extractInstallments = (
 export function detectBankFromContent(content: string): NativeBankConfig | null {
   const firstLines = content.split(/[\r\n]+/).slice(0, 15).join('\n').toLowerCase();
 
+  // 1. Santander: "EXTRATO DE CONTA CORRENTE" (Very specific)
+  if (firstLines.includes('extrato de conta corrente') || (firstLines.includes('crédito (r$)') && firstLines.includes('débito (r$)'))) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'banco-santander') || null;
+  }
+
   // Ticket has a very specific double-quote wrapping pattern, check first
   if (content.includes('"02/') || content.includes('"01/') || content.includes('"03/')) {
     // Ticket wraps full rows in outer quotes like: "02/01/2026,LOJA,...,"-R$101,77""
@@ -337,14 +385,14 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'xp-conta') || null;
   }
 
-  // Caju: "Data,Descrição,Valor" with Portuguese accentuation + "Caiu Caju" or no double-quote rows
-  if (firstLines.includes('descrição') && !ticketLinePattern(content)) {
+  // Caju: Specific header "Data,Descrição,Valor"
+  if (firstLines.includes('data,descrição,valor') || firstLines.includes('data,descricão,valor') || (firstLines.includes('descrição') && firstLines.includes('caju'))) {
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'caju') || null;
   }
 
-  // Nubank: exact header "date,title,amount"
-  if (firstLines.includes('date,title,amount')) {
-    return NATIVE_BANK_CONFIGS.find(b => b.id === 'nubank-cartao') || null;
+  // Nubank Account: "Data,Valor,Identificador,Descrição"
+  if (firstLines.includes('data,valor,identificador,descrição') || firstLines.includes('data,valor,identificador,descricao')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'nubank-conta') || null;
   }
 
   return null;
@@ -427,11 +475,25 @@ export function parseNativeBankCSV(
     }
   }
 
-  // Step 4: Determine start row (skip column headers if hasHeader=true)
-  const startRow = bankConfig.hasHeader ? 1 : 0;
+  // Step 4: Determine start row
+  let startRow = bankConfig.hasHeader ? 1 : 0;
+  let dataToProcess = data;
+
+  // AUTO-SEEK HEADER: If bank is Santander or has many skip lines potentially, verify the header row
+  if (bankConfig.id === 'banco-santander') {
+    // Look for the row that contains "Data" and "Descrição"
+    const headerIdx = data.findIndex(row => 
+      row.some(cell => String(cell).toLowerCase().includes('data')) && 
+      row.some(cell => String(cell).toLowerCase().includes('descrição'))
+    );
+    if (headerIdx !== -1) {
+      startRow = headerIdx + 1;
+    }
+  }
+
   let stopProcessing = false;
 
-  for (let i = startRow; i < data.length; i++) {
+  for (let i = startRow; i < dataToProcess.length; i++) {
     if (stopProcessing) break;
 
     const row = data[i];
@@ -461,7 +523,6 @@ export function parseNativeBankCSV(
 
     // Extract fields
     const rawDate = (row[bankConfig.dateColIndex] || '').trim();
-    const rawValue = (row[bankConfig.valueColIndex] || '').trim();
     const rawDesc = bankConfig.descColIndices
       .map(idx => (row[idx] || '').trim())
       .filter(Boolean)
@@ -474,6 +535,20 @@ export function parseNativeBankCSV(
     const rawInstallments = bankConfig.installmentsColIndex !== undefined
       ? (row[bankConfig.installmentsColIndex] || '').trim()
       : '';
+
+    // Handle single vs separate credit/debit columns
+    let rawValue = (row[bankConfig.valueColIndex] || '').trim();
+    if (bankConfig.creditColIndex !== undefined || bankConfig.debitColIndex !== undefined) {
+      const rawCredit = bankConfig.creditColIndex !== undefined ? (row[bankConfig.creditColIndex] || '').trim() : '';
+      const rawDebit = bankConfig.debitColIndex !== undefined ? (row[bankConfig.debitColIndex] || '').trim() : '';
+      
+      // Heuristic: Use whichever has a value (non-zero/non-empty)
+      if (rawCredit && rawCredit !== '0,00' && rawCredit !== '0.00' && rawCredit !== '0') {
+        rawValue = rawCredit;
+      } else if (rawDebit && rawDebit !== '0,00' && rawDebit !== '0.00' && rawDebit !== '0') {
+        rawValue = rawDebit;
+      }
+    }
 
     // Parse
     const cleanedDate = parseDate(rawDate);
