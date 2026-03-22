@@ -148,11 +148,14 @@ export interface Asset {
   
   // Financing fields
   is_financed?: boolean;
+  financing_type?: 'financing' | 'consortium'; // More specific than is_financed
   financed_amount?: number;
   remaining_balance?: number;
   installment_value?: number;
   total_installments?: number;
   paid_installments?: number;
+  monthly_interest_rate?: number; // In % e.g. 0.89 = 0.89% p.m.
+  consortium_admin_rate?: number;  // In % e.g. 20 = 20% total
   
   updated_at: string;
 }

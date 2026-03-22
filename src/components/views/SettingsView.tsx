@@ -14,6 +14,7 @@ import MappingRuleModal from '../modals/MappingRuleModal';
 import ImportDetailsModal, { default as IgnoredDetailsModal } from '../modals/ImportDetailsModal';
 import InviteMemberModal from '../modals/InviteMemberModal';
 import AssetModal from '../modals/AssetModal';
+import AssetDetailModal from '../modals/AssetDetailModal';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
@@ -93,6 +94,8 @@ const SettingsView: React.FC = () => {
 
     const [isAssetModalOpen, setAssetModalOpen] = useState(false);
     const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+    const [isAssetDetailModalOpen, setAssetDetailModalOpen] = useState(false);
+    const [viewingAsset, setViewingAsset] = useState<Asset | null>(null);
 
     // State for Import Log Details Modal
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -505,7 +508,11 @@ const SettingsView: React.FC = () => {
                                                         style={{ width: `${((item.paid_installments || 0) / (item.total_installments || 1)) * 100}%` }}
                                                     ></div>
                                                 </div>
-                                                <span className="text-[9px] text-highlight font-black uppercase tracking-tighter shadow-sm">Financiado</span>
+                                                <span className={`text-[9px] font-black uppercase tracking-tighter shadow-sm ${
+                                                    item.financing_type === 'consortium' ? 'text-purple-400' : 'text-highlight'
+                                                }`}>
+                                                    {item.financing_type === 'consortium' ? '🔄 Consórcio' : '🏦 Financiado'}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -527,6 +534,18 @@ const SettingsView: React.FC = () => {
                         )}
                         onAdd={() => { setEditingAccount(null); setAssetModalOpen(true); }}
                         onEdit={(item) => { setEditingAsset(item); setAssetModalOpen(true); }}
+                        renderExtraActions={(item) => {
+                            if (!item.is_financed && !item.financing_type) return null;
+                            return (
+                                <button
+                                    className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-highlight/10 text-highlight hover:bg-highlight/20 border border-highlight/30 hover:border-highlight/60 transition-all"
+                                    onClick={() => { setViewingAsset(item); setAssetDetailModalOpen(true); }}
+                                    title="Ver detalhes do financiamento / consórcio"
+                                >
+                                    📊 Detalhes
+                                </button>
+                            );
+                        }}
                         onDelete={async (id) => {
                             if (window.confirm('Excluir este ativo do seu patrimônio?')) {
                                 await deleteAsset(id);
@@ -763,6 +782,18 @@ const SettingsView: React.FC = () => {
                     onSave={handleSaveAsset}
                 />
             )}
+            {isAssetDetailModalOpen && viewingAsset && (
+                <AssetDetailModal
+                    asset={viewingAsset}
+                    onClose={() => { setAssetDetailModalOpen(false); setViewingAsset(null); }}
+                    onEdit={() => {
+                        setEditingAsset(viewingAsset);
+                        setAssetDetailModalOpen(false);
+                        setViewingAsset(null);
+                        setAssetModalOpen(true);
+                    }}
+                />
+            )}
         </div >
     );
 };
@@ -783,6 +814,7 @@ interface CrudCardProps<T> {
     footer?: React.ReactNode;
     extraHeader?: React.ReactNode;
     editLabel?: string;
+    renderExtraActions?: (item: T) => React.ReactNode; // Per-row extra action buttons
 }
 
 // Function helper to handle mobile values.
@@ -798,7 +830,7 @@ const getRowChildren = (node: React.ReactNode): React.ReactNode[] => {
     return children;
 };
 
-const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, onAdd, onEdit, onDelete, searchKeys = [], searchPlaceholder = 'Buscar...', customBody, hideAddButton = false, hideEditButton = false, footer, extraHeader, editLabel = 'Editar' }: CrudCardProps<T>) => {
+const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, onAdd, onEdit, onDelete, searchKeys = [], searchPlaceholder = 'Buscar...', customBody, hideAddButton = false, hideEditButton = false, footer, extraHeader, editLabel = 'Editar', renderExtraActions }: CrudCardProps<T>) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -866,6 +898,7 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                                             </div>
                                         ))}
                                         <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
+                                            {renderExtraActions && renderExtraActions(item)}
                                             {!hideEditButton && (
                                                 <button className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
                                                     {editLabel}
@@ -895,6 +928,7 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                                             {renderRow(item)}
                                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                    {renderExtraActions && renderExtraActions(item)}
                                                     {!hideEditButton && (
                                                         <button 
                                                             className="text-highlight hover:text-white transition-colors" 
