@@ -29,6 +29,7 @@ export interface Account {
   Data_Saldo_Inicial: Date;
   Cor?: string;
   Icone?: string;
+  bank_id?: string; // ID from NATIVE_BANK_CONFIGS
   Saldo_Atual_Calculado?: number; // <-- NOVO CAMPO: Para armazenar o saldo calculado na UI
 }
 

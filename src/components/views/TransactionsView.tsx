@@ -20,9 +20,10 @@ import NewTransactionModal from '../modals/NewTransactionModal';
 import MappingRuleModal from '../modals/MappingRuleModal';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
+import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
 
 const TransactionsView: React.FC = () => {
-  const { transactions, accounts, assets, fetchAllData, isLoading, getSortedCategories, addTransaction, updateTransaction, deleteTransaction, deleteTransactionsByOrigin, addMappingRule, transactionFilters, setTransactionFilters, addCategory, addAccount } = useAppStore();
+  const { transactions, accounts, assets, fetchAllData, isLoading, getSortedCategories, addTransaction, updateTransaction, deleteTransaction, deleteTransactionsByOrigin, addMappingRule, transactionFilters, setTransactionFilters, addCategory, addAccount, updateAccount } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
@@ -37,10 +38,12 @@ const TransactionsView: React.FC = () => {
 
   // New Modals State
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
 
   const categories = getSortedCategories();
+  const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
 
   // Efeito para buscar as transações do Supabase na montagem do componente
   useEffect(() => {
@@ -189,11 +192,17 @@ const TransactionsView: React.FC = () => {
   };
 
   const handleSaveAccount = async (accountData: Omit<Account, 'id' | 'user_id'>) => {
-    const newAccount = await addAccount(accountData);
-    if (newAccount) {
-      setLastCreatedAccount(newAccount.id);
+    if (editingAccount) {
+      await updateAccount({ id: editingAccount.id, ...accountData });
       setAccountModalOpen(false);
-      alert(`Conta "${newAccount.Nome_Conta}" criada com sucesso!`);
+      setEditingAccount(null);
+    } else {
+      const newAccount = await addAccount(accountData);
+      if (newAccount) {
+        setLastCreatedAccount(newAccount.id);
+        setAccountModalOpen(false);
+        alert(`Conta "${newAccount.Nome_Conta}" criada com sucesso!`);
+      }
     }
   };
 
@@ -307,6 +316,34 @@ const TransactionsView: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {accountsWithMissingBank.length > 0 && (
+        <div className="bg-gradient-to-r from-highlight/20 to-accent/10 border border-highlight/30 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-highlight/20 p-2 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-highlight" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Identifique seus bancos</p>
+              <p className="text-xs text-gray-400">Personalize seus cards com os logos oficiais para uma visualização mais rápida.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              const firstAccount = accountsWithMissingBank[0];
+              setEditingTransaction(null);
+              setEditingAccount(firstAccount);
+              setAccountModalOpen(true);
+            }}
+            className="px-4 py-1.5 bg-highlight hover:bg-highlight/80 text-white text-xs font-bold rounded-lg transition-all"
+          >
+            Configurar Agora
+          </button>
+        </div>
+      )}
+
       <div id="transactions-filters">
         <Card title="Filtros" className="!overflow-visible z-40 relative">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
@@ -385,20 +422,29 @@ const TransactionsView: React.FC = () => {
           // Fix floating point precision issues (prevent -0.00)
           if (Math.abs(currentBalance) < 0.005) currentBalance = 0;
 
+          const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
+
           return (
-            <div key={account.id} className="bg-secondary p-4 rounded-lg shadow-md border-l-4 border-accent flex flex-col justify-between">
-              <div>
-                <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider truncate" title={account.Nome_Conta}>{account.Nome_Conta}</h3>
-                <span className="text-xs text-gray-500">{account.Tipo_Conta}</span>
-                <div className="text-[10px] text-gray-600 mt-1">
-                  Início: {formatCurrency(account.Saldo_Inicial)} em {new Date(account.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+            <div key={account.id} className="bg-secondary p-4 rounded-lg shadow-md border-l-4 border-accent flex flex-col justify-between relative overflow-hidden group">
+              <div className="z-10 h-full flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {bankConfig?.logoUrl && (
+                      <img src={bankConfig.logoUrl} alt={bankConfig.name} className="w-5 h-5 object-contain" />
+                    )}
+                    <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider truncate" title={account.Nome_Conta}>{account.Nome_Conta}</h3>
+                  </div>
+                  <span className="text-xs text-gray-500">{account.Tipo_Conta}</span>
+                  <div className="text-[10px] text-gray-600 mt-1">
+                    Início: {formatCurrency(account.Saldo_Inicial)} em {new Date(account.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-2 text-right">
-                <span className={`text-xl font-bold ${getValueColor(currentBalance)}`}>
-                  {formatCurrency(currentBalance)}
-                </span>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Saldo Atual</p>
+                <div className="mt-2 text-right">
+                  <span className={`text-xl font-bold ${getValueColor(currentBalance)}`}>
+                    {formatCurrency(currentBalance)}
+                  </span>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Saldo Atual</p>
+                </div>
               </div>
             </div>
           );
@@ -719,8 +765,11 @@ const TransactionsView: React.FC = () => {
 
       {isAccountModalOpen && (
         <AccountModal
-          account={null}
-          onClose={() => setAccountModalOpen(false)}
+          account={editingAccount}
+          onClose={() => {
+            setAccountModalOpen(false);
+            setEditingAccount(null);
+          }}
           onSave={handleSaveAccount}
         />
       )}

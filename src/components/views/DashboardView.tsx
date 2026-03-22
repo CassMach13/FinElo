@@ -27,12 +27,13 @@ type ViewMode = 'monthly' | 'quarterly' | 'semiannual' | 'yearly' | 'custom';
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
-  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite } = useAppStore();
+  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
 
   // Modal States
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
@@ -164,6 +165,8 @@ const DashboardView: React.FC = () => {
   const investmentCategories = useMemo(() =>
     new Set(allCategories.filter(c => c.is_investment).map(c => c.Nome_Categoria))
     , [allCategories]);
+
+  const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
 
   // 2. Global Data without 'Ambos' (for Evolution Chart which needs history)
   // Also exclude investments from the main evolution chart to show operational evolution
@@ -354,10 +357,16 @@ const DashboardView: React.FC = () => {
   };
 
   const handleSaveAccount = async (accountData: Omit<Account, 'id' | 'user_id'>) => {
-    const newAccount = await addAccount(accountData);
-    if (newAccount) {
-      setLastCreatedAccount(newAccount.id);
-      setAccountModalOpen(false);
+    if (editingAccount) {
+        await updateAccount({ id: editingAccount.id, ...accountData });
+        setAccountModalOpen(false);
+        setEditingAccount(null);
+    } else {
+        const newAccount = await addAccount(accountData);
+        if (newAccount) {
+          setLastCreatedAccount(newAccount.id);
+          setAccountModalOpen(false);
+        }
     }
   };
 
@@ -461,6 +470,35 @@ const DashboardView: React.FC = () => {
               className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg transition-all shadow-md shadow-amber-500/20 text-sm whitespace-nowrap"
             >
               Revisar Agora
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bank Identifier Alert */}
+      {accountsWithMissingBank.length > 0 && (
+        <div className="bg-gradient-to-r from-highlight/30 to-accent/20 rounded-xl p-5 border border-highlight/30 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
+          <div className="flex items-center gap-4">
+            <div className="bg-highlight/20 p-3 rounded-full flex-shrink-0">
+                <span className="text-2xl">🏦</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Identifique seus bancos</h3>
+              <p className="text-highlight/80 text-sm">
+                Seus cards de conta ficarão muito mais bonitos com os <b>logos oficiais</b>. Configure agora!
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const firstAccount = accountsWithMissingBank[0];
+                setEditingAccount(firstAccount);
+                setAccountModalOpen(true);
+              }}
+              className="px-5 py-2 bg-highlight hover:bg-highlight/80 text-white font-bold rounded-lg transition-all shadow-md shadow-highlight/20 text-sm whitespace-nowrap"
+            >
+              Identificar Banco
             </button>
           </div>
         </div>
@@ -726,8 +764,11 @@ const DashboardView: React.FC = () => {
 
       {isAccountModalOpen && (
         <AccountModal
-          account={null}
-          onClose={() => setAccountModalOpen(false)}
+          account={editingAccount}
+          onClose={() => {
+            setAccountModalOpen(false);
+            setEditingAccount(null);
+          }}
           onSave={handleSaveAccount}
         />
       )}

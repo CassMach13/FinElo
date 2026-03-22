@@ -277,11 +277,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Remove o campo calculado para não tentar salvá-lo no banco
     delete (fieldsToUpdate as Partial<Account>).Saldo_Atual_Calculado;
 
+    console.log('[Store: updateAccount] Iniciando atualização da conta ID:', id);
+    console.log('[Store: updateAccount] Campos a serem atualizados:', fieldsToUpdate);
+
     const { data, error } = await supabase.from('contas').update(fieldsToUpdate).eq('id', id).select();
-    if (error) console.error('Erro ao atualizar conta:', error);
-    else if (data) set((state) => ({
-      accounts: state.accounts.map(a => a.id === id ? data[0] as Account : a)
-    }));
+    
+    if (error) {
+      console.error('[Store: updateAccount] Erro do Supabase ao atualizar conta:', error);
+      console.error('[Store: updateAccount] Detalhes do erro:', error.details, error.hint, error.message);
+    } else if (data) {
+      console.log('[Store: updateAccount] Sucesso! Conta atualizada:', data[0]);
+      set((state) => ({
+        accounts: state.accounts.map(a => a.id === id ? data[0] as Account : a)
+      }));
+    }
   },
 
 

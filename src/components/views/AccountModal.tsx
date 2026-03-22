@@ -5,6 +5,8 @@ import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
+import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
+
 
 interface AccountModalProps {
     account: Account | null;
@@ -20,6 +22,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
     const [formState, setFormState] = useState({
         Nome_Conta: account?.Nome_Conta || '',
         Tipo_Conta: account?.Tipo_Conta || 'Conta Corrente',
+        bank_id: account?.bank_id || '',
         // Campos separados para cada modo
         saldoAtual: account?.Saldo_Inicial || 0, // Assume saldo inicial como atual ao editar
         saldoInicial: account?.Saldo_Inicial || 0,
@@ -47,6 +50,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
+                bank_id: formState.bank_id,
                 Saldo_Inicial: parseFloat(String(formState.saldoInicial)),
                 Data_Saldo_Inicial: dataSaldoAjustada,
             };
@@ -57,6 +61,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
+                bank_id: formState.bank_id,
                 Saldo_Inicial: parseFloat(String(formState.saldoAtual)),
                 Data_Saldo_Inicial: new Date(), // A data de referência é sempre hoje.
             };
@@ -87,14 +92,27 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
         >
             <form id="account-form" onSubmit={handleSubmit} className="space-y-4">
                 <Input label="Nome da Conta" name="Nome_Conta" value={formState.Nome_Conta} onChange={handleChange} required autoFocus />
-                <Select label="Tipo da Conta" name="Tipo_Conta" value={formState.Tipo_Conta} onChange={handleChange} required>
-                    <option value="Conta Corrente">Conta Corrente</option>
-                    <option value="Poupança">Poupança</option>
-                    <option value="Investimento">Investimento</option>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Cartão Alimentação">Cartão Alimentação</option>
-                    <option value="Outro">Outro</option>
-                </Select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Select label="Tipo da Conta" name="Tipo_Conta" value={formState.Tipo_Conta} onChange={handleChange} required>
+                        <option value="Conta Corrente">Conta Corrente</option>
+                        <option value="Poupança">Poupança</option>
+                        <option value="Investimento">Investimento</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="Cartão Alimentação">Cartão Alimentação</option>
+                        <option value="Outro">Outro</option>
+                    </Select>
+
+                    <Select label="Banco/Instituição" name="bank_id" value={formState.bank_id} onChange={handleChange}>
+                        <option value="">Nenhum / Outro</option>
+                        {NATIVE_BANK_CONFIGS
+                            .filter(bank => bank.isSupported)
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(bank => (
+                                <option key={bank.id} value={bank.id}>{bank.name}</option>
+                            ))
+                        }
+                    </Select>
+                </div>
 
                 {balanceMode === 'current' && !account ? ( // Só mostra o modo inteligente na CRIAÇÃO
                     <div>
