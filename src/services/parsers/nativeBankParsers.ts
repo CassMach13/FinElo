@@ -319,8 +319,8 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     description: 'Extrato de Conta Digital Mercado Pago',
     sourceType: 'Conta',
     isSupported: true,
-    brandColor: '#00B1EA',      // Mercado Pago blue
-    brandColorSecondary: '#009ECC',
+    brandColor: '#009EE3',      // Mercado Pago blue (app icon)
+    brandColorSecondary: '#0088CC',
     logoText: 'MP',
     logoUrl: '/bank-logos/mercadopago.png',
     delimiter: ';',
