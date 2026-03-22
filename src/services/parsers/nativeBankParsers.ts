@@ -148,8 +148,8 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     description: 'Extrato de Benefício (VA/VR/Flex)',
     sourceType: 'Conta',
     isSupported: true,
-    brandColor: '#FF4C00',
-    brandColorSecondary: '#FF7A33',
+    brandColor: '#FE2E8D',          // Vibrant hot pink/magenta from website
+    brandColorSecondary: '#E81A78',
     logoText: 'FL',
     logoUrl: '/bank-logos/flash.png',
     delimiter: ',',
