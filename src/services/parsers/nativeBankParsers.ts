@@ -335,6 +335,27 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     ignoreRowsContaining: [],
     signatureStrings: ['INITIAL_BALANCE', 'RELEASE_DATE', 'TRANSACTION_NET_AMOUNT'],
   },
+  {
+    id: 'picpay',
+    name: 'PicPay',
+    description: 'Extrato de Conta (PicPay)',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#38B160',      // Vibrant green PicPay
+    brandColorSecondary: '#2E914F',
+    logoText: 'PP',
+    logoUrl: '/bank-logos/picpay.png',
+    delimiter: ',',
+    skipLines: 0,
+    hasHeader: true,
+    // Header format from Gemini conversion: Data,Hora,Tipo,Origem/Destino,Forma de pagamento,Valor
+    dateColIndex: 0,
+    descColIndices: [2, 3],     // Tipo + Origem/Destino combine well for description
+    valueColIndex: 5,
+    invertValues: false,        // Expenses are already negative format "-R$110,00"
+    ignoreRowsContaining: [],
+    signatureStrings: ['Data,Hora,Tipo,Origem/Destino,Forma de pagamento,Valor', 'picpay'],
+  },
 ];
 
 // --- Helpers (duplicated from parserService to keep parsers self-contained) ---
@@ -507,6 +528,11 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
   // Mercado Pago: unique headers "INITIAL_BALANCE" and "RELEASE_DATE;TRANSACTION_TYPE"
   if (firstLines.includes('initial_balance') && firstLines.includes('release_date')) {
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'mercado-pago') || null;
+  }
+
+  // PicPay: unique header from Gemini conversion
+  if (firstLines.includes('data,hora,tipo,origem/destino,forma de pagamento,valor') || firstLines.includes('picpay')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'picpay') || null;
   }
 
   return null;
