@@ -191,8 +191,8 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     description: 'Extrato de Benefício (VA/VR/Refeição)',
     sourceType: 'Conta',
     isSupported: true,
-    brandColor: '#B81C2C',
-    brandColorSecondary: '#D42235',
+    brandColor: '#00BE28',          // Vibrant green
+    brandColorSecondary: '#00A623',
     logoText: 'VR',
     logoUrl: '/bank-logos/vr.png',
     delimiter: ',',
