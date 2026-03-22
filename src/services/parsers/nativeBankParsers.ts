@@ -143,6 +143,70 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     signatureStrings: ['Data,Descrição,Valor'],
   },
   {
+    id: 'flash-beneficios',
+    name: 'Flash Benefícios',
+    description: 'Extrato de Benefício (VA/VR/Flex)',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#FF4C00',
+    brandColorSecondary: '#FF7A33',
+    logoText: 'FL',
+    logoUrl: '/bank-logos/flash.png',
+    delimiter: ',',
+    skipLines: 0,
+    hasHeader: true,
+    // Same Data,Descrição,Valor structure as Caju
+    dateColIndex: 0,
+    descColIndices: [1],
+    valueColIndex: 2,
+    invertValues: false,
+    ignoreRowsContaining: [],
+    // Flash exports include "Flash" or "flash" in the filename or first lines
+    signatureStrings: ['flash', 'Data,Descrição,Valor'],
+  },
+  {
+    id: 'ifood-beneficios',
+    name: 'iFood Benefícios',
+    description: 'Extrato de Benefício iFood',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#5b0b1a',          // Official dark wine/burgundy from website
+    brandColorSecondary: '#8a1428',
+    logoText: 'iF',
+    logoUrl: '/bank-logos/ifood.png',
+    delimiter: ',',
+    skipLines: 0,
+    hasHeader: true,
+    // Same Data,Descrição,Valor structure as Caju
+    dateColIndex: 0,
+    descColIndices: [1],
+    valueColIndex: 2,
+    invertValues: false,
+    ignoreRowsContaining: [],
+    signatureStrings: ['ifood', 'Data,Descrição,Valor'],
+  },
+  {
+    id: 'vr-beneficios',
+    name: 'VR Benefícios',
+    description: 'Extrato de Benefício (VA/VR/Refeição)',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#B81C2C',
+    brandColorSecondary: '#D42235',
+    logoText: 'VR',
+    logoUrl: '/bank-logos/vr.png',
+    delimiter: ',',
+    skipLines: 0,
+    hasHeader: true,
+    // Same Data,Descrição,Valor structure as Caju
+    dateColIndex: 0,
+    descColIndices: [1],
+    valueColIndex: 2,
+    invertValues: false,
+    ignoreRowsContaining: [],
+    signatureStrings: ['vr beneficios', 'vr refeição', 'Data,Descrição,Valor'],
+  },
+  {
     id: 'ticket',
     name: 'Ticket',
     description: 'Extrato de Benefício (VA/VR/Refeição)',
@@ -411,7 +475,26 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'xp-conta') || null;
   }
 
-  // Caju: Specific header "Data,Descrição,Valor"
+  // Flash / iFood / VR / Caju all share "Data,Descrição,Valor" format.
+  // Detect by brand keyword first (from filename hints embedded in content or row data).
+  const fullContentLower = content.toLowerCase();
+
+  // Flash Benefícios: content or filename mentions "flash"
+  if ((firstLines.includes('flash') || fullContentLower.includes('flash beneficios') || fullContentLower.includes('flash benefícios'))) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'flash-beneficios') || null;
+  }
+
+  // iFood Benefícios: content mentions "ifood"
+  if (firstLines.includes('ifood') || firstLines.includes('ifood beneficios') || firstLines.includes('ifood benefícios')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'ifood-beneficios') || null;
+  }
+
+  // VR Benefícios: content mentions "vr" in a benefits context
+  if (firstLines.includes('vr beneficios') || firstLines.includes('vr refeição') || firstLines.includes('vr alimentacao')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'vr-beneficios') || null;
+  }
+
+  // Caju: fallback for generic Data,Descrição,Valor (also handles Ticket via double-quote detection above)
   if (firstLines.includes('data,descrição,valor') || firstLines.includes('data,descricão,valor') || (firstLines.includes('descrição') && firstLines.includes('caju'))) {
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'caju') || null;
   }
