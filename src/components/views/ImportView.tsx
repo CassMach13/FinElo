@@ -17,6 +17,66 @@ import OpenFinanceReviewModal from '../modals/OpenFinanceReviewModal';
 import { PluggyConnection, ImportConfig, Account } from '../../types';
 import SaveConfigModal from '../modals/SaveConfigModal';
 
+// --- BankCard: reusable card with favorite star toggle ---
+interface BankCardProps {
+  bank: { id: string; name: string; description: string; brandColor: string; brandColorSecondary: string; logoText: string; logoUrl?: string };
+  isSelected: boolean;
+  isFavorite: boolean;
+  onSelect: () => void;
+  onToggleFavorite: (e: React.MouseEvent) => void;
+}
+
+const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSelect, onToggleFavorite }) => (
+  <button
+    onClick={onSelect}
+    className={`group relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-200 ${
+      isSelected
+        ? 'border-green-500/60 bg-slate-800 ring-2 ring-green-500/30'
+        : isFavorite
+          ? 'border-yellow-500/30 bg-slate-800/70 hover:border-yellow-400/50 hover:bg-slate-800'
+          : 'border-slate-700 hover:border-slate-500 bg-slate-800/50 hover:bg-slate-800'
+    }`}
+  >
+    {/* Logo */}
+    <div
+      className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-white transition-transform group-hover:scale-105"
+      style={{ background: `linear-gradient(135deg, ${bank.brandColor}, ${bank.brandColorSecondary})` }}
+    >
+      {bank.logoUrl ? (
+        <img src={bank.logoUrl} alt={bank.name} className="w-full h-full object-contain p-1 rounded-xl" />
+      ) : bank.logoText.length <= 2 ? (
+        <span className="uppercase font-black text-sm">{bank.logoText}</span>
+      ) : (
+        <span className="text-[8px] font-bold uppercase tracking-tight text-center leading-tight px-0.5">{bank.logoText}</span>
+      )}
+    </div>
+
+    {/* Name + description */}
+    <div className="text-center">
+      <p className="text-white font-semibold text-xs leading-tight">{bank.name}</p>
+      <p className="text-gray-400 text-[10px] mt-0.5 leading-tight">{bank.description}</p>
+    </div>
+
+    {/* ✓ Auto badge – top right */}
+    <span className="absolute top-2 right-2 text-[9px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-1.5 py-0.5">
+      ✓ Auto
+    </span>
+
+    {/* ⭐ Favorite toggle – top left */}
+    <button
+      onClick={onToggleFavorite}
+      title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+      className={`absolute top-1.5 left-1.5 text-base leading-none transition-all duration-150
+        ${isFavorite
+          ? 'opacity-100 scale-110 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]'
+          : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:scale-110 grayscale'
+        }`}
+    >
+      ⭐
+    </button>
+  </button>
+);
+
 const ImportView: React.FC = () => {
   const { user, importConfigs, transactions, mappingRules, addMultipleTransactions, importLogs, isPremium, unlimitedSync, accounts, addAccount, setCurrentView } = useAppStore();
 
@@ -37,6 +97,30 @@ const ImportView: React.FC = () => {
   const [nativeDueDate, setNativeDueDate] = useState('');
   const [selectedNativeAccountId, setSelectedNativeAccountId] = useState('');
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+
+  // --- Favorites: stored in localStorage, no server needed ---
+  const FAV_KEY = 'finelo_fav_banks';
+  const [favoriteBankIds, setFavoriteBankIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; }
+  });
+  const [showAllBanks, setShowAllBanks] = useState(() => {
+    try { return (JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]).length === 0; } catch { return true; }
+  });
+
+  const toggleFavorite = (bankId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // don't trigger bank selection
+    setFavoriteBankIds(prev => {
+      const updated = prev.includes(bankId) ? prev.filter(id => id !== bankId) : [...prev, bankId];
+      localStorage.setItem(FAV_KEY, JSON.stringify(updated));
+      // Auto-open all-banks section if no favorites remain
+      if (updated.length === 0) setShowAllBanks(true);
+      return updated;
+    });
+  };
+
+  const sortedBanks = [...NATIVE_BANK_CONFIGS].filter(b => b.isSupported).sort((a, b) => a.name.localeCompare(b.name));
+  const favoriteBanks = sortedBanks.filter(b => favoriteBankIds.includes(b.id));
+  const otherBanks = sortedBanks.filter(b => !favoriteBankIds.includes(b.id));
 
   // Pluggy State
   const [pluggyConnectToken, setPluggyConnectToken] = useState<string | null>(null);
@@ -496,55 +580,77 @@ const ImportView: React.FC = () => {
                     <p className="text-sm text-gray-400">Escolha a fonte do seu extrato para uma importação automática, sem configurações manuais.</p>
                   </div>
 
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">✅ Importação Automática Disponível</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                      {[...NATIVE_BANK_CONFIGS].filter(b => b.isSupported).sort((a, b) => a.name.localeCompare(b.name)).map(bank => (
-                        <button
-                          key={bank.id}
-                          onClick={() => handleNativeBankSelect(bank)}
-                          className={`group relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-200 ${selectedNativeBank?.id === bank.id
-                            ? 'border-green-500/60 bg-slate-800 ring-2 ring-green-500/30'
-                            : 'border-slate-700 hover:border-slate-500 bg-slate-800/50 hover:bg-slate-800'
-                            }`}
-                        >
-                          <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-white transition-transform group-hover:scale-105"
-                            style={{ background: `linear-gradient(135deg, ${bank.brandColor}, ${bank.brandColorSecondary})` }}
-                          >
-                            {bank.logoUrl ? (
-                              <img src={bank.logoUrl} alt={bank.name} className="w-full h-full object-contain p-1 rounded-xl" />
-                            ) : (
-                              bank.logoText.length <= 2
-                                ? <span className="uppercase font-black text-sm">{bank.logoText}</span>
-                                : <span className="text-[8px] font-bold uppercase tracking-tight text-center leading-tight px-0.5">{bank.logoText}</span>
-                            )}
-                          </div>
-                          <div className="text-center">
-                            <p className="text-white font-semibold text-xs leading-tight">{bank.name}</p>
-                            <p className="text-gray-400 text-[10px] mt-0.5 leading-tight">{bank.description}</p>
-                          </div>
-                          <span className="absolute top-2 right-2 text-[9px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-1.5 py-0.5">
-                            ✓ Auto
-                          </span>
-                        </button>
-                      ))}
+                  <div className="space-y-5">
+                    {/* --- FAVORITES SECTION --- */}
+                    {favoriteBanks.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-yellow-400/80 mb-3 flex items-center gap-1.5">
+                          <span>⭐</span> Meus Bancos
+                          <span className="text-slate-600 font-normal normal-case tracking-normal ml-1">(favoritos)</span>
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                          {favoriteBanks.map(bank => (
+                            <BankCard
+                              key={bank.id}
+                              bank={bank}
+                              isSelected={selectedNativeBank?.id === bank.id}
+                              isFavorite={true}
+                              onSelect={() => handleNativeBankSelect(bank)}
+                              onToggleFavorite={(e) => toggleFavorite(bank.id, e)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                      {/* Manual Mapping Option positioned inline with banks */}
-                      <button
-                        onClick={() => { setSelectedNativeBank(null); setStep('upload'); }}
-                        className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-700 border-dashed hover:border-highlight bg-slate-800/20 hover:bg-slate-800/50 transition-all duration-200"
-                      >
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-slate-400 bg-slate-800 transition-transform group-hover:scale-105 border border-slate-700 group-hover:text-highlight">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                          </svg>
+                    {/* --- ALL BANKS SECTION (collapsible when favorites exist) --- */}
+                    <div>
+                      {favoriteBanks.length > 0 ? (
+                        <button
+                          onClick={() => setShowAllBanks(v => !v)}
+                          className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors mb-3 group"
+                        >
+                          <span className={`transition-transform duration-200 ${showAllBanks ? 'rotate-90' : ''}`}>▶</span>
+                          Todos os Bancos
+                          <span className="text-slate-600 font-normal normal-case tracking-normal">({sortedBanks.length} disponíveis)</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">✅ Importação Automática Disponível</p>
+                          <p className="text-[10px] text-slate-600 italic">Clique em ⭐ para favoritar seus bancos</p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-white font-semibold text-xs leading-tight">Mapeamento</p>
-                          <p className="text-gray-400 text-[10px] mt-0.5 leading-tight">Configuração Manual</p>
+                      )}
+
+                      {(showAllBanks || favoriteBanks.length === 0) && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                          {otherBanks.map(bank => (
+                            <BankCard
+                              key={bank.id}
+                              bank={bank}
+                              isSelected={selectedNativeBank?.id === bank.id}
+                              isFavorite={false}
+                              onSelect={() => handleNativeBankSelect(bank)}
+                              onToggleFavorite={(e) => toggleFavorite(bank.id, e)}
+                            />
+                          ))}
+
+                          {/* Manual Mapping Option — always at the end */}
+                          <button
+                            onClick={() => { setSelectedNativeBank(null); setStep('upload'); }}
+                            className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-700 border-dashed hover:border-highlight bg-slate-800/20 hover:bg-slate-800/50 transition-all duration-200"
+                          >
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-slate-400 bg-slate-800 transition-transform group-hover:scale-105 border border-slate-700 group-hover:text-highlight">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-white font-semibold text-xs leading-tight">Mapeamento</p>
+                              <p className="text-gray-400 text-[10px] mt-0.5 leading-tight">Configuração Manual</p>
+                            </div>
+                          </button>
                         </div>
-                      </button>
+                      )}
                     </div>
                   </div>
 

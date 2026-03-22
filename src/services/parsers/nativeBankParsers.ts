@@ -249,6 +249,28 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     numberFormat: 'US',
     signatureStrings: ['Data,Valor,Identificador,Descrição'],
   },
+  {
+    id: 'mercado-pago',
+    name: 'Mercado Pago',
+    description: 'Extrato de Conta Digital Mercado Pago',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#00B1EA',      // Mercado Pago blue
+    brandColorSecondary: '#009ECC',
+    logoText: 'MP',
+    logoUrl: '/bank-logos/mercadopago.png',
+    delimiter: ';',
+    skipLines: 3,               // Skip 2 summary rows + 1 blank row; row 4 = header
+    hasHeader: true,
+    // Header: RELEASE_DATE;TRANSACTION_TYPE;REFERENCE_ID;TRANSACTION_NET_AMOUNT;PARTIAL_BALANCE
+    dateColIndex: 0,
+    descColIndices: [1],
+    valueColIndex: 3,
+    invertValues: false,        // Values already signed: positive = credit, negative = debit
+    numberFormat: 'US',         // Integer values in this sample, but treat as US to be safe
+    ignoreRowsContaining: [],
+    signatureStrings: ['INITIAL_BALANCE', 'RELEASE_DATE', 'TRANSACTION_NET_AMOUNT'],
+  },
 ];
 
 // --- Helpers (duplicated from parserService to keep parsers self-contained) ---
@@ -397,6 +419,11 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
   // Nubank Account: "Data,Valor,Identificador,Descrição"
   if (firstLines.includes('data,valor,identificador,descrição') || firstLines.includes('data,valor,identificador,descricao')) {
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'nubank-conta') || null;
+  }
+
+  // Mercado Pago: unique headers "INITIAL_BALANCE" and "RELEASE_DATE;TRANSACTION_TYPE"
+  if (firstLines.includes('initial_balance') && firstLines.includes('release_date')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'mercado-pago') || null;
   }
 
   return null;
