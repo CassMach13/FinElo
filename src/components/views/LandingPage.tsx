@@ -173,8 +173,8 @@ const LandingPage: React.FC = () => {
                         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}>
                             <FeatureCard
                                 icon={<UploadIcon className="h-8 w-8 text-accent" />}
-                                title="Importação Inteligente"
-                                description="Esqueça a digitação manual. Arraste seu extrato bancário (OFX ou CSV) e nós categorizamos tudo para você."
+                                title="Automação em 1 Clique"
+                                description="Importe seus extratos do PicPay, Itaú e outros bancos em segundos. O FinElo categoriza tudo automaticamente, eliminando horas de digitação manual."
                             />
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}>
@@ -186,9 +186,9 @@ const LandingPage: React.FC = () => {
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }}>
                             <FeatureCard
-                                icon={<TicketIcon className="h-8 w-8 text-pink-500" />}
-                                title="Controle Simples"
-                                description="Interface limpa e direta. Sem menus complicados ou termos financeiros difíceis."
+                                icon={<LifebuoyIcon className="h-8 w-8 text-pink-500" />}
+                                title="Diagnóstico 50-30-20"
+                                description="Saiba em tempo real se você está gastando demais com estilo de vida ou se está no caminho certo para a liberdade financeira."
                             />
                         </motion.div>
                     </div>
@@ -212,8 +212,8 @@ const LandingPage: React.FC = () => {
                         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}>
                             <FeatureCard
                                 icon={<ShieldCheckIcon className="h-8 w-8 text-blue-400" />}
-                                title="Construção de Patrimônio"
-                                description="Visualize a evolução do seu dinheiro mês a mês e tome decisões mais inteligentes para proteger o seu futuro."
+                                title="Patrimônio Líquido Real"
+                                description="Acompanhe seus bens e dívidas (financiamentos) em um só lugar. Entenda o quanto você realmente vale e veja seu império crescer."
                             />
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}>
