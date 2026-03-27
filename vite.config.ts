@@ -77,22 +77,6 @@ export default defineConfig(({ mode }: ConfigEnv) => {
                   statuses: [0, 200]
                 },
               }
-            },
-            {
-              // Supabase requests should be network first but fallback to cache
-              urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/.*/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-api-cache',
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 // <== 1 day
-                },
-                networkTimeoutSeconds: 5,
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
             }
           ]
         }

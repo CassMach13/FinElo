@@ -89,6 +89,23 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
+  // Sincronização automática quando o app volta ao primeiro plano (resolve conflito de múltiplas instâncias)
+  useEffect(() => {
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === 'visible' && user) {
+        console.log('%c[Sync] %cApp visível, recarregando dados para garantir sincronia...', 'color: yellow; font-weight: bold;', 'color: cyan;');
+        stableFetchAllData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilitySync);
+    window.addEventListener('focus', handleVisibilitySync); // Backup para alguns navegadores
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilitySync);
+      window.removeEventListener('focus', handleVisibilitySync);
+    };
+  }, [user, stableFetchAllData]);
+
   if (isPasswordRecovery) {
     return <UpdatePasswordView />;
   }
