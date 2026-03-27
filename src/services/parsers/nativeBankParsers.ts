@@ -360,9 +360,24 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
 
 // --- Helpers (duplicated from parserService to keep parsers self-contained) ---
 
-const parseDate = (dateStr: string): Date | null => {
-  if (!dateStr || typeof dateStr !== 'string') return null;
-  const s = dateStr.trim().split(' ')[0];
+const parseDate = (dateStrInput: string | number): Date | null => {
+  if (dateStrInput === null || dateStrInput === undefined) return null;
+  
+  const dateStr = String(dateStrInput).trim();
+  if (dateStr === '') return null;
+
+  // 1. Resiliência Universal: Tratamento de Datas Cruas do Excel.
+  const numericDate = Number(dateStr.replace(',', '.'));
+  if (!isNaN(numericDate) && numericDate > 10000 && numericDate < 90000) {
+    const utcDays = Math.floor(numericDate) - 25569;
+    const utcDate = new Date(utcDays * 86400 * 1000);
+    const year = utcDate.getUTCFullYear();
+    const month = utcDate.getUTCMonth();
+    const day = utcDate.getUTCDate();
+    return new Date(year, month, day);
+  }
+
+  const s = dateStr.split(' ')[0];
 
   // Try DD/MM/YYYY or DD/MM/YY
   let parts = s.split('/');
@@ -491,8 +506,8 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'cartao-xp') || null;
   }
 
-  // XP Conta: header "Data;Hora;Descricao;Valor;Saldo"
-  if (firstLines.includes('hora') && firstLines.includes('descricao')) {
+  // XP Conta: header "Data;Hora;Descricao;Valor;Saldo" (CSV) ou "Movimentação;Liquidação;Lançamento" (XLSX)
+  if ((firstLines.includes('hora') && firstLines.includes('descricao')) || (firstLines.includes('movimentação') && firstLines.includes('lançamento') && firstLines.includes('conta xp'))) {
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'xp-conta') || null;
   }
 
@@ -559,12 +574,15 @@ interface ParseResult {
  */
 export function parseNativeBankCSV(
   rawContent: string,
-  bankConfig: NativeBankConfig,
+  bankConfigParam: NativeBankConfig,
   existingTransactions: Transaction[],
   mappingRules: MappingRule[],
   paymentDate?: Date,
   fileName?: string
 ): ParseResult {
+  // Copia segura para podermos sobrescrever as regras dinamicamente sem alterar a global
+  const bankConfig = { ...bankConfigParam };
+
   const newTransactions: Omit<Transaction, 'ID_Transacao'>[] = [];
   const ignoredItems: any[] = [];
   let successCount = 0;
@@ -591,8 +609,13 @@ export function parseNativeBankCSV(
   // Step 3: Parse CSV
   let delimiter = bankConfig.delimiter;
 
-  // For XP Conta (comma-delimited), the actual values contain "R$ 1.234,56" which
-  // needs careful handling — use Papa's auto-detect for comma files
+  // IMPORTANT: Se o arquivo veio convertido do Excel (.xlsx/.xls), 
+  // o nosso `convertExcelToCSV` sempre gera um CSV separado por `;` com decimais em `,`.
+  // Devemos forçar o PapaParse a respeitar o `;`, independentemente do que o bankConfig pede (pois o original não era CSV).
+  if (fileName && (fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls'))) {
+    delimiter = ';';
+  }
+
   const parseResult = Papa.parse(contentAfterSkip, {
     header: false,
     skipEmptyLines: true,
@@ -628,6 +651,25 @@ export function parseNativeBankCSV(
     );
     if (headerIdx !== -1) {
       startRow = headerIdx + 1;
+    }
+  }
+
+  // AUTO-SEEK HEADER: XP Conta can be CSV (Data, Descrição) or XLSX (Movimentação, Lançamento)
+  if (bankConfig.id === 'xp-conta') {
+    const headerIdx = data.findIndex(row => 
+      row.some(cell => String(cell).toLowerCase().includes('movimentação')) && 
+      row.some(cell => String(cell).toLowerCase().includes('lançamento'))
+    );
+    if (headerIdx !== -1) {
+      startRow = headerIdx + 1;
+      const headerRow = data[headerIdx];
+      // Override os índices fixos pelo layout real do Excel da XP
+      const movIdx = headerRow.findIndex(cell => String(cell).toLowerCase().includes('movimentação'));
+      const lanIdx = headerRow.findIndex(cell => String(cell).toLowerCase().includes('lançamento'));
+      const valIdx = headerRow.findIndex(cell => String(cell).toLowerCase().includes('valor'));
+      if (movIdx !== -1) bankConfig.dateColIndex = movIdx;
+      if (lanIdx !== -1) bankConfig.descColIndices = [lanIdx];
+      if (valIdx !== -1) bankConfig.valueColIndex = valIdx;
     }
   }
 
