@@ -1,0 +1,121 @@
+[
+  [],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Extrato da conta"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Data da consulta: 25/03/2026 20:41"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "De: 27/02/2026 Até: 25/03/2026"
+  ],
+  [
+    null,
+    "VINICIUS GOMES CARNEIRO GUARINIELLO",
+    null,
+    null,
+    null,
+    null,
+    "Conta XP: 2637563"
+  ],
+  [
+    null,
+    "Projeções futuras",
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    "Resgates de Fundos/Clubes Pendentes",
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    "Termos à vencer",
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    "Outros",
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    "Garantias",
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    "Operações de hoje",
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    "Saldo total projetado",
+    null,
+    null,
+    null,
+    null,
+    949.95
+  ],
+  [],
+  [
+    null,
+    "Movimentação",
+    "Liquidação",
+    "Lançamento",
+    null,
+    "Valor (R$)",
+    "Saldo (R$)"
+  ],
+  [
+    null,
+    46100,
+    46100,
+    "Taxa de intermediação doador  B3SA3 2026022500908438280001-2",
+    null,
+    -0.01,
+    949.95
+  ]
+]

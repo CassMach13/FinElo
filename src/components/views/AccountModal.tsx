@@ -126,6 +126,16 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                         {!account && <button type="button" onClick={() => setBalanceMode('current')} className="text-xs text-cyan-400 hover:underline mt-2">Voltar para informar o saldo atual</button>}
                     </div>
                 )}
+                
+                <div className="mt-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3 items-start">
+                    <span className="text-xl leading-none">💡</span>
+                    <div>
+                        <p className="text-amber-300 font-semibold text-sm mb-0.5">Dica de Ouro para Conciliação</p>
+                        <p className="text-amber-200/80 text-xs leading-relaxed mt-1">
+                            Se você planeja importar faturas ou extratos passados, é <strong>altamente recomendável</strong> que a Data do Saldo Inicial seja programada para o <strong>dia anterior</strong> à primeira transação que você pretende importar.
+                        </p>
+                    </div>
+                </div>
             </form>
         </Modal>
     );
