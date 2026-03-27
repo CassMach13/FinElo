@@ -10,10 +10,30 @@ interface ParseResult {
   ignoredItems: any[];
 }
 
-// Helper to parse dates like "DD/MM/YYYY" or "DD/MM/YY ..."
-const parseDate = (dateStr: string): Date | null => {
-  if (!dateStr || typeof dateStr !== 'string') return null;
-  const s = dateStr.trim().split(' ')[0];
+// Helper to parse dates like "DD/MM/YYYY" or "DD/MM/YY ..." or "Raw Excel Serials" (Universal handling)
+const parseDate = (dateStrInput: string | number): Date | null => {
+  if (dateStrInput === null || dateStrInput === undefined) return null;
+  
+  const dateStr = String(dateStrInput).trim();
+  if (dateStr === '') return null;
+
+  // 1. Resiliência Universal: Tratamento de Datas Cruas do Excel.
+  // Bancos frequentemente emitem arquivos .xlsx com formatações atípicas que quebram o visual "DD/MM/YYYY".
+  // Em vez de adivinhar cada banco, identificamos o Núcleo Matemático do Excel:
+  // Datas no Excel são números contínuos desde 1900-01-01. (30000 = 1982 | 90000 = 2146)
+  const numericDate = Number(dateStr.replace(',', '.')); // Lida com casos de vírgula injetados via parser CSV -> number("45901,00")
+  if (!isNaN(numericDate) && numericDate > 10000 && numericDate < 90000) {
+    // É uma data do Excel (Serial Date)
+    const utcDays = Math.floor(numericDate) - 25569;
+    const utcDate = new Date(utcDays * 86400 * 1000); // Unix timestamp equivalente (em UTC)
+    // Extraímos em UTC e reconstruímos na timezone local para evitar shifts de 1 dia na troca de fusos.
+    const year = utcDate.getUTCFullYear();
+    const month = utcDate.getUTCMonth();
+    const day = utcDate.getUTCDate();
+    return new Date(year, month, day);
+  }
+
+  const s = dateStr.split(' ')[0];
 
   // Try DD/MM/YYYY or DD/MM/YY
   let parts = s.split('/');
