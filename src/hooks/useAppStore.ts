@@ -105,7 +105,9 @@ interface AppState {
 
   // Admin Dashboard
   adminMetrics: AdminMetrics | null;
+  adminCrmUsers: AdminCrmUser[] | null;
   fetchAdminMetrics: () => Promise<void>;
+  fetchAdminCrmUsers: () => Promise<void>;
 
   // Navigation & UI State
   currentView: AppView;
@@ -136,6 +138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   unlimitedSync: false,
   isLoading: false,
   adminMetrics: null,
+  adminCrmUsers: null,
   assets: [],
   transactionFilters: {
     text: '',
@@ -746,6 +749,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ isLoading: false });
     } else {
       set({ adminMetrics: data as AdminMetrics, isLoading: false });
+    }
+  },
+
+  fetchAdminCrmUsers: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    // Apenas tenta buscar se houver usúario e for o admin
+    if (!user || user.email !== 'cassiomq@gmail.com') return;
+
+    set({ isLoading: true });
+    // Chama a function segura via RPC criada no painel SQL
+    const { data, error } = await supabase.rpc('get_admin_crm_users');
+    if (error) {
+      console.error('Erro ao buscar dados do CRM:', error);
+      set({ isLoading: false });
+    } else {
+      set({ adminCrmUsers: data as AdminCrmUser[], isLoading: false });
     }
   },
 

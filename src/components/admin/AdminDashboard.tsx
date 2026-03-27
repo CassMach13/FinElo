@@ -1,41 +1,135 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import Card from '../ui/Card';
 
 const AdminDashboard: React.FC = () => {
-    const { fetchAdminMetrics, adminMetrics, isLoading } = useAppStore();
+    const { fetchAdminMetrics, adminMetrics, fetchAdminCrmUsers, adminCrmUsers, isLoading } = useAppStore();
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         fetchAdminMetrics();
-    }, [fetchAdminMetrics]);
+        fetchAdminCrmUsers();
+    }, [fetchAdminMetrics, fetchAdminCrmUsers]);
 
-    if (isLoading || !adminMetrics) {
+    if (isLoading && (!adminMetrics || !adminCrmUsers)) {
         return (
             <div className="flex h-full items-center justify-center animate-pulse text-gray-400">
-                Carregando métricas...
+                Carregando métricas do CRM...
             </div>
         );
     }
 
+    const filteredUsers = (adminCrmUsers || []).filter(u => 
+        !searchTerm || u.email.toLowerCase().includes(searchTerm.toLowerCase().trim())
+    );
+
     return (
         <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700">
+            {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
                     <h3 className="text-gray-400 text-sm font-medium">Total de Usuários</h3>
-                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics.total_users}</p>
+                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.total_users || 0}</p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
                     <h3 className="text-gray-400 text-sm font-medium">Novos Cadastros (30d)</h3>
-                    <p className="text-3xl font-bold text-green-400 mt-2">+{adminMetrics.new_users_30_days}</p>
+                    <p className="text-3xl font-bold text-green-400 mt-2">+{adminMetrics?.new_users_30_days || 0}</p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
                     <h3 className="text-gray-400 text-sm font-medium">Assinantes Anuais</h3>
-                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics.yearly_users}</p>
+                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.yearly_users || 0}</p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
                     <h3 className="text-gray-400 text-sm font-medium">Assinantes Mensais</h3>
-                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics.monthly_users}</p>
+                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.monthly_users || 0}</p>
                 </Card>
+            </div>
+
+            {/* CRM Table */}
+            <div className="bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h3 className="text-lg font-bold text-white">Lista de Clientes (CRM)</h3>
+                    <div className="relative w-full sm:w-64">
+                        <input
+                            type="text"
+                            placeholder="Buscar por e-mail..."
+                            className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-purple-500 outline-none transition-colors"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400">
+                        <thead className="bg-slate-900/50 text-xs uppercase text-gray-500 font-semibold border-b border-white/5">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">E-mail</th>
+                                <th scope="col" className="px-6 py-3">Plano Vigente</th>
+                                <th scope="col" className="px-6 py-3">Data de Cadastro</th>
+                                <th scope="col" className="px-6 py-3">Último Acesso</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {filteredUsers.length > 0 ? (
+                                filteredUsers.map((user) => (
+                                    <tr key={user.id} className="hover:bg-slate-800/30 transition-colors">
+                                        <td className="px-6 py-4 font-medium text-slate-200">
+                                            {user.email}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {user.plan_type === 'lifetime' ? (
+                                                <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase">
+                                                    Fundador
+                                                </span>
+                                            ) : user.plan_type === 'annual' ? (
+                                                <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase">
+                                                    Anual
+                                                </span>
+                                            ) : user.plan_type === 'monthly' ? (
+                                                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase">
+                                                    Mensal
+                                                </span>
+                                            ) : (
+                                                <span className="bg-slate-700 px-2 py-0.5 rounded text-xs text-gray-400 uppercase">
+                                                    Free
+                                                </span>
+                                            )}
+                                            {user.plan_status && user.plan_status !== 'active' && (
+                                                <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-1 py-0.5 rounded">
+                                                    {user.plan_status}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {user.last_sign_in_at ? (
+                                                <span className={`px-2 py-0.5 rounded-full text-xs border ${
+                                                    (new Date().getTime() - new Date(user.last_sign_in_at).getTime()) < 3 * 24 * 60 * 60 * 1000 
+                                                        ? 'bg-green-500/10 border-green-500/30 text-green-400' 
+                                                        : 'bg-slate-800 border-slate-700 text-gray-500'
+                                                }`}>
+                                                    {new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit' })}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-600 italic">Nunca acessou</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                                        Nenhum usuário encontrado na busca.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

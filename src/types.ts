@@ -170,6 +170,15 @@ export interface AdminMetrics {
   monthly_users: number;
 }
 
+export interface AdminCrmUser {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  plan_type: string | null;
+  plan_status: string | null;
+}
+
 // --- Open Finance ---
 
 export type PluggyConfidence = 'alta' | 'media' | 'nova';
