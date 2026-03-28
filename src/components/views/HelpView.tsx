@@ -18,10 +18,11 @@ const HelpView: React.FC = () => {
     const [subject, setSubject] = useState('');
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
+    const [hasFileAcceptance, setHasFileAcceptance] = useState(false);
 
     useEffect(() => {
         fetchSupportTickets();
-    }, []);
+    }, [fetchSupportTickets]);
 
     // Helper: Handle quick send
     const handleSendMessage = async (ticketId: string, message: string, file?: File | null) => {
@@ -43,6 +44,7 @@ const HelpView: React.FC = () => {
             setDescription('');
             setType('question');
             setFile(null);
+            setHasFileAcceptance(false);
             setActiveTab('history');
         } catch (error) {
             console.error(error);
@@ -178,13 +180,28 @@ const HelpView: React.FC = () => {
                                     accept="image/*,.pdf,.doc,.docx"
                                 />
                                 {file && (
-                                    <p className="mt-1 text-xs text-cyan-400 bg-cyan-900/20 px-2 py-1 rounded w-fit">
-                                        📎 {file.name}
-                                    </p>
+                                    <div className="mt-4 p-4 bg-slate-800/80 border border-slate-700/80 rounded-lg shadow-inner">
+                                        <p className="text-xs text-cyan-400 bg-cyan-900/30 border border-cyan-500/20 px-3 py-2 rounded-md w-fit mb-3 flex items-center gap-2">
+                                            <span>📎</span> <span className="font-semibold">{file.name}</span>
+                                        </p>
+                                        <label className="flex items-start gap-3 cursor-pointer group">
+                                            <input 
+                                                type="checkbox" 
+                                                className="mt-0.5 w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-500 bg-slate-900 cursor-pointer"
+                                                checked={hasFileAcceptance}
+                                                onChange={(e) => setHasFileAcceptance(e.target.checked)}
+                                                required
+                                            />
+                                            <span className="text-[11px] leading-relaxed text-slate-400 group-hover:text-slate-300 transition-colors">
+                                                <strong className="text-slate-200 block mb-1">Termo de Consentimento e Isenção de Responsabilidade (LGPD)</strong>
+                                                Ao anexar este documento, declaro expressamente que estou enviando informações confidenciais ou sensíveis por minha livre e espontânea vontade, exclusivamente com a finalidade de viabilizar o suporte técnico. Adicionalmente, concordo em <strong>isentar a FinElo e seus controladores</strong> de toda e qualquer responsabilidade civil ou criminal por eventuais perdas, danos ou vazamentos decorrentes do envio voluntário desta documentação específica no ambiente de atendimento.
+                                            </span>
+                                        </label>
+                                    </div>
                                 )}
                             </div>
                             <div className="flex justify-end pt-4">
-                                <Button type="submit" disabled={isLoading}>
+                                <Button type="submit" disabled={isLoading || (file !== null && !hasFileAcceptance)}>
                                     {isLoading ? 'Enviando...' : 'Abrir Chamado'}
                                 </Button>
                             </div>
@@ -342,22 +359,28 @@ const HelpView: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <Button size="sm" className="h-fit" onClick={(e) => {
+                                                    <Button size="sm" className="h-fit mt-1" onClick={(e) => {
                                                         const container = e.currentTarget.previousElementSibling;
                                                         const input = container?.querySelector('input[type="text"]') as HTMLInputElement;
                                                         const attachmentInput = container?.querySelector('input[type="file"]') as HTMLInputElement;
-                                                        const file = attachmentInput?.files?.[0];
+                                                        const fileObj = attachmentInput?.files?.[0];
 
-                                                        if (input && (input.value.trim() || file)) {
-                                                            handleSendMessage(ticket.id, input.value, file);
+                                                        if (input && (input.value.trim() || fileObj)) {
+                                                            handleSendMessage(ticket.id, input.value, fileObj);
                                                             input.value = '';
                                                             if (attachmentInput) attachmentInput.value = '';
                                                             const label = container?.querySelector('.file-label');
-                                                            if (label) label.textContent = '📎 Anexar imagem';
+                                                            if (label) label.textContent = '📎 Anexar documento';
                                                         }
                                                     }}>
                                                         Enviar
                                                     </Button>
+                                                </div>
+                                                <div className="w-full mt-2 pl-1">
+                                                    <p className="text-[9px] text-slate-500 leading-tight">
+                                                        <strong>Aviso de Privacidade:</strong> Ao optar por anexar e enviar arquivos nesta conversa, você consente com o compartilhamento e isenta a FinElo de responsabilidade sobre o tráfego destes dados sensíveis de suporte (LGPD).
+                                                    </p>
+                                                </div>
                                                 </>
                                             )}
                                         </div>
