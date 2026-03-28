@@ -375,7 +375,6 @@ const HelpView: React.FC = () => {
                                                     }}>
                                                         Enviar
                                                     </Button>
-                                                </div>
                                                 <div className="w-full mt-2 pl-1">
                                                     <p className="text-[9px] text-slate-500 leading-tight">
                                                         <strong>Aviso de Privacidade:</strong> Ao optar por anexar e enviar arquivos nesta conversa, você consente com o compartilhamento e isenta a FinElo de responsabilidade sobre o tráfego destes dados sensíveis de suporte (LGPD).
