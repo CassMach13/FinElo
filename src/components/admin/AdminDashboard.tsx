@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import Card from '../ui/Card';
+import { AdminCrmUser } from '../../types';
+
+type SortKey = keyof AdminCrmUser;
 
 const AdminDashboard: React.FC = () => {
     const { fetchAdminMetrics, adminMetrics, isLoading } = useAppStore();
     const [searchTerm, setSearchTerm] = useState('');
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({
+        key: 'last_sign_in_at',
+        direction: 'asc' // O default é asc para os mais antigas vir primeiro
+    });
 
     useEffect(() => {
         fetchAdminMetrics();
@@ -18,9 +26,43 @@ const AdminDashboard: React.FC = () => {
         );
     }
 
+    const handleCopyEmail = (email: string, id: string) => {
+        navigator.clipboard.writeText(email);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const handleSort = (key: SortKey) => {
+        setSortConfig((current) => ({
+            key,
+            direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
+
     const filteredUsers = (adminMetrics?.crm_users || []).filter(u => 
-        !searchTerm || u.email.toLowerCase().includes(searchTerm.toLowerCase().trim())
+        !searchTerm || u.email.toLowerCase().includes(searchTerm.toLowerCase().trim()) || (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase().trim()))
     );
+
+    const sortedUsers = [...filteredUsers].sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (sortConfig.key === 'last_sign_in_at' || sortConfig.key === 'created_at') {
+            // Se for nulo conta como 0 (o começo dos tempos), assim eles ficam topo do ASC (mais tempo sem acessar).
+            const aDate = aValue ? new Date(aValue as string).getTime() : 0;
+            const bDate = bValue ? new Date(bValue as string).getTime() : 0;
+            return sortConfig.direction === 'asc' ? aDate - bDate : bDate - aDate;
+        }
+
+        const strA = (aValue || '').toString().toLowerCase();
+        const strB = (bValue || '').toString().toLowerCase();
+        return sortConfig.direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+
+    const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+        if (sortConfig.key !== columnKey) return <span className="text-slate-600 opacity-0 group-hover:opacity-50 ml-1 transition-opacity">↕</span>;
+        return <span className="text-cyan-400 ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+    };
 
     return (
         <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700">
@@ -62,21 +104,44 @@ const AdminDashboard: React.FC = () => {
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-gray-400">
-                        <thead className="bg-slate-900/50 text-xs uppercase text-gray-500 font-semibold border-b border-white/5">
+                        <thead className="bg-slate-900/50 text-xs uppercase text-gray-400 font-semibold border-b border-white/5">
                             <tr>
-                                <th scope="col" className="px-6 py-3">Usuário</th>
-                                <th scope="col" className="px-6 py-3">Plano Vigente</th>
-                                <th scope="col" className="px-6 py-3">Data de Cadastro</th>
-                                <th scope="col" className="px-6 py-3">Último Acesso</th>
+                                <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('full_name')}>
+                                    <div className="flex items-center">Usuário <SortIcon columnKey="full_name"/></div>
+                                </th>
+                                <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('plan_type')}>
+                                    <div className="flex items-center">Plano Vigente <SortIcon columnKey="plan_type"/></div>
+                                </th>
+                                <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('created_at')}>
+                                    <div className="flex items-center">Data de Cadastro <SortIcon columnKey="created_at"/></div>
+                                </th>
+                                <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('last_sign_in_at')}>
+                                    <div className="flex items-center text-cyan-500 font-bold">Último Acesso <SortIcon columnKey="last_sign_in_at"/></div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {filteredUsers.length > 0 ? (
-                                filteredUsers.map((user) => (
+                            {sortedUsers.length > 0 ? (
+                                sortedUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-semibold text-slate-200">{user.full_name || 'Usuário sem nome'}</div>
-                                            <div className="text-xs text-slate-500">{user.email}</div>
+                                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                                <span>{user.email}</span>
+                                                <button 
+                                                    onClick={() => handleCopyEmail(user.email, user.id)}
+                                                    className="p-1 hover:bg-slate-700 rounded transition-colors group/copy relative"
+                                                    title="Copiar e-mail"
+                                                >
+                                                    {copiedId === user.id ? (
+                                                        <span className="text-emerald-400 text-xs font-bold">✓ Copiado</span>
+                                                    ) : (
+                                                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover/copy:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {user.plan_type === 'lifetime' ? (

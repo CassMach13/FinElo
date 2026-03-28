@@ -52,12 +52,12 @@ BEGIN
           'full_name', au.raw_user_meta_data->>'full_name',
           'created_at', au.created_at,
           'last_sign_in_at', au.last_sign_in_at,
-          'plan_type', pu.plan_type,
-          'plan_status', pu.plan_status
+          'plan_type', ps.tier,
+          'plan_status', ps.status
         ) ORDER BY au.last_sign_in_at DESC NULLS LAST
       ), '[]'::json)
       FROM auth.users au
-      LEFT JOIN public.users pu ON au.id = pu.id
+      LEFT JOIN public.subscriptions ps ON au.id = ps.user_id
     )
   );
 END;
