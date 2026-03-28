@@ -3,15 +3,14 @@ import { useAppStore } from '../../hooks/useAppStore';
 import Card from '../ui/Card';
 
 const AdminDashboard: React.FC = () => {
-    const { fetchAdminMetrics, adminMetrics, fetchAdminCrmUsers, adminCrmUsers, isLoading } = useAppStore();
+    const { fetchAdminMetrics, adminMetrics, isLoading } = useAppStore();
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         fetchAdminMetrics();
-        fetchAdminCrmUsers();
-    }, [fetchAdminMetrics, fetchAdminCrmUsers]);
+    }, [fetchAdminMetrics]);
 
-    if (isLoading && (!adminMetrics || !adminCrmUsers)) {
+    if (isLoading && (!adminMetrics)) {
         return (
             <div className="flex h-full items-center justify-center animate-pulse text-gray-400">
                 Carregando métricas do CRM...
@@ -19,7 +18,7 @@ const AdminDashboard: React.FC = () => {
         );
     }
 
-    const filteredUsers = (adminCrmUsers || []).filter(u => 
+    const filteredUsers = (adminMetrics?.crm_users || []).filter(u => 
         !searchTerm || u.email.toLowerCase().includes(searchTerm.toLowerCase().trim())
     );
 
@@ -65,7 +64,7 @@ const AdminDashboard: React.FC = () => {
                     <table className="w-full text-left text-sm text-gray-400">
                         <thead className="bg-slate-900/50 text-xs uppercase text-gray-500 font-semibold border-b border-white/5">
                             <tr>
-                                <th scope="col" className="px-6 py-3">E-mail</th>
+                                <th scope="col" className="px-6 py-3">Usuário</th>
                                 <th scope="col" className="px-6 py-3">Plano Vigente</th>
                                 <th scope="col" className="px-6 py-3">Data de Cadastro</th>
                                 <th scope="col" className="px-6 py-3">Último Acesso</th>
@@ -75,8 +74,9 @@ const AdminDashboard: React.FC = () => {
                             {filteredUsers.length > 0 ? (
                                 filteredUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-slate-800/30 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-slate-200">
-                                            {user.email}
+                                        <td className="px-6 py-4">
+                                            <div className="font-semibold text-slate-200">{user.full_name || 'Usuário sem nome'}</div>
+                                            <div className="text-xs text-slate-500">{user.email}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {user.plan_type === 'lifetime' ? (

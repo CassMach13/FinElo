@@ -160,6 +160,16 @@ export interface Asset {
   updated_at: string;
 }
 
+export interface AdminCrmUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  plan_type: string | null;
+  plan_status: string | null;
+}
+
 export interface AdminMetrics {
   total_users: number;
   new_users_30_days: number;
@@ -168,15 +178,7 @@ export interface AdminMetrics {
   wealth_users: number;
   yearly_users: number;
   monthly_users: number;
-}
-
-export interface AdminCrmUser {
-  id: string;
-  email: string;
-  created_at: string;
-  last_sign_in_at: string | null;
-  plan_type: string | null;
-  plan_status: string | null;
+  crm_users?: AdminCrmUser[];
 }
 
 // --- Open Finance ---

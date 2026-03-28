@@ -43,7 +43,22 @@ BEGIN
     'pro_users', pro_users,
     'wealth_users', wealth_users,
     'yearly_users', yearly_users,
-    'monthly_users', monthly_users
+    'monthly_users', monthly_users,
+    'crm_users', (
+      SELECT COALESCE(json_agg(
+        json_build_object(
+          'id', au.id,
+          'email', au.email,
+          'full_name', au.raw_user_meta_data->>'full_name',
+          'created_at', au.created_at,
+          'last_sign_in_at', au.last_sign_in_at,
+          'plan_type', pu.plan_type,
+          'plan_status', pu.plan_status
+        ) ORDER BY au.last_sign_in_at DESC NULLS LAST
+      ), '[]'::json)
+      FROM auth.users au
+      LEFT JOIN public.users pu ON au.id = pu.id
+    )
   );
 END;
 $$;
