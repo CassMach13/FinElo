@@ -103,7 +103,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'xp-conta',
     name: 'XP Investimentos',
-    description: 'Extrato de Conta Corrente (XP)',
+    description: 'Extrato de Conta Corrente',
     sourceType: 'Conta',
     isSupported: true,
     brandColor: '#000000',
@@ -167,7 +167,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'ifood-beneficios',
     name: 'iFood Benefícios',
-    description: 'Extrato de Benefício iFood',
+    description: 'Extrato de Benefício',
     sourceType: 'Conta',
     isSupported: true,
     brandColor: '#5b0b1a',          // Official dark wine/burgundy from website
@@ -230,7 +230,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'cartao-xp',
     name: 'Cartão de Crédito XP',
-    description: 'Fatura do Cartão de Crédito XP',
+    description: 'Fatura do Cartão de Crédito',
     sourceType: 'Cartao',
     isSupported: true,
     brandColor: '#1A1A2E',
@@ -253,7 +253,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'nubank-cartao',
     name: 'Cartão de Crédito Nubank',
-    description: 'Fatura do Cartão de Crédito Nubank',
+    description: 'Fatura do Cartão de Crédito',
     sourceType: 'Cartao',
     isSupported: true,
     brandColor: '#8A05BE',
@@ -275,7 +275,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'banco-santander',
     name: 'Santander',
-    description: 'Extrato de Conta Corrente (XLS)',
+    description: 'Extrato de Conta Corrente',
     sourceType: 'Conta',
     isSupported: true,
     brandColor: '#EC0000',      // Santander Red
@@ -296,7 +296,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'nubank-conta',
     name: 'NuBank',
-    description: 'Extrato de Conta Corrente / NuConta',
+    description: 'Extrato de Conta Corrente / Conta Digital',
     sourceType: 'Conta',
     isSupported: true,
     brandColor: '#8A05BE',
@@ -316,7 +316,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'mercado-pago',
     name: 'Mercado Pago',
-    description: 'Extrato de Conta Digital Mercado Pago',
+    description: 'Extrato de Conta Digital',
     sourceType: 'Conta',
     isSupported: true,
     brandColor: '#009EE3',      // Mercado Pago blue (app icon)
@@ -338,7 +338,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'picpay',
     name: 'PicPay',
-    description: 'Extrato de Conta (PicPay)',
+    description: 'Extrato de Conta Corrente / Carteira Digital',
     sourceType: 'Conta',
     isSupported: true,
     brandColor: '#38B160',      // Vibrant green PicPay
@@ -355,6 +355,55 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     invertValues: false,        // Expenses are already negative format "-R$110,00"
     ignoreRowsContaining: [],
     signatureStrings: ['Data,Hora,Tipo,Origem/Destino,Forma de pagamento,Valor', 'picpay'],
+  },
+  {
+    // Bradesco: detecta automaticamente CSV/XLSX (col R$=3) e XLS Internet Banking (col R$=4)
+    // Múltiplos portadores num mesmo arquivo — o parser faz auto-seek de header
+    id: 'bradesco-cartao',
+    name: 'Cartão de Crédito Bradesco',
+    description: 'Fatura do Cartão de Crédito Bradesco',
+    sourceType: 'Cartao',
+    isSupported: true,
+    brandColor: '#CC092F',           // Vermelho oficial Bradesco
+    brandColorSecondary: '#B81570',  // Magenta do gradiente do header
+    logoText: 'bradesco',
+    logoUrl: '/bank-logos/bradesco.png',
+    delimiter: ';',
+    skipLines: 0,
+    hasHeader: true,
+    // Layout CSV/XLSX: Data | Histórico | Valor(US$) | Valor(R$)
+    // Layout XLS:      Data | Histórico | (vazio)    | Valor (US$) | Valor(R$)
+    // O parser deteta dinamicamente o índice correto via auto-seek de header
+    dateColIndex: 0,
+    descColIndices: [1],
+    valueColIndex: 3,               // Default para CSV/XLSX; XLS será ajustado pelo parser
+    invertValues: true,             // Positivo na fatura = despesa
+    numberFormat: 'BR',
+    ignoreRowsContaining: [
+      'SALDO ANTERIOR',
+      'PAGTO. POR DEB',
+      'Total da fatura',
+      'Total para',
+      'Bradesco Internet Banking',
+      'Resumo das Despesas',
+      'Saldo Anterior',
+      'Pagamentos',
+      'Despesas locais',
+      'Despesas no exterior',
+      'Cotação do dólar',
+      'Fatura em Aberto',
+      'Situação da Fatura',
+      'Taxas',
+      'Descrição',
+      'Pagamento de contas',
+      'Parcelamento de fatura',
+      'Compras parceladas',
+      'Rotativo',
+      'Saque',
+      'Crediário',
+      'Pagamento Mínimo',
+    ],
+    signatureStrings: ['Situação da Fatura', 'Valor(US$)', 'Bradesco Internet Banking'],
   },
 ];
 
@@ -476,6 +525,14 @@ const extractInstallments = (
  */
 export function detectBankFromContent(content: string): NativeBankConfig | null {
   const firstLines = content.split(/[\r\n]+/).slice(0, 15).join('\n').toLowerCase();
+
+  // Bradesco: detecta ambos os formatos (XLS Internet Banking e CSV/XLSX padrão)
+  if (
+    firstLines.includes('bradesco internet banking') ||
+    (firstLines.includes('situação da fatura') && (firstLines.includes('valor(us$)') || firstLines.includes('valor(r$)')))
+  ) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'bradesco-cartao') || null;
+  }
 
   // 1. Santander: "EXTRATO DE CONTA CORRENTE" (Very specific)
   if (firstLines.includes('extrato de conta corrente') || (firstLines.includes('crédito (r$)') && firstLines.includes('débito (r$)'))) {
@@ -642,11 +699,10 @@ export function parseNativeBankCSV(
   let startRow = bankConfig.hasHeader ? 1 : 0;
   let dataToProcess = data;
 
-  // AUTO-SEEK HEADER: If bank is Santander or has many skip lines potentially, verify the header row
+  // AUTO-SEEK HEADER: If bank is Santander, look for the row that contains "Data" and "Descrição"
   if (bankConfig.id === 'banco-santander') {
-    // Look for the row that contains "Data" and "Descrição"
-    const headerIdx = data.findIndex(row => 
-      row.some(cell => String(cell).toLowerCase().includes('data')) && 
+    const headerIdx = data.findIndex(row =>
+      row.some(cell => String(cell).toLowerCase().includes('data')) &&
       row.some(cell => String(cell).toLowerCase().includes('descrição'))
     );
     if (headerIdx !== -1) {
@@ -656,14 +712,13 @@ export function parseNativeBankCSV(
 
   // AUTO-SEEK HEADER: XP Conta can be CSV (Data, Descrição) or XLSX (Movimentação, Lançamento)
   if (bankConfig.id === 'xp-conta') {
-    const headerIdx = data.findIndex(row => 
-      row.some(cell => String(cell).toLowerCase().includes('movimentação')) && 
+    const headerIdx = data.findIndex(row =>
+      row.some(cell => String(cell).toLowerCase().includes('movimentação')) &&
       row.some(cell => String(cell).toLowerCase().includes('lançamento'))
     );
     if (headerIdx !== -1) {
       startRow = headerIdx + 1;
       const headerRow = data[headerIdx];
-      // Override os índices fixos pelo layout real do Excel da XP
       const movIdx = headerRow.findIndex(cell => String(cell).toLowerCase().includes('movimentação'));
       const lanIdx = headerRow.findIndex(cell => String(cell).toLowerCase().includes('lançamento'));
       const valIdx = headerRow.findIndex(cell => String(cell).toLowerCase().includes('valor'));
@@ -671,6 +726,105 @@ export function parseNativeBankCSV(
       if (lanIdx !== -1) bankConfig.descColIndices = [lanIdx];
       if (valIdx !== -1) bankConfig.valueColIndex = valIdx;
     }
+  }
+
+  // BRADESCO: Parser especial multi-portador.
+  // O arquivo contém múltiplos blocos de portador, cada um com sua própria linha de header.
+  // Percorremos TODAS as linhas e rastreamos o portador atual dinamicamente.
+  // O índice da coluna de valor (R$) é ajustado dinamicamente: CSV/XLSX=3, XLS Internet Banking=4
+  if (bankConfig.id === 'bradesco-cartao') {
+    const bradTransactions: Omit<Transaction, 'ID_Transacao'>[] = [];
+    let currentPortador: string | undefined = undefined;
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if (!row || row.length === 0) continue;
+
+      const rowStr = row.map(c => String(c || '')).join(' ').toUpperCase();
+
+      // Detecta linha de header (contém 'Histórico')
+      const isHeaderRow = row.some(cell =>
+        String(cell).toLowerCase().includes('histórico') || String(cell).toLowerCase().includes('historico')
+      );
+      if (isHeaderRow) {
+        // Ajusta dinamicamente o índice da coluna de valor (R$) com base no header real
+        const valRidx = row.findIndex(cell => {
+          const c = String(cell);
+          return c.includes('Valor(R$)') || c.includes('Valor (R$)') || c.toLowerCase().includes('valor(r$)') || c.toLowerCase().includes('valor (r$)');
+        });
+        if (valRidx !== -1) bankConfig.valueColIndex = valRidx;
+        continue;
+      }
+
+      // Detecta linha de portador: primeira célula é texto (sem data) e demais células são vazias ou números do cartão
+      const firstCell = String(row[0] || '').trim();
+      const isDateLike = /^\d{2}[/\-.]/.test(firstCell) || (typeof row[0] === 'number' && row[0] > 10000);
+      const hasPortadorMarker = firstCell.length > 3 && !isDateLike &&
+        row.slice(1).every(c => !String(c).trim() || /^\d+$/.test(String(c).trim()));
+      if (hasPortadorMarker && firstCell !== '') {
+        const portadorMatch = firstCell.match(/^(.+?)(?:\s*[-;]+\s*|\s+)(\d{3,4})\s*$/);
+        if (portadorMatch) {
+          currentPortador = `${portadorMatch[1].trim()} (${portadorMatch[2]})`;
+        } else if (!/^\d/.test(firstCell)) {
+          currentPortador = firstCell;
+        }
+        continue;
+      }
+
+      // Verifica linhas que devem ser ignoradas
+      const shouldIgnore = (bankConfig.ignoreRowsContaining || []).some(pattern =>
+        rowStr.includes(pattern.toUpperCase())
+      );
+      if (shouldIgnore) {
+        ignoredCount++;
+        ignoredItems.push({ Motivo: 'Linha ignorada (padrão de exclusão)', RawRow: rowStr });
+        continue;
+      }
+
+      const rawDate = String(row[bankConfig.dateColIndex] || '').trim();
+      const rawDesc = bankConfig.descColIndices
+        .map(idx => String(row[idx] || '').trim())
+        .filter(Boolean)
+        .join(' - ');
+      const rawValue = String(row[bankConfig.valueColIndex] || '').trim();
+
+      const cleanedDate = parseDate(rawDate);
+      const cleanedValue = parseMonetaryValue(rawValue, bankConfig.numberFormat);
+
+      if (!cleanedDate || cleanedValue === null || !rawDesc) continue;
+
+      const installInfo = extractInstallments(rawDesc, cleanedDate);
+      const finalValue = bankConfig.invertValues ? -cleanedValue : cleanedValue;
+      const finalType: 'Renda' | 'Despesa' = finalValue >= 0 ? 'Renda' : 'Despesa';
+
+      let suggestedName = rawDesc;
+      let suggestedCategory = '-';
+      for (const rule of mappingRules) {
+        if (rawDesc.toUpperCase().includes(rule.Texto_Contido_Descricao.toUpperCase())) {
+          suggestedName = rule.Nome_Fantasia_Sugerido;
+          suggestedCategory = rule.Categoria_Sugerida;
+          break;
+        }
+      }
+
+      bradTransactions.push({
+        Data: cleanedDate,
+        Data_Pagamento: paymentDate || cleanedDate,
+        Descricao_Original: rawDesc,
+        Nome_Fantasia: suggestedName,
+        Parcela_Atual: installInfo.current,
+        Total_Parcelas: installInfo.total,
+        Portador: currentPortador,
+        Valor: finalValue,
+        Tipo: finalType,
+        Categoria: suggestedCategory,
+        Fonte: bankConfig.name,
+        Origem: fileName || bankConfig.name,
+      });
+      successCount++;
+    }
+
+    return { newTransactions: bradTransactions, successCount, ignoredCount, ignoredItems };
   }
 
   let stopProcessing = false;
