@@ -34,69 +34,88 @@ export const xpInvestmentParser = {
             }
 
             const firstCell = String(row[0] || '').trim();
+            const cellLower = firstCell.toLowerCase();
 
-            // Ignore top headers
-            if (firstCell === 'Cassio Marques, este é o seu patrimônio' || firstCell.includes('Total') || firstCell.includes('Cassio')) {
+            // Skip top noise and general headers
+            if (rowIndex < 10 && (cellLower === '' || cellLower.includes('patrimônio') || cellLower.includes('este é o seu') || cellLower.includes('conta:'))) {
                 continue;
             }
 
-            // Detect Category Header
-            if (
-                !firstCell.includes('%') &&
-                (firstCell === 'Fundos de Investimentos' || firstCell === 'Renda Fixa' || firstCell === 'Previdência Privada' || firstCell === 'Ações' || firstCell === 'Tesouro Direto' || firstCell === 'COE' || firstCell === 'COI')
-            ) {
-                currentCategory = firstCell;
+            if (cellLower.includes('total') || cellLower.includes('subtotal')) {
+                continue;
+            }
+
+            // Detect Category Header - Use includes for flexibility
+            const isCategory = 
+                !firstCell.includes('%') && 
+                (cellLower.includes('fundos de investimentos') || 
+                 cellLower.includes('renda fixa') || 
+                 cellLower.includes('previdência privada') || 
+                 cellLower.includes('ações') || 
+                 cellLower.includes('tesouro direto') || 
+                 cellLower.includes('coe') || 
+                 cellLower.includes('coi') || 
+                 cellLower.includes('imobiliário') || 
+                 cellLower.includes('fii') || 
+                 cellLower.includes('alternativos'));
+
+            if (isCategory) {
+                // Determine a clean name for the category
+                if (cellLower.includes('fundos de investimentos')) currentCategory = 'Fundos de Investimentos';
+                else if (cellLower.includes('renda fixa')) currentCategory = 'Renda Fixa';
+                else if (cellLower.includes('previdência privada')) currentCategory = 'Previdência Privada';
+                else if (cellLower.includes('ações')) currentCategory = 'Ações';
+                else if (cellLower.includes('tesouro direto')) currentCategory = 'Tesouro Direto';
+                else if (cellLower.includes('coe') || cellLower.includes('coi')) currentCategory = 'COE';
+                else if (cellLower.includes('imobiliário') || cellLower.includes('fii')) currentCategory = 'Fundos Imobiliários';
+                else if (cellLower.includes('alternativos')) currentCategory = 'Alternativos';
+                else currentCategory = firstCell;
+                
                 isInsideBlock = true;
-                colMap = { value: -1, yield: -1, maturity: -1, principal: -1 };
+                colMap = { name: 0, value: -1, yield: -1, maturity: -1, principal: -1 };
                 continue;
             }
 
-            if (isInsideBlock && colMap.value === -1) {
-                // Find header row that declares columns
-                const rowString = row.join(' ').toLowerCase();
-                if (rowString.includes('valor líq') || rowString.includes('valor liq') || rowString.includes('posição')) {
-                    for (let i = 0; i < row.length; i++) {
-                        const cellLower = String(row[i] || '').toLowerCase().trim();
+            // Detect Column Headers within a category block
+            if (isInsideBlock && (row.includes('Posição') || row.includes('Saldo') || row.includes('Valor líquido'))) {
+                for (let i = 0; i < row.length; i++) {
+                    const cellValue = String(row[i] || '').trim();
+                    const cellLower = cellValue.toLowerCase();
 
-                        if (cellLower.includes('valor líq') || cellLower.includes('valor liq') || cellLower.includes('posição')) {
-                            // First match wins to mimic V1 behavior which correctly aligned with the spreadsheet's total
-                            if (colMap.value === -1) {
-                                colMap.value = i;
-                            }
-                        }
-                        if (cellLower === 'taxa a mercado' || cellLower === 'rentabilidade líquida' || cellLower === 'rentabilidade' || cellLower === 'rendimento liq') {
-                            colMap.yield = i;
-                        }
-                        // For COE, "Rendimento bruto" often refers to the total amount or principal in some exports,
-                        // so we only map it to yield if it's NOT a COE section, or use it as a fallback.
-                        if (cellLower === 'rendimento bruto' && currentCategory !== 'COE' && currentCategory !== 'COI') {
-                            colMap.yield = i;
-                        }
-                        
-                        if (cellLower === 'data vencimento' || cellLower === 'vencimento') {
-                            colMap.maturity = i;
-                        }
-                        if (cellLower === 'valor aplicado' || cellLower === 'valor investido' || cellLower === 'investimento inicial' || cellLower === 'aplicado') {
-                            colMap.principal = i;
+                    if (cellValue === 'Posição' || cellValue === 'Saldo' || cellValue === 'Valor líquido') {
+                        // Only set if not already set or prioritize 'Posição'
+                        if (colMap.value === -1 || cellValue === 'Posição') {
+                            colMap.value = i;
                         }
                     }
-
-                    // Special case for COE/COI where columns might be shifted or headers named differently
-                    if ((currentCategory === 'COE' || currentCategory === 'COI') && colMap.principal === -1) {
-                        // In many XP COE exports, index 3 is where the applied value lives
-                        if (row.length > 3) colMap.principal = 3;
+                    
+                    if (cellLower === 'taxa a mercado' || cellLower === 'rentabilidade líquida' || cellLower === 'rentabilidade' || cellLower === 'rentabilidade (%)' || cellLower === 'rendimento liq') {
+                        colMap.yield = i;
                     }
+
+                    // For COE, "Rendimento bruto" often refers to the total amount or principal in some exports,
+                    // so we only map it to yield if it's NOT a COE section, or use it as a fallback.
+                    if (cellLower === 'rendimento bruto' && currentCategory !== 'COE') {
+                        colMap.yield = i;
+                    }
+                    
+                    if (cellLower === 'data vencimento' || cellLower === 'vencimento') {
+                        colMap.maturity = i;
+                    }
+                    if (cellLower === 'valor aplicado' || cellLower === 'valor investido' || cellLower === 'investimento inicial' || cellLower === 'aplicado') {
+                        colMap.principal = i;
+                    }
+                }
+
+                // Special case for COE where columns might be shifted or headers named differently
+                if (currentCategory === 'COE' && colMap.principal === -1) {
+                    if (row.length > 3) colMap.principal = 3;
                 }
                 continue;
             }
 
-            // Inside a block, we know the value column, skip sub-headers like "12,9% | Pós-Fixado"
-            if (isInsideBlock && colMap.value !== -1 && firstCell.includes('%')) {
-                continue;
-            }
-
             // Actually parse the product
-            if (isInsideBlock && colMap.value !== -1 && firstCell) {
+            if (isInsideBlock && colMap.value !== -1 && firstCell && !firstCell.includes('Posição') && !firstCell.includes('Saldo')) {
                 const rawValue = String(row[colMap.value] || '');
                 const numericValue = this.parseCurrency(rawValue);
 

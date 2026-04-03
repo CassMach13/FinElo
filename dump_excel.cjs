@@ -9,9 +9,9 @@ try {
     const sheet = workbook.Sheets[sheetName];
     const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-    rawData.slice(50, 61).forEach((row, i) => {
-        console.log(`Row ${50+i}:`, JSON.stringify(row));
-    });
+    console.log('--- START TOTAL SEARCH ---');
+    console.log('Row 2:', JSON.stringify(rawData[2]));
+    console.log('--- END TOTAL SEARCH ---');
     console.log('--- END DUMP ---');
 } catch (err) {
     console.error('Error reading file:', err);
