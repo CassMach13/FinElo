@@ -425,7 +425,24 @@ const TransactionsView: React.FC = () => {
           const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
 
           return (
-            <div key={account.id} className="bg-secondary p-4 rounded-lg shadow-md border-l-4 border-accent flex flex-col justify-between relative overflow-hidden group">
+            <div 
+              key={account.id} 
+              className="bg-secondary p-4 rounded-lg shadow-md border-l-4 border-accent flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:bg-slate-800/80 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              onClick={() => {
+                setEditingAccount(account);
+                setAccountModalOpen(true);
+              }}
+              title={`Clique para editar ${account.Nome_Conta}`}
+            >
+              {/* Edit Icon Overlay */}
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                <div className="bg-highlight/20 p-1.5 rounded-lg border border-highlight/30">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-highlight" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+              </div>
+
               <div className="z-10 h-full flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
