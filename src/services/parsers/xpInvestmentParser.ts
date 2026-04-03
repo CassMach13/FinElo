@@ -45,37 +45,8 @@ export const xpInvestmentParser = {
                 continue;
             }
 
-            // Detect Category Header - Use includes for flexibility
-            const isCategory = 
-                (cellLower.includes('fundos de investimentos') || 
-                 cellLower.includes('renda fixa') || 
-                 cellLower.includes('previdência privada') || 
-                 cellLower.includes('ações') || 
-                 cellLower.includes('tesouro direto') || 
-                 cellLower.includes('coe') || 
-                 cellLower.includes('coi') || 
-                 cellLower.includes('imobiliário') || 
-                 cellLower.includes('fii') || 
-                 cellLower.includes('alternativos'));
-
-            if (isCategory) {
-                // Determine a clean name for the category
-                if (cellLower.includes('fundos de investimentos')) currentCategory = 'Fundos de Investimentos';
-                else if (cellLower.includes('renda fixa')) currentCategory = 'Renda Fixa';
-                else if (cellLower.includes('previdência privada')) currentCategory = 'Previdência Privada';
-                else if (cellLower.includes('ações')) currentCategory = 'Ações';
-                else if (cellLower.includes('tesouro direto')) currentCategory = 'Tesouro Direto';
-                else if (cellLower.includes('coe') || cellLower.includes('coi')) currentCategory = 'COE';
-                else if (cellLower.includes('imobiliário') || cellLower.includes('fii')) currentCategory = 'Fundos Imobiliários';
-                else if (cellLower.includes('alternativos')) currentCategory = 'Alternativos';
-                else currentCategory = firstCell;
-                
-                isInsideBlock = true;
-                colMap = { name: 0, value: -1, yield: -1, maturity: -1, principal: -1 };
-                continue;
-            }
-
-            // Detect Column Headers within a category block
+            // Detect Column Headers within a category block (PRIORITY)
+            // A row that looks like a table header (Posição, Saldo, etc.) should never be treated as a Section Category Header
             const rowString = row.join(' ').toLowerCase();
             const looksLikeHeader = rowString.includes('posição') || rowString.includes('saldo') || rowString.includes('valor líquido') || rowString.includes('reserva bruta');
 
@@ -113,6 +84,37 @@ export const xpInvestmentParser = {
                 if (currentCategory === 'COE' && colMap.principal === -1) {
                     if (row.length > 3) colMap.principal = 3;
                 }
+                continue;
+            }
+
+            // Detect Category Header
+            const isCategory = 
+                !looksLikeHeader && 
+                (cellLower.includes('fundos de investimentos') || 
+                 cellLower.includes('renda fixa') || 
+                 cellLower.includes('previdência privada') || 
+                 cellLower.includes('ações') || 
+                 cellLower.includes('tesouro direto') || 
+                 cellLower.includes('coe') || 
+                 cellLower.includes('coi') || 
+                 cellLower.includes('imobiliário') || 
+                 cellLower.includes('fii') || 
+                 cellLower.includes('alternativos'));
+
+            if (isCategory) {
+                // Determine a clean name for the category
+                if (cellLower.includes('fundos de investimentos')) currentCategory = 'Fundos de Investimentos';
+                else if (cellLower.includes('renda fixa')) currentCategory = 'Renda Fixa';
+                else if (cellLower.includes('previdência privada')) currentCategory = 'Previdência Privada';
+                else if (cellLower.includes('ações')) currentCategory = 'Ações';
+                else if (cellLower.includes('tesouro direto')) currentCategory = 'Tesouro Direto';
+                else if (cellLower.includes('coe') || cellLower.includes('coi')) currentCategory = 'COE';
+                else if (cellLower.includes('imobiliário') || cellLower.includes('fii')) currentCategory = 'Fundos Imobiliários';
+                else if (cellLower.includes('alternativos')) currentCategory = 'Alternativos';
+                else currentCategory = firstCell;
+                
+                isInsideBlock = true;
+                colMap = { value: -1, yield: -1, maturity: -1, principal: -1 };
                 continue;
             }
 
