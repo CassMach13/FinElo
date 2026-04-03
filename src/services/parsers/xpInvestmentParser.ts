@@ -90,7 +90,7 @@ export const xpInvestmentParser = {
 
                 if (numericValue > 0) {
                     const inv: Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
-                        institution: 'XP Investimentos',
+                        institution: 'XP',
                         product_type: currentCategory,
                         product_name: firstCell,
                         balance: numericValue,

@@ -88,14 +88,22 @@ const InvestmentsView: React.FC = () => {
         try {
             await investmentService.deleteInvestment(id);
             setInvestments(investments.filter(i => i.id !== id));
+            alert('Investimento removido com sucesso.');
         } catch (error) {
             console.error('Failed to delete investment:', error);
+            alert('Erro ao remover investimento. Verifique sua conexão e tente novamente.');
         }
     };
 
     const handleClearInstitution = async (institution: string) => {
-        if (!user) return;
-        if (!confirm(`Tem certeza que deseja apagar todos os registros de ${institution} deste mês? Essa ação não pode ser desfeita.`)) return;
+        if (!user) {
+            alert('Usuário não identificado. Por favor, faça login novamente.');
+            return;
+        }
+        
+        if (!confirm(`Tem certeza que deseja apagar todos os registros de ${institution} deste mês? Essa ação não pode ser desfeita.`)) {
+            return;
+        }
 
         setIsLoading(true);
         try {
@@ -103,10 +111,14 @@ const InvestmentsView: React.FC = () => {
             const monthNum = String(currentDate.getMonth() + 1).padStart(2, '0');
             const refString = `${year}-${monthNum}-01`;
 
+            console.log(`[InvestmentsView] Tentando limpar instituição: ${institution} para o mês: ${refString}`);
             await investmentService.deleteInvestmentsByInstitutionAndMonth(user.id, institution, refString);
             await fetchInvestments(currentDate);
+            alert(`Registros de ${institution} deste mês foram apagados com sucesso.`);
         } catch (error) {
             console.error('Failed to clear institution:', error);
+            alert('Erro ao apagar registros. Verifique o console para mais detalhes.');
+        } finally {
             setIsLoading(false);
         }
     };

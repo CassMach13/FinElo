@@ -66,12 +66,19 @@ export const investmentService = {
     },
 
     async deleteInvestmentsByInstitutionAndMonth(userId: string, institution: string, referenceMonth: string): Promise<void> {
+        const cleanInstitution = institution.trim();
+        const cleanMonth = referenceMonth.trim();
+
+        if (!cleanInstitution) {
+            throw new Error('Nome da instituição não pode ser vazio para exclusão.');
+        }
+
         const { error } = await supabase
             .from('investments')
             .delete()
             .eq('user_id', userId)
-            .eq('institution', institution)
-            .eq('reference_month', referenceMonth);
+            .eq('institution', cleanInstitution)
+            .eq('reference_month', cleanMonth);
 
         if (error) {
             console.error('Error deleting institution investments:', error);

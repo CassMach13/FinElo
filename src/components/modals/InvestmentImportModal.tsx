@@ -20,7 +20,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
     const { user } = useAppStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [selectedInstitution, setSelectedInstitution] = useState('XP Investimentos');
+    const [selectedInstitution, setSelectedInstitution] = useState('XP');
     const [file, setFile] = useState<File | null>(null);
     const [parsedInvestments, setParsedInvestments] = useState<Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] | null>(null);
 
@@ -49,7 +49,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
 
             let parsed: Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] = [];
 
-            if (selectedInstitution === 'XP Investimentos') {
+            if (selectedInstitution === 'XP') {
                 parsed = await xpInvestmentParser.parseExcel(buffer, refString);
             } else {
                 throw new Error('Instituição ainda não suportada para importação automática.');
@@ -146,7 +146,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                     className="w-full bg-primary border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none"
                                     disabled={isParsing}
                                 >
-                                    <option value="XP Investimentos">XP Investimentos (.xlsx)</option>
+                                    <option value="XP">XP Investimentos (.xlsx)</option>
                                     <option value="other" disabled>Outras corretoras (Em breve)</option>
                                 </select>
                             </div>
