@@ -1,6 +1,22 @@
 import * as xlsx from 'xlsx';
 import { Investment } from '../../types';
 
+export interface XpReconciliation {
+    /** Official total from the broker's report header (includes cash + all positions) */
+    brokerTotal: number;
+    /** Cash available in the brokerage account (not invested in any product) */
+    availableCash: number;
+    /** Sum of all individual positions parsed by the FinElo importer */
+    positionsTotal: number;
+    /** brokerTotal - positionsTotal (accrued interest, custody adjustments, etc.) */
+    unmatchedAmount: number;
+}
+
+export interface XpParseResult {
+    investments: Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[];
+    reconciliation: XpReconciliation | null;
+}
+
 export const xpInvestmentParser = {
     /**
      * Parses an XP Investimentos Excel file (.xlsx) and extracts the investment positions.
@@ -24,13 +40,26 @@ export const xpInvestmentParser = {
      * - Column header rows: anywhere in the joined row text we find "posição" or "reserva bruta"
      * - Product rows: anything else inside a known section once we have a colMap
      */
-    async parseExcel(fileBuffer: ArrayBuffer, referenceMonth: string): Promise<Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[]> {
+    async parseExcel(fileBuffer: ArrayBuffer, referenceMonth: string): Promise<XpParseResult> {
         const workbook = xlsx.read(fileBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const rawData = xlsx.utils.sheet_to_json<any[]>(sheet, { header: 1 });
 
         const investments: Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] = [];
+
+        // ── Extract broker-level reconciliation data from the header rows ────────
+        // Row 2: column labels. Row 3: values
+        // Col 0 = total patrimony, Col 1 = total invested, Col 2 = available cash
+        let reconciliation: XpReconciliation | null = null;
+        try {
+            const headerValues = rawData[3];
+            if (headerValues && headerValues[0] && String(headerValues[0]).includes('R$')) {
+                const brokerTotal = this.parseCurrency(String(headerValues[0] || '0'));
+                const availableCash = this.parseCurrency(String(headerValues[2] || '0'));
+                reconciliation = { brokerTotal, availableCash, positionsTotal: 0, unmatchedAmount: 0 };
+            }
+        } catch { /* ignore if header structure is different */ }
 
         let currentCategory = '';
         let colMap = { value: -1, yield: -1, maturity: -1, principal: -1 };
@@ -170,7 +199,14 @@ export const xpInvestmentParser = {
             }
         }
 
-        return investments;
+        // ── Finalize reconciliation ───────────────────────────────────────────
+        if (reconciliation) {
+            const positionsTotal = investments.reduce((s, inv) => s + inv.balance, 0);
+            reconciliation.positionsTotal = positionsTotal;
+            reconciliation.unmatchedAmount = reconciliation.brokerTotal - positionsTotal;
+        }
+
+        return { investments, reconciliation };
     },
 
     /**

@@ -173,7 +173,27 @@ const InvestmentsView: React.FC = () => {
             <div className="bg-secondary rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Saldo Investido</h2>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-semibold text-white">Saldo Investido</h2>
+                            {/* Info tooltip explaining reconciliation differences */}
+                            <div className="relative group/tooltip">
+                                <svg className="w-4 h-4 text-gray-500 hover:text-gray-300 transition-colors cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div className="absolute left-0 top-full mt-2 w-72 bg-slate-800 border border-slate-600/70 rounded-xl shadow-2xl p-4 opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-30 pointer-events-none">
+                                    <p className="text-xs font-semibold text-white mb-2">📊 Sobre o Saldo Investido</p>
+                                    <p className="text-xs text-gray-400 leading-relaxed">
+                                        Este valor representa a soma de <strong className="text-gray-200">todas as posições individuais</strong> importadas das suas corretoras.
+                                    </p>
+                                    <p className="text-xs text-gray-400 leading-relaxed mt-2">
+                                        Pode ser ligeiramente <strong className="text-amber-400">inferior ao total do extrato</strong> da corretora, pois extratos incluem saldo disponível em conta e juros acrescidos ainda não liquidados — que não têm linha individual no relatório.
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-2 pt-2 border-t border-slate-700/50">
+                                        ✅ Use "Importar Planilha" para ver o detalhamento completo da conferência.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                         <div className="text-3xl font-bold text-highlight mt-1">{formatCurrency(totalBalance)}</div>
                     </div>
                     <div className="flex gap-3 relative">

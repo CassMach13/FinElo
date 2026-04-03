@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Investment } from '../../types';
-import { xpInvestmentParser } from '../../services/parsers/xpInvestmentParser';
+import { xpInvestmentParser, XpReconciliation } from '../../services/parsers/xpInvestmentParser';
 import { investmentService } from '../../services/investmentService';
 
 interface InvestmentImportModalProps {
@@ -23,6 +23,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
     const [selectedInstitution, setSelectedInstitution] = useState('XP');
     const [file, setFile] = useState<File | null>(null);
     const [parsedInvestments, setParsedInvestments] = useState<Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] | null>(null);
+    const [reconciliation, setReconciliation] = useState<XpReconciliation | null>(null);
 
     const [isParsing, setIsParsing] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
@@ -37,6 +38,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
         setFile(selectedFile);
         setError(null);
         setParsedInvestments(null);
+        setReconciliation(null);
         setIsParsing(true);
 
         try {
@@ -50,7 +52,9 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
             let parsed: Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] = [];
 
             if (selectedInstitution === 'XP') {
-                parsed = await xpInvestmentParser.parseExcel(buffer, refString);
+                const result = await xpInvestmentParser.parseExcel(buffer, refString);
+                parsed = result.investments;
+                setReconciliation(result.reconciliation);
             } else {
                 throw new Error('Instituição ainda não suportada para importação automática.');
             }
@@ -230,6 +234,41 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                 </div>
                             </div>
 
+                            {/* Reconciliation breakdown - shown when broker total differs from positions */}
+                            {reconciliation && Math.abs(reconciliation.unmatchedAmount) > 0.5 && (
+                                <div className="bg-slate-800/60 border border-slate-600/50 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-gray-300 font-semibold text-sm">
+                                        <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                        Conferência com o extrato da corretora
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-400">✅ Posições importadas ({parsedInvestments!.length} ativos)</span>
+                                            <span className="text-white font-medium">{formatCurrency(reconciliation.positionsTotal)}</span>
+                                        </div>
+                                        {reconciliation.availableCash > 0 && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-400">💰 Saldo disponível em conta</span>
+                                                <span className="text-amber-400 font-medium">{formatCurrency(reconciliation.availableCash)}</span>
+                                            </div>
+                                        )}
+                                        {(reconciliation.unmatchedAmount - reconciliation.availableCash) > 0.5 && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-400">📊 Juros acrescidos / ajustes</span>
+                                                <span className="text-amber-400 font-medium">{formatCurrency(reconciliation.unmatchedAmount - reconciliation.availableCash)}</span>
+                                            </div>
+                                        )}
+                                        <div className="border-t border-slate-600/50 pt-2 flex justify-between items-center">
+                                            <span className="text-gray-300 font-semibold">Total no extrato da corretora</span>
+                                            <span className="text-white font-bold">{formatCurrency(reconciliation.brokerTotal)}</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500 leading-relaxed border-t border-slate-700/50 pt-2">
+                                        ℹ️ A diferença de <span className="text-amber-400 font-medium">{formatCurrency(reconciliation.unmatchedAmount)}</span> é normal. Corretoras incluem no total o saldo em conta corrente e juros acrescidos ainda não liquidados — itens que não possuem linha individual no extrato e portanto não são importados como posições.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="flex flex-col gap-3">
                                 <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg text-sm text-blue-400 flex gap-3">
                                     <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -260,6 +299,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                         onClick={() => {
                             if (parsedInvestments) {
                                 setParsedInvestments(null);
+                                setReconciliation(null);
                                 setFile(null);
                                 if (fileInputRef.current) fileInputRef.current.value = '';
                             } else {
