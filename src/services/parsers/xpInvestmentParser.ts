@@ -47,7 +47,6 @@ export const xpInvestmentParser = {
 
             // Detect Category Header - Use includes for flexibility
             const isCategory = 
-                !firstCell.includes('%') && 
                 (cellLower.includes('fundos de investimentos') || 
                  cellLower.includes('renda fixa') || 
                  cellLower.includes('previdência privada') || 
@@ -77,32 +76,35 @@ export const xpInvestmentParser = {
             }
 
             // Detect Column Headers within a category block
-            if (isInsideBlock && (row.includes('Posição') || row.includes('Saldo') || row.includes('Valor líquido'))) {
+            const rowString = row.join(' ').toLowerCase();
+            const looksLikeHeader = rowString.includes('posição') || rowString.includes('saldo') || rowString.includes('valor líquido') || rowString.includes('reserva bruta');
+
+            if (isInsideBlock && looksLikeHeader) {
                 for (let i = 0; i < row.length; i++) {
                     const cellValue = String(row[i] || '').trim();
-                    const cellLower = cellValue.toLowerCase();
+                    const cellLowerInner = cellValue.toLowerCase();
 
-                    if (cellValue === 'Posição' || cellValue === 'Saldo' || cellValue === 'Valor líquido') {
-                        // Only set if not already set or prioritize 'Posição'
-                        if (colMap.value === -1 || cellValue === 'Posição') {
+                    if (cellValue === 'Posição' || cellValue === 'Saldo' || cellValue === 'Valor líquido' || cellValue === 'Reserva bruta' || cellValue === 'Vl. bruto') {
+                        // Priority to Posição, followed by Reserva Bruta (for Previdência)
+                        if (colMap.value === -1 || cellValue === 'Posição' || cellValue === 'Reserva bruta') {
                             colMap.value = i;
                         }
                     }
                     
-                    if (cellLower === 'taxa a mercado' || cellLower === 'rentabilidade líquida' || cellLower === 'rentabilidade' || cellLower === 'rentabilidade (%)' || cellLower === 'rendimento liq') {
+                    if (cellLowerInner === 'taxa a mercado' || cellLowerInner === 'rentabilidade líquida' || cellLowerInner === 'rentabilidade' || cellLowerInner === 'rentabilidade (%)' || cellLowerInner === 'rendimento liq' || cellLowerInner === 'rentabilidade acumulada (%)') {
                         colMap.yield = i;
                     }
 
                     // For COE, "Rendimento bruto" often refers to the total amount or principal in some exports,
                     // so we only map it to yield if it's NOT a COE section, or use it as a fallback.
-                    if (cellLower === 'rendimento bruto' && currentCategory !== 'COE') {
+                    if (cellLowerInner === 'rendimento bruto' && currentCategory !== 'COE') {
                         colMap.yield = i;
                     }
                     
-                    if (cellLower === 'data vencimento' || cellLower === 'vencimento') {
+                    if (cellLowerInner === 'data vencimento' || cellLowerInner === 'vencimento') {
                         colMap.maturity = i;
                     }
-                    if (cellLower === 'valor aplicado' || cellLower === 'valor investido' || cellLower === 'investimento inicial' || cellLower === 'aplicado') {
+                    if (cellLowerInner === 'valor aplicado' || cellLowerInner === 'valor investido' || cellLowerInner === 'investimento inicial' || cellLowerInner === 'aplicado') {
                         colMap.principal = i;
                     }
                 }
@@ -115,7 +117,15 @@ export const xpInvestmentParser = {
             }
 
             // Actually parse the product
-            if (isInsideBlock && colMap.value !== -1 && firstCell && !firstCell.includes('Posição') && !firstCell.includes('Saldo')) {
+            // Avoid rows that repeated the header name or total keyword
+            if (isInsideBlock && colMap.value !== -1) {
+                const productName = firstCell || (row[1] ? String(row[1]).trim() : '');
+                
+                // Final checks to avoid noise
+                if (!productName || productName.includes('Posição') || productName.includes('Saldo') || productName.toLowerCase().includes('total')) {
+                    continue;
+                }
+
                 const rawValue = String(row[colMap.value] || '');
                 const numericValue = this.parseCurrency(rawValue);
 
