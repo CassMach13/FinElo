@@ -43,7 +43,7 @@ export const xpInvestmentParser = {
             // Detect Category Header
             if (
                 !firstCell.includes('%') &&
-                (firstCell === 'Fundos de Investimentos' || firstCell === 'Renda Fixa' || firstCell === 'Previdência Privada' || firstCell === 'Ações' || firstCell === 'Tesouro Direto')
+                (firstCell === 'Fundos de Investimentos' || firstCell === 'Renda Fixa' || firstCell === 'Previdência Privada' || firstCell === 'Ações' || firstCell === 'Tesouro Direto' || firstCell === 'COE' || firstCell === 'COI')
             ) {
                 currentCategory = firstCell;
                 isInsideBlock = true;
@@ -64,15 +64,27 @@ export const xpInvestmentParser = {
                                 colMap.value = i;
                             }
                         }
-                        if (cellLower === 'taxa a mercado' || cellLower === 'rentabilidade líquida' || cellLower === 'rentabilidade') {
+                        if (cellLower === 'taxa a mercado' || cellLower === 'rentabilidade líquida' || cellLower === 'rentabilidade' || cellLower === 'rendimento liq') {
                             colMap.yield = i;
                         }
-                        if (cellLower === 'data vencimento') {
+                        // For COE, "Rendimento bruto" often refers to the total amount or principal in some exports,
+                        // so we only map it to yield if it's NOT a COE section, or use it as a fallback.
+                        if (cellLower === 'rendimento bruto' && currentCategory !== 'COE' && currentCategory !== 'COI') {
+                            colMap.yield = i;
+                        }
+                        
+                        if (cellLower === 'data vencimento' || cellLower === 'vencimento') {
                             colMap.maturity = i;
                         }
-                        if (cellLower === 'valor aplicado') {
+                        if (cellLower === 'valor aplicado' || cellLower === 'valor investido' || cellLower === 'investimento inicial' || cellLower === 'aplicado') {
                             colMap.principal = i;
                         }
+                    }
+
+                    // Special case for COE/COI where columns might be shifted or headers named differently
+                    if ((currentCategory === 'COE' || currentCategory === 'COI') && colMap.principal === -1) {
+                        // In many XP COE exports, index 3 is where the applied value lives
+                        if (row.length > 3) colMap.principal = 3;
                     }
                 }
                 continue;
