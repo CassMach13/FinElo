@@ -78,7 +78,7 @@ const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSel
 );
 
 const ImportView: React.FC = () => {
-  const { user, importConfigs, transactions, mappingRules, addMultipleTransactions, importLogs, isPremium, unlimitedSync, accounts, addAccount, setCurrentView } = useAppStore();
+  const { user, importConfigs, transactions, mappingRules, addMultipleTransactions, importLogs, isPremium, unlimitedSync, accounts, addAccount, setCurrentView, updateUserPreferences } = useAppStore();
 
   const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
   const hasUnlimitedAccess = unlimitedSync || isAdmin;
@@ -98,29 +98,60 @@ const ImportView: React.FC = () => {
   const [selectedNativeAccountId, setSelectedNativeAccountId] = useState('');
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
 
-  // --- Favorites: stored in localStorage, no server needed ---
-  const FAV_KEY = 'finelo_fav_banks';
-  const [favoriteBankIds, setFavoriteBankIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; }
+  // --- Favorites: Synced via user_metadata & auto-computed from accounts ---
+  const explFavs: string[] = user?.user_metadata?.favoriteBankIds || [];
+  const explUnfavs: string[] = user?.user_metadata?.unfavoritedBankIds || [];
+
+  const userBankIdsFromAccounts = React.useMemo(() => {
+    return Array.from(new Set(accounts.map(acc => acc.bank_id).filter(Boolean) as string[]));
+  }, [accounts]);
+
+  const sortedBanks = [...NATIVE_BANK_CONFIGS].filter(b => b.isSupported).sort((a, b) => a.name.localeCompare(b.name));
+  
+  const favoriteBanks = sortedBanks.filter(b => {
+    if (explFavs.includes(b.id)) return true;
+    if (userBankIdsFromAccounts.includes(b.id) && !explUnfavs.includes(b.id)) return true;
+    return false;
   });
-  const [showAllBanks, setShowAllBanks] = useState(() => {
-    try { return (JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]).length === 0; } catch { return true; }
-  });
+  
+  const otherBanks = sortedBanks.filter(b => !favoriteBanks.some(fav => fav.id === b.id));
+
+  const [showAllBanks, setShowAllBanks] = useState(() => favoriteBanks.length === 0);
+
+  // Sync initial state if favoriteBanks changes and showAllBanks wasn't configured manually
+  React.useEffect(() => {
+    if (favoriteBanks.length === 0) setShowAllBanks(true);
+  }, [favoriteBanks.length]);
 
   const toggleFavorite = (bankId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // don't trigger bank selection
-    setFavoriteBankIds(prev => {
-      const updated = prev.includes(bankId) ? prev.filter(id => id !== bankId) : [...prev, bankId];
-      localStorage.setItem(FAV_KEY, JSON.stringify(updated));
-      // Auto-open all-banks section if no favorites remain
-      if (updated.length === 0) setShowAllBanks(true);
-      return updated;
+    
+    const isCurrentlyFav = favoriteBanks.some(b => b.id === bankId);
+    const isFromAccounts = userBankIdsFromAccounts.includes(bankId);
+    
+    let newFavs = [...explFavs];
+    let newUnfavs = [...explUnfavs];
+    
+    if (isCurrentlyFav) {
+      // Make it UNFAVORITE
+      newFavs = newFavs.filter(id => id !== bankId);
+      if (isFromAccounts && !newUnfavs.includes(bankId)) {
+        newUnfavs.push(bankId);
+      }
+    } else {
+      // Make it FAVORITE
+      if (!newFavs.includes(bankId)) {
+        newFavs.push(bankId);
+      }
+      newUnfavs = newUnfavs.filter(id => id !== bankId);
+    }
+    
+    updateUserPreferences({
+      favoriteBankIds: newFavs,
+      unfavoritedBankIds: newUnfavs
     });
   };
 
-  const sortedBanks = [...NATIVE_BANK_CONFIGS].filter(b => b.isSupported).sort((a, b) => a.name.localeCompare(b.name));
-  const favoriteBanks = sortedBanks.filter(b => favoriteBankIds.includes(b.id));
-  const otherBanks = sortedBanks.filter(b => !favoriteBankIds.includes(b.id));
 
   // Pluggy State
   const [pluggyConnectToken, setPluggyConnectToken] = useState<string | null>(null);

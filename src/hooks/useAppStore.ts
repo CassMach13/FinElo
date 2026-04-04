@@ -33,6 +33,7 @@ interface AppState {
 
   setTransactionFilters: (filters: AppState['transactionFilters']) => void;
   setUser: (user: User | null) => void;
+  updateUserPreferences: (preferences: Partial<User['user_metadata']>) => Promise<void>;
   signOut: () => Promise<void>;
 
   // Novas ações para buscar dados do Supabase
@@ -162,6 +163,32 @@ export const useAppStore = create<AppState>((set, get) => ({
       unlimitedSync: isAdmin || get().unlimitedSync 
     });
   },
+  
+  updateUserPreferences: async (preferences) => {
+    const { user } = get();
+    if (!user) return;
+    
+    // Update local state optimistically
+    const updatedUser = {
+      ...user,
+      user_metadata: {
+        ...user.user_metadata,
+        ...preferences
+      }
+    };
+    get().setUser(updatedUser as User);
+
+    // Persist to Supabase Auth
+    const { error } = await supabase.auth.updateUser({
+      data: preferences
+    });
+    
+    if (error) {
+      console.error('Error updating user preferences:', error);
+      // Optional: rollback state if needed
+    }
+  },
+
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
