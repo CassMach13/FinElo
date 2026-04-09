@@ -1236,7 +1236,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchAssets: async () => {
     const { data, error } = await supabase.from('assets').select('*').order('name');
     if (error) console.error('Erro ao buscar ativos:', error);
-    else set({ assets: data as Asset[] });
+    else {
+      set({ assets: data as Asset[] });
+      // Sincronizar saldos de todos os ativos financiados na carga inicial
+      // Usamos um delay curto ou fazemos em background
+      get().recalculateAllAssetBalances();
+    }
   },
 
   addAsset: async (assetData) => {
@@ -1244,14 +1249,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!user) return;
     const { data, error } = await supabase.from('assets').insert([{ ...assetData, user_id: user.id }]).select();
     if (error) console.error('Erro ao adicionar ativo:', error);
-    else if (data) set((state) => ({ assets: [...state.assets, data[0] as Asset] }));
+    else if (data) {
+      set((state) => ({ assets: [...state.assets, data[0] as Asset] }));
+      // Disparar recálculo se for financiado
+      if (data[0].is_financed) {
+        await get().recalculateAssetBalance(data[0].id);
+      }
+    }
   },
 
   updateAsset: async (updatedAsset) => {
     const { id, ...fieldsToUpdate } = updatedAsset;
     const { data, error } = await supabase.from('assets').update({ ...fieldsToUpdate, updated_at: new Date().toISOString() }).eq('id', id).select();
     if (error) console.error('Erro ao atualizar ativo:', error);
-    else if (data) set((state) => ({ assets: state.assets.map(a => a.id === id ? data[0] as Asset : a) }));
+    else if (data) {
+      set((state) => ({ assets: state.assets.map(a => a.id === id ? data[0] as Asset : a) }));
+      // Disparar recálculo se for financiado
+      if (data[0].is_financed) {
+        await get().recalculateAssetBalance(id);
+      }
+    }
   },
 
   deleteAsset: async (assetId) => {
@@ -1274,7 +1291,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const totalPaid = linkedTransactions.reduce((sum, tx) => sum + Math.abs(tx.Valor), 0);
+    const totalPaid = linkedTransactions.reduce((sum, tx) => {
+      // Despesa (Saída) é positiva para o abatimento da dívida
+      // Renda (Entrada/Estorno) é negativa para o abatimento da dívida
+      const value = tx.Tipo === 'Renda' ? -Math.abs(tx.Valor) : Math.abs(tx.Valor);
+      return sum + value;
+    }, 0);
+    
     const paidCount = linkedTransactions.length;
 
     const updatedData = {
@@ -1295,6 +1318,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((state) => ({
         assets: state.assets.map(a => a.id === assetId ? data[0] as Asset : a)
       }));
+    }
+  },
+
+  recalculateAllAssetBalances: async () => {
+    const { assets } = get();
+    const financedAssets = assets.filter(a => a.is_financed);
+    
+    // Executamos sequencialmente para não sobrecarregar
+    for (const asset of financedAssets) {
+      await get().recalculateAssetBalance(asset.id);
     }
   },
 
