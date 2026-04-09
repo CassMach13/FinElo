@@ -346,6 +346,102 @@ const LandingPage: React.FC = () => {
                 </div>
             </section>
 
+            {/* Guarantee / Trust Section */}
+            <section className="py-16 relative overflow-hidden">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="flex flex-col lg:flex-row items-center justify-between gap-12 bg-secondary/20 backdrop-blur-md rounded-[40px] p-8 md:p-16 border border-white/10 shadow-2xl relative"
+                    >
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] rounded-full -z-10" />
+                        
+                        {/* Lado Esquerdo: O "7" Gigante */}
+                        <div className="flex flex-col items-center justify-center text-center space-y-4 shrink-0">
+                            <div className="relative">
+                                <span className="text-[140px] md:text-[180px] font-black leading-none bg-clip-text text-transparent bg-gradient-to-br from-white to-white/10 select-none">
+                                    7
+                                </span>
+                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-1">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                        <svg key={s} className="w-6 h-6 md:w-8 md:h-8 text-amber-500 fill-current drop-shadow-lg" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex flex-col pt-4">
+                                <span className="text-4xl font-black text-white tracking-[0.2em] uppercase">Dias</span>
+                                <span className="text-accent font-bold tracking-tight text-lg">Garantia Incondicional</span>
+                            </div>
+                        </div>
+
+                        {/* Lado Direito: O Texto e Trust Badges */}
+                        <div className="flex-1 space-y-10">
+                            <div className="space-y-6">
+                                <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight">
+                                    Sua Segurança é <br className="hidden md:block" />
+                                    <span className="text-accent">Garantida por Lei</span>
+                                </h2>
+                                <p className="text-xl text-gray-300 leading-relaxed max-w-2xl text-balance">
+                                    No FinElo, levamos sua privacidade e seus direitos a sério. Em total conformidade com o <strong className="text-white border-b-2 border-accent/30 pb-1">Artigo 49 do Código de Defesa do Consumidor</strong>, garantimos o seu direito de arrependimento.
+                                </p>
+                                <p className="text-gray-400 text-lg leading-relaxed">
+                                    Teste todas as ferramentas, importe seus dados e sinta a diferença na sua gestão. Se por qualquer motivo não for o que você esperava, devolvemos 100% do seu investimento sem perguntas e sem letras miúdas.
+                                </p>
+                            </div>
+
+                            {/* Badges de Confiança */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <div className="p-2 rounded-xl bg-accent/20">
+                                        <LockIcon className="h-6 w-6 text-accent" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Checkout</span>
+                                        <span className="text-sm text-gray-400">100% Seguro</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <div className="p-2 rounded-xl bg-highlight/20">
+                                        <ShieldCheckIcon className="h-6 w-6 text-highlight" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Privacidade</span>
+                                        <span className="text-sm text-gray-400">Dados Protegidos</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4 p-5 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <div className="p-2 rounded-xl bg-green-500/20">
+                                        <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Satisfação</span>
+                                        <span className="text-sm text-gray-400">Garantida</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Métodos de Pagamento e Selos */}
+                            <div className="flex flex-wrap items-center gap-8 pt-6 border-t border-white/5 opacity-50 justify-center lg:justify-start">
+                                <div className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mr-2">Pague com</span>
+                                    <div className="flex gap-4 items-center">
+                                        <VisaIcon className="h-4" />
+                                        <MastercardIcon className="h-6" />
+                                        <PixIcon className="h-5" />
+                                        <BoletoIcon className="h-6" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+
             {/* Pricing Section */}
             <section className="py-24 relative overflow-hidden bg-secondary/20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -513,6 +609,32 @@ const LandingPage: React.FC = () => {
         </div>
     );
 };
+
+const VisaIcon = ({ className = "" }) => (
+    <svg className={className} viewBox="0 0 488 153" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M188.4 4.5l-30.1 143.6h-48.1L80.1 4.5h48.1l15.1 84.1 15.1-84.1h30.1zm115.3 0c-15.1-6.8-38.1-10.3-59.2-10.3-64.2 0-109.4 34.2-109.8 83-0.4 36.1 32.3 56.1 56.9 68.2 25.2 12.4 33.7 20.3 33.6 31.4-0.2 16.9-20.3 24.6-39.1 24.6-25.9 0-40.6-3.9-62.3-13.4l-8.8-4.2-9.4 58.2c15.7 7.2 44.8 13.5 75.1 13.8 68.3 0 112.7-33.7 113.2-85.9 0.3-28.6-17.1-50.4-54.7-68.5-22.8-11.7-36.8-19.5-36.8-31.4 0.1-10.7 12-22.1 37.8-22.1 21.6-0.3 37.3 4.7 49.3 10l5.8 2.8 9.3-57.3zm125.1 0h-37.1c-11.5 0-20.2 3.3-25.2 15.3l-88.3 128.3h48.1l9.6-26.6h58.8l5.6 26.6h42.5l-24-143.6zm-36.7 87.1l18.4-51.1 10.4 51.1h-28.8zM59.1 4.5h-47L0 67.8c0 0 54.1 14.1 90.1 26.5L59.1 4.5z" />
+    </svg>
+);
+
+const MastercardIcon = ({ className = "" }) => (
+    <svg className={className} viewBox="0 0 32 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="12" r="10" fill="#EB001B" />
+        <circle cx="22" cy="12" r="10" fill="#F79E1B" />
+        <path d="M16 4.3c-2 2-2.9 4.7-2.9 7.7 0 3 0.9 5.7 2.9 7.7 2-2 2.9-4.7 2.9-7.7 0-3-0.9-5.7-2.9-7.7z" fill="#FF5F00" />
+    </svg>
+);
+
+const PixIcon = ({ className = "" }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM15.9092 10.3636L12 14.2728L8.09085 10.3636L9.45455 9L12 11.5454L14.5454 9L15.9092 10.3636ZM12 8.27273L10.6364 9.63636L9.63636 8.63636L12 6.27273L14.3636 8.63636L13.3636 9.63636L12 8.27273ZM12 15.7273L13.3636 14.3636L14.3636 15.3636L12 17.7273L9.63636 15.3636L10.6364 14.3636L12 15.7273Z" />
+    </svg>
+);
+
+const BoletoIcon = ({ className = "" }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 4H5V20H3V4ZM7 4H8V20H7V4ZM10 4H12V20H10V4ZM14 4H15V20H14V4ZM17 4H18V20H17V4ZM20 4H21V20H20V4Z" />
+    </svg>
+);
 
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
     <div className="p-6 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group h-full">
