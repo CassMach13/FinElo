@@ -30,6 +30,7 @@ interface AppState {
   addAsset: (asset: Omit<Asset, 'id' | 'user_id' | 'updated_at'>) => Promise<void>;
   deleteAsset: (assetId: string) => Promise<void>;
   updateAsset: (asset: Partial<Asset> & { id: string }) => Promise<void>;
+  recalculateAssetBalance: (assetId: string) => Promise<void>;
 
   setTransactionFilters: (filters: AppState['transactionFilters']) => void;
   setUser: (user: User | null) => void;
@@ -413,18 +414,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((state) => ({ transactions: [...state.transactions, ...newTransactions] }));
 
       // Automação: Atualizar saldo do patrimônio se houver vínculo
-      for (const tx of newTransactions) {
-        if (tx.linked_asset_id) {
-          const asset = get().assets.find(a => a.id === tx.linked_asset_id);
-          if (asset && asset.is_financed) {
-            const updatedAsset = {
-              ...asset,
-              remaining_balance: Math.max(0, (asset.remaining_balance || 0) - Math.abs(tx.Valor)),
-              paid_installments: (asset.paid_installments || 0) + 1
-            };
-            await get().updateAsset(updatedAsset);
-          }
-        }
+      const affectedAssetIds = new Set(newTransactions.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
+      for (const assetId of affectedAssetIds) {
+        await get().recalculateAssetBalance(assetId);
       }
     }
   },
@@ -492,18 +484,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         set((state) => ({ transactions: [...state.transactions, ...newBatch] }));
 
         // Automação: Atualizar saldo do patrimônio para a nova leva se houver vínculo
-        for (const tx of newBatch) {
-          if (tx.linked_asset_id) {
-            const asset = get().assets.find(a => a.id === tx.linked_asset_id);
-            if (asset && asset.is_financed) {
-              const updatedAsset = {
-                ...asset,
-                remaining_balance: Math.max(0, (asset.remaining_balance || 0) - Math.abs(tx.Valor)),
-                paid_installments: (asset.paid_installments || 0) + 1
-              };
-              await get().updateAsset(updatedAsset);
-            }
-          }
+        const affectedAssetIds = new Set(newBatch.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
+        for (const assetId of affectedAssetIds) {
+          await get().recalculateAssetBalance(assetId);
         }
       }
     }
@@ -536,7 +519,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateTransaction: async (updatedTransaction) => {
-    const { ID_Transacao, ...fieldsToUpdate } = updatedTransaction; // fieldsToUpdate é Partial<Transaction>
+    const { ID_Transacao, ...fieldsToUpdate } = updatedTransaction; 
+    
+    // Pegar o estado anterior para identificar o asset antigo
+    const oldTransaction = get().transactions.find(t => t.ID_Transacao === ID_Transacao);
+    const oldAssetId = oldTransaction?.linked_asset_id;
+
     const { data, error } = await supabase
       .from('transactions')
       .update(fieldsToUpdate)
@@ -546,13 +534,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (error) {
       console.error('Erro ao atualizar transação:', error);
     } else if (data) {
+      const updated = data[0] as Transaction;
       set((state) => ({
-        transactions: state.transactions.map(t => t.ID_Transacao === ID_Transacao ? data[0] as Transaction : t)
+        transactions: state.transactions.map(t => t.ID_Transacao === ID_Transacao ? updated : t)
       }));
+
+      // Recalcular saldos se houver vínculo
+      if (updated.linked_asset_id) {
+        await get().recalculateAssetBalance(updated.linked_asset_id);
+      }
+      // Se o asset mudou, recalcular o antigo também
+      if (oldAssetId && oldAssetId !== updated.linked_asset_id) {
+        await get().recalculateAssetBalance(oldAssetId);
+      }
     }
   },
 
   deleteTransaction: async (transactionId) => {
+    const transaction = get().transactions.find(t => t.ID_Transacao === transactionId);
+    const assetId = transaction?.linked_asset_id;
+
     const { error } = await supabase.from('transactions').delete().eq('ID_Transacao', transactionId);
 
     if (error) {
@@ -561,10 +562,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((state) => ({
         transactions: state.transactions.filter(t => t.ID_Transacao !== transactionId)
       }));
+
+      // Recalcular saldo se houver vínculo
+      if (assetId) {
+        await get().recalculateAssetBalance(assetId);
+      }
     }
   },
 
   deleteTransactionsByOrigin: async (origin) => {
+    // Identify affected assets before deletion
+    const affectedAssetIds = new Set(
+      get().transactions
+        .filter(t => t.Origem === origin && t.linked_asset_id)
+        .map(t => t.linked_asset_id as string)
+    );
+
     const { error } = await supabase.from('transactions').delete().eq('Origem', origin);
     if (error) {
       console.error('Erro ao deletar lote de transações:', error);
@@ -572,6 +585,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((state) => ({
         transactions: state.transactions.filter(t => t.Origem !== origin)
       }));
+
+      // Recalcular saldo de todos os ativos afetados
+      for (const assetId of affectedAssetIds) {
+        await get().recalculateAssetBalance(assetId);
+      }
     }
   },
 
@@ -756,6 +774,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
         return { transactions: newTransactions };
       });
+
+      // Recalcular saldo se a regra tiver vínculo
+      if (rule.linked_asset_id) {
+        await get().recalculateAssetBalance(rule.linked_asset_id);
+      }
     }
   },
 
@@ -884,11 +907,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       alert('Transações deletadas, mas erro ao apagar o log. Verifique as permissões (RLS) no Supabase.');
     } else {
       console.log('[deleteImportLog] Log excluído com sucesso.');
+      
+      // Identify affected assets BEFORE updating local state
+      const affectedAssetIds = new Set(
+        get().transactions
+          .filter(t => t.Origem === fileName && t.linked_asset_id)
+          .map(t => t.linked_asset_id as string)
+      );
+
       set((state) => ({
         importLogs: state.importLogs.filter(l => l.id !== logId),
         transactions: state.transactions.filter(t => t.Origem !== fileName)
       }));
+
       console.log('[deleteImportLog] Estado local atualizado.');
+
+      // Recalcular saldo de todos os ativos afetados
+      for (const assetId of affectedAssetIds) {
+        await get().recalculateAssetBalance(assetId);
+      }
+
       alert('Importação e transações associadas excluídas com sucesso!');
     }
   },
@@ -1220,6 +1258,44 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { error } = await supabase.from('assets').delete().eq('id', assetId);
     if (error) console.error('Erro ao deletar ativo:', error);
     else set((state) => ({ assets: state.assets.filter(a => a.id !== assetId) }));
+  },
+
+  recalculateAssetBalance: async (assetId: string) => {
+    const asset = get().assets.find(a => a.id === assetId);
+    if (!asset || !asset.is_financed) return;
+
+    const { data: linkedTransactions, error } = await supabase
+      .from('transactions')
+      .select('Valor')
+      .eq('linked_asset_id', assetId);
+
+    if (error) {
+      console.error('Erro ao buscar transações vinculadas para recálculo:', error);
+      return;
+    }
+
+    const totalPaid = linkedTransactions.reduce((sum, tx) => sum + Math.abs(tx.Valor), 0);
+    const paidCount = linkedTransactions.length;
+
+    const updatedData = {
+      remaining_balance: Math.max(0, (asset.financed_amount || 0) - totalPaid),
+      paid_installments: paidCount,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: updateError, data } = await supabase
+      .from('assets')
+      .update(updatedData)
+      .eq('id', assetId)
+      .select();
+
+    if (updateError) {
+      console.error('Erro ao atualizar saldo do ativo após recálculo:', updateError);
+    } else if (data) {
+      set((state) => ({
+        assets: state.assets.map(a => a.id === assetId ? data[0] as Asset : a)
+      }));
+    }
   },
 
   fetchPendingInvites: async () => {

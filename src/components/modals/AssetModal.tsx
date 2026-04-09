@@ -60,8 +60,8 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
             installment_value: isFinanced ? parseFloat(installmentValue) || undefined : undefined,
             total_installments: isFinanced ? parseInt(totalInstallments) || undefined : undefined,
             paid_installments: isFinanced ? parseInt(paidInstallments) || undefined : undefined,
-            monthly_interest_rate: debtMode === 'financing' ? parseFloat(monthlyInterestRate) || undefined : undefined,
-            consortium_admin_rate: debtMode === 'consortium' ? parseFloat(consortiumAdminRate) || undefined : undefined,
+            monthly_interest_rate: debtMode === 'financing' ? (monthlyInterestRate !== '' ? parseFloat(monthlyInterestRate) : undefined) : undefined,
+            consortium_admin_rate: debtMode === 'consortium' ? (consortiumAdminRate !== '' ? parseFloat(consortiumAdminRate) : undefined) : undefined,
         });
     };
 
