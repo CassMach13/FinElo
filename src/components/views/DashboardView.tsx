@@ -574,7 +574,7 @@ const DashboardView: React.FC = () => {
           title="Investimentos (Mês)"
           value={formatCurrency(investmentSummary.netFlow)}
           icon={<WalletIcon />}
-          variant="default"
+          variant={investmentSummary.netFlow > 0 ? 'success' : investmentSummary.netFlow < 0 ? 'danger' : 'default'}
           subValue={`Aportes: ${formatCurrency(investmentSummary.invested)} • Resgates: ${formatCurrency(investmentSummary.withdrawn)}`}
           tooltip="Dinheiro efetivamente guardado (Aportes - Resgates/Retiradas)."
         />
