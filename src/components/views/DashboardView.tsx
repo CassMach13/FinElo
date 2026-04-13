@@ -544,21 +544,21 @@ const DashboardView: React.FC = () => {
           title="Entradas (Operacional)"
           value={formatCurrency(summary.income)}
           icon={<TrendingUpIcon />}
-          variant="accent"
+          variant={summary.income === 0 ? 'default' : 'accent'}
           tooltip="Soma dos ganhos (salários, vendas), excluindo resgates de investimentos."
         />
         <SummaryCard
           title="Saídas (Operacional)"
           value={formatCurrency(-summary.expense)}
           icon={<TrendingDownIcon />}
-          variant="danger"
+          variant={summary.expense === 0 ? 'default' : 'danger'}
           tooltip="Soma dos gastos, excluindo dinheiro enviado para investimentos."
         />
         <SummaryCard
           title="Resultado Operacional"
           value={formatCurrency(summary.balance)}
           icon={<TrendingUpIcon />}
-          variant={summary.balance >= 0 ? 'success' : 'danger'}
+          variant={summary.balance === 0 ? 'default' : (summary.balance > 0 ? 'accent' : 'danger')}
           subValue={`${summary.savingsRate.toFixed(1)}% de Economia`}
           tooltip="Lucro ou Prejuízo das operações do mês. Não inclui saldo anterior nem investimentos."
         />
@@ -566,7 +566,7 @@ const DashboardView: React.FC = () => {
           title="Economia"
           value={`${summary.savingsRate.toFixed(1)}%`}
           icon={<TrendingUpIcon />}
-          variant={savingsInfo.color}
+          variant={summary.savingsRate === 0 ? 'default' : (summary.savingsRate > 0 ? 'accent' : savingsInfo.color)}
           subValue={savingsInfo.label}
           tooltip={`Taxa de Poupança: ${savingsInfo.desc}`}
         />
@@ -574,7 +574,7 @@ const DashboardView: React.FC = () => {
           title="Investimentos (Mês)"
           value={formatCurrency(investmentSummary.netFlow)}
           icon={<WalletIcon />}
-          variant={investmentSummary.netFlow > 0 ? 'success' : investmentSummary.netFlow < 0 ? 'danger' : 'default'}
+          variant={investmentSummary.netFlow === 0 ? 'default' : (investmentSummary.netFlow > 0 ? 'accent' : 'danger')}
           subValue={`Aportes: ${formatCurrency(investmentSummary.invested)} • Resgates: ${formatCurrency(investmentSummary.withdrawn)}`}
           tooltip="Dinheiro efetivamente guardado (Aportes - Resgates/Retiradas)."
         />
@@ -582,7 +582,7 @@ const DashboardView: React.FC = () => {
           title="Patrimônio Total"
           value={formatCurrency(totalNetWorth)}
           icon={<ArrowsUpDownIcon />}
-          variant={totalNetWorth >= 0 ? 'accent' : 'danger'}
+          variant={totalNetWorth === 0 ? 'default' : (totalNetWorth > 0 ? 'accent' : 'danger')}
           subValue={`Bens: ${formatCurrency(grossAssetsTotal)} • Dívidas: ${formatCurrency(assetsDebtsTotal)} • Liq: ${formatCurrency(accountsTotal + manualInvestmentsTotal)}`}
           tooltip="Seu Patrimônio Líquido Real: Soma de bens (menos dívidas) + saldo em conta e investimentos."
         />
