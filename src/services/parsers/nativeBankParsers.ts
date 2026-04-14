@@ -405,6 +405,26 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     ],
     signatureStrings: ['Situação da Fatura', 'Valor(US$)', 'Bradesco Internet Banking'],
   },
+  {
+    id: 'banco-do-brasil',
+    name: 'Banco do Brasil',
+    description: 'Extrato de Conta Corrente',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#FBCA00',
+    brandColorSecondary: '#0038A8',
+    logoText: 'BB',
+    logoUrl: '/bank-logos/banco-do-brasil.png',
+    delimiter: ',',
+    skipLines: 0,
+    hasHeader: true,
+    dateColIndex: 0,
+    descColIndices: [2],
+    valueColIndex: 5,
+    invertValues: false,
+    ignoreRowsContaining: ['SALDO ANTERIOR', 'S A L D O'],
+    signatureStrings: ['dependencia origem', 'data do balancete', 'banco do brasil'],
+  },
 ];
 
 // --- Helpers (duplicated from parserService to keep parsers self-contained) ---
@@ -452,7 +472,7 @@ const parseDate = (dateStrInput: string | number): Date | null => {
   return null;
 };
 
-const parseMonetaryValue = (valueStr: string, format: 'US' | 'BR' = 'BR'): number | null => {
+const parseMonetaryValue = (valueStr: string, format?: 'US' | 'BR'): number | null => {
   if (typeof valueStr !== 'string' || valueStr.trim() === '') return null;
   
   // Extrai apenas números, ',', '.' e o sinal de '-'
@@ -466,23 +486,30 @@ const parseMonetaryValue = (valueStr: string, format: 'US' | 'BR' = 'BR'): numbe
     return parseFloat(cleaned.replace(/,/g, ''));
   }
 
-  // Caso contrário, usamos a heurística inteligente
+  // Caso contrário, usamos a heurística inteligente (Melhorada para evitar erros em "4.70" no padrão BR)
   const lastComma = cleaned.lastIndexOf(',');
   const lastDot = cleaned.lastIndexOf('.');
   
   let normalized = cleaned;
   if (lastComma > lastDot) {
+    // Estilo Brasileiro completo: 1.234,56
     normalized = cleaned.replace(/\./g, '').replace(',', '.');
   } else if (lastDot > lastComma) {
+    // Estilo Americano completo: 1,234.56
     normalized = cleaned.replace(/,/g, '');
   } else {
+    // Apenas um tipo de separador (ou nenhum)
     if (lastComma !== -1) {
+      // "1234,56" -> "1234.56"
       normalized = cleaned.replace(',', '.');
     } else if (lastDot !== -1) {
+      // Pode ser decimal "1234.56" ou milhar "1.234"
+      // Se houver exatamente 2 dígitos após o ponto no final da string, assumimos que é decimal
       const parts = cleaned.split('.');
       if (parts[parts.length - 1].length === 2) {
-        normalized = cleaned;
+        normalized = cleaned; // Já é decimal
       } else {
+        // Provavelmente milhar ou formato sem centavos (ex: "1.000")
         normalized = cleaned.replace(/\./g, '');
       }
     }
@@ -605,6 +632,11 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
   // PicPay: unique header from Gemini conversion
   if (firstLines.includes('data,hora,tipo,origem/destino,forma de pagamento,valor') || firstLines.includes('picpay')) {
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'picpay') || null;
+  }
+
+  // Banco do Brasil: "Dependência Origem" or "Data do Balancete"
+  if (firstLines.includes('dependencia origem') || firstLines.includes('data do balancete') || firstLines.includes('banco do brasil')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'banco-do-brasil') || null;
   }
 
   return null;
