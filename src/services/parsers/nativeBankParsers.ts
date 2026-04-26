@@ -767,7 +767,7 @@ export function parseNativeBankCSV(
     delimiter: delimiter || undefined,
   });
 
-  let data = parseResult.data as string[][];
+  data = parseResult.data as string[][];
 
 
   // Retry if only 1 column detected
