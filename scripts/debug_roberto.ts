@@ -2,7 +2,7 @@
 import fs from 'fs';
 import Papa from 'papaparse';
 
-const filePath = 'c:\\Users\\cassi\\Downloads\\personal-finance-manager\\modelos de fatura\\Banco XP\\Extrato_XP_Cassio_Dez_2025.csv';
+const filePath = './modelos de fatura/Banco XP/Extrato_XP_Cassio_Dez_2025.csv';
 
 console.log('--- STARTING DEBUG SCRIPT v2 ---');
 console.log(`Reading file: ${filePath}`);

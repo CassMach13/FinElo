@@ -32,7 +32,7 @@ async function generatePostForToday() {
       BASE DE ESTRATÉGIA:
       ${strategy}
       
-      TAFA:
+      TAREFA:
       Identifique o post planejado para HOJE (ou o próximo disponível na lista) e gere:
       1. Legenda de alta conversão para o Instagram.
       2. Prompt fotorrealista para o DALL-E 3 (Inglês) para gerar a imagem, seguindo o padrão "Dark Premium" (Preto, Verde Esmeralda, Luxo).

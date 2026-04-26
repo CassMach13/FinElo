@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Transaction, ImportConfig, MappingRule } from '../types';
+import { parseOFX } from './parsers/ofxParser';
 
 interface ParseResult {
   newTransactions: Omit<Transaction, 'ID_Transacao'>[];
@@ -607,6 +608,7 @@ export const processStatementFile = (
         try {
           const fileName = file.name.toLowerCase();
           let content = '';
+          
           if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
             content = await convertExcelToCSV(file);
           } else {
@@ -617,6 +619,35 @@ export const processStatementFile = (
                 reader.readAsText(file, 'UTF-8');
             });
           }
+
+          // IF OFX/OFC: Use dedicated parser and bypass standard CSV mapping
+          if (fileName.endsWith('.ofx') || fileName.endsWith('.ofc')) {
+            const ofxTransactions = parseOFX(content, file.name);
+            
+            // Apply mapping rules to OFX transactions
+            const mappedTransactions = ofxTransactions.map(tx => {
+              let suggestedName = tx.Descricao_Original;
+              let suggestedCategory = '-';
+              for (const rule of mappingRules) {
+                if (tx.Descricao_Original.toUpperCase().includes(rule.Texto_Contido_Descricao.toUpperCase())) {
+                  suggestedName = rule.Nome_Fantasia_Sugerido;
+                  suggestedCategory = rule.Categoria_Sugerida;
+                  break;
+                }
+              }
+              return { ...tx, Nome_Fantasia: suggestedName, Categoria: suggestedCategory };
+            });
+
+            resolve({
+              newTransactions: mappedTransactions,
+              successCount: mappedTransactions.length,
+              duplicateCount: 0,
+              ignoredCount: 0,
+              ignoredItems: []
+            });
+            return;
+          }
+
           parsingLogic(content);
         } catch (error) {
           reject(error);

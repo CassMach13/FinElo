@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { Transaction, MappingRule } from '../../types';
+import { parseOFX } from './ofxParser';
 
 export interface NativeBankConfig {
   id: string;
@@ -31,6 +32,7 @@ export interface NativeBankConfig {
   ignoreRowsContaining?: string[];
   // Signature detection: unique header strings to auto-detect this bank's CSV
   signatureStrings?: string[];
+  typeColIndex?: number;      // NEW: Index for Type column (C/D or similar)
 }
 
 export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
@@ -425,6 +427,26 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     ignoreRowsContaining: ['SALDO ANTERIOR', 'S A L D O'],
     signatureStrings: ['dependencia origem', 'data do balancete', 'banco do brasil'],
   },
+  {
+    id: 'caixa',
+    name: 'Caixa Econômica Federal',
+    description: 'Extrato de Conta Corrente / Poupança',
+    sourceType: 'Conta',
+    isSupported: true,
+    brandColor: '#005CA9',      // Official Caixa Blue
+    brandColorSecondary: '#F58220', // Official Caixa Orange
+    logoText: 'caixa',
+    logoUrl: '/bank-logos/caixa.png',
+    delimiter: ';',
+    skipLines: 0,
+    hasHeader: true,
+    dateColIndex: 1,
+    descColIndices: [3],
+    valueColIndex: 4,
+    typeColIndex: 5,            // Column with 'C' (Credit) or 'D' (Debit)
+    invertValues: false,
+    signatureStrings: ['CAIXA ECONOMICA FEDERAL', '<STMTTRN>', 'ofx', 'Data_Mov', 'Nr_Doc'],
+  },
 ];
 
 // --- Helpers (duplicated from parserService to keep parsers self-contained) ---
@@ -639,6 +661,11 @@ export function detectBankFromContent(content: string): NativeBankConfig | null 
     return NATIVE_BANK_CONFIGS.find(b => b.id === 'banco-do-brasil') || null;
   }
 
+  // Caixa Econômica Federal: "CAIXA ECONOMICA FEDERAL" or OFX signature
+  if (firstLines.includes('caixa economica federal') || firstLines.includes('<stmttrn>') || firstLines.includes('<ofx>')) {
+    return NATIVE_BANK_CONFIGS.find(b => b.id === 'caixa') || null;
+  }
+
   return null;
 }
 
@@ -676,8 +703,37 @@ export function parseNativeBankCSV(
   const ignoredItems: any[] = [];
   let successCount = 0;
   let ignoredCount = 0;
+  let data: string[][] = [];
 
-  // Step 1: Pre-process — unwrap double-quoted lines (Ticket format)
+  // Step 1: Detect if it's an OFX/OFC file and handle it with dedicated parser
+  const isOFX = rawContent.includes('<STMTTRN>') || (fileName && (fileName.toLowerCase().endsWith('.ofx') || fileName.toLowerCase().endsWith('.ofc')));
+  
+  if (isOFX) {
+    const ofxTransactions = parseOFX(rawContent, fileName || bankConfig.name);
+    
+    // Apply mapping rules
+    const mappedTransactions = ofxTransactions.map(tx => {
+      let suggestedName = tx.Descricao_Original;
+      let suggestedCategory = '-';
+      for (const rule of mappingRules) {
+        if (tx.Descricao_Original.toUpperCase().includes(rule.Texto_Contido_Descricao.toUpperCase())) {
+          suggestedName = rule.Nome_Fantasia_Sugerido;
+          suggestedCategory = rule.Categoria_Sugerida;
+          break;
+        }
+      }
+      return { ...tx, Nome_Fantasia: suggestedName, Categoria: suggestedCategory, Fonte: bankConfig.name };
+    });
+
+    return { 
+      newTransactions: mappedTransactions, 
+      successCount: mappedTransactions.length, 
+      ignoredCount: 0, 
+      ignoredItems: [] 
+    };
+  }
+
+  // Step 2: Pre-process CSV — unwrap double-quoted lines (Ticket format)
   const lines = rawContent.split(/\r?\n/);
   const cleanedLines = lines.map(line => {
     const trimmed = line.trim();
@@ -920,7 +976,17 @@ export function parseNativeBankCSV(
 
     // Parse
     const cleanedDate = parseDate(rawDate);
-    const cleanedValue = parseMonetaryValue(rawValue, bankConfig.numberFormat);
+    let cleanedValue = parseMonetaryValue(rawValue, bankConfig.numberFormat);
+
+    // Handle Type column (C/D)
+    if (bankConfig.typeColIndex !== undefined && cleanedValue !== null) {
+      const type = (row[bankConfig.typeColIndex] || '').trim().toUpperCase();
+      if (type === 'D' || type === 'DEBITO' || type === 'DEBIT') {
+        cleanedValue = -Math.abs(cleanedValue);
+      } else if (type === 'C' || type === 'CREDITO' || type === 'CREDIT') {
+        cleanedValue = Math.abs(cleanedValue);
+      }
+    }
 
     // Skip rows that can't be parsed as valid transactions
     if (!cleanedDate || cleanedValue === null || !rawDesc) {

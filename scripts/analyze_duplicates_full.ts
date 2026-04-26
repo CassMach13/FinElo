@@ -1,9 +1,10 @@
 
 import fs from 'fs';
+import path from 'path';
 import Papa from 'papaparse';
 
-const filePath = 'c:\\Users\\cassi\\Downloads\\personal-finance-manager\\modelos de fatura\\transacoes_2026-01-01.csv';
-const outPath = 'c:\\Users\\cassi\\Downloads\\personal-finance-manager\\scripts\\dup_report_full.txt';
+const filePath = './modelos de fatura/transacoes_2026-01-01.csv';
+const outPath = './scripts/dup_report_full.txt';
 
 const log = (msg: string, buffer: string[]) => {
     console.log(msg);
@@ -34,8 +35,9 @@ const processFile = () => {
             const map = new Map<string, any[]>();
 
             relevant.forEach((t: any) => {
-                const dateYMD = t['Data'].split('T')[0];
-                const val = parseFloat(t['Valor']).toFixed(2);
+                const rawDate = t['Data'] || '';
+                const dateYMD = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+                const val = parseFloat(t['Valor'] || '0').toFixed(2);
                 const desc = (t['Descricao_Original'] || '').trim().toUpperCase();
 
                 // Key: Data + Valor + Descr

@@ -1,9 +1,10 @@
 
 import fs from 'fs';
+import path from 'path';
 import Papa from 'papaparse';
 
-const filePath = 'c:\\Users\\cassi\\Downloads\\personal-finance-manager\\modelos de fatura\\transacoes_2026-01-01.csv';
-const outPath = 'c:\\Users\\cassi\\Downloads\\personal-finance-manager\\scripts\\dup_report.txt';
+const filePath = './modelos de fatura/transacoes_2026-01-01.csv';
+const outPath = './scripts/dup_report.txt';
 
 // Target Range: Dec 2025
 const startTs = new Date('2025-12-01T00:00:00').getTime();
