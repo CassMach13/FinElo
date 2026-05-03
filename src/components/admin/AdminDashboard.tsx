@@ -144,28 +144,40 @@ const AdminDashboard: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {user.plan_type === 'lifetime' ? (
-                                                <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase">
-                                                    Fundador
-                                                </span>
-                                            ) : user.plan_type === 'annual' ? (
-                                                <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase">
-                                                    Anual
-                                                </span>
-                                            ) : user.plan_type === 'monthly' ? (
-                                                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase">
-                                                    Mensal
-                                                </span>
-                                            ) : (
-                                                <span className="bg-slate-700 px-2 py-0.5 rounded text-xs text-gray-400 uppercase">
-                                                    Free
-                                                </span>
-                                            )}
-                                            {user.plan_status && user.plan_status !== 'active' && (
-                                                <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-1 py-0.5 rounded">
-                                                    {user.plan_status}
-                                                </span>
-                                            )}
+                                            <div className="flex flex-col gap-1 items-start">
+                                                {user.plan_type === 'lifetime' ? (
+                                                    <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                        Fundador
+                                                    </span>
+                                                ) : user.plan_type === 'annual' ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                            Anual
+                                                        </span>
+                                                        <span className={`text-[9px] font-bold uppercase ${user.tier === 'wealth' ? 'text-purple-300' : 'text-blue-300'}`}>
+                                                            ({user.tier})
+                                                        </span>
+                                                    </div>
+                                                ) : user.plan_type === 'monthly' ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                            Mensal
+                                                        </span>
+                                                        <span className={`text-[9px] font-bold uppercase ${user.tier === 'wealth' ? 'text-purple-300' : 'text-blue-300'}`}>
+                                                            ({user.tier})
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
+                                                        Free
+                                                    </span>
+                                                )}
+                                                {user.plan_status && !['active', 'lifetime'].includes(user.plan_status) && (
+                                                    <span className="text-[9px] bg-red-500/20 text-red-500 px-1 py-0.5 rounded font-mono">
+                                                        {user.plan_status.toUpperCase()}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {new Date(user.created_at).toLocaleDateString('pt-BR')}

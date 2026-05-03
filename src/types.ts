@@ -167,6 +167,7 @@ export interface AdminCrmUser {
   created_at: string;
   last_sign_in_at: string | null;
   plan_type: string | null;
+  tier: string | null;
   plan_status: string | null;
 }
 
