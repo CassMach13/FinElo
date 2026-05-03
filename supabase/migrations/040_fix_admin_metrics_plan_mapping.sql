@@ -1,5 +1,6 @@
--- Migration: FinElo Metrics & CRM Sync
--- Considera os planos: Basic (Grátis), PRO, Wealth e Founder's Pack (Vitalício)
+-- Migration: FinElo Metrics & CRM Sync (CORRIGIDO)
+-- Planos: Basic (Grátis), PRO, Wealth, Founder's Pack (Vitalício)
+-- CORREÇÃO: Removido COALESCE errado que fazia Basic aparecer como PRO
 
 CREATE OR REPLACE FUNCTION get_admin_metrics()
 RETURNS json
@@ -20,26 +21,28 @@ BEGIN
   -- Novos usuários nos últimos 30 dias
   SELECT count(*) INTO new_users_30_days FROM auth.users WHERE created_at >= NOW() - INTERVAL '30 days';
 
-  -- FOUNDER'S PACK: Somente os vitalícios
+  -- FOUNDER'S PACK: status = 'lifetime' OU plan_type = 'lifetime'
   SELECT count(*) INTO founders_users 
   FROM public.subscriptions 
   WHERE status = 'lifetime' OR plan_type = 'lifetime';
 
-  -- PRO: Tier PRO que não são vitalícios
+  -- PRO: tier = 'pro' e assinatura ativa (excluindo vitalícios)
   SELECT count(*) INTO pro_users 
   FROM public.subscriptions 
   WHERE tier = 'pro' 
   AND status IN ('active', 'trialing', 'past_due')
-  AND plan_type != 'lifetime' AND status != 'lifetime';
+  AND (plan_type IS NULL OR plan_type != 'lifetime')
+  AND status != 'lifetime';
 
-  -- WEALTH: Tier WEALTH que não são vitalícios (Anuais/Mensais)
+  -- WEALTH: tier = 'wealth' e assinatura ativa (excluindo vitalícios)
   SELECT count(*) INTO wealth_users 
   FROM public.subscriptions 
   WHERE tier = 'wealth' 
   AND status IN ('active', 'trialing', 'past_due')
-  AND plan_type != 'lifetime' AND status != 'lifetime';
+  AND (plan_type IS NULL OR plan_type != 'lifetime')
+  AND status != 'lifetime';
 
-  -- BASIC (Grátis): Todo o resto
+  -- BASIC: todo o resto
   free_users := total_users - (pro_users + wealth_users + founders_users);
   IF free_users < 0 THEN free_users := 0; END IF;
 
@@ -58,9 +61,10 @@ BEGIN
           'full_name', au.raw_user_meta_data->>'full_name',
           'created_at', au.created_at,
           'last_sign_in_at', au.last_sign_in_at,
-          'plan_type', COALESCE(ps.plan_type, 'free'), 
-          'tier', COALESCE(ps.tier, 'pro'),           
-          'plan_status', COALESCE(ps.status, 'active')
+          -- SEM COALESCE errado: retorna NULL para usuários sem assinatura
+          'plan_type', ps.plan_type,
+          'tier', ps.tier,
+          'plan_status', ps.status
         ) ORDER BY au.last_sign_in_at DESC NULLS LAST
       ), '[]'::json)
       FROM auth.users au

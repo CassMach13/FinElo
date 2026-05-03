@@ -153,8 +153,14 @@ const AdminDashboard: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1 items-start">
                                                 {user.plan_type === 'lifetime' ? (
+                                                    // Founder's Pack: comprou via Stripe ou recebeu acesso vitalício
                                                     <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap">
                                                         Founder's Pack
+                                                    </span>
+                                                ) : !user.plan_type || user.plan_type === 'free' ? (
+                                                    // Sem assinatura = Basic Grátis
+                                                    <span className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
+                                                        Basic (Grátis)
                                                     </span>
                                                 ) : user.tier === 'wealth' ? (
                                                     <div className="flex flex-col gap-0.5">
