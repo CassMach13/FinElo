@@ -53,7 +53,12 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
             setDrafts(data);
             setStep('review');
         } catch (err: any) {
-            setError(err.message || 'Erro ao buscar transações');
+            // Detecta conexão antiga do Pluggy (não é um link Belvo válido)
+            if (err.message?.includes('conexao_pluggy_legada') || err.message?.includes('Reconecte')) {
+                setError('⚠️ Esta conexão foi criada com o sistema anterior. Feche este painel e clique em "+ Conectar Novo Banco" para reconectar via Open Finance.');
+            } else {
+                setError(err.message || 'Erro ao buscar transações. Tente novamente.');
+            }
         } finally {
             setIsFetching(false);
         }

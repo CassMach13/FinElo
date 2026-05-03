@@ -166,7 +166,10 @@ export async function fetchTransactionsForReview(
     body: JSON.stringify({ linkId, fromDate, toDate }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Falha ao buscar dados Belvo');
+  if (!res.ok) {
+    // Propaga o erro específico do backend (ex: conexao_pluggy_legada)
+    throw new Error(data.error || data.message || 'Falha ao buscar dados Belvo');
+  }
 
   const { transactions: belvoTxs } = data;
   const store = useAppStore.getState();

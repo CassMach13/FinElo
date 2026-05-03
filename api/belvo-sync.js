@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
         const accounts = accountsData.results || accountsData || [];
 
-        // 2. Buscar transações do link (todas as contas de uma vez)
+        // 2. Buscar transações do link via POST (Belvo armazena e retorna em uma única chamada)
         const txRes = await fetch(`${baseUrl}/api/transactions/`, {
             method: 'POST',
             headers,
@@ -57,14 +57,24 @@ export default async function handler(req, res) {
                 link: linkId,
                 date_from: dateFrom,
                 date_to: dateTo,
-                save_data: false, // não salva no Belvo, apenas retorna
+                // Belvo armazena as transações e as retorna — não há opção "sem salvar"
             }),
         });
 
         const txData = await txRes.json();
 
         if (!txRes.ok) {
-            console.error('[Belvo Sync] Erro ao buscar transações:', txData);
+            console.error('[Belvo Sync] Erro ao buscar transações:', JSON.stringify(txData));
+
+            // Se o link não existe no Belvo (400/404), é uma conexão antiga do Pluggy
+            if (txRes.status === 400 || txRes.status === 404) {
+                return res.status(400).json({
+                    error: 'conexao_pluggy_legada',
+                    message: 'Esta conexão foi feita com o sistema antigo. Reconecte este banco clicando em "+ Conectar Novo Banco".',
+                    details: txData,
+                });
+            }
+
             return res.status(txRes.status).json({ error: 'Erro ao buscar transações Belvo', details: txData });
         }
 
