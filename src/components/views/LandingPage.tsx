@@ -429,9 +429,8 @@ const LandingPage: React.FC = () => {
                             <div className="flex flex-wrap items-center gap-6 pt-6 border-t border-white/5 justify-center lg:justify-start">
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mr-2">Pague com</span>
                                 <div className="flex items-center gap-8 justify-center lg:justify-start">
-                                    <VisaIcon className="h-4 w-auto drop-shadow-sm" />
+                                    <VisaIcon className="h-5 w-auto drop-shadow-sm" />
                                     <MastercardIcon className="h-7 w-auto drop-shadow-sm" />
-                                    <PixIcon className="h-5 w-auto drop-shadow-sm" />
                                     <BoletoIcon className="h-6 w-auto drop-shadow-sm" />
                                 </div>
                             </div>
@@ -609,14 +608,13 @@ const LandingPage: React.FC = () => {
 };
 
 const VisaIcon = ({ className = "" }) => (
-    <svg className={className} viewBox="0 0 128 41" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className} viewBox="0 0 128 72" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M49.61 0.5H36.31L18.42 38.54H32.61L49.61 0.5Z" fill="#F7B600"/>
         <path d="M127.81 0.59C123.61 -1.31 117.11 -2.31 111.31 -2.31C93.41 -2.31 80.81 7.19 80.71 20.79C80.61 30.89 89.71 36.39 96.51 39.79C103.51 43.19 105.91 45.39 105.81 48.49C105.71 53.19 100.21 55.29 94.91 55.29C87.71 55.29 83.91 54.19 78.01 51.59L75.61 50.39L73.01 66.59C77.41 68.59 85.51 70.39 93.91 70.49C113.01 70.49 125.41 61.09 125.51 46.49C125.61 38.49 120.71 32.39 110.21 27.39C103.81 24.09 99.91 21.99 99.91 18.59C99.91 15.59 103.21 12.39 110.41 12.39C116.41 12.29 120.81 13.69 124.11 15.19L125.71 15.99L128.31 -0.11L127.81 0.59Z" fill="#1A1F71"/>
         <path d="M68.01 0.5H54.61L46.21 39.5H59.61L68.01 0.5Z" fill="#1A1F71"/>
         <path d="M33.61 0.5C30.41 0.5 28.01 1.4 26.61 2.8C24.21 5.6 21.31 13.8 16.21 27.2L13.61 3.6H11.01L0 8.5C0 8.5 15 12.4 25 15.9L18.41 39.5H32.61L54.21 1H36.91L33.61 0.5Z" fill="#1A1F71"/>
     </svg>
 );
-
 const MastercardIcon = ({ className = "" }) => (
     <svg className={className} viewBox="0 0 40 32" xmlns="http://www.w3.org/2000/svg">
         <circle cx="12" cy="16" r="12" fill="#EB001B" />
