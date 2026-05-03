@@ -11,7 +11,7 @@ import Input from './../ui/Input';
 import Select from './../ui/Select';
 import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
-import { getBelvoWidgetToken, savePluggyConnection, loadPluggyConnections } from '../../services/openFinanceService';
+import { getBelvoWidgetToken, savePluggyConnection, loadPluggyConnections, deletePluggyConnection } from '../../services/openFinanceService';
 import OpenFinanceReviewModal from '../modals/OpenFinanceReviewModal';
 import { PluggyConnection, ImportConfig, Account } from '../../types';
 import SaveConfigModal from '../modals/SaveConfigModal';
@@ -744,7 +744,7 @@ const ImportView: React.FC = () => {
                         <div className="flex flex-col gap-2">
                           <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Bancos Conectados</p>
                           {pluggyConnections.map(conn => (
-                            <div key={conn.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3">
+                            <div key={conn.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 group">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-sm">🏦</div>
                                 <div>
@@ -752,12 +752,26 @@ const ImportView: React.FC = () => {
                                   <p className="text-gray-500 text-xs">Conectado em {new Date(conn.created_at).toLocaleDateString('pt-BR')}</p>
                                 </div>
                               </div>
-                              <Button
-                                onClick={() => setReviewConnection(conn)}
-                                className="bg-emerald-600/80 hover:bg-emerald-500 text-white border-none text-xs py-1.5 px-3"
-                              >
-                                🔄 Sincronizar
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  onClick={() => setReviewConnection(conn)}
+                                  className="bg-emerald-600/80 hover:bg-emerald-500 text-white border-none text-xs py-1.5 px-3"
+                                >
+                                  🔄 Sincronizar
+                                </Button>
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm(`Remover a conexão com ${conn.bank_name}? Suas transações já importadas não serão afetadas.`)) return;
+                                    await deletePluggyConnection(conn.id);
+                                    setPluggyConnections(prev => prev.filter(c => c.id !== conn.id));
+                                    setNotification({ type: 'success', message: `Conexão com ${conn.bank_name} removida.` });
+                                  }}
+                                  title="Remover conexão"
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
