@@ -36,11 +36,9 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                id: 'widget',
-                // Escopos necessários: leitura de contas e transações
-                scopes: 'read_institutions,read_accounts,read_transactions,read_owners',
-                // Restringe aos bancos brasileiros
-                fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
+                id: secretId,
+                password: secretPassword,
+                scopes: 'read_institutions,write_links,read_accounts,read_transactions,read_owners'
             }),
         });
 
