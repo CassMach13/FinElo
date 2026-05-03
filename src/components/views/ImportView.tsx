@@ -11,8 +11,7 @@ import Input from './../ui/Input';
 import Select from './../ui/Select';
 import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
-import { getPluggyConnectToken, savePluggyConnection, loadPluggyConnections } from '../../services/openFinanceService';
-import { PluggyConnect, PluggyConnectInstance } from 'react-pluggy-connect';
+import { getBelvoWidgetToken, savePluggyConnection, loadPluggyConnections } from '../../services/openFinanceService';
 import OpenFinanceReviewModal from '../modals/OpenFinanceReviewModal';
 import { PluggyConnection, ImportConfig, Account } from '../../types';
 import SaveConfigModal from '../modals/SaveConfigModal';
@@ -153,10 +152,8 @@ const ImportView: React.FC = () => {
   };
 
 
-  // Pluggy State
-  const [pluggyConnectToken, setPluggyConnectToken] = useState<string | null>(null);
-  const [isGeneratingPluggyToken, setIsGeneratingPluggyToken] = useState(false);
-  const pluggyInstanceRef = React.useRef<PluggyConnectInstance | null>(null);
+  // Belvo Widget State
+  const [isBelvoLoading, setIsBelvoLoading] = useState(false);
   const [pluggyConnections, setPluggyConnections] = useState<PluggyConnection[]>([]);
   const [reviewConnection, setReviewConnection] = useState<PluggyConnection | null>(null);
   const [isLoadingConnections, setIsLoadingConnections] = useState(false);
@@ -205,29 +202,64 @@ const ImportView: React.FC = () => {
       setShowPaywallModal('basic');
       return;
     }
-
     if (!hasUnlimitedAccess && pluggyConnections.length >= 1) {
       setShowPaywallModal('extra_bank');
       return;
     }
 
-    setIsGeneratingPluggyToken(true);
+    setIsBelvoLoading(true);
     setNotification(null);
+
     try {
-      // If we're in trial/dev mode, we might want to restrict to sandbox to avoid errors
-      const options = {
-        // You can add connectorAllowedIds: ['2'] for Pluggy Bank only if desired
-      };
-      const token = await getPluggyConnectToken(undefined); // Passing itemId if updating
-      setPluggyConnectToken(token);
-      // Delay to allow PluggyConnect component to mount with the token
-      setTimeout(() => { pluggyInstanceRef.current?.show(); }, 150);
+      const accessToken = await getBelvoWidgetToken();
+
+      // Carrega o script do Belvo Widget dinamicamente (sem npm)
+      await loadBelvoScript();
+
+      // @ts-ignore — belvoWidget é injetado pelo script CDN
+      window.belvoSDK.createWidget(accessToken, {
+        locale: 'pt',
+        country_codes: ['BR'],
+        // callback quando o usuário conecta um banco com sucesso
+        callback: async (link: string, institution: any) => {
+          const bankName = institution?.name || 'Banco Belvo';
+          if (user?.id && link) {
+            await savePluggyConnection(user.id, link, bankName);
+            setNotification({ type: 'success', message: `${bankName} conectado com sucesso!` });
+            const conns = await loadPluggyConnections(user.id);
+            setPluggyConnections(conns);
+            const newConn = conns.find(c => c.item_id === link);
+            if (newConn) setReviewConnection(newConn);
+          }
+        },
+        // callback de erro
+        onExit: (data: any) => {
+          console.log('[Belvo] Widget fechado', data);
+          setIsBelvoLoading(false);
+        },
+      }).build();
+
     } catch (error: any) {
       setNotification({ type: 'error', message: error.message || 'Falha ao iniciar Open Finance' });
     } finally {
-      setIsGeneratingPluggyToken(false);
+      setIsBelvoLoading(false);
     }
   };
+
+  // Injeta o script do Belvo Widget via CDN (apenas uma vez)
+  function loadBelvoScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (document.getElementById('belvo-widget-script')) {
+        resolve(); return;
+      }
+      const script = document.createElement('script');
+      script.id = 'belvo-widget-script';
+      script.src = 'https://cdn.belvo.io/belvo-widget-1-stable.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Falha ao carregar Belvo Widget'));
+      document.head.appendChild(script);
+    });
+  }
 
   const [previewData, setPreviewData] = useState<string[][]>([]);
   const [fileContent, setFileContent] = useState<string>('');
@@ -685,8 +717,7 @@ const ImportView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* ─── OPEN FINANCE SECTION (TEMPORARILY HIDDEN) ───────────────────── */}
-                  {/* 
+                  {/* ─── OPEN FINANCE (BELVO) ─────────────────────────────────────────── */}
                   <div className="border border-indigo-500/30 bg-gradient-to-r from-indigo-900/40 to-slate-900/40 rounded-xl p-5 mt-4 relative overflow-hidden group">
                     <div className="absolute inset-0 bg-indigo-500/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
                     <div className="relative z-10">
@@ -697,14 +728,14 @@ const ImportView: React.FC = () => {
                         </div>
                         <Button
                           onClick={handleOpenFinanceConnect}
-                          disabled={isGeneratingPluggyToken}
+                          disabled={isBelvoLoading}
                           className="bg-indigo-600 hover:bg-indigo-500 text-white border-none whitespace-nowrap shadow-lg shadow-indigo-500/20 text-sm w-full sm:w-auto"
                         >
-                          {isGeneratingPluggyToken ? 'Iniciando...' : '+ Conectar Novo Banco'}
+                          {isBelvoLoading ? 'Iniciando...' : '+ Conectar Novo Banco'}
                         </Button>
                       </div>
                       <p className="text-sm text-gray-400 mb-4">
-                        Conecte Nubank, Itaú, Bradesco e mais de 30 instituições. Selecione o período e revise antes de salvar.
+                        Conecte Nubank, Itaú, Bradesco e mais de 100 instituições. Selecione o período e revise antes de salvar.
                       </p>
 
                       {isLoadingConnections ? (
@@ -715,9 +746,7 @@ const ImportView: React.FC = () => {
                           {pluggyConnections.map(conn => (
                             <div key={conn.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-sm">
-                                  🏦
-                                </div>
+                                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-sm">🏦</div>
                                 <div>
                                   <p className="text-white text-sm font-medium">{conn.bank_name}</p>
                                   <p className="text-gray-500 text-xs">Conectado em {new Date(conn.created_at).toLocaleDateString('pt-BR')}</p>
@@ -737,24 +766,6 @@ const ImportView: React.FC = () => {
                       )}
                     </div>
                   </div>
-
-                  {pluggyConnectToken && (
-                    <PluggyConnect
-                      connectToken={pluggyConnectToken}
-                      innerRef={(ref) => { pluggyInstanceRef.current = ref; }}
-                      onSuccess={handlePluggySuccess}
-                      onError={(err) => {
-                        console.error('Pluggy error:', err);
-                        let msg = 'Conexão cancelada ou falhou. Tente novamente.';
-                        if (err?.data?.message === 'TRIAL_CLIENT_ITEM_CREATE_NOT_ALLOWED' || err?.message?.includes('TRIAL_CLIENT')) {
-                          msg = 'Erro: Clientes Trial só podem conectar ao "Pluggy Bank" (Banco de Testes).';
-                        }
-                        setNotification({ type: 'error', message: msg });
-                        setPluggyConnectToken(null);
-                      }}
-                    />
-                  )}
-                  */}
 
                   <div className="border-t border-slate-700/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div>

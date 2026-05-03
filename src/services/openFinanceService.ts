@@ -3,28 +3,50 @@ import { useAppStore } from '../hooks/useAppStore';
 import { PluggyTransactionDraft, PluggyConnection } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Token
+// Token (Belvo Widget)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getPluggyConnectToken(itemId?: string, options?: any): Promise<string> {
-  const res = await fetch('/api/pluggy-token', {
+export async function getBelvoWidgetToken(): Promise<string> {
+  const res = await fetch('/api/belvo-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ itemId, options }),
+    body: JSON.stringify({}),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to fetch token');
+  if (!res.ok) throw new Error(data.error || 'Falha ao obter token Belvo');
   return data.accessToken;
 }
 
+// Mantido por compatibilidade (caso alguma parte do código ainda use)
+export async function getPluggyConnectToken(_itemId?: string, _options?: any): Promise<string> {
+  return getBelvoWidgetToken();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Connections
+// Connections (salvas na tabela pluggy_connections — reutilizando estrutura)
+// item_id agora armazena o linkId do Belvo
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function savePluggyConnection(userId: string, itemId: string, bankName: string = 'Open Finance Bank') {
+export async function savePluggyConnection(userId: string, linkId: string, bankName: string = 'Open Finance Bank') {
+  // Verifica se o link já está salvo para evitar duplicatas
+  const { data: existing } = await supabase
+    .from('pluggy_connections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('item_id', linkId)
+    .maybeSingle();
+
+  if (existing) return true; // já salvo
+
   const { error } = await supabase
     .from('pluggy_connections')
-    .insert([{ user_id: userId, item_id: itemId, bank_name: bankName, status: 'active' }]);
+    .insert([{
+      user_id: userId,
+      item_id: linkId,   // item_id agora armazena o link UUID do Belvo
+      bank_name: bankName,
+      status: 'active',
+      provider: 'belvo', // campo extra para identificar o provedor
+    }]);
   if (error) throw error;
   return true;
 }
@@ -56,35 +78,35 @@ export async function updatePluggyConnectionAccount(connectionId: string, accoun
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Smart Category Suggestion
+// Smart Category Suggestion (sem mudanças — lógica reutilizável)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function detectType(pTx: any): 'Despesa' | 'Renda' {
-  // 1. Open Finance Brazil spec field
+  // 1. Belvo: type === 'OUTFLOW' | 'INFLOW'
+  if (pTx.type === 'OUTFLOW') return 'Despesa';
+  if (pTx.type === 'INFLOW') return 'Renda';
+
+  // 2. Open Finance Brazil spec
   if (pTx.creditDebitType) {
     return pTx.creditDebitType.toUpperCase() === 'DEBITO' ? 'Despesa' : 'Renda';
   }
-  // 2. Standard Pluggy field
-  if (pTx.type) {
-    return pTx.type.toUpperCase() === 'DEBIT' ? 'Despesa' : 'Renda';
-  }
-  // 3. Fallback: sign of amount
+  // 3. Pluggy legado: DEBIT/CREDIT
+  if (pTx.type === 'DEBIT') return 'Despesa';
+  if (pTx.type === 'CREDIT') return 'Renda';
+
+  // 4. Fallback: sinal do valor
   return pTx.amount < 0 ? 'Despesa' : 'Renda';
 }
 
-/**
- * Suggests a category for an incoming transaction.
- * Priority: mappingRules keywords → transaction history → 'Outros'
- * Returns the category name and a confidence level.
- */
 function suggestCategory(
   description: string,
-  tipo: 'Despesa' | 'Renda'
+  tipo: 'Despesa' | 'Renda',
+  belvoCategory?: string | null
 ): { categoria: string; confianca: 'alta' | 'media' | 'nova' } {
   const store = useAppStore.getState();
   const descUpper = description.toUpperCase();
 
-  // 1. Check user's mapping rules (keyword match)
+  // 1. Regras de mapeamento do usuário (maior prioridade)
   const matchingRule = store.mappingRules?.find(rule => {
     const keyword = (rule.Texto_Contido_Descricao || '').toUpperCase();
     return keyword && descUpper.includes(keyword);
@@ -93,7 +115,25 @@ function suggestCategory(
     return { categoria: matchingRule.Categoria_Sugerida, confianca: 'alta' };
   }
 
-  // 2. Check transaction history for same description (learning from past)
+  // 2. Belvo já categoriza automaticamente — usar como sugestão de média confiança
+  if (belvoCategory) {
+    const categoryMap: Record<string, string> = {
+      'FOOD_AND_DRINK': 'Alimentação',
+      'TRANSPORT': 'Transporte',
+      'HOUSING': 'Moradia',
+      'HEALTH': 'Saúde',
+      'ENTERTAINMENT': 'Lazer',
+      'EDUCATION': 'Educação',
+      'SHOPPING': 'Compras',
+      'PERSONAL_FINANCE': 'Finanças',
+      'INCOME': 'Renda',
+      'TRANSFERS': 'Transferências',
+    };
+    const mapped = categoryMap[belvoCategory];
+    if (mapped) return { categoria: mapped, confianca: 'media' };
+  }
+
+  // 3. Histórico de transações
   const historicalMatch = store.transactions.find(t =>
     t.Tipo === tipo &&
     t.Descricao_Original?.toUpperCase().includes(descUpper.split(' ')[0])
@@ -102,33 +142,33 @@ function suggestCategory(
     return { categoria: historicalMatch.Categoria, confianca: 'media' };
   }
 
-  // 3. No match found — needs user input
+  // 4. Sem match
   return { categoria: tipo === 'Renda' ? 'Renda' : 'Outros', confianca: 'nova' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fetch for Review (does NOT save anything)
+// Fetch for Review (Belvo — não salva nada)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fetches transactions from Pluggy for the specified date range
- * and returns them as PluggyTransactionDraft[] enriched with category suggestions.
- * Nothing is saved to the database — the user must confirm via the review modal.
+ * Busca transações do Belvo para o link informado e retorna como drafts enriquecidos.
+ * Nada é salvo — o usuário deve confirmar via modal de revisão.
+ * linkId = item_id na tabela pluggy_connections (compatível)
  */
 export async function fetchTransactionsForReview(
-  itemId: string,
+  linkId: string,
   fromDate: string,
   toDate: string
 ): Promise<PluggyTransactionDraft[]> {
-  const res = await fetch('/api/pluggy-sync', {
+  const res = await fetch('/api/belvo-sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ itemId, fromDate, toDate }),
+    body: JSON.stringify({ linkId, fromDate, toDate }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to fetch Pluggy data');
+  if (!res.ok) throw new Error(data.error || 'Falha ao buscar dados Belvo');
 
-  const { transactions: pluggyTxs } = data;
+  const { transactions: belvoTxs } = data;
   const store = useAppStore.getState();
   const existingTxIds = new Set(
     store.transactions.map(t => (t as any).pluggy_transaction_id).filter(Boolean)
@@ -136,18 +176,18 @@ export async function fetchTransactionsForReview(
 
   const drafts: PluggyTransactionDraft[] = [];
 
-  for (const pTx of (pluggyTxs as any[])) {
-    // Skip already imported
-    if (existingTxIds.has(pTx.id)) continue;
+  for (const tx of (belvoTxs as any[])) {
+    // Pula transações já importadas
+    if (existingTxIds.has(tx.id)) continue;
 
-    const tipo = detectType(pTx);
-    const valor = Math.abs(pTx.amount);
-    const dateStr: string = typeof pTx.date === 'string' ? pTx.date.split('T')[0] : pTx.date;
-    const descricao: string = pTx.description || pTx.name || 'Sem descrição';
+    const tipo = detectType(tx);
+    const valor = Math.abs(tx.amount);
+    const dateStr: string = typeof tx.date === 'string' ? tx.date.split('T')[0] : tx.date;
+    const descricao: string = tx.description || tx.reference || 'Sem descrição';
 
-    const { categoria, confianca } = suggestCategory(descricao, tipo);
+    const { categoria, confianca } = suggestCategory(descricao, tipo, tx.category);
 
-    // Check for potential manual match (for deduplication display)
+    // Deduplicação com transações manuais
     const pDate = new Date(`${dateStr}T00:00:00`);
     const manualMatch = store.transactions.find(eTx => {
       if ((eTx as any).pluggy_transaction_id) return false;
@@ -157,14 +197,14 @@ export async function fetchTransactionsForReview(
     });
 
     drafts.push({
-      pluggy_id: pTx.id,
+      pluggy_id: tx.id,   // reutiliza o campo pluggy_id para o ID do Belvo
       data: dateStr,
       descricao,
       valor,
       tipo,
       categoria,
       confianca,
-      selecionada: true, // selected by default
+      selecionada: true,
       id_match_manual: manualMatch?.ID_Transacao,
     });
   }
@@ -173,15 +213,9 @@ export async function fetchTransactionsForReview(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Confirm Reviewed Transactions (this saves to DB)
+// Confirm Reviewed Transactions (sem mudanças — lógica 100% reutilizável)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Takes the user-reviewed list of drafts and saves them to the DB.
- * - Merges with matching manual transactions (adds pluggy_transaction_id)
- * - Inserts truly new ones
- * - Learns from confirmed categories by creating/updating mappingRules
- */
 export async function confirmReviewedTransactions(
   userId: string,
   drafts: PluggyTransactionDraft[],
@@ -195,7 +229,6 @@ export async function confirmReviewedTransactions(
 
   for (const draft of selected) {
     if (draft.id_match_manual) {
-      // MERGE: update existing manual transaction
       await store.updateTransaction({
         ID_Transacao: draft.id_match_manual,
         pluggy_transaction_id: draft.pluggy_id,
@@ -203,7 +236,6 @@ export async function confirmReviewedTransactions(
       } as any);
       merged++;
     } else {
-      // INSERT: new transaction
       await store.addTransaction({
         user_id: userId,
         Data: draft.data,
@@ -223,7 +255,7 @@ export async function confirmReviewedTransactions(
       inserted++;
     }
 
-    // LEARN: if confidence was not 'alta', save as a new mapping rule
+    // Aprende: cria regra de mapeamento se não existia
     if (draft.confianca !== 'alta' && draft.descricao && draft.categoria) {
       const keyword = draft.descricao.split(' ')[0].toUpperCase();
       const alreadyHasRule = store.mappingRules?.some(
@@ -237,7 +269,7 @@ export async function confirmReviewedTransactions(
             Nome_Fantasia_Sugerido: draft.descricao,
           } as any);
         } catch {
-          // Non-critical — don't fail the whole import if rule saving fails
+          // não critico — não falha o import inteiro
         }
       }
     }
