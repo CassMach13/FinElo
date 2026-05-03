@@ -103,11 +103,11 @@ async function handleCheckoutCompleted(session, stripe, supabase) {
         const priceId = sub.items.data[0]?.price?.id;
         const interval = sub.items.data[0]?.price?.recurring?.interval;
 
-        plan_type = interval === 'year' ? 'annual' : 'monthly';
-        tier = getPlanTierFromPriceId(priceId);
+        tier = getPlanTierFromPriceId(priceId).tier;
         status = sub.status;
-        unlimited_sync = (tier === 'wealth'); // Wealth anual/mensal também tem sync ilimitado
-        family_slots = (tier === 'wealth') ? 5 : 2;
+        unlimited_sync = getPlanTierFromPriceId(priceId).unlimited_sync;
+        family_slots = getPlanTierFromPriceId(priceId).family_slots;
+        plan_type = getPlanTierFromPriceId(priceId).plan_type;
         current_period_end = new Date(sub.current_period_end * 1000).toISOString();
     }
 
@@ -179,18 +179,18 @@ async function handleSubscriptionUpsert(subscription, stripe, supabase) {
     }
 
     const priceId = subscription.items.data[0]?.price?.id;
-    const interval = subscription.items.data[0]?.price?.recurring?.interval;
-    const plan_type = interval === 'year' ? 'annual' : 'monthly';
-    const tier = getPlanTierFromPriceId(priceId);
+    const planAttrs = getPlanTierFromPriceId(priceId);
     const current_period_end = new Date(subscription.current_period_end * 1000).toISOString();
 
     const { error } = await supabase
         .from('subscriptions')
         .upsert({
             user_id: user.id,
-            plan_type,
-            tier,
+            plan_type: planAttrs.plan_type,
+            tier: planAttrs.tier,
             status: subscription.status,
+            unlimited_sync: planAttrs.unlimited_sync,
+            family_slots: planAttrs.family_slots,
             current_period_end,
             stripe_customer_id: customerId,
             updated_at: new Date().toISOString(),
@@ -201,7 +201,7 @@ async function handleSubscriptionUpsert(subscription, stripe, supabase) {
         throw error;
     }
 
-    console.log(`[Subscription] ✅ Atualizado: ${customerEmail} → ${plan_type}/${tier}/${subscription.status}`);
+    console.log(`[Subscription] ✅ Atualizado: ${customerEmail} → ${planAttrs.plan_type}/${planAttrs.tier}/${subscription.status}`);
 }
 
 async function handleSubscriptionDeleted(subscription, stripe, supabase) {
@@ -223,21 +223,25 @@ async function handleSubscriptionDeleted(subscription, stripe, supabase) {
     console.log(`[Subscription] ❌ Cancelada: ${customerEmail}`);
 }
 
-// Mapeia Price ID do Stripe para o tier do sistema
+// Mapeia Price ID do Stripe para os atributos do plano FinElo
 function getPlanTierFromPriceId(priceId) {
-    // ⚠️ IMPORTANTE: Substitua pelos Price IDs reais dos seus produtos no Stripe
-    // Você encontra em: Stripe Dashboard → Products → Seu Produto → Preços
-    const priceToTier = {
-        // PRO Mensal
-        'price_pro_monthly_id': 'pro',
-        // PRO Anual
-        'price_pro_annual_id': 'pro',
-        // Wealth Mensal
-        'price_wealth_monthly_id': 'wealth',
-        // Wealth Anual
-        'price_wealth_annual_id': 'wealth',
+    const priceMap = {
+        // === FOUNDER'S PACK (vitalício) ===
+        'price_1Sn8xRDRyCuEiKz8OWYsnZAc': { tier: 'wealth', plan_type: 'lifetime', unlimited_sync: true, family_slots: 5 },
+
+        // === PRO ===
+        'price_1T7jOIDRyCuEiKz88mnnDsVv': { tier: 'pro', plan_type: 'monthly', unlimited_sync: false, family_slots: 2 }, // PRO Mensal
+        'price_1Sn8zjDRyCuEiKz8ZosblnJm': { tier: 'pro', plan_type: 'annual',  unlimited_sync: false, family_slots: 2 }, // PRO Anual
+
+        // === WEALTH ===
+        'price_1T7jP2DRyCuEiKz8qweJbT4f': { tier: 'wealth', plan_type: 'monthly', unlimited_sync: true, family_slots: 5 }, // Wealth Mensal
+        'price_1T5YA7DRyCuEiKz8fbSML3Fh': { tier: 'wealth', plan_type: 'annual',  unlimited_sync: true, family_slots: 5 }, // Wealth Anual
+
+        // === ADD-ON FAMILIAR (a criar no Stripe) ===
+        // 'price_FAMILIAR_ID': { tier: null, plan_type: 'addon_family', unlimited_sync: false, family_slots: 1 },
     };
-    return priceToTier[priceId] || 'pro'; // fallback pro
+    // Retorna os atributos do plano ou fallback seguro
+    return priceMap[priceId] || { tier: 'pro', plan_type: 'monthly', unlimited_sync: false, family_slots: 0 };
 }
 
 // Lê o body raw para verificação da assinatura Stripe
