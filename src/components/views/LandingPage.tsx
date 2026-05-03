@@ -428,11 +428,11 @@ const LandingPage: React.FC = () => {
                             {/* Métodos de Pagamento e Selos */}
                             <div className="flex flex-wrap items-center gap-6 pt-6 border-t border-white/5 justify-center lg:justify-start">
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mr-2">Pague com</span>
-                                <div className="flex items-center gap-6 opacity-40 hover:opacity-80 transition-all">
-                                    <VisaIcon className="h-4 w-auto text-white" />
-                                    <MastercardIcon className="h-6 w-auto" />
-                                    <PixIcon className="h-5 w-auto text-white" />
-                                    <BoletoIcon className="h-5 w-auto text-white" />
+                                <div className="flex items-center gap-8 justify-center lg:justify-start">
+                                    <VisaIcon className="h-4 w-auto drop-shadow-sm" />
+                                    <MastercardIcon className="h-7 w-auto drop-shadow-sm" />
+                                    <PixIcon className="h-5 w-auto drop-shadow-sm" />
+                                    <BoletoIcon className="h-6 w-auto drop-shadow-sm" />
                                 </div>
                             </div>
                         </div>
@@ -609,27 +609,33 @@ const LandingPage: React.FC = () => {
 };
 
 const VisaIcon = ({ className = "" }) => (
-    <svg className={className} viewBox="0 0 128 40" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-        <path d="M49.6 0.5l-8.4 39h13.4l8.4-39H49.6zm70.6 0.1c-4.2-1.9-10.7-2.9-16.5-2.9-17.9 0-30.5 9.5-30.6 23.1-0.1 10.1 9 15.6 15.8 19 7 3.4 9.4 5.6 9.3 8.7-0.1 4.7-5.6 6.8-10.9 6.8-7.2 0-11-1.1-16.9-3.7l-2.4-1.2-2.6 16.2c4.4 2 12.5 3.8 20.9 3.9 19.1 0 31.5-9.4 31.6-24 0.1-8-4.8-14.1-15.3-19.1-6.4-3.3-10.3-5.4-10.3-8.8 0-3 3.3-6.2 10.5-6.2 6-0.1 10.4 1.3 13.7 2.8l1.6 0.8 2.6-16.1l-0.2-0.5zm3.8 24.3l11.7-32.2h-10.3l-15.6 39h14.2zm-97.1-23.9c-3.2 0-5.6 0.9-7 2.3-2.4 2.8-5.3 11-10.4 24.4L3.6 3.6h-2.6L0 8.5c0 0 15 3.9 25 7.4L18.4 39h14.2l21.6-38.5h-17.3z" />
+    <svg className={className} viewBox="0 0 128 41" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M49.61 0.5H36.31L18.42 38.54H32.61L49.61 0.5Z" fill="#F7B600"/>
+        <path d="M127.81 0.59C123.61 -1.31 117.11 -2.31 111.31 -2.31C93.41 -2.31 80.81 7.19 80.71 20.79C80.61 30.89 89.71 36.39 96.51 39.79C103.51 43.19 105.91 45.39 105.81 48.49C105.71 53.19 100.21 55.29 94.91 55.29C87.71 55.29 83.91 54.19 78.01 51.59L75.61 50.39L73.01 66.59C77.41 68.59 85.51 70.39 93.91 70.49C113.01 70.49 125.41 61.09 125.51 46.49C125.61 38.49 120.71 32.39 110.21 27.39C103.81 24.09 99.91 21.99 99.91 18.59C99.91 15.59 103.21 12.39 110.41 12.39C116.41 12.29 120.81 13.69 124.11 15.19L125.71 15.99L128.31 -0.11L127.81 0.59Z" fill="#1A1F71"/>
+        <path d="M68.01 0.5H54.61L46.21 39.5H59.61L68.01 0.5Z" fill="#1A1F71"/>
+        <path d="M33.61 0.5C30.41 0.5 28.01 1.4 26.61 2.8C24.21 5.6 21.31 13.8 16.21 27.2L13.61 3.6H11.01L0 8.5C0 8.5 15 12.4 25 15.9L18.41 39.5H32.61L54.21 1H36.91L33.61 0.5Z" fill="#1A1F71"/>
     </svg>
 );
 
 const MastercardIcon = ({ className = "" }) => (
-    <svg className={className} viewBox="0 0 32 24" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="10" cy="12" r="10" fill="currentColor" fillOpacity="0.8" />
-        <circle cx="22" cy="12" r="10" fill="currentColor" fillOpacity="0.4" />
+    <svg className={className} viewBox="0 0 40 32" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="16" r="12" fill="#EB001B" />
+        <circle cx="28" cy="16" r="12" fill="#F79E1B" fillOpacity="1" />
+        <path d="M20 16a11.977 11.977 0 014.125-9.155A11.977 11.977 0 0120 25.155a11.977 11.977 0 01-4.125-9.155c0-3.564 1.55-6.764 4.125-9.155z" fill="#FF5F00" />
     </svg>
 );
 
 const PixIcon = ({ className = "" }) => (
-    <svg className={className} viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-        <path d="M43.8 12.4c1.8-1.8 4.7-1.8 6.5 0l37.3 37.3c1.8 1.8 1.8 4.7 0 6.5L50.3 93.5c-1.8 1.8-4.7 1.8-6.5 0L6.5 56.2c-1.8-1.8-1.8-4.7 0-6.5l37.3-37.3zM50 82.1l32.1-32.1L50 17.9 17.9 50 50 82.1zm5.7-41.9L50 45.9l-5.7-5.7c-1.6-1.6-4.1-1.6-5.7 0l-5.7 5.7c-1.6 1.6-1.6 4.1 0 5.7l5.7 5.7 5.7 5.7 5.7-5.7 5.7-5.7c1.6-1.6 1.6-4.1 0-5.7L61.4 40.2c-1.6-1.6-4.1-1.6-5.7 0z" />
+    <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M43.8 12.4c1.8-1.8 4.7-1.8 6.5 0l37.3 37.3c1.8 1.8 1.8 4.7 0 6.5L50.3 93.5c-1.8 1.8-4.7 1.8-6.5 0L6.5 56.2c-1.8-1.8-1.8-4.7 0-6.5l37.3-37.3zM50 82.1l32.1-32.1L50 17.9 17.9 50 50 82.1zm5.7-41.9L50 45.9l-5.7-5.7c-1.6-1.6-4.1-1.6-5.7 0l-5.7 5.7c-1.6 1.6-1.6 4.1 0 5.7l5.7 5.7 5.7 5.7 5.7-5.7 5.7-5.7c1.6-1.6 1.6-4.1 0-5.7L61.4 40.2c-1.6-1.6-4.1-1.6-5.7 0z" fill="#32BCAD" />
     </svg>
 );
 
 const BoletoIcon = ({ className = "" }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2.25 4.5A.75.75 0 013 5.25v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75zm3 0A.75.75 0 016 5.25v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75zm3 0a.75.75 0 01.75.75v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75zm3 0a.75.75 0 01.75.75v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75zm3 0a.75.75 0 01.75.75v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75zm3 0a.75.75 0 01.75.75v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75zm3 0a.75.75 0 01.75.75v13.5a.75.75 0 01-1.5 0V5.25a.75.75 0 01.75-.75z" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" rx="4" fill="#334155" fillOpacity="0.2"/>
+        <path d="M4 7V17H5V7H4ZM6 7V17H8V7H6ZM9 7V17H10V7H9ZM11 7V17H12V7H11ZM13 7V17H15V7H13ZM16 7V17H17V7H16ZM18 7V17H20V7H18Z" fill="white"/>
+        <path d="M4 18H20V20H4V18Z" fill="white" opacity="0.5"/>
     </svg>
 );
 
