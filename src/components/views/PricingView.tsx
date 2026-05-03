@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppStore } from '../../hooks/useAppStore';
 import { CheckIcon } from '../ui/icons';
@@ -8,6 +8,14 @@ const PricingView: React.FC = () => {
     const [searchParams] = useSearchParams();
     const [showUpgradeWarning, setShowUpgradeWarning] = useState(false);
     const [isMonthly, setIsMonthly] = useState(false);
+    const { founderCount, fetchFounderCount } = useAppStore();
+
+    useEffect(() => {
+        fetchFounderCount();
+    }, []);
+
+    const remainingSpots = Math.max(0, 50 - founderCount);
+    const isSoldOut = remainingSpots <= 0;
 
     const handleUpgrade = (plan: 'annual' | 'wealth' | 'lifetime') => {
         // Stripe links logic
@@ -212,16 +220,26 @@ const PricingView: React.FC = () => {
                         <li className="flex items-center gap-2"><CheckIcon color="text-purple-400" /> Apenas 50 unidades</li>
                     </ul>
 
+                     <div className="flex flex-col items-center gap-3 mb-6">
+                        <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                            7 Dias de Garantia
+                        </div>
+                        <div className={`px-4 py-1.5 rounded-full border text-xs font-bold transition-all animate-pulse ${isSoldOut ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-purple-500/20 border-purple-500/50 text-purple-300'}`}>
+                            {isSoldOut ? 'ESGOTADO' : `RESTAM APENAS ${remainingSpots} VAGAS`}
+                        </div>
+                    </div>
+
                     {isPremium && subscription?.status !== 'active' ? (
                         <button disabled className="block w-full py-4 rounded-xl bg-purple-500/20 text-purple-300 font-bold text-lg text-center border border-purple-500/20 cursor-default">
                             Já Possui Premium
                         </button>
                     ) : (
                         <button
-                            onClick={() => handleUpgrade('lifetime')}
-                            className="block w-full py-4 rounded-xl bg-purple-600 text-white font-bold text-lg text-center hover:bg-purple-500 shadow-lg shadow-purple-500/25 transition-all animate-pulse"
+                            onClick={() => !isSoldOut && handleUpgrade('lifetime')}
+                            disabled={isSoldOut}
+                            className={`block w-full py-4 rounded-xl font-bold text-lg text-center shadow-lg transition-all ${isSoldOut ? 'bg-slate-800 text-gray-500 cursor-not-allowed grayscale border border-white/5' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-purple-500/25 animate-pulse'}`}
                         >
-                            {subscription?.status === 'active' ? 'Fazer Upgrade Vitalício' : 'Garantir Vitalício'}
+                            {isSoldOut ? 'Oferta Encerrada' : (subscription?.status === 'active' ? 'Fazer Upgrade Vitalício' : 'Garantir Vitalício')}
                         </button>
                     )}
                 </div>

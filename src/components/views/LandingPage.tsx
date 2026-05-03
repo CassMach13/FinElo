@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { UploadIcon, DashboardIcon, LifebuoyIcon, TicketIcon, ArrowsUpDownIcon, SettingsIcon, LockIcon, ShieldCheckIcon, InstagramIcon, FacebookIcon, WhatsappIcon, YoutubeIcon } from '../ui/icons';
 import TermsModal from '../modals/TermsModal';
+import { useAppStore } from '../../hooks/useAppStore';
 
 const testimonials = [
     {
@@ -32,6 +33,14 @@ const LandingPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const promoCode = searchParams.get('promo') || searchParams.get('coupon');
+    const { founderCount, fetchFounderCount } = useAppStore();
+
+    useEffect(() => {
+        fetchFounderCount();
+    }, []);
+
+    const remainingSpots = Math.max(0, 50 - founderCount);
+    const isSoldOut = remainingSpots <= 0;
 
     const handleGetStarted = (e: React.FormEvent) => {
         e.preventDefault();
@@ -550,16 +559,20 @@ const LandingPage: React.FC = () => {
                                 <li className="flex items-center gap-2"><CheckIcon color="text-purple-400" /> 1 Vaga Família Inclusa</li>
                                 <li className="flex items-center gap-2"><CheckIcon color="text-purple-400" /> Selo "Founder" Exclusivo</li>
                             </ul>
-                            <div className="flex justify-center mb-6">
+                            <div className="flex flex-col items-center gap-3 mb-6">
                                 <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
                                     7 Dias de Garantia
                                 </div>
+                                <div className={`px-4 py-1.5 rounded-full border text-xs font-bold transition-all animate-pulse ${isSoldOut ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-purple-500/20 border-purple-500/50 text-purple-300'}`}>
+                                    {isSoldOut ? 'ESGOTADO' : `RESTAM APENAS ${remainingSpots} VAGAS`}
+                                </div>
                             </div>
                             <Link 
-                                to={`/login?${promoCode ? `promo=${promoCode}` : ''}`} 
-                                className="block w-full py-4 rounded-xl bg-purple-600 text-white font-bold text-lg text-center hover:bg-purple-500 shadow-lg shadow-purple-500/25 transition-all group-hover:shadow-purple-500/50"
+                                to={isSoldOut ? "#" : `/login?view=signup${promoCode ? `&promo=${promoCode}` : ''}`} 
+                                onClick={(e) => isSoldOut && e.preventDefault()}
+                                className={`block w-full py-4 rounded-xl font-bold text-lg text-center shadow-lg transition-all ${isSoldOut ? 'bg-slate-800 text-gray-500 cursor-not-allowed grayscale' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-purple-500/25 group-hover:shadow-purple-500/50'}`}
                             >
-                                Garantir Acesso Vitalício
+                                {isSoldOut ? 'Oferta Encerrada' : 'Garantir Acesso Vitalício'}
                             </Link>
                         </motion.div>
                     </div>

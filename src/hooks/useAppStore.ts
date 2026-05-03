@@ -117,6 +117,10 @@ interface AppState {
   pendingInvites: FamilyMember[];
   fetchPendingInvites: () => Promise<void>;
   respondToInvite: (inviteId: string, status: 'accepted' | 'declined') => Promise<void>;
+
+  // Founder's Pack Counter
+  founderCount: number;
+  fetchFounderCount: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -150,6 +154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentView: 'dashboard',
   setCurrentView: (view) => set({ currentView: view }),
   pendingInvites: [],
+  founderCount: 0,
 
   // --- AÇÕES ---
 
@@ -223,6 +228,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().fetchImportLogs(),
       get().fetchSubscription(),
       get().fetchAssets(),
+      get().fetchFounderCount(),
     ]);
     set({ isLoading: false });
   },
@@ -1241,6 +1247,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Sincronizar saldos de todos os ativos financiados na carga inicial
       // Usamos um delay curto ou fazemos em background
       get().recalculateAllAssetBalances();
+    }
+  },
+
+  fetchFounderCount: async () => {
+    const { count, error } = await supabase
+      .from('subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['active', 'lifetime', 'past_due', 'trialing'])
+      .eq('plan', 'founders_pack');
+
+    if (error) {
+      console.error('Erro ao buscar contagem de Founders:', error);
+    } else {
+      set({ founderCount: count || 0 });
     }
   },
 
