@@ -38,7 +38,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 id: secretId,
                 password: secretPassword,
-                scopes: 'read_institutions,write_links,read_accounts,read_transactions,read_owners'
+                scopes: 'read_institutions,write_links',
             }),
         });
 
