@@ -130,7 +130,8 @@ export interface SupportTicket {
 
 export interface Subscription {
   status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'lifetime' | null;
-  plan: 'monthly' | 'annual' | 'lifetime' | null;
+  plan_type: 'monthly' | 'annual' | 'lifetime' | 'free' | null;
+  plan?: string | null;
   current_period_end: string | null;
   family_slots?: number;
   tier?: 'pro' | 'wealth' | string;

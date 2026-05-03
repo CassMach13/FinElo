@@ -31,6 +31,7 @@ interface AppState {
   deleteAsset: (assetId: string) => Promise<void>;
   updateAsset: (asset: Partial<Asset> & { id: string }) => Promise<void>;
   recalculateAssetBalance: (assetId: string) => Promise<void>;
+  recalculateAllAssetBalances: () => Promise<void>;
 
   setTransactionFilters: (filters: AppState['transactionFilters']) => void;
   setUser: (user: User | null) => void;
@@ -416,11 +417,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Erro ao adicionar transação(ões):', error);
       throw error;
     } else if (data) {
-      const newTransactions = data as Transaction[];
-      set((state) => ({ transactions: [...state.transactions, ...newTransactions] }));
+      const addedTransactions = data as Transaction[];
+      set((state) => ({ transactions: [...state.transactions, ...addedTransactions] }));
 
       // Automação: Atualizar saldo do patrimônio se houver vínculo
-      const affectedAssetIds = new Set(newTransactions.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
+      const affectedAssetIds = new Set(addedTransactions.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
       for (const assetId of affectedAssetIds) {
         await get().recalculateAssetBalance(assetId);
       }
@@ -1177,6 +1178,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               console.log('%c[Subscription] Herança confirmada de: cassiomq@gmail.com (Via Admin Bypass)', 'color: #ff9900; font-weight: bold;');
               effectiveSubscription = {
                 status: 'lifetime',
+                plan_type: 'lifetime',
                 tier: 'wealth',
                 plan: 'founders_pack',
                 family_slots: 5,
@@ -1223,6 +1225,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         isInherited,
         tier: effectiveSubscription?.tier,
         status: effectiveSubscription?.status,
+        plan_type: effectiveSubscription?.plan_type,
         plan: effectiveSubscription?.plan
       });
 
@@ -1255,7 +1258,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       .from('subscriptions')
       .select('*', { count: 'exact', head: true })
       .in('status', ['active', 'lifetime', 'past_due', 'trialing'])
-      .eq('plan', 'founders_pack');
+      .eq('plan_type', 'lifetime');
 
     if (error) {
       console.error('Erro ao buscar contagem de Founders:', error);
@@ -1303,7 +1306,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const { data: linkedTransactions, error } = await supabase
       .from('transactions')
-      .select('Valor')
+      .select('Valor, Tipo')
       .eq('linked_asset_id', assetId);
 
     if (error) {

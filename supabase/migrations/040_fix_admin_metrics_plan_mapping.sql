@@ -1,5 +1,5 @@
--- Migration: Fix admin metrics plan mapping
--- Atualiza a função para retornar o plano (intervalo) e o nível (tier) separadamente, corrigindo o bug de exibição no CRM.
+-- Migration: Fix admin metrics with fallback and robust mapping
+-- Atualiza a função para ser mais "tolerante" e buscar o plano em múltiplas fontes (subscriptions e users)
 
 CREATE OR REPLACE FUNCTION get_admin_metrics()
 RETURNS json
@@ -24,7 +24,7 @@ BEGIN
   -- Active Pro users
   SELECT count(*) INTO pro_users FROM public.subscriptions WHERE (status = 'active' OR status = 'trialing') AND tier = 'pro';
 
-  -- Active Wealth/Lifetime users
+  -- Active Wealth/Lifetime users (Contagem dos Founders)
   SELECT count(*) INTO wealth_users FROM public.subscriptions WHERE status = 'lifetime' OR tier = 'wealth';
 
   -- Contagem real de anuais e mensais
@@ -51,13 +51,15 @@ BEGIN
           'full_name', au.raw_user_meta_data->>'full_name',
           'created_at', au.created_at,
           'last_sign_in_at', au.last_sign_in_at,
-          'plan_type', ps.plan_type, -- Corrigido: Retorna o intervalo real
-          'tier', ps.tier,           -- Adicionado: Retorna o nível (pro/wealth)
-          'plan_status', ps.status
+          -- Fallback para tabela public.users caso a subscription ainda não tenha sido criada/sincronizada
+          'plan_type', COALESCE(ps.plan_type, pu.plan_type), 
+          'tier', COALESCE(ps.tier, 'pro'),           
+          'plan_status', COALESCE(ps.status, pu.plan_status)
         ) ORDER BY au.last_sign_in_at DESC NULLS LAST
       ), '[]'::json)
       FROM auth.users au
       LEFT JOIN public.subscriptions ps ON au.id = ps.user_id
+      LEFT JOIN public.users pu ON au.id = pu.id
     )
   );
 END;

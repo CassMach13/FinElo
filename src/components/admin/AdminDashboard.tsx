@@ -67,21 +67,28 @@ const AdminDashboard: React.FC = () => {
     return (
         <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
                     <h3 className="text-gray-400 text-sm font-medium">Total de Usuários</h3>
                     <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.total_users || 0}</p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Novos Cadastros (30d)</h3>
+                    <h3 className="text-gray-400 text-sm font-medium">Novos (30d)</h3>
                     <p className="text-3xl font-bold text-green-400 mt-2">+{adminMetrics?.new_users_30_days || 0}</p>
                 </Card>
+                <Card className="flex flex-col bg-slate-800/50 border-white/5 ring-1 ring-yellow-500/30">
+                    <h3 className="text-yellow-500/80 text-sm font-medium">Founders (Wealth)</h3>
+                    <p className="text-3xl font-bold text-yellow-400 mt-2">
+                        {adminMetrics?.wealth_users || 0}
+                        <span className="text-sm font-normal text-yellow-500/50 ml-1">/ 50</span>
+                    </p>
+                </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Assinantes Anuais</h3>
+                    <h3 className="text-gray-400 text-sm font-medium">Anuais</h3>
                     <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.yearly_users || 0}</p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Assinantes Mensais</h3>
+                    <h3 className="text-gray-400 text-sm font-medium">Mensais</h3>
                     <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.monthly_users || 0}</p>
                 </Card>
             </div>
