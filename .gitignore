@@ -26,3 +26,8 @@ MARCA/
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Arquivos de credenciais (NUNCA commitar)
+*_api_keys.txt
+*_keys.txt
+*.secrets
