@@ -69,27 +69,27 @@ const AdminDashboard: React.FC = () => {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Total de Usuários</h3>
+                    <h3 className="text-gray-400 text-sm font-medium">Total Usuários</h3>
                     <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.total_users || 0}</p>
                 </Card>
-                <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Novos (30d)</h3>
-                    <p className="text-3xl font-bold text-green-400 mt-2">+{adminMetrics?.new_users_30_days || 0}</p>
-                </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5 ring-1 ring-yellow-500/30">
-                    <h3 className="text-yellow-500/80 text-sm font-medium">Founders (Wealth)</h3>
+                    <h3 className="text-yellow-500/80 text-sm font-medium">Founder's Pack</h3>
                     <p className="text-3xl font-bold text-yellow-400 mt-2">
-                        {adminMetrics?.wealth_users || 0}
+                        {adminMetrics?.founders_users || 0}
                         <span className="text-sm font-normal text-yellow-500/50 ml-1">/ 50</span>
                     </p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Anuais</h3>
-                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.yearly_users || 0}</p>
+                    <h3 className="text-gray-400 text-sm font-medium">PRO</h3>
+                    <p className="text-3xl font-bold text-cyan-400 mt-2">{adminMetrics?.pro_users || 0}</p>
                 </Card>
                 <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Mensais</h3>
-                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.monthly_users || 0}</p>
+                    <h3 className="text-gray-400 text-sm font-medium">Wealth</h3>
+                    <p className="text-3xl font-bold text-purple-400 mt-2">{adminMetrics?.wealth_users || 0}</p>
+                </Card>
+                <Card className="flex flex-col bg-slate-800/50 border-white/5">
+                    <h3 className="text-gray-400 text-sm font-medium">Basic (Grátis)</h3>
+                    <p className="text-3xl font-bold text-slate-500 mt-2">{adminMetrics?.free_users || 0}</p>
                 </Card>
             </div>
 
@@ -153,30 +153,30 @@ const AdminDashboard: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1 items-start">
                                                 {user.plan_type === 'lifetime' ? (
-                                                    <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                                                        Fundador
+                                                    <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap">
+                                                        Founder's Pack
                                                     </span>
-                                                ) : user.plan_type === 'annual' ? (
-                                                    <div className="flex items-center gap-1">
+                                                ) : user.tier === 'wealth' ? (
+                                                    <div className="flex flex-col gap-0.5">
                                                         <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                                                            Anual
+                                                            Wealth
                                                         </span>
-                                                        <span className={`text-[9px] font-bold uppercase ${user.tier === 'wealth' ? 'text-purple-300' : 'text-blue-300'}`}>
-                                                            ({user.tier})
+                                                        <span className="text-[9px] text-gray-500 lowercase">
+                                                            {user.plan_type === 'annual' ? 'anual' : 'mensal'}
                                                         </span>
                                                     </div>
-                                                ) : user.plan_type === 'monthly' ? (
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                                                            Mensal
+                                                ) : user.tier === 'pro' ? (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                            PRO
                                                         </span>
-                                                        <span className={`text-[9px] font-bold uppercase ${user.tier === 'wealth' ? 'text-purple-300' : 'text-blue-300'}`}>
-                                                            ({user.tier})
+                                                        <span className="text-[9px] text-gray-500 lowercase">
+                                                            {user.plan_type === 'annual' ? 'anual' : 'mensal'}
                                                         </span>
                                                     </div>
                                                 ) : (
                                                     <span className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
-                                                        Free
+                                                        Basic (Grátis)
                                                     </span>
                                                 )}
                                                 {user.plan_status && !['active', 'lifetime'].includes(user.plan_status) && (

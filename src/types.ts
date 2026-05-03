@@ -178,8 +178,7 @@ export interface AdminMetrics {
   free_users: number;
   pro_users: number;
   wealth_users: number;
-  yearly_users: number;
-  monthly_users: number;
+  founders_users: number;
   crm_users?: AdminCrmUser[];
 }
 
