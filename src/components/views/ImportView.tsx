@@ -781,7 +781,11 @@ const ImportView: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Belvo Widget Mount Point */}
+                  <div id="belvo"></div>
+
                   <div className="border-t border-slate-700/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+
                     <div>
                       <p className="text-white font-semibold text-sm">🏦 Meu banco não está na lista</p>
                       <p className="text-gray-400 text-xs mt-0.5">Fale com o suporte ou crie um mapeamento manual clicando na grade acima.</p>
