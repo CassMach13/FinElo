@@ -37,9 +37,9 @@ const LandingPage: React.FC = () => {
         e.preventDefault();
         const extra = promoCode ? `&promo=${promoCode}` : '';
         if (email) {
-            navigate(`/login?email=${encodeURIComponent(email)}${extra}`);
+            navigate(`/login?view=signup&email=${encodeURIComponent(email)}${extra}`);
         } else {
-            navigate(`/login?${extra.substring(1)}`);
+            navigate(`/login?view=signup${extra}`);
         }
     };
 
@@ -56,11 +56,11 @@ const LandingPage: React.FC = () => {
                             <span className="text-xl font-bold tracking-tight text-white/90">FinElo</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Link to={`/login?${promoCode ? `promo=${promoCode}` : ''}`} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                            <Link to={`/login?view=login${promoCode ? `&promo=${promoCode}` : ''}`} className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
                                 Entrar
                             </Link>
                             <Link
-                                to={`/login?${promoCode ? `promo=${promoCode}` : ''}`}
+                                to={`/login?view=signup${promoCode ? `&promo=${promoCode}` : ''}`}
                                 className="px-4 py-2 rounded-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold shadow-lg shadow-accent/20 transition-all hover:scale-105 active:scale-95"
                             >
                                 Começar Grátis
@@ -267,7 +267,7 @@ const LandingPage: React.FC = () => {
                                 </li>
                             </ul>
                             <div className="pt-4">
-                                <Link to="/login" className="inline-flex items-center px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold text-lg transition-all">
+                                <Link to="/login?view=signup" className="inline-flex items-center px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold text-lg transition-all">
                                     Conhecer o Plano Família <ArrowsUpDownIcon className="ml-2 h-5 w-5" />
                                 </Link>
                             </div>
@@ -482,7 +482,7 @@ const LandingPage: React.FC = () => {
                                 <li className="flex items-center gap-2"><CheckIcon /> Dashboard Resumido</li>
                                 <li className="flex items-center gap-2"><CheckIcon /> Acesso Individual</li>
                             </ul>
-                            <Link to="/login" className="block w-full py-3 rounded-xl bg-white/10 text-white font-semibold text-center hover:bg-white/20 transition-colors">
+                            <Link to="/login?view=signup" className="block w-full py-3 rounded-xl bg-white/10 text-white font-semibold text-center hover:bg-white/20 transition-colors">
                                 Criar Conta
                             </Link>
                         </motion.div>
@@ -507,7 +507,7 @@ const LandingPage: React.FC = () => {
                                     7 Dias de Garantia
                                 </div>
                             </div>
-                            <Link to="/login" className="block w-full py-4 rounded-xl bg-white/10 text-white font-bold text-lg text-center hover:bg-white/20 transition-all">
+                            <Link to="/login?view=signup" className="block w-full py-4 rounded-xl bg-white/10 text-white font-bold text-lg text-center hover:bg-white/20 transition-all">
                                 Assinar PRO
                             </Link>
                         </motion.div>
@@ -532,7 +532,7 @@ const LandingPage: React.FC = () => {
                                     7 Dias de Garantia
                                 </div>
                             </div>
-                            <Link to="/login" className="block w-full py-4 rounded-xl bg-purple-600/20 border border-purple-600 text-purple-300 font-bold text-lg text-center hover:bg-purple-600 hover:text-white transition-all">
+                            <Link to="/login?view=signup" className="block w-full py-4 rounded-xl bg-purple-600/20 border border-purple-600 text-purple-300 font-bold text-lg text-center hover:bg-purple-600 hover:text-white transition-all">
                                 Assinar Wealth
                             </Link>
                         </motion.div>

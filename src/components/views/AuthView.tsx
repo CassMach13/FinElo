@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import Button from '../ui/Button';
 import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
@@ -7,15 +7,26 @@ import Input from '../ui/Input';
 
 // Combina a declaração da função com a exportação padrão.
 export default function AuthView(): React.ReactElement {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false); // Novo estado
-  const [email, setEmail] = useState('');
+  const [isSignUp, setIsSignUp] = useState(searchParams.get('view') === 'signup');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState(''); // Estado para confirmação
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Sincroniza se o usuário mudar a URL manualmente ou voltar
+  useEffect(() => {
+    const view = searchParams.get('view');
+    const emailParam = searchParams.get('email');
+    
+    if (view === 'signup') setIsSignUp(true);
+    if (view === 'login') setIsSignUp(false);
+    if (emailParam) setEmail(emailParam);
+  }, [searchParams]);
 
   const getRedirectUrl = () => {
     let url = window.location.origin;
