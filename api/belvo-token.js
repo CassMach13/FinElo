@@ -39,6 +39,11 @@ export default async function handler(req, res) {
                 id: secretId,
                 password: secretPassword,
                 scopes: 'read_institutions,write_links,read_consents,write_consents',
+                customer: {
+                    user_document: '38293383844', // CPF limpo (do HAR)
+                    user_document_type: 'CPF',
+                    user_name: 'Cassio Machado'
+                },
                 widget: {
                     branding: {
                         company_name: 'FinElo',
@@ -49,7 +54,6 @@ export default async function handler(req, res) {
                 fetch_resources: [
                     "ACCOUNTS",
                     "TRANSACTIONS",
-                    "BALANCES",
                     "OWNERS"
                 ]
             }),
