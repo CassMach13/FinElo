@@ -69,8 +69,15 @@ export default async function handler(req, res) {
             });
         }
 
-        // Retorna o access token para o widget no frontend
-        return res.status(200).json({ accessToken: data.access });
+        // Retorna o access token e os dados do cliente para o widget no frontend
+        return res.status(200).json({ 
+            accessToken: data.access,
+            customer: {
+                user_document: '38293383844',
+                user_document_type: 'CPF',
+                user_name: 'Cassio Machado'
+            }
+        });
 
     } catch (error) {
         console.error('[Belvo Token] Exceção:', error.message);

@@ -210,7 +210,7 @@ const ImportView: React.FC = () => {
     setNotification(null);
 
     try {
-      const accessToken = await getBelvoWidgetToken();
+      const { accessToken, customer } = await getBelvoWidgetToken();
 
       // Carrega o script do Belvo Widget dinamicamente (sem npm)
       await loadBelvoScript();
@@ -219,7 +219,13 @@ const ImportView: React.FC = () => {
       window.belvoSDK.createWidget(accessToken, {
         locale: 'pt',
         country_codes: ['BR'],
-        resources: ['ACCOUNTS', 'TRANSACTIONS', 'BALANCES', 'OWNERS'],
+        resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
+        customer: {
+          user_document: customer.user_document,
+          user_document_type: customer.user_document_type,
+          user_name: customer.user_name,
+          external_id: user?.id // Adicionando ID externo para maior confiança
+        },
         // callback quando o usuário conecta um banco com sucesso
         callback: async (link: string, institution: any) => {
           const bankName = institution?.name || 'Banco Belvo';
