@@ -160,6 +160,12 @@ const ImportView: React.FC = () => {
   const [isLoadingConnections, setIsLoadingConnections] = useState(false);
   const [showPaywallModal, setShowPaywallModal] = useState<'basic' | 'extra_bank' | null>(null);
 
+  // Modal de CPF/Nome para Open Finance (contorna bug do Widget)
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentCpf, setConsentCpf] = useState('');
+  const [consentName, setConsentName] = useState('');
+  const [consentInstitution, setConsentInstitution] = useState('ofmockbank_br_retail');
+
   console.log('%c[ImportView Debug]', 'color: #ff9900; font-weight: bold;', {
     email: user?.email,
     isPremium,
@@ -196,31 +202,57 @@ const ImportView: React.FC = () => {
     }
   };
 
-  const handleOpenFinanceConnect = async () => {
-    if (!isPremium) {
-      setShowPaywallModal('basic');
+  const handleOpenFinanceConnect = () => {
+    if (!isPremium) { setShowPaywallModal('basic'); return; }
+    if (!hasUnlimitedAccess && pluggyConnections.length >= 1) { setShowPaywallModal('extra_bank'); return; }
+    setShowConsentModal(true);
+  };
+
+  // Chamado quando o usuário confirma CPF e Nome no modal
+  const handleConsentSubmit = async () => {
+    const cleanCpf = consentCpf.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      setNotification({ type: 'error', message: 'CPF inválido. Digite os 11 dígitos.' });
       return;
     }
-    if (!hasUnlimitedAccess && pluggyConnections.length >= 1) {
-      setShowPaywallModal('extra_bank');
+    if (!consentName.trim()) {
+      setNotification({ type: 'error', message: 'Nome completo é obrigatório.' });
       return;
     }
 
+    setShowConsentModal(false);
     setIsBelvoLoading(true);
     setNotification(null);
 
     try {
-      const { accessToken, customer } = await getBelvoWidgetToken();
+      // 1. Cria o consentimento no back-end (com CPF limpo e nome correto)
+      const consentRes = await fetch('/api/belvo-consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          institution: consentInstitution,
+          userDocument: cleanCpf,
+          userName: consentName.trim(),
+        }),
+      });
 
-      // Carrega o script do Belvo Widget dinamicamente (sem npm)
+      const consentData = await consentRes.json();
+
+      if (!consentRes.ok) {
+        const detail = consentData.details?.[0]?.message || consentData.error || 'Erro desconhecido';
+        throw new Error(`Falha ao criar consentimento: ${detail}`);
+      }
+
+      const { accessToken } = consentData;
+
+      // 2. Abre o Widget com o token — o consentimento já foi criado,
+      //    então o Widget vai apenas redirecionar para o banco.
       await loadBelvoScript();
 
+      // @ts-ignore
       window.belvoSDK.createWidget(accessToken, {
         locale: 'pt',
         country_codes: ['BR'],
-        external_id: 'user_finelo_test',
-        callback_url: 'https://www.finelo.app.br/import', // URL exigida em alguns fluxos BR
-        // callback quando o usuário conecta um banco com sucesso
         callback: async (link: string, institution: any) => {
           const bankName = institution?.name || 'Banco Belvo';
           if (user?.id && link) {
@@ -232,7 +264,6 @@ const ImportView: React.FC = () => {
             if (newConn) setReviewConnection(newConn);
           }
         },
-        // callback de erro
         onExit: (data: any) => {
           console.log('[Belvo] Widget fechado', data);
           setIsBelvoLoading(false);
@@ -241,7 +272,6 @@ const ImportView: React.FC = () => {
 
     } catch (error: any) {
       setNotification({ type: 'error', message: error.message || 'Falha ao iniciar Open Finance' });
-    } finally {
       setIsBelvoLoading(false);
     }
   };
@@ -1307,6 +1337,81 @@ const ImportView: React.FC = () => {
           />
         )
       }
+      {/* Modal de Consentimento Open Finance */}
+      {showConsentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xl">🔐</div>
+              <div>
+                <h3 className="text-white font-bold text-lg">Conectar via Open Finance</h3>
+                <p className="text-gray-400 text-xs">Seus dados são enviados com criptografia</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 font-medium mb-1.5">Banco / Instituição</label>
+                <select
+                  value={consentInstitution}
+                  onChange={e => setConsentInstitution(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="ofmockbank_br_retail">Mock Bank (Sandbox)</option>
+                  <option value="bradesco_br_retail">Bradesco</option>
+                  <option value="itau_br_retail">Itaú</option>
+                  <option value="nubank_br_retail">Nubank</option>
+                  <option value="bb_br_retail">Banco do Brasil</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 font-medium mb-1.5">Nome completo (como no banco)</label>
+                <input
+                  type="text"
+                  value={consentName}
+                  onChange={e => setConsentName(e.target.value)}
+                  placeholder="Ex: João da Silva"
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 font-medium mb-1.5">CPF (apenas números)</label>
+                <input
+                  type="text"
+                  value={consentCpf}
+                  onChange={e => setConsentCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                  placeholder="00000000000"
+                  maxLength={11}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-600 font-mono tracking-widest"
+                />
+                <p className="text-xs text-gray-500 mt-1">Digite apenas os 11 dígitos do CPF, sem pontos ou traços.</p>
+              </div>
+
+              <div className="bg-slate-800/60 rounded-xl p-3 text-xs text-gray-400 border border-slate-700">
+                🔒 Seus dados são usados exclusivamente para criar o consentimento de acesso junto ao banco. Nunca armazenamos o CPF.
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowConsentModal(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-600 text-gray-300 text-sm hover:bg-slate-800 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConsentSubmit}
+                disabled={consentCpf.length !== 11 || !consentName.trim()}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Continuar →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 };
