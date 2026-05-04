@@ -62,13 +62,14 @@ export const appConfirm = (
   message: string, 
   title: string = 'Atenção', 
   confirmText: string = 'OK', 
-  variant: DialogVariant = 'warning'
+  variant: DialogVariant = 'warning',
+  cancelText: string = 'Cancelar'
 ): Promise<boolean> => {
   return useDialogStore.getState().openDialog({
     message,
     title,
     confirmText,
-    cancelText: 'Cancelar',
+    cancelText,
     variant,
     hideCancel: false
   });

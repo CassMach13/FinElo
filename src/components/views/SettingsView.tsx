@@ -299,7 +299,7 @@ const SettingsView: React.FC = () => {
                                 const account = accounts.find(a => a.id === config.ID_Conta_Associada);
                                 const accountName = account ? account.Nome_Conta : 'a conta associada';
 
-                                if (await appConfirm(`Deseja, TAMBÉM, excluir ${accountName} e todas as transações associadas?\n\nIsso limpará completamente os dados vindos desta fonte.`, 'Excluir Conta e Transações', 'Excluir Tudo', 'danger')) {
+                                if (await appConfirm(`Deseja, TAMBÉM, excluir ${accountName} e todas as transações associadas?\n\nIsso limpará completamente os dados vindos desta fonte.`, 'Excluir Conta e Transações', 'Excluir Tudo', 'danger', 'Não')) {
                                     if (config.ID_Conta_Associada) {
                                         await deleteAccount(config.ID_Conta_Associada);
                                         await appAlert('Conta e transações excluídas.', 'Sucesso', 'success');
