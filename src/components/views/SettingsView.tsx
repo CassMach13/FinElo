@@ -319,18 +319,39 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo', 'Saldo Inicial']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.Nome_Conta}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white flex items-center gap-2">
+                                    {item.Nome_Conta}
+                                    {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
+                                </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
+                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${item.is_archived ? 'text-gray-500 line-through' : getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
                                     {formatCurrency(item.Saldo_Inicial)}
                                 </td>
                             </>
                         )}
                         onAdd={() => { setEditingAccount(null); setAccountModalOpen(true); }}
                         onEdit={(item) => { setEditingAccount(item); setAccountModalOpen(true); }}
+                        renderExtraActions={(item) => (
+                            <button className="text-orange-400 hover:text-orange-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2" onClick={async () => {
+                                if (window.confirm(item.is_archived ? 'Deseja desarquivar esta conta?' : 'Deseja arquivar esta conta? O histórico será mantido, mas ela não aparecerá mais nos resumos.')) {
+                                    const { archiveAccount } = useAppStore.getState();
+                                    await archiveAccount(item.id, !item.is_archived);
+                                }
+                            }}>
+                                {item.is_archived ? 'Desarquivar' : 'Arquivar'}
+                            </button>
+                        )}
                         onDelete={async (id) => {
-                            if (window.confirm('Tem certeza? Isso excluirá a conta e TODAS as transações associadas.')) {
-                                await deleteAccount(id);
+                            if (window.confirm('Tem certeza que deseja excluir esta conta? Isso só é possível se não houver transações.')) {
+                                try {
+                                    await deleteAccount(id);
+                                } catch (err: any) {
+                                    if (err.message === 'has_transactions') {
+                                        alert('Não é possível excluir esta conta pois ela possui transações vinculadas.\nPara ocultá-la sem perder o histórico, use a opção "Arquivar".');
+                                    } else {
+                                        alert('Erro ao excluir conta.');
+                                    }
+                                }
                             }
                         }}
                         searchKeys={['Nome_Conta', 'Tipo_Conta']}
