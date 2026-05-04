@@ -224,8 +224,8 @@ const PricingView: React.FC = () => {
                         <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
                             7 Dias de Garantia
                         </div>
-                        <div className={`px-4 py-1.5 rounded-full border text-xs font-bold transition-all animate-pulse ${isSoldOut ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-purple-500/20 border-purple-500/50 text-purple-300'}`}>
-                            {isSoldOut ? 'ESGOTADO' : `RESTAM APENAS ${remainingSpots} VAGAS`}
+                        <div className={`px-5 py-2 rounded-full border text-xs font-extrabold tracking-wide transition-all animate-pulse shadow-[0_0_15px_rgba(249,115,22,0.4)] ${isSoldOut ? 'bg-red-500/20 border-red-500/50 text-red-400 shadow-none animate-none' : 'bg-orange-500/20 border-orange-500/80 text-orange-400'}`}>
+                            {isSoldOut ? 'ESGOTADO' : `🔥 RESTAM APENAS ${remainingSpots} VAGAS`}
                         </div>
                     </div>
 

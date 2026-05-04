@@ -1257,8 +1257,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { count, error } = await supabase
       .from('subscriptions')
       .select('*', { count: 'exact', head: true })
-      .in('status', ['active', 'lifetime', 'past_due', 'trialing'])
-      .eq('plan_type', 'lifetime');
+      .or('status.eq.lifetime,plan_type.eq.lifetime');
 
     if (error) {
       console.error('Erro ao buscar contagem de Founders:', error);
