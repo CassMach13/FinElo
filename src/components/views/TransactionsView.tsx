@@ -386,48 +386,109 @@ const TransactionsView: React.FC = () => {
       {/* Account Balance Cards */}
       <div id="transactions-balances" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {accounts.filter(a => !a.is_archived).map(account => {
-          // Normaliza as datas para YYYY-MM-DD para garantir comparação fiel ao calendário, ignorando timezone/hora
           const getIsoDate = (date: Date | string) => {
             if (!date) return '';
             const d = new Date(date);
-            // Pega a parte da data YYYY-MM-DD considerando LOCAL para evitar shifts de fuso (importante para usuários no BR)
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           };
 
           const initialDateStr = getIsoDate(account.Data_Saldo_Inicial);
-
           const now = new Date();
           const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
           const accountTransactions = transactions.filter(t => {
             if (t.ID_Conta !== account.id) return false;
-            
             const tDateStr = getIsoDate(t.Data);
             if (tDateStr < initialDateStr) return false;
-
-            // Novidade: Filtro por data de pagamento (<= hoje)
             const paymentDateStr = t.Data_Pagamento ? getIsoDate(t.Data_Pagamento) : getIsoDate(t.Data);
             return paymentDateStr <= todayStr;
           });
 
-          const income = accountTransactions
-            .filter(t => t.Tipo === 'Renda')
-            .reduce((acc, t) => acc + t.Valor, 0);
-
-          const expense = accountTransactions
-            .filter(t => t.Tipo === 'Despesa')
-            .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-
+          const income = accountTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
+          const expense = accountTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
           let currentBalance = account.Saldo_Inicial + income - expense;
-          // Fix floating point precision issues (prevent -0.00)
           if (Math.abs(currentBalance) < 0.005) currentBalance = 0;
 
           const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
+          const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
+
+          // --- LÓGICA DE FATURA ATUAL (para usuário diário) ---
+          // Calcula gastos do ciclo de fatura atual (Data da compra, sem filtro de pagamento)
+          let faturaAtual = 0;
+          let diaFecha = 0;
+          let diaVence = 0;
+          let diasParaFechar = 0;
+          let diasParaVencer = 0;
+
+          if (isCreditCard) {
+            const hoje = now.getDate();
+            const mesAtual = now.getMonth();
+            const anoAtual = now.getFullYear();
+
+            diaFecha = account.dia_fechamento || 0;
+            diaVence = account.dia_vencimento || 0;
+
+            // Determine o início do ciclo atual
+            let inicioFatura: Date;
+            if (diaFecha > 0) {
+              if (hoje >= diaFecha) {
+                // Fechamento foi neste mês (ou ainda não aconteceu)
+                inicioFatura = new Date(anoAtual, mesAtual, diaFecha);
+              } else {
+                // Fechamento foi no mês passado
+                inicioFatura = new Date(anoAtual, mesAtual - 1, diaFecha);
+              }
+            } else {
+              // Sem dia de fechamento: usa o primeiro dia do mês
+              inicioFatura = new Date(anoAtual, mesAtual, 1);
+            }
+
+            const inicioFaturaStr = getIsoDate(inicioFatura);
+
+            // Gastos no ciclo atual (sem filtro de pagamento — importante para usuário diário)
+            faturaAtual = transactions
+              .filter(t => {
+                if (t.ID_Conta !== account.id || t.Tipo !== 'Despesa') return false;
+                const tDateStr = getIsoDate(t.Data);
+                return tDateStr >= inicioFaturaStr && tDateStr <= todayStr;
+              })
+              .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+
+            // Dias até fechar
+            if (diaFecha > 0) {
+              let proximoFecha: Date;
+              if (hoje < diaFecha) {
+                proximoFecha = new Date(anoAtual, mesAtual, diaFecha);
+              } else {
+                proximoFecha = new Date(anoAtual, mesAtual + 1, diaFecha);
+              }
+              diasParaFechar = Math.ceil((proximoFecha.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            }
+
+            // Dias até vencer
+            if (diaVence > 0) {
+              let proximoVence: Date;
+              if (hoje < diaVence) {
+                proximoVence = new Date(anoAtual, mesAtual, diaVence);
+              } else {
+                proximoVence = new Date(anoAtual, mesAtual + 1, diaVence);
+              }
+              diasParaVencer = Math.ceil((proximoVence.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            }
+          }
+
+          const limite = account.limite_credito || 0;
+          const limiteUsadoPct = limite > 0 ? Math.min((faturaAtual / limite) * 100, 100) : 0;
+          const limiteDisponivel = limite > 0 ? Math.max(limite - faturaAtual, 0) : 0;
+
+          const barColor = limiteUsadoPct > 85 ? 'bg-red-500' : limiteUsadoPct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
 
           return (
-            <div 
-              key={account.id} 
-              className="bg-secondary p-4 rounded-lg shadow-md border-l-4 border-accent flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:bg-slate-800/80 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            <div
+              key={account.id}
+              className={`p-4 rounded-lg shadow-md border-l-4 flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:bg-slate-800/80 transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                isCreditCard ? 'bg-slate-900 border-indigo-500' : 'bg-secondary border-accent'
+              }`}
               onClick={() => {
                 setEditingAccount(account);
                 setAccountModalOpen(true);
@@ -444,24 +505,88 @@ const TransactionsView: React.FC = () => {
               </div>
 
               <div className="z-10 h-full flex flex-col justify-between">
+                {/* Header */}
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-0.5">
                     {bankConfig?.logoUrl && (
                       <img src={bankConfig.logoUrl} alt={bankConfig.name} className="w-5 h-5 object-contain" />
                     )}
                     <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider truncate" title={account.Nome_Conta}>{account.Nome_Conta}</h3>
                   </div>
                   <span className="text-xs text-gray-500">{account.Tipo_Conta}</span>
-                  <div className="text-[10px] text-gray-600 mt-1">
-                    Início: {formatCurrency(account.Saldo_Inicial)} em {new Date(account.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                </div>
+
+                {/* CARTÃO DE CRÉDITO: layout diferenciado */}
+                {isCreditCard ? (
+                  <div className="mt-3 space-y-2">
+                    {limite > 0 ? (
+                      <>
+                        {/* Barra de uso do limite */}
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Fatura Atual</span>
+                            <span className={`text-[10px] font-bold ${limiteUsadoPct > 85 ? 'text-red-400' : 'text-gray-300'}`}>{limiteUsadoPct.toFixed(0)}% usado</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${barColor}`}
+                              style={{ width: `${limiteUsadoPct}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-[10px] text-gray-500 uppercase">Disponível</p>
+                            <p className="text-sm font-bold text-emerald-400">{formatCurrency(limiteDisponivel)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-gray-500 uppercase">Fatura Aberta</p>
+                            <p className="text-lg font-bold text-red-400">{formatCurrency(faturaAtual)}</p>
+                          </div>
+                        </div>
+
+                        {/* Dias até fechar/vencer */}
+                        <div className="flex gap-3 pt-1 border-t border-slate-700/50">
+                          {diaFecha > 0 ? (
+                            <span className="text-[10px] text-amber-400/80">
+                              ✂️ Fecha em {diasParaFechar}d (dia {diaFecha})
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-gray-500">
+                              🗓️ Ciclo: Mês atual
+                            </span>
+                          )}
+                          {diaVence > 0 && (
+                            <span className="text-[10px] text-indigo-400/80">
+                              📅 Vence em {diasParaVencer}d (dia {diaVence})
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      // Cartão sem limite configurado
+                      <div className="mt-2 text-right">
+                        <span className={`text-xl font-bold text-red-400`}>{formatCurrency(faturaAtual)}</span>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Fatura Atual</p>
+                        <button
+                          className="text-[10px] text-indigo-400 hover:underline mt-1 block ml-auto"
+                          onClick={e => { e.stopPropagation(); setEditingAccount(account); setAccountModalOpen(true); }}
+                        >
+                          + Configurar limite
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="mt-2 text-right">
-                  <span className={`text-xl font-bold ${getValueColor(currentBalance)}`}>
-                    {formatCurrency(currentBalance)}
-                  </span>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Saldo Atual</p>
-                </div>
+                ) : (
+                  // CONTA CORRENTE / OUTRO: layout original
+                  <div className="mt-2 text-right">
+                    <span className={`text-xl font-bold ${currentBalance < 0 ? 'text-danger' : currentBalance > 0 ? 'text-accent' : 'text-light'}`}>
+                      {formatCurrency(currentBalance)}
+                    </span>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Saldo Atual</p>
+                  </div>
+                )}
               </div>
             </div>
           );

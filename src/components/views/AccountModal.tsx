@@ -16,35 +16,41 @@ interface AccountModalProps {
 
 const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave }) => {
     const { transactions } = useAppStore();
-    // Modo de entrada: 'current' para Saldo Atual, 'initial' para Saldo Inicial
     const [balanceMode, setBalanceMode] = useState<'current' | 'initial'>('current');
 
     const [formState, setFormState] = useState({
         Nome_Conta: account?.Nome_Conta || '',
         Tipo_Conta: account?.Tipo_Conta || 'Conta Corrente',
         bank_id: account?.bank_id || '',
-        // Campos separados para cada modo
-        saldoAtual: account?.Saldo_Inicial || 0, // Assume saldo inicial como atual ao editar
+        saldoAtual: account?.Saldo_Inicial || 0,
         saldoInicial: account?.Saldo_Inicial || 0,
         dataSaldoInicial: account ? new Date(account.Data_Saldo_Inicial).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        // Campos de Cartão de Crédito
+        limite_credito: account?.limite_credito ?? '',
+        dia_vencimento: account?.dia_vencimento ?? '',
+        dia_fechamento: account?.dia_fechamento ?? '',
     });
+
+    const isCartaoCredito = formState.Tipo_Conta === 'Cartão de Crédito';
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormState(prev => ({ ...prev, [name]: value }));
     };
 
-    // A lógica inteligente acontece aqui!
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         let finalAccountData: Omit<Account, 'id' | 'user_id'>;
 
+        const creditCardFields = isCartaoCredito ? {
+            limite_credito: formState.limite_credito !== '' ? parseFloat(String(formState.limite_credito)) : undefined,
+            dia_vencimento: formState.dia_vencimento !== '' ? parseInt(String(formState.dia_vencimento)) : undefined,
+            dia_fechamento: formState.dia_fechamento !== '' ? parseInt(String(formState.dia_fechamento)) : undefined,
+        } : { limite_credito: undefined, dia_vencimento: undefined, dia_fechamento: undefined };
+
         if (balanceMode === 'initial' || account) {
-            // Modo Simples: O usuário informou o saldo inicial diretamente.
-            // OU estamos no modo de edição. Em ambos os casos, usamos os valores do formulário diretamente.
             const dataSaldo = formState.dataSaldoInicial ? new Date(formState.dataSaldoInicial) : new Date();
-            // Ajuste para garantir que a data UTC não mude o dia.
             const dataSaldoAjustada = new Date(dataSaldo.getUTCFullYear(), dataSaldo.getUTCMonth(), dataSaldo.getUTCDate());
 
             finalAccountData = {
@@ -53,28 +59,24 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                 bank_id: formState.bank_id,
                 Saldo_Inicial: parseFloat(String(formState.saldoInicial)),
                 Data_Saldo_Inicial: dataSaldoAjustada,
+                ...creditCardFields,
             };
         } else {
-            // Modo Inteligente (CORRIGIDO): O usuário informou o saldo atual.
-            // O "Saldo Inicial" é simplesmente o saldo atual informado, e a data é hoje.
-            // Não fazemos mais nenhum cálculo complexo com transações existentes.
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
                 bank_id: formState.bank_id,
                 Saldo_Inicial: parseFloat(String(formState.saldoAtual)),
-                Data_Saldo_Inicial: new Date(), // A data de referência é sempre hoje.
+                Data_Saldo_Inicial: new Date(),
+                ...creditCardFields,
             };
         }
 
         onSave(finalAccountData);
     };
 
-    // Efeito para desativar o modo inteligente se estivermos editando uma conta
     useEffect(() => {
-        if (account) {
-            setBalanceMode('initial');
-        }
+        if (account) setBalanceMode('initial');
     }, [account]);
 
 
@@ -114,9 +116,68 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                     </Select>
                 </div>
 
-                {balanceMode === 'current' && !account ? ( // Só mostra o modo inteligente na CRIAÇÃO
+                {/* Campos exclusivos de Cartão de Crédito */}
+                {isCartaoCredito && (
+                    <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 space-y-3">
+                        <p className="text-indigo-300 text-sm font-semibold flex items-center gap-2">
+                            💳 Configurações do Cartão de Crédito
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <Input
+                                label="Limite Total (R$)"
+                                name="limite_credito"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={String(formState.limite_credito)}
+                                onChange={handleChange}
+                                placeholder="Ex: 10000"
+                            />
+                            <div>
+                                <Input
+                                    label="Fechamento (dia do mês)"
+                                    name="dia_fechamento"
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    value={String(formState.dia_fechamento)}
+                                    onChange={handleChange}
+                                    placeholder="Opcional"
+                                />
+                                <p className="text-[10px] text-amber-400/70 mt-1">
+                                    ⚠️ Alguns cartões variam. Se for o seu caso, deixe em branco.
+                                </p>
+                            </div>
+                            <Input
+                                label="Vencimento (dia do mês)"
+                                name="dia_vencimento"
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={String(formState.dia_vencimento)}
+                                onChange={handleChange}
+                                placeholder="Ex: 10"
+                            />
+                        </div>
+                        <p className="text-indigo-200/60 text-xs">
+                            Sem data de fechamento, o FinElo usa o 1º do mês como início do ciclo. Com ela configurada, a fatura atual é calculada com mais precisão.
+                        </p>
+                    </div>
+                )}
+
+                {balanceMode === 'current' && !account ? (
                     <div>
-                        <Input label={`Qual o saldo desta conta hoje (${new Date().toLocaleDateString('pt-BR')})?`} name="saldoAtual" type="number" step="0.01" value={formState.saldoAtual} onChange={handleChange} required />
+                        <Input
+                            label={isCartaoCredito
+                                ? `Gasto atual neste cartão hoje (${new Date().toLocaleDateString('pt-BR')})?`
+                                : `Qual o saldo desta conta hoje (${new Date().toLocaleDateString('pt-BR')})?`}
+                            name="saldoAtual"
+                            type="number"
+                            step="0.01"
+                            value={formState.saldoAtual}
+                            onChange={handleChange}
+                            required
+                        />
                         <button type="button" onClick={() => setBalanceMode('initial')} className="text-xs text-cyan-400 hover:underline mt-2">Ou informar um saldo inicial em outra data</button>
                     </div>
                 ) : (

@@ -71,16 +71,37 @@ const ContasView: React.FC = () => {
             <CrudCard<Account>
                 title="Contas Cadastradas"
                 data={accountsWithBalance}
-                headers={['Nome da Conta', 'Tipo', 'Saldo Inicial', 'Saldo Atual']}
+                headers={['Nome da Conta', 'Tipo', 'Saldo Inicial / Limite', 'Saldo Atual / Fatura']}
                 renderRow={(item) => (
                     <>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-light flex items-center gap-2">
                             {item.Nome_Conta}
                             {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{item.Tipo_Conta}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)} <span className="text-xs">em {new Date(item.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span></td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${item.is_archived ? 'text-gray-500 line-through' : 'text-light'}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Atual_Calculado ?? 0)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                            {item.Tipo_Conta}
+                            {item.Tipo_Conta === 'Cartão de Crédito' && (item.dia_fechamento || item.dia_vencimento) && (
+                                <div className="text-[10px] text-gray-500 mt-0.5">
+                                    {item.dia_fechamento ? `Fecha dia ${item.dia_fechamento}` : 'Ciclo: Mês atual'}
+                                    {item.dia_vencimento ? ` · Vence dia ${item.dia_vencimento}` : ''}
+                                </div>
+                            )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                            {item.Tipo_Conta === 'Cartão de Crédito' && item.limite_credito ? (
+                                <span className="text-indigo-300 font-semibold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.limite_credito)}</span>
+                            ) : (
+                                <>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)} <span className="text-xs">em {new Date(item.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span></>
+                            )}
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${item.is_archived ? 'text-gray-500 line-through' : 'text-light'}`}>
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Atual_Calculado ?? 0)}
+                            {item.Tipo_Conta === 'Cartão de Crédito' && item.limite_credito && (
+                                <div className="text-[10px] text-gray-500 font-normal mt-0.5">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.max((item.limite_credito || 0) + (item.Saldo_Atual_Calculado ?? 0), 0))} disponível
+                                </div>
+                            )}
+                        </td>
                     </>
                 )}
                 onAdd={openNewAccountModal}

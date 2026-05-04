@@ -32,6 +32,11 @@ export interface Account {
   bank_id?: string; // ID from NATIVE_BANK_CONFIGS
   Saldo_Atual_Calculado?: number; // <-- NOVO CAMPO: Para armazenar o saldo calculado na UI
   is_archived?: boolean;
+
+  // Campos exclusivos de Cartão de Crédito
+  limite_credito?: number;   // Limite total do cartão (ex: 10000)
+  dia_vencimento?: number;   // Dia do vencimento da fatura (ex: 10)
+  dia_fechamento?: number;   // Dia de fechamento da fatura (ex: 5)
 }
 
 export interface Category {
