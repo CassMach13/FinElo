@@ -1254,15 +1254,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchFounderCount: async () => {
-    const { count, error } = await supabase
-      .from('subscriptions')
-      .select('*', { count: 'exact', head: true })
-      .or('status.eq.lifetime,plan_type.eq.lifetime');
+    // Usamos RPC para contornar o RLS e pegar a contagem global, mesmo deslogado
+    const { data, error } = await supabase.rpc('get_founder_count');
 
     if (error) {
       console.error('Erro ao buscar contagem de Founders:', error);
     } else {
-      set({ founderCount: count || 0 });
+      set({ founderCount: data || 0 });
     }
   },
 
