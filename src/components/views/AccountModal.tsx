@@ -169,7 +169,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                     <div>
                         <Input
                             label={isCartaoCredito
-                                ? `Gasto atual neste cartão hoje (${new Date().toLocaleDateString('pt-BR')})?`
+                                ? `Quanto do limite já foi utilizado até hoje (${new Date().toLocaleDateString('pt-BR')})?`
                                 : `Qual o saldo desta conta hoje (${new Date().toLocaleDateString('pt-BR')})?`}
                             name="saldoAtual"
                             type="number"
@@ -178,13 +178,21 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                             onChange={handleChange}
                             required
                         />
-                        <button type="button" onClick={() => setBalanceMode('initial')} className="text-xs text-cyan-400 hover:underline mt-2">Ou informar um saldo inicial em outra data</button>
+                        <button type="button" onClick={() => setBalanceMode('initial')} className="text-xs text-cyan-400 hover:underline mt-2">Ou informar um saldo/gasto inicial em outra data</button>
                     </div>
                 ) : (
                     <div>
-                        <Input label={account ? "Corrigir Saldo Inicial" : "Saldo Inicial"} name="saldoInicial" type="number" step="0.01" value={formState.saldoInicial} onChange={handleChange} required />
-                        <Input label="Data do Saldo Inicial" name="dataSaldoInicial" type="date" value={formState.dataSaldoInicial} onChange={handleChange} required className="mt-4" />
-                        {!account && <button type="button" onClick={() => setBalanceMode('current')} className="text-xs text-cyan-400 hover:underline mt-2">Voltar para informar o saldo atual</button>}
+                        <Input 
+                            label={isCartaoCredito ? (account ? "Corrigir Limite Utilizado Inicial" : "Quanto do limite já estava utilizado na data inicial?") : (account ? "Corrigir Saldo Inicial" : "Saldo Inicial")} 
+                            name="saldoInicial" 
+                            type="number" 
+                            step="0.01" 
+                            value={formState.saldoInicial} 
+                            onChange={handleChange} 
+                            required 
+                        />
+                        <Input label="Data do Saldo/Gasto Inicial" name="dataSaldoInicial" type="date" value={formState.dataSaldoInicial} onChange={handleChange} required className="mt-4" />
+                        {!account && <button type="button" onClick={() => setBalanceMode('current')} className="text-xs text-cyan-400 hover:underline mt-2">Voltar para informar o limite utilizado hoje</button>}
                     </div>
                 )}
                 
