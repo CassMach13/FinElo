@@ -215,11 +215,11 @@ const ImportView: React.FC = () => {
       // Carrega o script do Belvo Widget dinamicamente (sem npm)
       await loadBelvoScript();
 
-      // @ts-ignore — belvoWidget é injetado pelo script CDN
       window.belvoSDK.createWidget(accessToken, {
         locale: 'pt',
         country_codes: ['BR'],
-        external_id: 'user_finelo_test', // Casando com o back-end
+        external_id: 'user_finelo_test',
+        callback_url: 'https://www.finelo.app.br/import', // URL exigida em alguns fluxos BR
         // callback quando o usuário conecta um banco com sucesso
         callback: async (link: string, institution: any) => {
           const bankName = institution?.name || 'Banco Belvo';

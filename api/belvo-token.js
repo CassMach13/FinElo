@@ -39,12 +39,7 @@ export default async function handler(req, res) {
                 id: secretId,
                 password: secretPassword,
                 scopes: 'read_institutions,write_links,read_consents,write_consents',
-                external_id: 'user_finelo_test', // ID unificado
-                customer: {
-                    user_document: '38293383844', // CPF limpo (do HAR)
-                    user_document_type: 'CPF',
-                    user_name: 'Cassio Machado'
-                },
+                external_id: 'user_finelo_test',
                 widget: {
                     branding: {
                         company_name: 'FinElo',
@@ -54,8 +49,7 @@ export default async function handler(req, res) {
                 },
                 fetch_resources: [
                     "ACCOUNTS",
-                    "TRANSACTIONS",
-                    "OWNERS"
+                    "TRANSACTIONS"
                 ]
             }),
         });
@@ -70,14 +64,10 @@ export default async function handler(req, res) {
             });
         }
 
-        // Retorna o access token e os dados do cliente para o widget no frontend
+        // Retorna o access token e os dados do cliente (nulos) para o widget no frontend
         return res.status(200).json({ 
             accessToken: data.access,
-            customer: {
-                user_document: '38293383844',
-                user_document_type: 'CPF',
-                user_name: 'Cassio Machado'
-            }
+            customer: null
         });
 
     } catch (error) {
