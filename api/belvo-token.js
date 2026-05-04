@@ -46,7 +46,9 @@ export default async function handler(req, res) {
                 },
                 fetch_resources: [
                     "ACCOUNTS",
-                    "TRANSACTIONS"
+                    "TRANSACTIONS",
+                    "BALANCES",
+                    "OWNERS"
                 ]
             }),
         });
