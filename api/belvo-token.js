@@ -42,7 +42,8 @@ export default async function handler(req, res) {
                 widget: {
                     branding: {
                         company_name: 'FinElo'
-                    }
+                    },
+                    openfinance_feature: 'consent_link_creation'
                 },
                 fetch_resources: [
                     "ACCOUNTS",
