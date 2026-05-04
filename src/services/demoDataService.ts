@@ -1,5 +1,5 @@
-
-import { Transaction } from '../types';
+import { Transaction, Category, Account, Budget, MappingRule } from '../types';
+import { appAlert } from '../hooks/useDialogStore';
 import { useAppStore } from '../hooks/useAppStore';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -95,10 +95,10 @@ export const loadDemoData = async (): Promise<void> => {
         // Force refresh just in case
         useAppStore.getState().fetchAllData();
 
-        alert('Dados de demonstração carregados com sucesso! 🚀');
+        await appAlert('Dados de demonstração carregados com sucesso! 🚀', 'Sucesso', 'success');
 
     } catch (error) {
         console.error('Error loading demo data:', error);
-        alert('Erro ao carregar dados de demonstração.');
+        await appAlert('Erro ao carregar dados de demonstração.', 'Erro', 'danger');
     }
 };

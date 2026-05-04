@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { appAlert } from './useDialogStore';
 import { supabase } from '../supabaseClient';
 import { Transaction, Category, Budget, MappingRule, ImportConfig, Account, ImportLog, SupportTicket, Subscription, AdminMetrics, Asset, FamilyMember, AppView } from '../types';
 import { User } from '@supabase/supabase-js';
@@ -47,6 +48,7 @@ interface AppState {
   addAccount: (account: Omit<Account, 'id' | 'user_id'>) => Promise<Account | null>;
   updateAccount: (account: Partial<Account> & { id: string }) => Promise<void>;
   deleteAccount: (accountId: string) => Promise<void>;
+  archiveAccount: (accountId: string, isArchived: boolean) => Promise<void>;
   getAccountsWithCalculatedBalance: () => Account[];
 
   // Funções para manipular o estado (ações)
@@ -915,7 +917,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (txError) {
       console.error('[deleteImportLog] Erro ao deletar transações:', txError);
-      alert('Erro ao deletar transações associadas. O log não será apagado.');
+      await appAlert('Erro ao deletar transações associadas. O log não será apagado.', 'Erro', 'danger');
       return;
     }
     console.log(`[deleteImportLog] Transações deletadas: ${count}`);
@@ -929,7 +931,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (logError) {
       console.error('[deleteImportLog] Erro ao deletar log:', logError);
-      alert('Transações deletadas, mas erro ao apagar o log. Verifique as permissões (RLS) no Supabase.');
+      await appAlert('Transações deletadas, mas erro ao apagar o log. Verifique as permissões (RLS) no Supabase.', 'Erro', 'danger');
     } else {
       console.log('[deleteImportLog] Log excluído com sucesso.');
       
@@ -952,7 +954,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().recalculateAssetBalance(assetId);
       }
 
-      alert('Importação e transações associadas excluídas com sucesso!');
+      await appAlert('Importação e transações associadas excluídas com sucesso!', 'Sucesso', 'success');
     }
   },
 
@@ -1054,10 +1056,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (error) {
       console.error('Erro ao criar chamado:', error);
-      alert('Erro ao criar chamado: ' + error.message);
+      await appAlert('Erro ao criar chamado: ' + error.message, 'Erro', 'danger');
     } else {
       await get().fetchSupportTickets();
-      alert('Chamado aberto com sucesso! Acompanhe na aba "Meus Chamados".');
+      await appAlert('Chamado aberto com sucesso! Acompanhe na aba "Meus Chamados".', 'Sucesso', 'success');
     }
   },
 
@@ -1083,7 +1085,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (ticket && (ticket.status === 'resolved' || ticket.status === 'closed')) {
       if (!isAdmin) {
-        alert(`Este chamado está encerrado (Protocolo: ${ticket.protocol}). Por favor, abra um novo chamado informando este protocolo.`);
+        await appAlert(`Este chamado está encerrado (Protocolo: ${ticket.protocol}). Por favor, abra um novo chamado informando este protocolo.`, 'Aviso', 'warning');
         return;
       }
     }
@@ -1103,7 +1105,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (error) {
       console.error('Erro ao enviar mensagem:', error);
-      alert('Erro ao enviar mensagem: ' + error.message);
+      await appAlert('Erro ao enviar mensagem: ' + error.message, 'Erro', 'danger');
       return;
     }
 

@@ -15,6 +15,7 @@ import UpdatePasswordView from './components/views/UpdatePasswordView';
 import MainLayout from './layouts/MainLayout';
 import { AppLock } from './components/auth/AppLock';
 import ReloadPrompt from './components/pwa/ReloadPrompt';
+import { GlobalDialog } from './components/ui/GlobalDialog';
 
 const AppContent: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -137,6 +138,7 @@ const App: React.FC = () => (
     <AppLock>
       <AppContent />
     </AppLock>
+    <GlobalDialog />
     <ReloadPrompt />
     <Analytics />
     <SpeedInsights />

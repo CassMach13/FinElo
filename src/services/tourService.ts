@@ -1,4 +1,5 @@
 import { driver, DriveStep } from 'driver.js';
+import { appAlert } from '../hooks/useDialogStore';
 import 'driver.js/dist/driver.css';
 
 export interface TourConfig {
@@ -209,7 +210,7 @@ export const startTour = (currentView: string, onComplete?: () => void) => {
     console.log(`[Tour] Starting tour for "${currentView}". Steps: ${steps.length}`);
 
     if (steps.length === 0) {
-        alert("Não há tutorial específico para esta tela ainda.");
+        appAlert("Não há tutorial específico para esta tela ainda.", "Aviso", "info");
         return;
     }
 

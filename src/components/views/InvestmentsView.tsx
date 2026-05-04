@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
+import { appAlert } from '../../hooks/useDialogStore';
 import { Investment } from '../../types';
 import { investmentService } from '../../services/investmentService';
 import InvestmentModal from '../modals/InvestmentModal';
@@ -88,16 +89,16 @@ const InvestmentsView: React.FC = () => {
         try {
             await investmentService.deleteInvestment(id);
             setInvestments(investments.filter(i => i.id !== id));
-            alert('Investimento removido com sucesso.');
+            await appAlert('Investimento removido com sucesso.', 'Sucesso', 'success');
         } catch (error) {
             console.error('Failed to delete investment:', error);
-            alert('Erro ao remover investimento. Verifique sua conexão e tente novamente.');
+            await appAlert('Erro ao remover investimento. Verifique sua conexão e tente novamente.', 'Erro', 'danger');
         }
     };
 
     const handleClearInstitution = async (institution: string) => {
         if (!user) {
-            alert('Usuário não identificado. Por favor, faça login novamente.');
+            await appAlert('Usuário não identificado. Por favor, faça login novamente.', 'Erro', 'danger');
             return;
         }
         
@@ -114,10 +115,10 @@ const InvestmentsView: React.FC = () => {
             console.log(`[InvestmentsView] Tentando limpar instituição: ${institution} para o mês: ${refString}`);
             await investmentService.deleteInvestmentsByInstitutionAndMonth(user.id, institution, refString);
             await fetchInvestments(currentDate);
-            alert(`Registros de ${institution} deste mês foram apagados com sucesso.`);
+            await appAlert(`Registros de ${institution} deste mês foram apagados com sucesso.`, 'Sucesso', 'success');
         } catch (error) {
             console.error('Failed to clear institution:', error);
-            alert('Erro ao apagar registros. Verifique o console para mais detalhes.');
+            await appAlert('Erro ao apagar registros. Verifique o console para mais detalhes.', 'Erro', 'danger');
         } finally {
             setIsLoading(false);
         }

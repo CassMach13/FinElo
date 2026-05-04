@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import Card from '../ui/Card';
 import { useAppStore } from '../../hooks/useAppStore';
+import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { Category, Budget, MappingRule, ImportConfig, ImportLog, Account, Asset } from '../../types';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -54,21 +55,21 @@ const SettingsView: React.FC = () => {
     const [appPin, setAppPin] = useState(localStorage.getItem('finelo_app_pin') || '');
     const [pinEnabled, setPinEnabled] = useState(!!localStorage.getItem('finelo_app_pin'));
 
-    const handleSavePin = () => {
+    const handleSavePin = async () => {
         if (appPin.length === 4 && /^\d+$/.test(appPin)) {
             localStorage.setItem('finelo_app_pin', appPin);
             setPinEnabled(true);
-            alert('PIN salvo com sucesso! O aplicativo será bloqueado ao iniciar.');
+            await appAlert('PIN salvo com sucesso! O aplicativo será bloqueado ao iniciar.', 'Sucesso', 'success');
         } else {
-            alert('O PIN deve conter exatamente 4 dígitos numéricos.');
+            await appAlert('O PIN deve conter exatamente 4 dígitos numéricos.', 'Erro', 'danger');
         }
     };
 
-    const handleRemovePin = () => {
+    const handleRemovePin = async () => {
         localStorage.removeItem('finelo_app_pin');
         setAppPin('');
         setPinEnabled(false);
-        alert('PIN removido. O aplicativo iniciará normalmente sem bloqueio.');
+        await appAlert('PIN removido. O aplicativo iniciará normalmente sem bloqueio.', 'Sucesso', 'success');
     };
 
     // Load on mount
@@ -104,10 +105,10 @@ const SettingsView: React.FC = () => {
     const handleSaveAsset = async (assetData: Omit<Asset, 'id' | 'user_id' | 'updated_at'>) => {
         if (editingAsset) {
             await updateAsset({ ...editingAsset, ...assetData });
-            alert(`Ativo "${editingAsset.name}" atualizado com sucesso!`);
+            await appAlert(`Ativo "${editingAsset.name}" atualizado com sucesso!`, 'Sucesso', 'success');
         } else {
             await addAsset(assetData);
-            alert(`Ativo "${assetData.name}" adicionado com sucesso!`);
+            await appAlert(`Ativo "${assetData.name}" adicionado com sucesso!`, 'Sucesso', 'success');
         }
         setAssetModalOpen(false);
         setEditingAsset(null);
@@ -116,11 +117,11 @@ const SettingsView: React.FC = () => {
     const handleSaveAccount = async (accountData: Omit<Account, 'id' | 'user_id'>) => {
         if (editingAccount) {
             await updateAccount({ ...editingAccount, ...accountData });
-            alert(`Conta "${editingAccount.Nome_Conta}" atualizada com sucesso!`);
+            await appAlert(`Conta "${editingAccount.Nome_Conta}" atualizada com sucesso!`, 'Sucesso', 'success');
         } else {
             const newAccount = await addAccount(accountData);
             if (newAccount) {
-                alert(`Conta "${newAccount.Nome_Conta}" criada com sucesso!`);
+                await appAlert(`Conta "${newAccount.Nome_Conta}" criada com sucesso!`, 'Sucesso', 'success');
                 setLastCreatedAccountId(newAccount.id);
             }
         }
@@ -131,12 +132,12 @@ const SettingsView: React.FC = () => {
     const handleSaveCategory = async (categoryData: Omit<Category, 'id'>) => {
         if (editingCategory) {
             await updateCategory({ ...editingCategory, ...categoryData });
-            alert(`Categoria "${categoryData.Nome_Categoria}" atualizada com sucesso!`);
+            await appAlert(`Categoria "${categoryData.Nome_Categoria}" atualizada com sucesso!`, 'Sucesso', 'success');
             setEditingCategory(null);
             setCategoryModalOpen(false);
         } else {
             const result = await addCategory(categoryData);
-            alert(result.message); // Exibe a mensagem de feedback
+            await appAlert(result.message, result.status === 'error' ? 'Erro' : 'Sucesso', result.status === 'error' ? 'danger' : 'success');
             // Só fecha o modal se a operação foi bem-sucedida (criada ou atualizada)
             if (result.status === 'created' || result.status === 'updated') {
                 setEditingCategory(null);
@@ -158,10 +159,10 @@ const SettingsView: React.FC = () => {
     const handleSaveBudget = async (budgetData: Omit<Budget, 'id'>) => {
         if (editingBudget) {
             await updateBudget({ ...editingBudget, ...budgetData, ano: selectedBudgetYear });
-            alert(`Orçamento para "${budgetData.Categoria}" atualizado com sucesso!`);
+            await appAlert(`Orçamento para "${budgetData.Categoria}" atualizado com sucesso!`, 'Sucesso', 'success');
         } else {
             await addBudget({ ...budgetData, ano: selectedBudgetYear });
-            alert(`Orçamento para "${budgetData.Categoria}" criado com sucesso!`);
+            await appAlert(`Orçamento para "${budgetData.Categoria}" criado com sucesso!`, 'Sucesso', 'success');
         }
         setEditingBudget(null);
         setBudgetModalOpen(false);
@@ -180,10 +181,10 @@ const SettingsView: React.FC = () => {
     const handleSaveMappingRule = async (ruleData: Omit<MappingRule, 'id'>) => {
         if (editingMappingRule) {
             await updateMappingRule({ ...editingMappingRule, ...ruleData });
-            alert('Regra de mapeamento atualizada com sucesso!');
+            await appAlert('Regra de mapeamento atualizada com sucesso!', 'Sucesso', 'success');
         } else {
             await addMappingRule(ruleData);
-            alert('Regra de mapeamento criada com sucesso!');
+            await appAlert('Regra de mapeamento criada com sucesso!', 'Sucesso', 'success');
         }
         setEditingMappingRule(null);
         setMappingRuleModalOpen(false);
@@ -202,10 +203,10 @@ const SettingsView: React.FC = () => {
     const handleSaveImportConfig = async (configData: Omit<ImportConfig, 'id'>) => {
         if (editingImportConfig) {
             await updateImportConfig({ ...editingImportConfig, ...configData });
-            alert(`Configuração "${configData.Nome_Fonte}" atualizada com sucesso!`);
+            await appAlert(`Configuração "${configData.Nome_Fonte}" atualizada com sucesso!`, 'Sucesso', 'success');
         } else {
             await addImportConfig(configData);
-            alert(`Configuração "${configData.Nome_Fonte}" criada com sucesso!`);
+            await appAlert(`Configuração "${configData.Nome_Fonte}" criada com sucesso!`, 'Sucesso', 'success');
         }
         setEditingImportConfig(null);
         setImportConfigModalOpen(false);
@@ -289,7 +290,7 @@ const SettingsView: React.FC = () => {
                             const config = importConfigs.find(c => c.id === id);
                             if (!config) return;
 
-                            const confirmConfig = window.confirm(`Tem certeza que deseja remover a configuração para "${config.Nome_Fonte}"?`);
+                            const confirmConfig = await appConfirm(`Tem certeza que deseja remover a configuração para "${config.Nome_Fonte}"?`, 'Excluir Configuração', 'Excluir', 'danger');
                             if (!confirmConfig) return;
 
                             await deleteImportConfig(id);
@@ -298,10 +299,10 @@ const SettingsView: React.FC = () => {
                                 const account = accounts.find(a => a.id === config.ID_Conta_Associada);
                                 const accountName = account ? account.Nome_Conta : 'a conta associada';
 
-                                if (window.confirm(`Deseja, TAMBÉM, excluir ${accountName} e todas as transações associadas?\n\nIsso limpará completamente os dados vindos desta fonte.`)) {
+                                if (await appConfirm(`Deseja, TAMBÉM, excluir ${accountName} e todas as transações associadas?\n\nIsso limpará completamente os dados vindos desta fonte.`, 'Excluir Conta e Transações', 'Excluir Tudo', 'danger')) {
                                     if (config.ID_Conta_Associada) {
                                         await deleteAccount(config.ID_Conta_Associada);
-                                        alert('Conta e transações excluídas.');
+                                        await appAlert('Conta e transações excluídas.', 'Sucesso', 'success');
                                     }
                                 }
                             }
@@ -333,7 +334,7 @@ const SettingsView: React.FC = () => {
                         onEdit={(item) => { setEditingAccount(item); setAccountModalOpen(true); }}
                         renderExtraActions={(item) => (
                             <button className="text-orange-400 hover:text-orange-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2" onClick={async () => {
-                                if (window.confirm(item.is_archived ? 'Deseja desarquivar esta conta?' : 'Deseja arquivar esta conta? O histórico será mantido, mas ela não aparecerá mais nos resumos.')) {
+                                if (await appConfirm(item.is_archived ? 'Deseja desarquivar esta conta?' : 'Deseja arquivar esta conta? O histórico será mantido, mas ela não aparecerá mais nos resumos.', item.is_archived ? 'Desarquivar' : 'Arquivar Conta', item.is_archived ? 'Desarquivar' : 'Arquivar', 'warning')) {
                                     const { archiveAccount } = useAppStore.getState();
                                     await archiveAccount(item.id, !item.is_archived);
                                 }
@@ -342,14 +343,14 @@ const SettingsView: React.FC = () => {
                             </button>
                         )}
                         onDelete={async (id) => {
-                            if (window.confirm('Tem certeza que deseja excluir esta conta? Isso só é possível se não houver transações.')) {
+                            if (await appConfirm('Tem certeza que deseja excluir esta conta? Isso só é possível se não houver transações.', 'Excluir Conta', 'Excluir', 'danger')) {
                                 try {
                                     await deleteAccount(id);
                                 } catch (err: any) {
                                     if (err.message === 'has_transactions') {
-                                        alert('Não é possível excluir esta conta pois ela possui transações vinculadas.\nPara ocultá-la sem perder o histórico, use a opção "Arquivar".');
+                                        await appAlert('Não é possível excluir esta conta pois ela possui transações vinculadas.\nPara ocultá-la sem perder o histórico, use a opção "Arquivar".', 'Erro', 'danger');
                                     } else {
-                                        alert('Erro ao excluir conta.');
+                                        await appAlert('Erro ao excluir conta.', 'Erro', 'danger');
                                     }
                                 }
                             }
@@ -384,12 +385,12 @@ const SettingsView: React.FC = () => {
                                 });
                                 setIsDetailsModalOpen(true);
                             } else {
-                                alert('Não há transações nesta importação para visualizar.');
+                                appAlert('Não há transações nesta importação para visualizar.', 'Aviso');
                             }
                         }}
                         onDelete={async (id) => {
                             const log = importLogs.find(l => l.id === id);
-                            if (log && window.confirm(`ATENÇÃO: Isso excluirá o registro de importação "${log.file_name}" E TODAS AS TRANSAÇÕES associadas a ele. Deseja continuar?`)) {
+                            if (log && await appConfirm(`ATENÇÃO: Isso excluirá o registro de importação "${log.file_name}" E TODAS AS TRANSAÇÕES associadas a ele. Deseja continuar?`, 'Excluir Importação', 'Excluir Tudo', 'danger')) {
                                 await deleteImportLog(id, log.file_name);
                             }
                         }}
@@ -403,7 +404,7 @@ const SettingsView: React.FC = () => {
                                 <Button
                                     variant="secondary"
                                     onClick={async () => {
-                                        if (window.confirm('Isso irá verificar suas transações existentes e criar logs para importações antigas que não estão listadas aqui. Deseja continuar?')) {
+                                        if (await appConfirm('Isso irá verificar suas transações existentes e criar logs para importações antigas que não estão listadas aqui. Deseja continuar?', 'Sincronizar Histórico')) {
                                             const { syncLegacyImportLogs } = useAppStore.getState();
                                             await syncLegacyImportLogs();
                                         }
@@ -460,7 +461,7 @@ const SettingsView: React.FC = () => {
                         )}
                         onAdd={openNewCategoryModal}
                         onEdit={openEditCategoryModal}
-                        onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteCategory(id) }}
+                        onDelete={async (id) => { if (await appConfirm('Deseja excluir esta categoria?', 'Excluir Categoria', 'Excluir', 'danger')) await deleteCategory(id) }}
                         searchKeys={['Nome_Categoria', 'Tipo']}
                         searchPlaceholder="Buscar por nome ou tipo..."
                     />
@@ -480,7 +481,7 @@ const SettingsView: React.FC = () => {
                         )}
                         onAdd={openNewBudgetModal}
                         onEdit={openEditBudgetModal}
-                        onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteBudget(id) }}
+                        onDelete={async (id) => { if (await appConfirm('Deseja excluir este orçamento?', 'Excluir Orçamento', 'Excluir', 'danger')) await deleteBudget(id) }}
                         searchKeys={['Categoria', 'Valor_Limite_Mensal']}
                         searchPlaceholder="Buscar por categoria ou limite..."
                         extraHeader={
@@ -568,7 +569,7 @@ const SettingsView: React.FC = () => {
                             );
                         }}
                         onDelete={async (id) => {
-                            if (window.confirm('Excluir este ativo do seu patrimônio?')) {
+                            if (await appConfirm('Excluir este ativo do seu patrimônio?', 'Excluir Ativo', 'Excluir', 'danger')) {
                                 await deleteAsset(id);
                             }
                         }}
@@ -591,7 +592,7 @@ const SettingsView: React.FC = () => {
                         )}
                         onAdd={openNewMappingRuleModal}
                         onEdit={openEditMappingRuleModal}
-                        onDelete={async (id) => { if (window.confirm('Tem certeza?')) await deleteMappingRule(id) }}
+                        onDelete={async (id) => { if (await appConfirm('Deseja excluir esta regra?', 'Excluir Regra', 'Excluir', 'danger')) await deleteMappingRule(id) }}
                         searchKeys={['Texto_Contido_Descricao', 'Nome_Fantasia_Sugerido', 'Categoria_Sugerida']}
                         searchPlaceholder="Buscar por texto, nome ou categoria..."
                         footer={
@@ -599,9 +600,9 @@ const SettingsView: React.FC = () => {
                                 <Button
                                     variant="secondary"
                                     onClick={async () => {
-                                        if (window.confirm('Isso irá verificar TODAS as transações e aplicar as regras correspondentes. Pode levar alguns instantes. Deseja continuar?')) {
+                                        if (await appConfirm('Isso irá verificar TODAS as transações e aplicar as regras correspondentes. Pode levar alguns instantes. Deseja continuar?', 'Re-aplicar Regras')) {
                                             await reApplyAllRules();
-                                            alert('Regras reaplicadas com sucesso!');
+                                            await appAlert('Regras reaplicadas com sucesso!', 'Sucesso', 'success');
                                         }
                                     }}
                                     className="w-full sm:w-auto"
@@ -613,7 +614,7 @@ const SettingsView: React.FC = () => {
                                     onClick={() => {
                                         const duplicates = findDuplicateRules();
                                         if (duplicates.length === 0) {
-                                            alert('Nenhuma regra duplicada encontrada.');
+                                            appAlert('Nenhuma regra duplicada encontrada.', 'Tudo Certo', 'success');
                                             return;
                                         }
 
@@ -622,7 +623,7 @@ const SettingsView: React.FC = () => {
                                             return `- "${text}" (${group.length} ocorrências)`;
                                         }).join('\n');
 
-                                        alert(`⚠️ Regras duplicadas encontradas:\n\n${message}\n\nPor favor, remova as duplicatas manualmente na lista acima.`);
+                                        appAlert(`Regras duplicadas encontradas:\n\n${message}\n\nPor favor, remova as duplicatas manualmente na lista acima.`, 'Atenção', 'warning');
                                     }}
                                     className="w-full sm:w-auto"
                                 >
@@ -679,7 +680,7 @@ const SettingsView: React.FC = () => {
                                                             const msg = isReceivedInvite
                                                                 ? `Sair do plano compartilhado de ${member.owner_email}?`
                                                                 : `Remover acesso de ${member.member_email}?`;
-                                                            if (!window.confirm(msg)) return;
+                                                            if (!(await appConfirm(msg, 'Confirmar', 'Confirmar', 'danger'))) return;
                                                             const { supabase } = await import('../../supabaseClient');
                                                             await supabase.from('family_members').delete().eq('id', member.id);
                                                             fetchFamilyMembers();

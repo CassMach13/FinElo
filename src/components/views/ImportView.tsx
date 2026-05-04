@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
+import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { supabase } from '../../supabaseClient';
 
 import { processStatementFile, parsePreview, parseContent, convertExcelToCSV } from './../../services/parserService';
@@ -189,11 +190,9 @@ const ImportView: React.FC = () => {
         setPluggyConnections(conns);
         const newConn = conns.find(c => c.item_id === itemData.item.id);
         if (newConn) setReviewConnection(newConn);
-        setPluggyConnectToken(null);
       }
     } catch (error) {
       setNotification({ type: 'error', message: 'Erro ao salvar conexão com o banco.' });
-      setPluggyConnectToken(null);
     }
   };
 
@@ -497,7 +496,7 @@ const ImportView: React.FC = () => {
 
   const handleSmartImport = async () => {
     if (hasReachedLimit) {
-      alert("Você atingiu o limite de 1 importação gratuita por mês. Assine o Premium para importações ilimitadas!");
+      await appAlert("Você atingiu o limite de 1 importação gratuita por mês. Assine o Premium para importações ilimitadas!", "Aviso", "warning");
       return;
     }
     if (mapping.dateColumnIndex === -1 || mapping.amountColumnIndex === -1) {
@@ -507,12 +506,12 @@ const ImportView: React.FC = () => {
     let dueDateToUse: Date | undefined = undefined;
     if (tempSourceType === 'Cartao') {
       if (!tempDueDate) {
-        alert("Para importação de cartão de crédito, a Data de Vencimento é obrigatória. Ela será usada como data de pagamento.");
+        appAlert("Para importação de cartão de crédito, a Data de Vencimento é obrigatória. Ela será usada como data de pagamento.", "Aviso", "warning");
         return;
       }
       dueDateToUse = new Date(tempDueDate);
       if (isNaN(dueDateToUse.getTime())) {
-        alert("Data de vencimento inválida.");
+        appAlert("Data de vencimento inválida.", "Erro", "danger");
         return;
       }
     }
@@ -761,7 +760,7 @@ const ImportView: React.FC = () => {
                                 </Button>
                                 <button
                                   onClick={async () => {
-                                    if (!window.confirm(`Remover a conexão com ${conn.bank_name}? Suas transações já importadas não serão afetadas.`)) return;
+                                    if (!(await appConfirm(`Remover a conexão com ${conn.bank_name}? Suas transações já importadas não serão afetadas.`, "Remover Conexão", "Remover", "danger"))) return;
                                     await deletePluggyConnection(conn.id);
                                     setPluggyConnections(prev => prev.filter(c => c.id !== conn.id));
                                     setNotification({ type: 'success', message: `Conexão com ${conn.bank_name} removida.` });
@@ -1038,8 +1037,8 @@ const ImportView: React.FC = () => {
                           const config = importConfigs.find(c => c.Nome_Fonte === selectedConfigSource);
                           if (config && confirm(`Tem certeza que deseja excluir a configuração "${config.Nome_Fonte}"?`)) {
                             const { error } = await supabase.from('import_configs').delete().eq('id', config.id);
-                            if (error) alert("Erro ao excluir: " + error.message);
-                            else { alert("Excluído com sucesso."); setSelectedConfigSource(''); window.location.reload(); }
+                            if (error) await appAlert("Erro ao excluir: " + error.message, "Erro", "danger");
+                            else { await appAlert("Excluído com sucesso.", "Sucesso", "success"); setSelectedConfigSource(''); window.location.reload(); }
                           }
                         }}
                         className="text-xs text-red-400 hover:text-red-300 hover:underline"
@@ -1281,12 +1280,12 @@ const ImportView: React.FC = () => {
               }
               if (isNew) {
                 const { error } = await supabase.from('import_configs').insert([{ ...payload, user_id: user.id }]).select();
-                if (error) alert("Erro ao criar: " + error.message);
-                else { alert("Configuração criada com sucesso!"); await useAppStore.getState().fetchImportConfigs(); }
+                if (error) await appAlert("Erro ao criar: " + error.message, "Erro", "danger");
+                else { await appAlert("Configuração criada com sucesso!", "Sucesso", "success"); await useAppStore.getState().fetchImportConfigs(); }
               } else if (existingId) {
                 const { error } = await supabase.from('import_configs').update(payload).eq('id', existingId);
-                if (error) alert("Erro ao atualizar: " + error.message);
-                else { alert("Configuração atualizada com sucesso!"); await useAppStore.getState().fetchImportConfigs(); }
+                if (error) await appAlert("Erro ao atualizar: " + error.message, "Erro", "danger");
+                else { await appAlert("Configuração atualizada com sucesso!", "Sucesso", "success"); await useAppStore.getState().fetchImportConfigs(); }
               }
             }}
           />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
+import { appConfirm } from '../../hooks/useDialogStore';
 import Avatar from '../../Avatar'; // Importando nosso novo componente
 import { SettingsIcon, LogoutIcon, LifebuoyIcon, TicketIcon } from '../ui/icons';
 
@@ -45,7 +46,7 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
     }, []);
 
     const handleSignOut = async () => {
-        if (window.confirm('Tem certeza que deseja sair da sua conta?')) {
+        if (await appConfirm('Tem certeza que deseja sair da sua conta?', 'Sair da Conta', 'Sair', 'danger')) {
             await signOut();
         }
         setIsOpen(false);

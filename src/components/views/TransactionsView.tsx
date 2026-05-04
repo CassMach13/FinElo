@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useAppStore } from './../../hooks/useAppStore';
+import { useAppStore } from '../../hooks/useAppStore';
+import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { Transaction, Category, MappingRule, Account } from './../../types';
 import Card from './../ui/Card';
 import Modal from './../ui/Modal';
@@ -185,9 +185,9 @@ const TransactionsView: React.FC = () => {
       // Find the newly created category ID (or just use the name as we know it)
       setLastCreatedCategory(categoryData.Nome_Categoria);
       setCategoryModalOpen(false);
-      alert(result.message);
+      await appAlert(result.message, 'Sucesso', 'success');
     } else {
-      alert(result.message);
+      await appAlert(result.message, 'Sucesso', 'success');
     }
   };
 
@@ -201,7 +201,7 @@ const TransactionsView: React.FC = () => {
       if (newAccount) {
         setLastCreatedAccount(newAccount.id);
         setAccountModalOpen(false);
-        alert(`Conta "${newAccount.Nome_Conta}" criada com sucesso!`);
+        await appAlert(`Conta "${newAccount.Nome_Conta}" criada com sucesso!`, 'Sucesso', 'success');
       }
     }
   };
@@ -533,9 +533,9 @@ const TransactionsView: React.FC = () => {
                   </svg>
                 ),
                 colorClass: 'bg-red-500',
-                onClick: () => {
+                onClick: async () => {
                   if (t.Origem === 'manual') {
-                    if (window.confirm('Excluir este lançamento manual?')) deleteTransaction(t.ID_Transacao);
+                    if (await appConfirm('Excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao);
                   } else {
                     const batchCount = transactions.filter(tx => tx.Origem === t.Origem).length;
                     setDeleteConfirmation({ transactionId: t.ID_Transacao, origin: t.Origem, count: batchCount });
@@ -670,7 +670,7 @@ const TransactionsView: React.FC = () => {
                             </svg>
                           </button>
                           <button 
-                            onClick={() => { if (window.confirm('Tem certeza que deseja excluir este lançamento manual?')) deleteTransaction(t.ID_Transacao) }} 
+                            onClick={async () => { if (await appConfirm('Tem certeza que deseja excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao) }} 
                             className="text-danger hover:text-red-400"
                             title="Excluir Transação"
                           >
