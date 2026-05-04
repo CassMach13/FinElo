@@ -38,7 +38,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 id: secretId,
                 password: secretPassword,
-                scopes: 'read_institutions,write_links,read_links',
+                scopes: 'read_institutions,write_links,read_links,read_consents,write_consents',
                 widget: {
                     branding: {
                         company_name: 'FinElo'
