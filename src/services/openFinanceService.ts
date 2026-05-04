@@ -6,7 +6,7 @@ import { PluggyTransactionDraft, PluggyConnection } from '../types';
 // Token (Belvo Widget)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getBelvoWidgetToken(): Promise<string> {
+export async function getBelvoWidgetToken(): Promise<{ accessToken: string; customer: any }> {
   const res = await fetch('/api/belvo-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -14,11 +14,11 @@ export async function getBelvoWidgetToken(): Promise<string> {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Falha ao obter token Belvo');
-  return data.accessToken;
+  return data; // Retorna { accessToken, customer }
 }
 
 // Mantido por compatibilidade (caso alguma parte do código ainda use)
-export async function getPluggyConnectToken(_itemId?: string, _options?: any): Promise<string> {
+export async function getPluggyConnectToken(_itemId?: string, _options?: any): Promise<any> {
   return getBelvoWidgetToken();
 }
 
