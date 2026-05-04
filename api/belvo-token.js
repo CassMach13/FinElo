@@ -39,6 +39,7 @@ export default async function handler(req, res) {
                 id: secretId,
                 password: secretPassword,
                 scopes: 'read_institutions,write_links,read_consents,write_consents',
+                external_id: 'cassio_test_01', // ID para rastreamento no Sandbox
                 customer: {
                     user_document: '38293383844', // CPF limpo (do HAR)
                     user_document_type: 'CPF',

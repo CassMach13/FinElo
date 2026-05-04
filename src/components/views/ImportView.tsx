@@ -220,11 +220,13 @@ const ImportView: React.FC = () => {
         locale: 'pt',
         country_codes: ['BR'],
         resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
+        scopes: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
+        permissions: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
         customer: {
           user_document: customer.user_document,
           user_document_type: customer.user_document_type,
           user_name: customer.user_name,
-          external_id: user?.id // Adicionando ID externo para maior confiança
+          external_id: user?.id
         },
         // callback quando o usuário conecta um banco com sucesso
         callback: async (link: string, institution: any) => {
