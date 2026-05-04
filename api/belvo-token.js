@@ -38,10 +38,12 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 id: secretId,
                 password: secretPassword,
-                scopes: 'read_institutions,write_links,read_links,read_consents,write_consents',
+                scopes: 'read_institutions,write_links,read_consents,write_consents',
                 widget: {
                     branding: {
-                        company_name: 'FinElo'
+                        company_name: 'FinElo',
+                        company_logo: 'https://finelo.app/logo/Image_fx.png',
+                        company_icon: 'https://finelo.app/logo/Image_fx.png'
                     }
                 },
                 fetch_resources: [

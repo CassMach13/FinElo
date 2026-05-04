@@ -219,8 +219,6 @@ const ImportView: React.FC = () => {
       window.belvoSDK.createWidget(accessToken, {
         locale: 'pt',
         country_codes: ['BR'],
-        openfinance_feature: 'consent_link_creation',
-        access_mode: 'recurrent',
         // callback quando o usuário conecta um banco com sucesso
         callback: async (link: string, institution: any) => {
           const bankName = institution?.name || 'Banco Belvo';
