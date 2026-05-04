@@ -40,9 +40,24 @@ const ContasView: React.FC = () => {
         setAccountModalOpen(true);
     };
 
+    const handleArchiveAccount = async (id: string, isArchived: boolean) => {
+        if (window.confirm(isArchived ? 'Deseja desarquivar esta conta? Ela voltará a aparecer nos cards e formulários.' : 'Deseja arquivar esta conta? O histórico será mantido, mas ela não aparecerá mais nos resumos e formulários de nova transação.')) {
+            const { archiveAccount } = useAppStore.getState();
+            await archiveAccount(id, isArchived);
+        }
+    };
+
     const handleDeleteAccount = async (id: string) => {
-        if (window.confirm('Tem certeza que deseja excluir esta conta? Todas as transações associadas perderão o vínculo.')) {
-            await deleteAccount(id);
+        if (window.confirm('Tem certeza que deseja excluir esta conta? Isso só é possível se não houver transações.')) {
+            try {
+                await deleteAccount(id);
+            } catch (err: any) {
+                if (err.message === 'has_transactions') {
+                    alert('Não é possível excluir esta conta pois ela possui transações vinculadas.\nPara ocultá-la sem perder o histórico, use a opção "Arquivar".');
+                } else {
+                    alert('Erro ao excluir conta.');
+                }
+            }
         }
     };
 
@@ -59,15 +74,19 @@ const ContasView: React.FC = () => {
                 headers={['Nome da Conta', 'Tipo', 'Saldo Inicial', 'Saldo Atual']}
                 renderRow={(item) => (
                     <>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-light">{item.Nome_Conta}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-light flex items-center gap-2">
+                            {item.Nome_Conta}
+                            {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{item.Tipo_Conta}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)} <span className="text-xs">em {new Date(item.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span></td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-light">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Atual_Calculado ?? 0)}</td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${item.is_archived ? 'text-gray-500 line-through' : 'text-light'}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Atual_Calculado ?? 0)}</td>
                     </>
                 )}
                 onAdd={openNewAccountModal}
                 onEdit={openEditAccountModal}
                 onDelete={handleDeleteAccount}
+                onArchive={handleArchiveAccount}
                 searchKeys={['Nome_Conta', 'Tipo_Conta']}
                 searchPlaceholder="Buscar por nome ou tipo..."
                 hideAddButton={true} // O botão principal da tela já faz isso
@@ -104,12 +123,13 @@ interface CrudCardProps<T> {
     onAdd: () => void;
     onEdit: (item: T) => void;
     onDelete: (id: string) => void;
+    onArchive?: (id: string, isArchived: boolean) => void;
     searchKeys?: (keyof T)[];
     searchPlaceholder?: string;
     hideAddButton?: boolean;
 }
 
-const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, onAdd, onEdit, onDelete, searchKeys = [], searchPlaceholder = 'Buscar...', hideAddButton = false }: CrudCardProps<T>) => {
+const CrudCard = <T extends { id: string, is_archived?: boolean },>({ title, data, headers, renderRow, onAdd, onEdit, onDelete, onArchive, searchKeys = [], searchPlaceholder = 'Buscar...', hideAddButton = false }: CrudCardProps<T>) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredData = useMemo(() => {
         if (!searchTerm) return data;
@@ -148,6 +168,11 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                                 </div>
                             ))}
                             <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
+                                {onArchive && (
+                                    <button className="text-orange-400 hover:text-orange-300 font-semibold p-1" onClick={() => onArchive(item.id, !item.is_archived)}>
+                                        {item.is_archived ? 'Desarquivar' : 'Arquivar'}
+                                    </button>
+                                )}
                                 <button className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
                                     Editar
                                 </button>
@@ -174,6 +199,11 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                                 <tr key={item.id}>
                                     {renderRow(item)}
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                                        {onArchive && (
+                                            <button className="text-orange-400 hover:text-orange-300 font-semibold" onClick={() => onArchive(item.id, !item.is_archived)}>
+                                                {item.is_archived ? 'Desarquivar' : 'Arquivar'}
+                                            </button>
+                                        )}
                                         <button className="text-highlight hover:text-sky-300 font-semibold" onClick={() => onEdit(item)}>Editar</button>
                                         <button className="text-danger hover:text-red-400 font-semibold" onClick={() => onDelete(item.id)}>Excluir</button>
                                     </td>

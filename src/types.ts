@@ -31,6 +31,7 @@ export interface Account {
   Icone?: string;
   bank_id?: string; // ID from NATIVE_BANK_CONFIGS
   Saldo_Atual_Calculado?: number; // <-- NOVO CAMPO: Para armazenar o saldo calculado na UI
+  is_archived?: boolean;
 }
 
 export interface Category {

@@ -43,7 +43,7 @@ const TransactionsView: React.FC = () => {
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
 
   const categories = getSortedCategories();
-  const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
+  const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id && !acc.is_archived), [accounts]);
 
   // Efeito para buscar as transações do Supabase na montagem do componente
   useEffect(() => {
@@ -353,7 +353,7 @@ const TransactionsView: React.FC = () => {
             <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <MultiSelect
                 label="Conta"
-                options={accounts.map(a => ({ label: a.Nome_Conta, value: a.id }))}
+                options={accounts.map(a => ({ label: a.is_archived ? `${a.Nome_Conta} (Arquivada)` : a.Nome_Conta, value: a.id }))}
                 value={transactionFilters.accountId}
                 onChange={handleAccountFilterChange}
                 placeholder="Todas"
@@ -385,7 +385,7 @@ const TransactionsView: React.FC = () => {
 
       {/* Account Balance Cards */}
       <div id="transactions-balances" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {accounts.map(account => {
+        {accounts.filter(a => !a.is_archived).map(account => {
           // Normaliza as datas para YYYY-MM-DD para garantir comparação fiel ao calendário, ignorando timezone/hora
           const getIsoDate = (date: Date | string) => {
             if (!date) return '';
@@ -627,7 +627,7 @@ const TransactionsView: React.FC = () => {
                 <tr key={t.ID_Transacao} className="hover:bg-primary">
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
-                  <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
+                  <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
                   <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} />
                   <EditableCell key={`${t.ID_Transacao}-Parcela_Atual-${t.Parcela_Atual}`} transaction={t} field="Parcela_Atual" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="installments" className="w-16 text-center text-xs" />
                   <EditableCell 
@@ -770,7 +770,7 @@ const TransactionsView: React.FC = () => {
             setNewTransactionModalOpen(false);
             setEditingTransaction(null);
           }}
-          accounts={accounts}
+          accounts={accounts.filter(a => !a.is_archived)}
           categories={categories}
           assets={assets}
           onOpenCreateAccount={() => setAccountModalOpen(true)}

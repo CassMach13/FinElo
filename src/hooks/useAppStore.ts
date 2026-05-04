@@ -328,35 +328,53 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  archiveAccount: async (accountId: string, isArchived: boolean) => {
+    const { data, error } = await supabase
+      .from('contas')
+      .update({ is_archived: isArchived })
+      .eq('id', accountId)
+      .select();
+
+    if (error) {
+      console.error('Erro ao arquivar/desarquivar conta:', error);
+    } else if (data) {
+      set((state) => ({
+        accounts: state.accounts.map(a => a.id === accountId ? data[0] as Account : a)
+      }));
+    }
+  },
 
   deleteAccount: async (accountId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. Delete transactions linked to this account
-    const { error: txError } = await supabase
+    // 1. Verificar se existem transações vinculadas
+    const { count, error: countError } = await supabase
       .from('transactions')
-      .delete()
+      .select('*', { count: 'exact', head: true })
       .eq('ID_Conta', accountId);
-
-    if (txError) {
-      console.error('Erro ao deletar transações da conta:', txError);
-      // We continue to try to delete the account even if transaction deletion fails locally (maybe db handles it)
-      // But alerting is good.
+      
+    if (countError) {
+      console.error('Erro ao verificar transações da conta:', countError);
+      return;
+    }
+    
+    if (count && count > 0) {
+      // Retorna uma rejeição para a UI capturar e mostrar um alerta
+      return Promise.reject(new Error('has_transactions'));
     }
 
     // 2. Delete the account
     const { error } = await supabase.from('contas').delete().eq('id', accountId);
     if (error) {
       console.error('Erro ao deletar conta:', error);
-      alert('Erro ao deletar conta.');
     } else {
       set((state) => ({
-        accounts: state.accounts.filter(a => a.id !== accountId),
-        transactions: state.transactions.filter(t => t.ID_Conta !== accountId)
+        accounts: state.accounts.filter((a) => a.id !== accountId),
       }));
     }
   },
+
   getAccountsWithCalculatedBalance: () => {
     const { accounts, transactions } = get();
     const now = new Date();
