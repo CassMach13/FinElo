@@ -53,20 +53,28 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
             const dataSaldo = formState.dataSaldoInicial ? new Date(formState.dataSaldoInicial) : new Date();
             const dataSaldoAjustada = new Date(dataSaldo.getUTCFullYear(), dataSaldo.getUTCMonth(), dataSaldo.getUTCDate());
 
+            let saldo = parseFloat(String(formState.saldoInicial));
+            // Se for cartão e o usuário digitou positivo (ex: 2000 de gasto), converte para negativo (dívida)
+            if (isCartaoCredito && saldo > 0) saldo = -saldo;
+
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
                 bank_id: formState.bank_id,
-                Saldo_Inicial: parseFloat(String(formState.saldoInicial)),
+                Saldo_Inicial: saldo,
                 Data_Saldo_Inicial: dataSaldoAjustada,
                 ...creditCardFields,
             };
         } else {
+            let saldo = parseFloat(String(formState.saldoAtual));
+            // Se for cartão e o usuário digitou positivo (ex: 2000 de gasto), converte para negativo (dívida)
+            if (isCartaoCredito && saldo > 0) saldo = -saldo;
+
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
                 bank_id: formState.bank_id,
-                Saldo_Inicial: parseFloat(String(formState.saldoAtual)),
+                Saldo_Inicial: saldo,
                 Data_Saldo_Inicial: new Date(),
                 ...creditCardFields,
             };
