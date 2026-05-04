@@ -40,13 +40,6 @@ export default async function handler(req, res) {
                 password: secretPassword,
                 scopes: 'read_institutions,write_links,read_consents,write_consents',
                 external_id: 'user_finelo_test',
-                widget: {
-                    branding: {
-                        company_name: 'FinElo',
-                        company_logo: 'https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/landmark.svg',
-                        company_icon: 'https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/landmark.svg'
-                    }
-                },
                 fetch_resources: [
                     "ACCOUNTS",
                     "TRANSACTIONS"
