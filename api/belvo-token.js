@@ -43,7 +43,11 @@ export default async function handler(req, res) {
                     branding: {
                         company_name: 'FinElo'
                     }
-                }
+                },
+                fetch_resources: [
+                    "ACCOUNTS",
+                    "TRANSACTIONS"
+                ]
             }),
         });
 
