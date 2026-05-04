@@ -219,15 +219,7 @@ const ImportView: React.FC = () => {
       window.belvoSDK.createWidget(accessToken, {
         locale: 'pt',
         country_codes: ['BR'],
-        resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
-        scopes: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
-        permissions: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS'],
-        customer: {
-          user_document: customer.user_document,
-          user_document_type: customer.user_document_type,
-          user_name: customer.user_name,
-          external_id: user?.id
-        },
+        external_id: 'user_finelo_test', // Casando com o back-end
         // callback quando o usuário conecta um banco com sucesso
         callback: async (link: string, institution: any) => {
           const bankName = institution?.name || 'Banco Belvo';
