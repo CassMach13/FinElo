@@ -42,8 +42,8 @@ export default async function handler(req, res) {
                 widget: {
                     branding: {
                         company_name: 'FinElo',
-                        company_logo: 'https://finelo.app/logo/finelo_logo.svg',
-                        company_icon: 'https://finelo.app/logo/finelo_logo.svg'
+                        company_logo: 'https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/landmark.svg',
+                        company_icon: 'https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/landmark.svg'
                     }
                 },
                 fetch_resources: [
