@@ -239,29 +239,13 @@ const ImportView: React.FC = () => {
 
       const { accessToken } = tokenData;
 
-      // 2. Abre o Widget com o token OFDA
-      await loadBelvoScript();
-
-      // @ts-ignore
-      window.belvoSDK.createWidget(accessToken, {
-        locale: 'pt',
-        access_mode: 'single', // Recomendado para importação pontual
-        callback: async (link: string, institution: any) => {
-          const bankName = institution?.name || 'Banco Conectado';
-          if (user?.id && link) {
-            await savePluggyConnection(user.id, link, bankName);
-            setNotification({ type: 'success', message: `${bankName} conectado com sucesso!` });
-            const conns = await loadPluggyConnections(user.id);
-            setPluggyConnections(conns);
-            const newConn = conns.find(c => c.item_id === link);
-            if (newConn) setReviewConnection(newConn);
-          }
-        },
-        onExit: (data: any) => {
-          console.log('[Belvo] Widget fechado', data);
-          setIsBelvoLoading(false);
-        },
-      }).build();
+      // 2. Abre o Hosted Widget da Belvo diretamente via URL (Evita erro de validação de SVG do SDK)
+      const belvoUrl = `https://widget.belvo.io/?access_token=${accessToken}&locale=pt&access_mode=single&external_id=${user?.id}`;
+      
+      // Abre em uma nova aba para não perder o estado da aplicação
+      window.open(belvoUrl, '_blank');
+      setIsBelvoLoading(false);
+      setNotification({ type: 'success', message: 'Janela de conexão aberta! Siga as instruções no banco e volte aqui.' });
 
     } catch (error: any) {
       const technicalMsg = error.message || 'Falha ao iniciar Open Finance';
