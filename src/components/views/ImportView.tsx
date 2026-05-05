@@ -219,18 +219,35 @@ const ImportView: React.FC = () => {
       setBelvoError(null);
       setNotification(null);
 
+      // BYPASS DE DESENVOLVEDOR: Pula a Belvo completamente no Modo Teste
+      if (isRetail) {
+        setTimeout(async () => {
+          setIsBelvoLoading(false);
+          setShowConsentModal(false);
+          setNotification({ type: 'success', message: 'Conexão simulada com sucesso (Bypass)!' });
+          // Simula o callback de sucesso da Belvo chamando a função que salva o banco
+          await handlePluggySuccess({ 
+            item: { 
+              id: `mock-belvo-${Date.now()}`, 
+              connector: { name: 'Banco Simulado (Teste)' } 
+            } 
+          });
+        }, 1000);
+        return;
+      }
+
       try {
         const cleanCpf = consentCpf.replace(/\D/g, '');
         
-        // 1. Gera o token de acesso (OFDA ou Retail)
+        // 1. Gera o token de acesso (OFDA)
         const tokenRes = await fetch('/api/belvo-consent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userDocument: isRetail ? null : cleanCpf,
-            userName: isRetail ? 'Teste Retail' : consentName.trim(),
+            userDocument: cleanCpf,
+            userName: consentName.trim(),
             externalId: user?.id,
-            isRetail: isRetail
+            isRetail: false
           }),
         });
 
