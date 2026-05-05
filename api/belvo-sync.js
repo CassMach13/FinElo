@@ -38,6 +38,49 @@ export default async function handler(req, res) {
     const dateTo = toDate || new Date().toISOString().split('T')[0];
 
     try {
+        // BYPASS DE DESENVOLVEDOR: Se o linkId for de teste, retorna dados fictícios
+        if (linkId.startsWith('mock-belvo-')) {
+            const mockAccounts = [{
+                id: 'acc-mock-123',
+                name: 'Conta Corrente Simulação',
+                type: 'CHECKING_ACCOUNT',
+                currency: 'BRL',
+                balance: { current: 5420.50, available: 5420.50 },
+                institution: { name: 'Banco Simulado' }
+            }];
+
+            const mockTransactions = [
+                {
+                    id: 'tx-mock-001',
+                    type: 'DEBIT',
+                    amount: 150.00,
+                    date: new Date().toISOString(),
+                    description: 'Netflix Entretenimento',
+                    category: 'Lazer',
+                    account_id: 'acc-mock-123'
+                },
+                {
+                    id: 'tx-mock-002',
+                    type: 'CREDIT',
+                    amount: 2500.00,
+                    date: new Date().toISOString(),
+                    description: 'Depósito Recebido',
+                    category: 'Renda',
+                    account_id: 'acc-mock-123'
+                },
+                {
+                    id: 'tx-mock-003',
+                    type: 'DEBIT',
+                    amount: 85.50,
+                    date: new Date().toISOString(),
+                    description: 'Posto de Gasolina',
+                    category: 'Transporte',
+                    account_id: 'acc-mock-123'
+                }
+            ];
+
+            return res.status(200).json({ accounts: mockAccounts, transactions: mockTransactions });
+        }
         // 1. Buscar contas do link
         const accountsRes = await fetch(`${baseUrl}/api/accounts/?link=${linkId}`, { headers });
         const accountsData = await accountsRes.json();
