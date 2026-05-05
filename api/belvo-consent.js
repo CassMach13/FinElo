@@ -32,49 +32,50 @@ export default async function handler(req, res) {
         // 1. Gera o token de acesso
         const credentials = Buffer.from(`${secretId}:${secretPassword}`).toString('base64');
         
-        const tokenPayload = {
-            id: secretId,
-            password: secretPassword,
-            scopes: useRetailFlow 
-                ? 'read_institutions,write_links,read_consents,write_consents'
-                : 'read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents',
-            stale_in: '300d',
-            fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS', 'BILLS', 'INVESTMENTS', 'INVESTMENT_TRANSACTIONS'],
-            widget: useRetailFlow ? {
-                purpose: 'Teste de importação FinElo',
-                callback_urls: {
-                    success: 'https://www.finelo.app.br/import?status=success',
-                    exit: 'https://www.finelo.app.br/import?status=exit',
-                    event: 'https://www.finelo.app.br/import?status=error'
+        let tokenPayload;
+
+        if (useRetailFlow) {
+            tokenPayload = {
+                id: secretId,
+                password: secretPassword,
+                scopes: 'read_institutions,write_links'
+            };
+        } else {
+            tokenPayload = {
+                id: secretId,
+                password: secretPassword,
+                scopes: 'read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents',
+                stale_in: '300d',
+                fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS', 'BILLS', 'INVESTMENTS', 'INVESTMENT_TRANSACTIONS'],
+                widget: {
+                    purpose: 'Soluções financeiras personalizadas e gestão de gastos na FinElo.',
+                    openfinance_feature: 'consent_link_creation',
+                    callback_urls: {
+                        success: 'https://www.finelo.app.br/import?status=success',
+                        exit: 'https://www.finelo.app.br/import?status=exit',
+                        event: 'https://www.finelo.app.br/import?status=error'
+                    },
+                    consent: {
+                        terms_and_conditions_url: 'https://www.finelo.app.br/terms',
+                        permissions: ['REGISTER', 'ACCOUNTS', 'CREDIT_CARDS', 'CREDIT_OPERATIONS'],
+                        identification_info: [
+                            {
+                                type: 'CPF',
+                                number: cleanDocument,
+                                name: cleanName
+                            }
+                        ]
+                    },
+                    branding: {
+                        company_name: 'FinElo',
+                        company_icon: 'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg',
+                        company_logo: 'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg',
+                        company_terms_url: 'https://www.finelo.app.br/terms',
+                        social_proof: true
+                    }
                 }
-            } : {
-                purpose: 'Soluções financeiras personalizadas e gestão de gastos na FinElo.',
-                openfinance_feature: 'consent_link_creation',
-                callback_urls: {
-                    success: 'https://www.finelo.app.br/import?status=success',
-                    exit: 'https://www.finelo.app.br/import?status=exit',
-                    event: 'https://www.finelo.app.br/import?status=error'
-                },
-                consent: {
-                    terms_and_conditions_url: 'https://www.finelo.app.br/terms',
-                    permissions: ['REGISTER', 'ACCOUNTS', 'CREDIT_CARDS', 'CREDIT_OPERATIONS'],
-                    identification_info: [
-                        {
-                            type: 'CPF',
-                            number: cleanDocument,
-                            name: cleanName
-                        }
-                    ]
-                },
-                branding: {
-                    company_name: 'FinElo',
-                    company_icon: 'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg',
-                    company_logo: 'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg',
-                    company_terms_url: 'https://www.finelo.app.br/terms',
-                    social_proof: true
-                }
-            }
-        };
+            };
+        }
 
         const tokenRes = await fetch(`${baseUrl}/api/token/`, {
             method: 'POST',
