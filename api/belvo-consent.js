@@ -40,9 +40,9 @@ export default async function handler(req, res) {
             // Scopes obrigatórios para OFDA Brasil
             scopes: 'read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents',
             stale_in: '300d',
-            fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS', 'BILLS'],
+            fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS', 'BILLS', 'INVESTMENTS', 'INVESTMENT_TRANSACTIONS'],
             widget: {
-                purpose: 'Consolidação de contas e análise de gastos para gestão financeira pessoal na FinElo.',
+                purpose: 'Soluções financeiras personalizadas e gestão de gastos na FinElo.',
                 openfinance_feature: 'consent_link_creation',
                 callback_urls: {
                     success: 'https://www.finelo.app.br/import?status=success',
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
                 },
                 consent: {
                     terms_and_conditions_url: 'https://www.finelo.app.br/terms',
-                    // Permissões EXATAS do guia OFDA
+                    // Permissões EXATAS do guia oficial para Individual (CPF)
                     permissions: ['REGISTER', 'ACCOUNTS', 'CREDIT_CARDS', 'CREDIT_OPERATIONS'],
                     identification_info: [
                         {
