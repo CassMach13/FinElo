@@ -383,21 +383,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     return accounts.map(account => {
+      const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
       const initialBalanceDate = new Date(account.Data_Saldo_Inicial).getTime();
 
       const relevantTransactionsSum = transactions
         .filter(t => {
-          const transactionPurchaseDate = new Date(t.Data).getTime();
-          // Use Data_Pagamento as the primary date for balance, fallback to Data
-          const paymentDateStr = t.Data_Pagamento ? new Date(t.Data_Pagamento).toISOString().split('T')[0] : new Date(t.Data).toISOString().split('T')[0];
+          if (t.ID_Conta !== account.id) return false;
           
-          // A transação só é relevante se:
-          // 1. Pertencer à conta
-          // 2. For posterior à data do saldo inicial (Data de compra)
-          // 3. A data de PAGAMENTO for hoje ou no passado
-          return t.ID_Conta === account.id && 
-                 transactionPurchaseDate > initialBalanceDate &&
-                 paymentDateStr <= todayStr;
+          const transactionPurchaseDate = new Date(t.Data).getTime();
+          // For credit cards, we care about the PURCHASE date (limit consumption), 
+          // and we include ALL transactions (past and future) to reflect total debt.
+          if (isCreditCard) {
+            return transactionPurchaseDate > initialBalanceDate;
+          }
+
+          // For other accounts, we use the Payment Date filter (cash flow view)
+          const paymentDateStr = t.Data_Pagamento ? new Date(t.Data_Pagamento).toISOString().split('T')[0] : new Date(t.Data).toISOString().split('T')[0];
+          return transactionPurchaseDate > initialBalanceDate && paymentDateStr <= todayStr;
         })
         .reduce((sum, t) => sum + t.Valor, 0);
 

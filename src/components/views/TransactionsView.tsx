@@ -23,7 +23,7 @@ import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
 
 const TransactionsView: React.FC = () => {
-  const { transactions, accounts, assets, fetchAllData, isLoading, getSortedCategories, addTransaction, updateTransaction, deleteTransaction, deleteTransactionsByOrigin, addMappingRule, transactionFilters, setTransactionFilters, addCategory, addAccount, updateAccount } = useAppStore();
+  const { transactions, accounts, assets, fetchAllData, isLoading, getSortedCategories, addTransaction, updateTransaction, deleteTransaction, deleteTransactionsByOrigin, addMappingRule, transactionFilters, setTransactionFilters, addCategory, addAccount, updateAccount, getAccountsWithCalculatedBalance } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
@@ -383,38 +383,24 @@ const TransactionsView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Account Balance Cards */}
       <div id="transactions-balances" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {accounts.filter(a => !a.is_archived).map(account => {
+        {getAccountsWithCalculatedBalance().filter(a => !a.is_archived).map(account => {
+          const currentBalance = account.Saldo_Atual_Calculado ?? 0;
+          const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
+          const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
+
           const getIsoDate = (date: Date | string) => {
             if (!date) return '';
             const d = new Date(date);
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           };
 
-          const initialDateStr = getIsoDate(account.Data_Saldo_Inicial);
           const now = new Date();
-          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          const todayStr = getIsoDate(now);
 
-          const accountTransactions = transactions.filter(t => {
-            if (t.ID_Conta !== account.id) return false;
-            const tDateStr = getIsoDate(t.Data);
-            if (tDateStr < initialDateStr) return false;
-            const paymentDateStr = t.Data_Pagamento ? getIsoDate(t.Data_Pagamento) : getIsoDate(t.Data);
-            return paymentDateStr <= todayStr;
-          });
-
-          const income = accountTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
-          const expense = accountTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-          let currentBalance = account.Saldo_Inicial + income - expense;
-          if (Math.abs(currentBalance) < 0.005) currentBalance = 0;
-
-          const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
-          const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
-
-          // --- LÓGICA DE FATURA ATUAL (para usuário diário) ---
-          // Calcula gastos do ciclo de fatura atual (Data da compra, sem filtro de pagamento)
+          // --- LÓGICA DE FATURA ATUAL (para ciclo do mês) ---
           let faturaAtual = 0;
+          let totalUsedLimit = 0;
           let diaFecha = 0;
           let diaVence = 0;
           let diasParaFechar = 0;
@@ -428,24 +414,20 @@ const TransactionsView: React.FC = () => {
             diaFecha = account.dia_fechamento || 0;
             diaVence = account.dia_vencimento || 0;
 
-            // Determine o início do ciclo atual
+            // 1. Início do ciclo atual para a fatura (mesma lógica anterior)
             let inicioFatura: Date;
             if (diaFecha > 0) {
               if (hoje >= diaFecha) {
-                // Fechamento foi neste mês (ou ainda não aconteceu)
                 inicioFatura = new Date(anoAtual, mesAtual, diaFecha);
               } else {
-                // Fechamento foi no mês passado
                 inicioFatura = new Date(anoAtual, mesAtual - 1, diaFecha);
               }
             } else {
-              // Sem dia de fechamento: usa o primeiro dia do mês
               inicioFatura = new Date(anoAtual, mesAtual, 1);
             }
-
             const inicioFaturaStr = getIsoDate(inicioFatura);
 
-            // Gastos no ciclo atual (sem filtro de pagamento — importante para usuário diário)
+            // 2. Fatura do ciclo atual (apenas o que vence agora)
             faturaAtual = transactions
               .filter(t => {
                 if (t.ID_Conta !== account.id || t.Tipo !== 'Despesa') return false;
@@ -454,40 +436,39 @@ const TransactionsView: React.FC = () => {
               })
               .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
 
-            // Dias até fechar
+            // 3. Limite Utilizado TOTAL (Dívida total = Saldo Inicial + TODAS as transações sem filtro de data futura)
+            // Isso é o que realmente consome o limite (inclusive parcelas futuras)
+            const allAccountTransactions = transactions.filter(t => t.ID_Conta === account.id);
+            const totalIncome = allAccountTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
+            const totalExpense = allAccountTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+            const totalDebt = account.Saldo_Inicial + totalIncome - totalExpense;
+            
+            totalUsedLimit = Math.abs(Math.min(totalDebt, 0));
+
+            // Dias até fechar/vencer
             if (diaFecha > 0) {
-              let proximoFecha: Date;
-              if (hoje < diaFecha) {
-                proximoFecha = new Date(anoAtual, mesAtual, diaFecha);
-              } else {
-                proximoFecha = new Date(anoAtual, mesAtual + 1, diaFecha);
-              }
+              let proximoFecha = hoje < diaFecha ? new Date(anoAtual, mesAtual, diaFecha) : new Date(anoAtual, mesAtual + 1, diaFecha);
               diasParaFechar = Math.ceil((proximoFecha.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             }
-
-            // Dias até vencer
             if (diaVence > 0) {
-              let proximoVence: Date;
-              if (hoje < diaVence) {
-                proximoVence = new Date(anoAtual, mesAtual, diaVence);
-              } else {
-                proximoVence = new Date(anoAtual, mesAtual + 1, diaVence);
-              }
+              let proximoVence = hoje < diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
               diasParaVencer = Math.ceil((proximoVence.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             }
           }
 
           const limite = account.limite_credito || 0;
-          const limiteUsadoPct = limite > 0 ? Math.min((faturaAtual / limite) * 100, 100) : 0;
-          const limiteDisponivel = limite > 0 ? Math.max(limite - faturaAtual, 0) : 0;
+          const limiteUsadoPct = limite > 0 ? Math.min((totalUsedLimit / limite) * 100, 100) : 0;
+          const limiteDisponivel = limite > 0 ? Math.max(limite - totalUsedLimit, 0) : 0;
 
-          const barColor = limiteUsadoPct > 85 ? 'bg-red-500' : limiteUsadoPct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+          const barColor = limiteUsadoPct > 90 ? 'bg-red-500' : limiteUsadoPct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
 
           return (
             <div
               key={account.id}
-              className={`p-4 rounded-lg shadow-md border-l-4 flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:bg-slate-800/80 transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                isCreditCard ? 'bg-slate-900 border-indigo-500' : 'bg-secondary border-accent'
+              className={`p-5 rounded-2xl shadow-xl border-l-4 flex flex-col justify-between relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] ${
+                isCreditCard 
+                  ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-indigo-500 shadow-indigo-500/10' 
+                  : 'bg-gradient-to-br from-secondary to-slate-800 border-accent shadow-accent/10'
               }`}
               onClick={() => {
                 setEditingAccount(account);
@@ -495,11 +476,14 @@ const TransactionsView: React.FC = () => {
               }}
               title={`Clique para editar ${account.Nome_Conta}`}
             >
+              {/* Decorative background element */}
+              <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.03] blur-2xl ${isCreditCard ? 'bg-indigo-400' : 'bg-accent'}`} />
+              
               {/* Edit Icon Overlay */}
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                <div className="bg-highlight/20 p-1.5 rounded-lg border border-highlight/30">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-highlight" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 translate-x-2 group-hover:translate-x-0">
+                <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                 </div>
               </div>
@@ -507,84 +491,98 @@ const TransactionsView: React.FC = () => {
               <div className="z-10 h-full flex flex-col justify-between">
                 {/* Header */}
                 <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    {bankConfig?.logoUrl && (
-                      <img src={bankConfig.logoUrl} alt={bankConfig.name} className="w-5 h-5 object-contain" />
+                  <div className="flex items-center gap-2.5 mb-1">
+                    {bankConfig?.logoUrl ? (
+                      <div className="w-6 h-6 rounded-lg bg-white/5 p-1 flex items-center justify-center border border-white/5 shadow-inner">
+                        <img src={bankConfig.logoUrl} alt={bankConfig.name} className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-xs border border-white/5">
+                            {isCreditCard ? '💳' : '🏦'}
+                        </div>
                     )}
-                    <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider truncate" title={account.Nome_Conta}>{account.Nome_Conta}</h3>
+                    <h3 className="text-gray-300 text-sm font-bold uppercase tracking-widest truncate" title={account.Nome_Conta}>{account.Nome_Conta}</h3>
                   </div>
-                  <span className="text-xs text-gray-500">{account.Tipo_Conta}</span>
+                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-tighter ml-9">{account.Tipo_Conta}</span>
                 </div>
 
                 {/* CARTÃO DE CRÉDITO: layout diferenciado */}
                 {isCreditCard ? (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-5 space-y-4">
                     {limite > 0 ? (
                       <>
                         {/* Barra de uso do limite */}
                         <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Fatura Atual</span>
-                            <span className={`text-[10px] font-bold ${limiteUsadoPct > 85 ? 'text-red-400' : 'text-gray-300'}`}>{limiteUsadoPct.toFixed(0)}% usado</span>
+                          <div className="flex justify-between items-center mb-1.5 px-0.5">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wide font-bold">Uso do Limite</span>
+                            <span className={`text-[10px] font-black ${limiteUsadoPct > 90 ? 'text-red-400' : 'text-indigo-300'}`}>
+                                {limiteUsadoPct.toFixed(0)}%
+                            </span>
                           </div>
-                          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
                             <div
-                              className={`h-full rounded-full transition-all ${barColor}`}
+                              className={`h-full rounded-full transition-all duration-1000 ease-out ${barColor} shadow-[0_0_12px_rgba(0,0,0,0.5)] relative`}
                               style={{ width: `${limiteUsadoPct}%` }}
-                            />
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex justify-between items-end">
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase">Disponível</p>
-                            <p className="text-sm font-bold text-emerald-400">{formatCurrency(limiteDisponivel)}</p>
+                        <div className="grid grid-cols-2 gap-4 pt-1">
+                          <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Disponível</p>
+                            <p className="text-base font-black text-emerald-400 leading-none">{formatCurrency(limiteDisponivel)}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-[10px] text-gray-500 uppercase">Fatura Aberta</p>
-                            <p className="text-lg font-bold text-red-400">{formatCurrency(faturaAtual)}</p>
+                          <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5 text-right">Fatura Atual</p>
+                            <p className="text-base font-black text-red-400 leading-none text-right">{formatCurrency(faturaAtual)}</p>
                           </div>
                         </div>
 
                         {/* Dias até fechar/vencer */}
-                        <div className="flex gap-3 pt-1 border-t border-slate-700/50">
+                        <div className="flex flex-col gap-1.5 pt-3 border-t border-white/5">
                           {diaFecha > 0 ? (
-                            <span className="text-[10px] text-amber-400/80">
-                              ✂️ Fecha em {diasParaFechar}d (dia {diaFecha})
-                            </span>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-amber-400/80 font-medium flex items-center gap-1.5">
+                                <span className="text-xs">✂️</span> Fechamento em <b>{diasParaFechar}d</b>
+                              </span>
+                              <span className="text-gray-600 font-bold">DIA {diaFecha}</span>
+                            </div>
                           ) : (
-                            <span className="text-[10px] text-gray-500">
-                              🗓️ Ciclo: Mês atual
-                            </span>
+                            <span className="text-[10px] text-gray-600 font-bold uppercase italic">🗓️ Ciclo: Primeiro do mês</span>
                           )}
                           {diaVence > 0 && (
-                            <span className="text-[10px] text-indigo-400/80">
-                              📅 Vence em {diasParaVencer}d (dia {diaVence})
-                            </span>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-indigo-400/80 font-medium flex items-center gap-1.5">
+                                <span className="text-xs">📅</span> Vencimento em <b>{diasParaVencer}d</b>
+                              </span>
+                              <span className="text-gray-600 font-bold">DIA {diaVence}</span>
+                            </div>
                           )}
                         </div>
                       </>
                     ) : (
                       // Cartão sem limite configurado
-                      <div className="mt-2 text-right">
-                        <span className={`text-xl font-bold text-red-400`}>{formatCurrency(faturaAtual)}</span>
-                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Fatura Atual</p>
+                      <div className="mt-2 flex flex-col items-end">
+                        <span className="text-2xl font-black text-red-400 tracking-tight">{formatCurrency(faturaAtual)}</span>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">Fatura Atual</p>
                         <button
-                          className="text-[10px] text-indigo-400 hover:underline mt-1 block ml-auto"
+                          className="mt-4 w-full py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
                           onClick={e => { e.stopPropagation(); setEditingAccount(account); setAccountModalOpen(true); }}
                         >
-                          + Configurar limite
+                          Configurar Limite Total
                         </button>
                       </div>
                     )}
                   </div>
                 ) : (
                   // CONTA CORRENTE / OUTRO: layout original
-                  <div className="mt-2 text-right">
-                    <span className={`text-xl font-bold ${currentBalance < 0 ? 'text-danger' : currentBalance > 0 ? 'text-accent' : 'text-light'}`}>
+                  <div className="mt-6 flex flex-col items-end">
+                    <span className={`text-2xl font-black tracking-tighter ${currentBalance < 0 ? 'text-danger shadow-danger/10' : currentBalance > 0 ? 'text-accent shadow-accent/10' : 'text-light'}`}>
                       {formatCurrency(currentBalance)}
                     </span>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Saldo Atual</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">Saldo Líquido</p>
                   </div>
                 )}
               </div>
