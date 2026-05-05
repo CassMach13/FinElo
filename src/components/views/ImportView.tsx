@@ -158,6 +158,7 @@ const ImportView: React.FC = () => {
   const [pluggyConnections, setPluggyConnections] = useState<PluggyConnection[]>([]);
   const [reviewConnection, setReviewConnection] = useState<PluggyConnection | null>(null);
   const [isLoadingConnections, setIsLoadingConnections] = useState(false);
+  const [belvoError, setBelvoError] = useState<string | null>(null);
   const [showPaywallModal, setShowPaywallModal] = useState<'basic' | 'extra_bank' | null>(null);
 
   // Modal de CPF/Nome para Open Finance (contorna bug do Widget)
@@ -166,14 +167,6 @@ const ImportView: React.FC = () => {
   const [consentName, setConsentName] = useState('');
   const [consentInstitution, setConsentInstitution] = useState('ofmockbank_br_retail');
 
-  console.log('%c[ImportView Debug]', 'color: #ff9900; font-weight: bold;', {
-    email: user?.email,
-    isPremium,
-    unlimitedSync,
-    isAdmin,
-    hasUnlimitedAccess,
-    connectionsCount: pluggyConnections.length
-  });
 
   // Load existing connections on mount
   React.useEffect(() => {
@@ -223,38 +216,38 @@ const ImportView: React.FC = () => {
     setShowConsentModal(false);
     setIsBelvoLoading(true);
     setNotification(null);
+    setBelvoError(null);
 
     try {
-      // 1. Cria o consentimento no back-end (com CPF limpo e nome correto)
-      const consentRes = await fetch('/api/belvo-consent', {
+      // 1. Gera o token de acesso OFDA (contém CPF, Nome e Branding)
+      const tokenRes = await fetch('/api/belvo-consent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          institution: consentInstitution,
           userDocument: cleanCpf,
           userName: consentName.trim(),
+          externalId: user?.id,
         }),
       });
 
-      const consentData = await consentRes.json();
+      const tokenData = await tokenRes.json();
 
-      if (!consentRes.ok) {
-        const detail = consentData.details?.[0]?.message || consentData.error || 'Erro desconhecido';
-        throw new Error(`Falha ao criar consentimento: ${detail}`);
+      if (!tokenRes.ok) {
+        const detail = tokenData.details?.message || tokenData.error || 'Erro ao gerar token';
+        throw new Error(detail);
       }
 
-      const { accessToken } = consentData;
+      const { accessToken } = tokenData;
 
-      // 2. Abre o Widget com o token — o consentimento já foi criado,
-      //    então o Widget vai apenas redirecionar para o banco.
+      // 2. Abre o Widget com o token OFDA
       await loadBelvoScript();
 
       // @ts-ignore
       window.belvoSDK.createWidget(accessToken, {
         locale: 'pt',
-        country_codes: ['BR'],
+        access_mode: 'single', // Recomendado para importação pontual
         callback: async (link: string, institution: any) => {
-          const bankName = institution?.name || 'Banco Belvo';
+          const bankName = institution?.name || 'Banco Conectado';
           if (user?.id && link) {
             await savePluggyConnection(user.id, link, bankName);
             setNotification({ type: 'success', message: `${bankName} conectado com sucesso!` });
@@ -271,7 +264,9 @@ const ImportView: React.FC = () => {
       }).build();
 
     } catch (error: any) {
-      setNotification({ type: 'error', message: error.message || 'Falha ao iniciar Open Finance' });
+      const technicalMsg = error.message || 'Falha ao iniciar Open Finance';
+      setBelvoError(technicalMsg);
+      setNotification({ type: 'error', message: 'Houve um problema na conexão Open Finance. Veja os detalhes abaixo.' });
       setIsBelvoLoading(false);
     }
   };
@@ -756,17 +751,48 @@ const ImportView: React.FC = () => {
                           <h3 className="text-lg font-bold text-white">🌐 Conexão Automática (Open Finance)</h3>
                           <span className="bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">BETA</span>
                         </div>
-                        <Button
-                          onClick={handleOpenFinanceConnect}
-                          disabled={isBelvoLoading}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white border-none whitespace-nowrap shadow-lg shadow-indigo-500/20 text-sm w-full sm:w-auto"
-                        >
-                          {isBelvoLoading ? 'Iniciando...' : '+ Conectar Novo Banco'}
-                        </Button>
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                          <Button
+                            onClick={handleOpenFinanceConnect}
+                            disabled={isBelvoLoading}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white border-none whitespace-nowrap shadow-lg shadow-indigo-500/20 text-sm w-full"
+                          >
+                            {isBelvoLoading ? 'Iniciando...' : '+ Conectar Novo Banco'}
+                          </Button>
+                          <a 
+                            href="https://dashboard.belvo.com/my-portal/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-gray-500 hover:text-indigo-400 text-center flex items-center justify-center gap-1"
+                          >
+                            Meu Portal Belvo (Gerenciar Consentimentos)
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
                       </div>
                       <p className="text-sm text-gray-400 mb-4">
                         Conecte Nubank, Itaú, Bradesco e mais de 100 instituições. Selecione o período e revise antes de salvar.
                       </p>
+
+                      {/* Technical Error Box (Request ID) */}
+                      {belvoError && (
+                        <div className="bg-red-500/20 border border-red-500/40 p-3 rounded-lg mb-4 text-[11px] text-red-300">
+                          <p className="font-bold mb-1 flex items-center gap-1">❌ Detalhes para Suporte:</p>
+                          <code className="block bg-black/40 p-2 rounded mb-2 break-all">{belvoError}</code>
+                          <button 
+                            onClick={() => {
+                              const match = belvoError.match(/"request_id":\s*"([^"]+)"/);
+                              const id = match ? match[1] : belvoError;
+                              navigator.clipboard.writeText(id);
+                            }}
+                            className="bg-red-500/30 hover:bg-red-500/50 px-2 py-1 rounded text-[10px] uppercase font-bold transition-colors"
+                          >
+                            Copiar Request ID
+                          </button>
+                        </div>
+                      )}
 
                       {isLoadingConnections ? (
                         <p className="text-xs text-gray-500 animate-pulse">Carregando conexões...</p>

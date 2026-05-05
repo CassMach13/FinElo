@@ -1,6 +1,6 @@
 // api/belvo-consent.js
-// Cria um consentimento diretamente na API Belvo, bypassando o formulário do Widget.
-// Isso resolve o problema do Widget formatar o CPF errado e enviar REGISTER nas permissões.
+// Gera um Token de Acesso para o Widget seguindo o fluxo oficial OFDA Brasil.
+// Documentação: "Extrair Dados Bancários no Brasil (Widget)"
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,10 +10,10 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    const { institution, userDocument, userName } = req.body;
+    const { institution, userDocument, userName, externalId } = req.body;
 
-    if (!institution || !userDocument) {
-        return res.status(400).json({ error: 'institution e userDocument são obrigatórios.' });
+    if (!userDocument) {
+        return res.status(400).json({ error: 'userDocument é obrigatório.' });
     }
 
     const secretId = process.env.BELVO_SECRET_ID;
@@ -28,8 +28,48 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 1. Gera o token de acesso
+        const cleanDocument = String(userDocument).replace(/\D/g, '');
+        const cleanName = String(userName || 'Usuário FinElo').trim();
+
+        // 1. Gera o token de acesso especializado para OFDA
         const credentials = Buffer.from(`${secretId}:${secretPassword}`).toString('base64');
+        
+        const tokenPayload = {
+            id: secretId,
+            password: secretPassword,
+            // Scopes obrigatórios para OFDA Brasil
+            scopes: 'read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents',
+            stale_in: '300d',
+            fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS', 'BILLS'],
+            widget: {
+                purpose: 'Consolidação de contas e análise de gastos para gestão financeira pessoal na FinElo.',
+                openfinance_feature: 'consent_link_creation',
+                callback_urls: {
+                    success: 'https://www.finelo.app.br/import?status=success',
+                    exit: 'https://www.finelo.app.br/import?status=exit',
+                    event: 'https://www.finelo.app.br/import?status=error'
+                },
+                consent: {
+                    terms_and_conditions_url: 'https://www.finelo.app.br/terms',
+                    // Permissões EXATAS do guia OFDA
+                    permissions: ['REGISTER', 'ACCOUNTS', 'CREDIT_CARDS', 'CREDIT_OPERATIONS'],
+                    identification_info: [
+                        {
+                            type: 'CPF',
+                            number: cleanDocument,
+                            name: cleanName
+                        }
+                    ]
+                },
+                branding: {
+                    company_icon: 'https://www.finelo.app.br/icon.svg',
+                    company_logo: 'https://www.finelo.app.br/logo.png',
+                    company_name: 'FinElo',
+                    company_terms_url: 'https://www.finelo.app.br/terms',
+                    social_proof: true
+                }
+            }
+        };
 
         const tokenRes = await fetch(`${baseUrl}/api/token/`, {
             method: 'POST',
@@ -37,66 +77,30 @@ export default async function handler(req, res) {
                 'Authorization': `Basic ${credentials}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                id: secretId,
-                password: secretPassword,
-                scopes: 'read_institutions,write_links,read_consents,write_consents',
-                fetch_resources: ['ACCOUNTS', 'TRANSACTIONS'],
-            }),
+            body: JSON.stringify(tokenPayload),
         });
 
         const tokenData = await tokenRes.json();
+        
         if (!tokenRes.ok) {
-            return res.status(tokenRes.status).json({ error: 'Falha ao gerar token', details: tokenData });
-        }
-
-        const accessToken = tokenData.access;
-
-        // 2. Cria o consentimento diretamente — CPF limpo (só dígitos), nome obrigatório
-        const cleanDocument = String(userDocument).replace(/\D/g, '');
-        const cleanName = String(userName || 'Usuário FinElo').trim() || 'Usuário FinElo';
-
-        const consentPayload = {
-            institution: institution,
-            user_document: cleanDocument,
-            user_document_type: 'CPF',
-            user_name: cleanName,
-            // Permissões válidas para Open Finance BR (sem REGISTER)
-            permissions: ['ACCOUNTS', 'CREDIT_CARDS_ACCOUNTS'],
-        };
-
-        console.log('[Belvo Consent] Criando consentimento:', JSON.stringify(consentPayload));
-
-        const consentRes = await fetch(`${baseUrl}/api/consents/`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(consentPayload),
-        });
-
-        const consentData = await consentRes.json();
-
-        if (!consentRes.ok) {
-            console.error('[Belvo Consent] Erro ao criar consentimento:', consentData);
-            return res.status(consentRes.status).json({
-                error: 'Falha ao criar consentimento',
-                details: consentData
+            console.error('[Belvo Token Error]', tokenData);
+            return res.status(tokenRes.status).json({ 
+                error: 'Falha ao gerar token de acesso OFDA', 
+                details: tokenData 
             });
         }
 
-        // Retorna o consentimento criado e o token para o Widget abrir na etapa seguinte
+        // Retorna o token de acesso (que já contém o consentimento configurado)
         return res.status(200).json({
-            consentId: consentData.id,
-            accessToken: accessToken,
-            status: consentData.status,
+            accessToken: tokenData.access,
+            belvoEnv: belvoEnv,
+            externalId: externalId
         });
 
     } catch (error) {
-        console.error('[Belvo Consent] Exceção:', error.message);
+        console.error('[Belvo Exception]', error.message);
         return res.status(500).json({
-            error: 'Falha ao conectar com a API Belvo',
+            error: 'Erro interno ao processar token Belvo',
             message: error.message
         });
     }

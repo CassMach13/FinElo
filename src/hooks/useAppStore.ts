@@ -1237,17 +1237,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       const isWealth = isAdmin || effectiveSubscription?.status === 'lifetime' || effectiveSubscription?.tier === 'wealth';
       const unlimitedSync = isAdmin || (effectiveSubscription?.unlimited_sync === true);
 
-      console.log('%c[Subscription] Final Update', 'color: #00ff00; font-weight: bold;', {
-        email,
-        isAdmin,
-        isPremium,
-        isWealth,
-        isInherited,
-        tier: effectiveSubscription?.tier,
-        status: effectiveSubscription?.status,
-        plan_type: effectiveSubscription?.plan_type,
-        plan: effectiveSubscription?.plan
-      });
 
       set({ 
         subscription: effectiveSubscription, 
