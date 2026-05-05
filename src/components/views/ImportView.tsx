@@ -202,57 +202,63 @@ const ImportView: React.FC = () => {
   };
 
   // Chamado quando o usuário confirma CPF e Nome no modal
-  const handleConsentSubmit = async () => {
+  const handleConsentSubmit = async (isRetail: boolean = false) => {
     const cleanCpf = consentCpf.replace(/\D/g, '');
-    if (cleanCpf.length !== 11) {
+    if (!isRetail && cleanCpf.length !== 11) {
       setNotification({ type: 'error', message: 'CPF inválido. Digite os 11 dígitos.' });
       return;
     }
-    if (!consentName.trim()) {
+    if (!isRetail && !consentName.trim()) {
       setNotification({ type: 'error', message: 'Nome completo é obrigatório.' });
       return;
     }
 
-    setShowConsentModal(false);
-    setIsBelvoLoading(true);
-    setNotification(null);
-    setBelvoError(null);
+    const handleAction = async (isRetail: boolean = false) => {
+      setIsBelvoLoading(true);
+      setBelvoError(null);
+      setNotification(null);
 
-    try {
-      // 1. Gera o token de acesso OFDA (contém CPF, Nome e Branding)
-      const tokenRes = await fetch('/api/belvo-consent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userDocument: cleanCpf,
-          userName: consentName.trim(),
-          externalId: user?.id,
-        }),
-      });
+      try {
+        const cleanCpf = consentCpf.replace(/\D/g, '');
+        
+        // 1. Gera o token de acesso (OFDA ou Retail)
+        const tokenRes = await fetch('/api/belvo-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userDocument: isRetail ? null : cleanCpf,
+            userName: isRetail ? 'Teste Retail' : consentName.trim(),
+            externalId: user?.id,
+            isRetail: isRetail
+          }),
+        });
 
-      const tokenData = await tokenRes.json();
+        const tokenData = await tokenRes.json();
 
-      if (!tokenRes.ok) {
-        const detail = tokenData.details?.message || tokenData.error || 'Erro ao gerar token';
-        throw new Error(detail);
+        if (!tokenRes.ok) {
+          const detail = tokenData.details?.message || tokenData.error || 'Erro ao gerar token';
+          throw new Error(detail);
+        }
+
+        const { accessToken } = tokenData;
+
+        // 2. Abre o Hosted Widget da Belvo diretamente via URL
+        const belvoUrl = `https://widget.belvo.io/?access_token=${accessToken}&locale=pt&access_mode=single&external_id=${user?.id}`;
+        
+        window.open(belvoUrl, '_blank');
+        setShowConsentModal(false);
+        setIsBelvoLoading(false);
+        setNotification({ type: 'success', message: 'Janela de conexão aberta! Siga as instruções no banco e volte aqui.' });
+
+      } catch (error: any) {
+        const technicalMsg = error.message || 'Falha ao iniciar Open Finance';
+        setBelvoError(technicalMsg);
+        setNotification({ type: 'error', message: technicalMsg });
+        setIsBelvoLoading(false);
       }
+    };
 
-      const { accessToken } = tokenData;
-
-      // 2. Abre o Hosted Widget da Belvo diretamente via URL (Evita erro de validação de SVG do SDK)
-      const belvoUrl = `https://widget.belvo.io/?access_token=${accessToken}&locale=pt&access_mode=single&external_id=${user?.id}`;
-      
-      // Abre em uma nova aba para não perder o estado da aplicação
-      window.open(belvoUrl, '_blank');
-      setIsBelvoLoading(false);
-      setNotification({ type: 'success', message: 'Janela de conexão aberta! Siga as instruções no banco e volte aqui.' });
-
-    } catch (error: any) {
-      const technicalMsg = error.message || 'Falha ao iniciar Open Finance';
-      setBelvoError(technicalMsg);
-      setNotification({ type: 'error', message: 'Houve um problema na conexão Open Finance. Veja os detalhes abaixo.' });
-      setIsBelvoLoading(false);
-    }
+    handleAction(isRetail);
   };
 
   // Injeta o script do Belvo Widget via CDN (apenas uma vez)
@@ -1399,7 +1405,32 @@ const ImportView: React.FC = () => {
                 <p className="text-xs text-gray-500 mt-1">Digite apenas os 11 dígitos do CPF, sem pontos ou traços.</p>
               </div>
 
-              <div className="bg-slate-800/60 rounded-xl p-3 text-xs text-gray-400 border border-slate-700">
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <button
+                  onClick={() => handleConsentSubmit(false)}
+                  disabled={isBelvoLoading || !consentName || !consentCpf}
+                  className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-200"
+                >
+                  {isBelvoLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Shield className="w-5 h-5" />
+                  )}
+                  Importar via Open Finance
+                </button>
+
+                <button
+                  onClick={() => handleConsentSubmit(true)} // Retail
+                  disabled={isBelvoLoading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-3 rounded-xl font-medium hover:bg-slate-200 disabled:opacity-50 transition-all"
+                >
+                  {isBelvoLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  Conexão Padrão (Teste)
+                </button>
                 🔒 Seus dados são usados exclusivamente para criar o consentimento de acesso junto ao banco. Nunca armazenamos o CPF.
               </div>
             </div>

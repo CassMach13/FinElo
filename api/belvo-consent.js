@@ -1,6 +1,5 @@
 // api/belvo-consent.js
-// Gera um Token de Acesso para o Widget seguindo o fluxo oficial OFDA Brasil.
-// Documentação: "Extrair Dados Bancários no Brasil (Widget)"
+// Gera um Token de Acesso para o Widget suportando fluxos OFDA e Retail (Teste).
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,14 +9,13 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    const { institution, userDocument, userName, externalId } = req.body;
+    const { userDocument, userName, externalId, isRetail } = req.body;
 
-    if (!userDocument) {
-        return res.status(400).json({ error: 'userDocument é obrigatório.' });
-    }
+    // Se for Retail ou não tiver documento, faz o fluxo padrão (não-OFDA)
+    const useRetailFlow = isRetail || !userDocument;
 
-    const secretId = process.env.BELVO_SECRET_ID;
-    const secretPassword = process.env.BELVO_SECRET_PASSWORD;
+    const secretId = process.env.BELCO_SECRET_ID || process.env.BELVO_SECRET_ID;
+    const secretPassword = process.env.BELCO_SECRET_PASSWORD || process.env.BELVO_SECRET_PASSWORD;
     const belvoEnv = process.env.BELVO_ENV || 'sandbox';
     const baseUrl = belvoEnv === 'production'
         ? 'https://api.belvo.com'
@@ -28,20 +26,28 @@ export default async function handler(req, res) {
     }
 
     try {
-        const cleanDocument = String(userDocument).replace(/\D/g, '');
+        const cleanDocument = String(userDocument || '').replace(/\D/g, '');
         const cleanName = String(userName || 'Usuário FinElo').trim();
 
-        // 1. Gera o token de acesso especializado para OFDA
+        // 1. Gera o token de acesso
         const credentials = Buffer.from(`${secretId}:${secretPassword}`).toString('base64');
         
         const tokenPayload = {
             id: secretId,
             password: secretPassword,
-            // Scopes obrigatórios para OFDA Brasil
-            scopes: 'read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents',
+            scopes: useRetailFlow 
+                ? 'read_institutions,write_links,read_consents,write_consents'
+                : 'read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents',
             stale_in: '300d',
             fetch_resources: ['ACCOUNTS', 'TRANSACTIONS', 'OWNERS', 'BILLS', 'INVESTMENTS', 'INVESTMENT_TRANSACTIONS'],
-            widget: {
+            widget: useRetailFlow ? {
+                purpose: 'Teste de importação FinElo',
+                callback_urls: {
+                    success: 'https://www.finelo.app.br/import?status=success',
+                    exit: 'https://www.finelo.app.br/import?status=exit',
+                    event: 'https://www.finelo.app.br/import?status=error'
+                }
+            } : {
                 purpose: 'Soluções financeiras personalizadas e gestão de gastos na FinElo.',
                 openfinance_feature: 'consent_link_creation',
                 callback_urls: {
@@ -51,7 +57,6 @@ export default async function handler(req, res) {
                 },
                 consent: {
                     terms_and_conditions_url: 'https://www.finelo.app.br/terms',
-                    // Permissões EXATAS do guia oficial para Individual (CPF)
                     permissions: ['REGISTER', 'ACCOUNTS', 'CREDIT_CARDS', 'CREDIT_OPERATIONS'],
                     identification_info: [
                         {
@@ -85,16 +90,16 @@ export default async function handler(req, res) {
         if (!tokenRes.ok) {
             console.error('[Belvo Token Error]', tokenData);
             return res.status(tokenRes.status).json({ 
-                error: 'Falha ao gerar token de acesso OFDA', 
+                error: 'Falha ao gerar token de acesso', 
                 details: tokenData 
             });
         }
 
-        // Retorna o token de acesso (que já contém o consentimento configurado)
         return res.status(200).json({
             accessToken: tokenData.access,
             belvoEnv: belvoEnv,
-            externalId: externalId
+            externalId: externalId,
+            flowType: useRetailFlow ? 'retail' : 'ofda'
         });
 
     } catch (error) {
