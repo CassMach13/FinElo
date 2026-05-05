@@ -63,8 +63,8 @@ export default async function handler(req, res) {
                 },
                 branding: {
                     company_name: 'FinElo',
-                    company_icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjNjM2NmYxIi8+PC9zdmc+',
-                    company_logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjNjM2NmYxIi8+PC9zdmc+',
+                    company_icon: 'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg',
+                    company_logo: 'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/google.svg',
                     company_terms_url: 'https://www.finelo.app.br/terms',
                     social_proof: true
                 }
