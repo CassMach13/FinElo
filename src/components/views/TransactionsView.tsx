@@ -549,22 +549,26 @@ const TransactionsView: React.FC = () => {
                             <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Disponível</p>
                             <p className="text-base font-black text-emerald-400 leading-none">{formatCurrency(limiteDisponivel)}</p>
                           </div>
-                          <div className="bg-white/5 p-2 rounded-xl border border-white/5 relative group/btn">
-                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5 text-right">Fatura Atual</p>
-                            <p className="text-base font-black text-red-400 leading-none text-right">{formatCurrency(faturaAtual)}</p>
-                            
-                            {/* Pagar Fatura Shortcut Button */}
-                            {faturaAtual > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePayInvoice(account, faturaAtual);
-                                }}
-                                className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity hover:bg-emerald-400 active:scale-95"
-                              >
-                                PAGAR
-                              </button>
-                            )}
+                          <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between">
+                            <div className="flex justify-between items-start">
+                              <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5 text-right w-full">Fatura Atual</p>
+                            </div>
+                            <div className="flex justify-between items-end mt-1">
+                              {faturaAtual > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePayInvoice(account, faturaAtual);
+                                  }}
+                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-1 rounded-lg border border-emerald-500/20 transition-all active:scale-95 flex items-center gap-1 shadow-sm"
+                                >
+                                  <span className="text-[10px]">💰</span> PAGAR
+                                </button>
+                              )}
+                              <p className={`text-base font-black text-red-400 leading-none text-right ${faturaAtual === 0 ? 'w-full' : ''}`}>
+                                {formatCurrency(faturaAtual)}
+                              </p>
+                            </div>
                           </div>
                         </div>
 
