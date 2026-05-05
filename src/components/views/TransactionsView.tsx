@@ -32,6 +32,21 @@ const TransactionsView: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [predefinedTransaction, setPredefinedTransaction] = useState<Transaction | null>(null);
+
+  const handlePayInvoice = (account: Account, amount: number) => {
+    const paymentTx: any = {
+      Tipo: 'Renda',
+      ID_Conta: account.id,
+      Nome_Fantasia: 'Pagamento de Fatura',
+      Categoria: 'Pagamento de Fatura',
+      Data: new Date(),
+      Valor: amount,
+      Descricao_Original: 'Lançamento Manual (Atalho)'
+    };
+    setPredefinedTransaction(paymentTx);
+    setNewTransactionModalOpen(true);
+  };
 
   const [isMappingRuleModalOpen, setMappingRuleModalOpen] = useState(false);
   const [transactionForRule, setTransactionForRule] = useState<Transaction | null>(null);
@@ -534,9 +549,22 @@ const TransactionsView: React.FC = () => {
                             <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Disponível</p>
                             <p className="text-base font-black text-emerald-400 leading-none">{formatCurrency(limiteDisponivel)}</p>
                           </div>
-                          <div className="bg-white/5 p-2 rounded-xl border border-white/5">
+                          <div className="bg-white/5 p-2 rounded-xl border border-white/5 relative group/btn">
                             <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5 text-right">Fatura Atual</p>
                             <p className="text-base font-black text-red-400 leading-none text-right">{formatCurrency(faturaAtual)}</p>
+                            
+                            {/* Pagar Fatura Shortcut Button */}
+                            {faturaAtual > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePayInvoice(account, faturaAtual);
+                                }}
+                                className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg opacity-0 group-hover/btn:opacity-100 transition-opacity hover:bg-emerald-400 active:scale-95"
+                              >
+                                PAGAR
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -567,12 +595,22 @@ const TransactionsView: React.FC = () => {
                       <div className="mt-2 flex flex-col items-end">
                         <span className="text-2xl font-black text-red-400 tracking-tight">{formatCurrency(faturaAtual)}</span>
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">Fatura Atual</p>
-                        <button
-                          className="mt-4 w-full py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
-                          onClick={e => { e.stopPropagation(); setEditingAccount(account); setAccountModalOpen(true); }}
-                        >
-                          Configurar Limite Total
-                        </button>
+                        <div className="flex gap-2 w-full mt-4">
+                          <button
+                            className="flex-1 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                            onClick={e => { e.stopPropagation(); setEditingAccount(account); setAccountModalOpen(true); }}
+                          >
+                            Configurar Limite
+                          </button>
+                          {faturaAtual > 0 && (
+                            <button
+                              className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                              onClick={e => { e.stopPropagation(); handlePayInvoice(account, faturaAtual); }}
+                            >
+                              Pagar
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -877,21 +915,22 @@ const TransactionsView: React.FC = () => {
 
       {isNewTransactionModalOpen && (
         <NewTransactionModal
-          transaction={editingTransaction}
           onClose={() => {
             setNewTransactionModalOpen(false);
             setEditingTransaction(null);
+            setPredefinedTransaction(null);
           }}
-          onSave={async (data) => {
+          onSave={async (newTransactions) => {
             if (editingTransaction) {
               // It's an update. We expect only one item in data[0]
-              await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...data[0] });
+              await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...newTransactions[0] });
             } else {
               // It's a new transaction (or batch)
-              await handleNewSave(data);
+              await handleNewSave(newTransactions);
             }
             setNewTransactionModalOpen(false);
             setEditingTransaction(null);
+            setPredefinedTransaction(null);
           }}
           accounts={accounts.filter(a => !a.is_archived)}
           categories={categories}
@@ -900,6 +939,7 @@ const TransactionsView: React.FC = () => {
           onOpenCreateCategory={() => setCategoryModalOpen(true)}
           lastCreatedAccount={lastCreatedAccount}
           lastCreatedCategory={lastCreatedCategory}
+          transaction={predefinedTransaction || editingTransaction}
         />
       )}
 
@@ -957,6 +997,7 @@ const TransactionsView: React.FC = () => {
       <button
         onClick={() => {
           setEditingTransaction(null);
+          setPredefinedTransaction(null);
           setNewTransactionModalOpen(true);
         }}
         className="fixed lg:hidden bottom-24 landscape:max-lg:bottom-10 right-6 sm:right-10 w-14 h-14 bg-highlight hover:bg-sky-400 text-white rounded-full shadow-[0_4px_14px_rgba(56,189,248,0.5)] flex items-center justify-center transition-transform active:scale-95 z-40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-highlight"

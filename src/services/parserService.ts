@@ -545,11 +545,17 @@ export const processStatementFile = (
             let finalValue = cleanedValue;
             let finalType: 'Renda' | 'Despesa';
 
-            let shouldInvert = false;
+            let isCreditCardSource = false;
+            if (manualMapping) {
+              isCreditCardSource = manualMapping.sourceType === 'Cartao' || manualMapping.sourceType === 'Cartão de Crédito';
+            } else if (config) {
+              isCreditCardSource = config.Tipo_Fonte === 'Cartao' || config.Tipo_Fonte === 'Cartão de Crédito';
+            }
 
+            let shouldInvert = false;
             if (manualMapping && typeof manualMapping.invertValues === 'boolean') {
               shouldInvert = manualMapping.invertValues;
-            } else if (config && (config.Tipo_Fonte === 'Cartao' || config.Tipo_Fonte === 'Cartão de Crédito')) {
+            } else if (isCreditCardSource) {
               shouldInvert = true;
             }
 
@@ -557,11 +563,8 @@ export const processStatementFile = (
               finalValue = -cleanedValue;
               finalType = finalValue >= 0 ? 'Renda' : 'Despesa';
             } else {
-              // Manual fallback or standard account
               finalType = cleanedValue >= 0 ? 'Renda' : 'Despesa';
             }
-
-            // Skipping implementation of duplicate check inside parser (relying on Store)
 
             // Apply mapping rules
             let suggestedName = descriptionForMapping;
@@ -573,6 +576,16 @@ export const processStatementFile = (
                 suggestedCategory = rule.Categoria_Sugerida;
                 break;
               }
+            }
+
+            // Special handling for Credit Card payments
+            const CREDIT_CARD_PAYMENT_KEYWORDS = ['PAGAMENTO', 'PAGTO', 'LIQUIDACAO', 'CREDITO', 'DEPOSITO', 'ESTORNO'];
+            const isPotentialPayment = isCreditCardSource && finalValue > 0 && 
+              CREDIT_CARD_PAYMENT_KEYWORDS.some(kw => combinedDescription.toUpperCase().includes(kw));
+
+            if (isPotentialPayment && (suggestedCategory === '-' || suggestedCategory === 'Outros')) {
+              suggestedCategory = 'Pagamento de Fatura';
+              suggestedName = 'Pagamento de Fatura';
             }
 
             newTransactions.push({
