@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Loader2, Shield, Zap } from 'lucide-react';
 import { useAppStore } from './../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { supabase } from '../../supabaseClient';
@@ -1431,8 +1432,10 @@ const ImportView: React.FC = () => {
                   )}
                   Conexão Padrão (Teste)
                 </button>
-                🔒 Seus dados são usados exclusivamente para criar o consentimento de acesso junto ao banco. Nunca armazenamos o CPF.
               </div>
+              <p className="mt-4 text-[10px] text-gray-500 text-center leading-tight">
+                🔒 Seus dados são usados exclusivamente para criar o consentimento de acesso junto ao banco. Nunca armazenamos o CPF.
+              </p>
             </div>
 
             <div className="flex gap-3 mt-6">
