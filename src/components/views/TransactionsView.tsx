@@ -442,14 +442,15 @@ const TransactionsView: React.FC = () => {
             }
             const inicioFaturaStr = getIsoDate(inicioFatura);
 
-            // 2. Fatura do ciclo atual (apenas o que vence agora)
-            faturaAtual = transactions
-              .filter(t => {
-                if (t.ID_Conta !== account.id || t.Tipo !== 'Despesa') return false;
-                const tDateStr = getIsoDate(t.Data);
-                return tDateStr >= inicioFaturaStr && tDateStr <= todayStr;
-              })
-              .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+            // 2. Fatura do ciclo atual (Dívida do ciclo - Pagamentos do ciclo)
+            const cycleTransactions = transactions.filter(t => {
+              if (t.ID_Conta !== account.id) return false;
+              const tDateStr = getIsoDate(t.Data);
+              return tDateStr >= inicioFaturaStr && tDateStr <= todayStr;
+            });
+            const cycleIncome = cycleTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
+            const cycleExpense = cycleTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+            faturaAtual = Math.max(0, cycleExpense - cycleIncome);
 
             // 3. Limite Utilizado TOTAL (Dívida total = Saldo Inicial + TODAS as transações sem filtro de data futura)
             // Isso é o que realmente consome o limite (inclusive parcelas futuras)
