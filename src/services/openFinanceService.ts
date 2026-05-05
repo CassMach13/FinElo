@@ -76,6 +76,18 @@ export async function updatePluggyConnectionAccount(connectionId: string, accoun
   if (error) throw error;
 }
 
+export async function updateAccountCreditDetails(accountId: string, details: { limite_credito?: number; dia_vencimento?: number; dia_fechamento?: number }) {
+  const { error } = await supabase
+    .from('contas')
+    .update({
+      limite_credito: details.limite_credito,
+      dia_vencimento: details.dia_vencimento,
+      dia_fechamento: details.dia_fechamento
+    })
+    .eq('id', accountId);
+  if (error) throw error;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Smart Category Suggestion (sem mudanças — lógica reutilizável)
 // ─────────────────────────────────────────────────────────────────────────────

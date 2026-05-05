@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { PluggyTransactionDraft, PluggyConnection, PluggyConfidence } from '../../types';
-import { fetchTransactionsForReview, confirmReviewedTransactions, updatePluggyConnectionAccount } from '../../services/openFinanceService';
+import { fetchTransactionsForReview, confirmReviewedTransactions, updatePluggyConnectionAccount, updateAccountCreditDetails } from '../../services/openFinanceService';
 import { useAppStore } from '../../hooks/useAppStore';
 
 interface Props {
@@ -35,6 +35,11 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
     const [isConfirming, setIsConfirming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<{ inserted: number; merged: number } | null>(null);
+
+    // Credit card details state
+    const [creditLimit, setCreditLimit] = useState<string>('');
+    const [dueDate, setDueDate] = useState<string>('');
+    const [closingDate, setClosingDate] = useState<string>('');
 
     const getDateRange = () => {
         const to = new Date().toISOString().split('T')[0];
@@ -72,6 +77,15 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
             // Se o usuário selecionou uma conta diferente da que estava salva/nula, salva no banco para lembrar a escolha
             if (connection.ID_Conta_Associada !== selectedAccount) {
                 await updatePluggyConnectionAccount(connection.id, selectedAccount).catch(console.error); // Fallback passivo caso dê erro de SQL
+            }
+
+            // Salva os detalhes do cartão de crédito se preenchidos
+            if (selectedAccount && (creditLimit || dueDate || closingDate)) {
+                await updateAccountCreditDetails(selectedAccount, {
+                    limite_credito: creditLimit ? parseFloat(creditLimit) : undefined,
+                    dia_vencimento: dueDate ? parseInt(dueDate) : undefined,
+                    dia_fechamento: closingDate ? parseInt(closingDate) : undefined
+                }).catch(console.error);
             }
 
             const res = await confirmReviewedTransactions(user.id, drafts, selectedAccount);
@@ -133,6 +147,50 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                                 ))}
                             </select>
                             <p className="text-xs text-gray-500 mt-2">Isso garante que o saldo seja abatido da conta correta.</p>
+
+                            {/* Credit Card Details (Conditional) */}
+                            {(() => {
+                                const acc = useAppStore.getState().accounts.find(a => a.id === selectedAccount);
+                                if (acc?.Tipo_Conta === 'Cartão de Crédito') {
+                                    return (
+                                        <div className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Limite do Cartão (R$)</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Ex: 5000"
+                                                    value={creditLimit}
+                                                    onChange={e => setCreditLimit(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Dia Fechamento</label>
+                                                <input
+                                                    type="number"
+                                                    min="1" max="31"
+                                                    placeholder="Ex: 5"
+                                                    value={closingDate}
+                                                    onChange={e => setClosingDate(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Dia Vencimento</label>
+                                                <input
+                                                    type="number"
+                                                    min="1" max="31"
+                                                    placeholder="Ex: 10"
+                                                    value={dueDate}
+                                                    onChange={e => setDueDate(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
 
                         {/* Period Selection */}
