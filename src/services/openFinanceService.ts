@@ -45,7 +45,6 @@ export async function savePluggyConnection(userId: string, linkId: string, bankN
       item_id: linkId,   // item_id agora armazena o link UUID do Belvo
       bank_name: bankName,
       status: 'active',
-      provider: 'belvo', // campo extra para identificar o provedor
     }]);
   if (error) throw error;
   return true;
