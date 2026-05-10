@@ -446,11 +446,17 @@ const TransactionsView: React.FC = () => {
                   
                   // Caso B: Parcela de compra antiga que vence neste ciclo
                   if (t.Parcela_Atual && t.Total_Parcelas && d < startDateStr) {
-                    // Calculamos apenas o Mês/Ano de cobrança da parcela
-                    const purchaseDate = new Date(t.Data);
-                    const billingMonth = new Date(purchaseDate.getFullYear(), purchaseDate.getMonth() + (t.Parcela_Atual - 1), 1);
+                    // 1. Extraímos a data da compra de forma segura (ignorando fuso horário)
+                    const dParts = (typeof t.Data === 'string' ? t.Data.split('T')[0] : getIsoDate(t.Data)).split('-');
+                    const year = parseInt(dParts[0]);
+                    const month = parseInt(dParts[1]) - 1; // 0-indexed
+                    const day = parseInt(dParts[2]);
+
+                    // 2. Calculamos o mês de competência da parcela atual
+                    // purchaseMonth + (parcela_atual - 1)
+                    const billingMonth = new Date(year, month + (t.Parcela_Atual - 1), 1);
                     
-                    // Se o MÊS e ANO da parcela batem com o MÊS e ANO do fechamento da fatura
+                    // 3. Comparamos com o mês de fechamento da fatura
                     return billingMonth.getFullYear() === endDate.getFullYear() && 
                            billingMonth.getMonth() === endDate.getMonth();
                   }
