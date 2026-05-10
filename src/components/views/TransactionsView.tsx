@@ -442,7 +442,7 @@ const TransactionsView: React.FC = () => {
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
                 .reduce((acc, t) => acc + t.Valor, 0);
 
-              const balance = Math.max(0, Math.round((account.Saldo_Inicial + expenses - payments) * 100) / 100);
+              const balance = Math.max(0, Math.round((expenses - (account.Saldo_Inicial + payments)) * 100) / 100);
               
               const dueDate = new Date(refDate.getFullYear(), refDate.getMonth(), diaVence || diaFecha || 1);
               if (diaVence < (diaFecha || 1)) dueDate.setMonth(dueDate.getMonth() + 1);
