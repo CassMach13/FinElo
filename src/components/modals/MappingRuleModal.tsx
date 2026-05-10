@@ -17,7 +17,7 @@ interface MappingRuleModalProps {
 const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, transaction, categories, assets, onClose, onSave }) => {
     const [text, setText] = useState(rule?.Texto_Contido_Descricao || transaction?.Descricao_Original || '');
     const [suggestedName, setSuggestedName] = useState(rule?.Nome_Fantasia_Sugerido || transaction?.Nome_Fantasia || '');
-    const [suggestedCategory, setSuggestedCategory] = useState(rule?.Categoria_Sugerida || transaction?.Categoria || '');
+    const [suggestedCategory, setSuggestedCategory] = useState(rule?.Categoria_Sugerida || '');
     const [linkedAssetId, setLinkedAssetId] = useState(rule?.linked_asset_id || transaction?.linked_asset_id || '');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -30,7 +30,7 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, transaction, 
         } else if (transaction) {
             setText(transaction.Descricao_Original);
             setSuggestedName(transaction.Nome_Fantasia);
-            setSuggestedCategory(transaction.Categoria);
+            setSuggestedCategory('');
             setLinkedAssetId(transaction.linked_asset_id || '');
         } else {
             setText('');
