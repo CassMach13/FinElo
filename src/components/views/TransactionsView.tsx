@@ -429,22 +429,35 @@ const TransactionsView: React.FC = () => {
             diaVence = account.dia_vencimento || 0;
 
             // --- LÓGICA DE FATURA INTELIGENTE ---
+            // --- LÓGICA DE FATURA INTELIGENTE (FOCADA NO CICLO) ---
             const getInvoiceData = (targetMonthOffset: number) => {
-              const refDate = new Date(anoAtual, mesAtual + targetMonthOffset, diaFecha || 1);
-              const cutoffDateStr = getIsoDate(refDate);
-              
+              const startDate = new Date(anoAtual, mesAtual + targetMonthOffset - 1, diaFecha || 1);
+              const endDate = new Date(anoAtual, mesAtual + targetMonthOffset, diaFecha || 1);
+              const startDateStr = getIsoDate(startDate);
+              const endDateStr = getIsoDate(endDate);
+
+              // Despesas: APENAS dentro deste ciclo específico
               const expenses = transactions
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
-                .filter(t => getIsoDate(t.Data) < cutoffDateStr)
+                .filter(t => {
+                  const d = getIsoDate(t.Data);
+                  return d >= startDateStr && d < endDateStr;
+                })
                 .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
               
+              // Pagamentos: Desde o início deste ciclo até HOJE
+              // Isso permite que o pagamento feito no dia 10 abate a fatura que fechou no dia 1.
               const payments = transactions
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
+                .filter(t => {
+                  const d = getIsoDate(t.Data);
+                  return d >= startDateStr && d <= todayStr;
+                })
                 .reduce((acc, t) => acc + t.Valor, 0);
 
-              const balance = Math.max(0, Math.round((expenses - (account.Saldo_Inicial + payments)) * 100) / 100);
+              const balance = Math.max(0, Math.round((expenses - payments) * 100) / 100);
               
-              const dueDate = new Date(refDate.getFullYear(), refDate.getMonth(), diaVence || diaFecha || 1);
+              const dueDate = new Date(endDate.getFullYear(), endDate.getMonth(), diaVence || diaFecha || 1);
               if (diaVence < (diaFecha || 1)) dueDate.setMonth(dueDate.getMonth() + 1);
               
               return { balance, dueDate };
@@ -559,25 +572,23 @@ const TransactionsView: React.FC = () => {
                             <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Disponível</p>
                             <p className="text-base font-black text-emerald-400 leading-none">{formatCurrency(limiteDisponivel)}</p>
                           </div>
-                          <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between">
-                            <div className="flex justify-between items-start">
-                              <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5 text-right w-full">Fatura Atual</p>
-                            </div>
-                            <div className="flex justify-between items-end mt-1">
+                          <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between min-h-[54px]">
+                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1 text-right w-full">Fatura Atual</p>
+                            <div className="flex flex-col items-end gap-1">
+                              <p className="text-[15px] font-black text-rose-400 leading-none">
+                                {formatCurrency(faturaAtual)}
+                              </p>
                               {faturaAtual > 0 && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handlePayInvoice(account, faturaAtual);
                                   }}
-                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-1 rounded-lg border border-emerald-500/20 transition-all active:scale-95 flex items-center gap-1 shadow-sm"
+                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 transition-all active:scale-95 flex items-center gap-1 shadow-sm"
                                 >
-                                  <span className="text-[10px]">💰</span> PAGAR
+                                  PAGAR
                                 </button>
                               )}
-                              <p className={`text-base font-black text-red-400 leading-none text-right ${faturaAtual === 0 ? 'w-full' : ''}`}>
-                                {formatCurrency(faturaAtual)}
-                              </p>
                             </div>
                           </div>
                         </div>
