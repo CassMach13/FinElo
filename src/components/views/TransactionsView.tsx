@@ -441,8 +441,16 @@ const TransactionsView: React.FC = () => {
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
                 .filter(t => {
                   const d = getIsoDate(t.Data);
+                  
+                  if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                    console.log(`[DEBUG XP] Transação: ${t.Nome_Fantasia} | Data: ${d} | Parcela: ${t.Parcela_Atual}/${t.Total_Parcelas}`);
+                  }
+
                   // Caso A: Compra feita dentro do mês do ciclo
                   if (d >= startDateStr && d < endDateStr) {
+                    if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                      console.log(`   -> INCLUÍDA (Nova)`);
+                    }
                     return true;
                   }
                   
@@ -456,11 +464,22 @@ const TransactionsView: React.FC = () => {
                     const match = billingMonth.getFullYear() === endDate.getFullYear() && 
                                   billingMonth.getMonth() === endDate.getMonth();
                     
+                    if (match && account.Nome_Conta.toUpperCase().includes('XP')) {
+                      console.log(`   -> INCLUÍDA (Parcela Antiga) | Billing: ${billingMonth.getFullYear()}-${billingMonth.getMonth()+1}`);
+                    }
                     return match;
+                  }
+                  
+                  if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                    console.log(`   -> EXCLUÍDA`);
                   }
                   return false;
                 })
                 .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+
+              if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                console.log(`[DEBUG XP] --- TOTAL FINAL: R$ ${expenses}`);
+              }
               
               
               // 2. Pagamentos: Apenas pagamentos feitos APÓS o fechamento desta fatura
