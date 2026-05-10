@@ -413,7 +413,6 @@ const TransactionsView: React.FC = () => {
           const now = new Date();
           const todayStr = getIsoDate(now);
 
-          // --- LÓGICA DE FATURA ATUAL (para ciclo do mês) ---
           let faturaAtual = 0;
           let totalUsedLimit = 0;
           let diaFecha = 0;
@@ -429,29 +428,38 @@ const TransactionsView: React.FC = () => {
             diaFecha = account.dia_fechamento || 0;
             diaVence = account.dia_vencimento || 0;
 
-            // 1. Início do ciclo atual para a fatura (mesma lógica anterior)
-            let inicioFatura: Date;
-            if (diaFecha > 0) {
-              if (hoje >= diaFecha) {
-                inicioFatura = new Date(anoAtual, mesAtual, diaFecha);
-              } else {
-                inicioFatura = new Date(anoAtual, mesAtual - 1, diaFecha);
-              }
-            } else {
-              inicioFatura = new Date(anoAtual, mesAtual, 1);
-            }
-            const inicioFaturaStr = getIsoDate(inicioFatura);
+            // --- LÓGICA DE FATURA INTELIGENTE ---
+            const getInvoiceData = (targetMonthOffset: number) => {
+              const refDate = new Date(anoAtual, mesAtual + targetMonthOffset, diaFecha || 1);
+              const cutoffDateStr = getIsoDate(refDate);
+              
+              const expenses = transactions
+                .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
+                .filter(t => getIsoDate(t.Data) < cutoffDateStr)
+                .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+              
+              const payments = transactions
+                .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
+                .reduce((acc, t) => acc + t.Valor, 0);
 
-            // 2. Fatura do ciclo atual (Dívida do ciclo - Pagamentos do ciclo)
-            const cycleTransactions = transactions.filter(t => {
-              if (t.ID_Conta !== account.id) return false;
-              const tDateStr = getIsoDate(t.Data);
-              return tDateStr >= inicioFaturaStr && tDateStr <= todayStr;
-            });
-            const cycleIncome = cycleTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
-            const cycleExpense = cycleTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-            const rawFaturaAtual = cycleExpense - cycleIncome;
-            faturaAtual = Math.max(0, Math.round(rawFaturaAtual * 100) / 100);
+              const balance = Math.max(0, Math.round((account.Saldo_Inicial + expenses - payments) * 100) / 100);
+              
+              const dueDate = new Date(refDate.getFullYear(), refDate.getMonth(), diaVence || diaFecha || 1);
+              if (diaVence < (diaFecha || 1)) dueDate.setMonth(dueDate.getMonth() + 1);
+              
+              return { balance, dueDate };
+            };
+
+            const currentInvoice = getInvoiceData(0);
+            const nextInvoice = getInvoiceData(1);
+
+            if (currentInvoice.balance > 0.01) {
+              faturaAtual = currentInvoice.balance;
+              diasParaVencer = Math.ceil((currentInvoice.dueDate.getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+            } else {
+              faturaAtual = nextInvoice.balance;
+              diasParaVencer = Math.ceil((nextInvoice.dueDate.getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+            }
 
             // 3. Limite Utilizado TOTAL (Dívida total = Saldo Inicial + TODAS as transações sem filtro de data futura)
             // Isso é o que realmente consome o limite (inclusive parcelas futuras)
@@ -468,8 +476,8 @@ const TransactionsView: React.FC = () => {
               diasParaFechar = Math.ceil((proximoFecha.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             }
             if (diaVence > 0) {
-              let proximoVence = hoje < diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
-              diasParaVencer = Math.ceil((proximoVence.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              let proximoVence = hoje <= diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
+              diasParaVencer = Math.ceil((proximoVence.getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
             }
           }
 
