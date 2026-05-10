@@ -446,12 +446,13 @@ const TransactionsView: React.FC = () => {
                   
                   // Caso B: Parcela de compra antiga que vence neste ciclo
                   if (t.Parcela_Atual && t.Total_Parcelas && d < startDateStr) {
-                    // Estimamos a data de cobrança da parcela atual: Data da Compra + (Parcela Atual - 1) meses
+                    // Calculamos apenas o Mês/Ano de cobrança da parcela
                     const purchaseDate = new Date(t.Data);
-                    const billingDate = new Date(purchaseDate.getFullYear(), purchaseDate.getMonth() + (t.Parcela_Atual - 1), purchaseDate.getDate());
-                    const bDateStr = getIsoDate(billingDate);
-                    // Se a parcela "cai" dentro deste ciclo, ela faz parte desta fatura
-                    return bDateStr >= startDateStr && bDateStr <= endDateStr;
+                    const billingMonth = new Date(purchaseDate.getFullYear(), purchaseDate.getMonth() + (t.Parcela_Atual - 1), 1);
+                    
+                    // Se o MÊS e ANO da parcela batem com o MÊS e ANO do fechamento da fatura
+                    return billingMonth.getFullYear() === endDate.getFullYear() && 
+                           billingMonth.getMonth() === endDate.getMonth();
                   }
                   return false;
                 })
