@@ -429,14 +429,14 @@ const TransactionsView: React.FC = () => {
             diaVence = account.dia_vencimento || 0;
 
             // --- LÓGICA DE FATURA INTELIGENTE ---
-            // --- LÓGICA DE FATURA INTELIGENTE (FOCADA NO CICLO) ---
+            // --- LÓGICA DE FATURA BANCÁRIA REAL ---
             const getInvoiceData = (targetMonthOffset: number) => {
               const startDate = new Date(anoAtual, mesAtual + targetMonthOffset - 1, diaFecha || 1);
               const endDate = new Date(anoAtual, mesAtual + targetMonthOffset, diaFecha || 1);
               const startDateStr = getIsoDate(startDate);
               const endDateStr = getIsoDate(endDate);
 
-              // Despesas: APENAS dentro deste ciclo específico
+              // 1. Despesas: Apenas o que foi gasto DENTRO do período do ciclo
               const expenses = transactions
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
                 .filter(t => {
@@ -445,13 +445,13 @@ const TransactionsView: React.FC = () => {
                 })
                 .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
               
-              // Pagamentos: Desde o início deste ciclo até HOJE
-              // Isso permite que o pagamento feito no dia 10 abate a fatura que fechou no dia 1.
+              // 2. Pagamentos: Apenas pagamentos feitos APÓS o fechamento desta fatura
+              // Um pagamento feito no dia 10/04 paga a fatura de Março, não a de Abril.
               const payments = transactions
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
                 .filter(t => {
                   const d = getIsoDate(t.Data);
-                  return d >= startDateStr && d <= todayStr;
+                  return d >= endDateStr && d <= todayStr;
                 })
                 .reduce((acc, t) => acc + t.Valor, 0);
 
