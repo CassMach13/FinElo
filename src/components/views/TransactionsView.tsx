@@ -443,9 +443,6 @@ const TransactionsView: React.FC = () => {
                   const d = getIsoDate(t.Data);
                   // Caso A: Compra feita dentro do mês do ciclo
                   if (d >= startDateStr && d < endDateStr) {
-                    if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                      console.log(`[DEBUG XP] Nova: ${t.Nome_Fantasia} - R$ ${Math.abs(t.Valor)} em ${d}`);
-                    }
                     return true;
                   }
                   
@@ -459,18 +456,12 @@ const TransactionsView: React.FC = () => {
                     const match = billingMonth.getFullYear() === endDate.getFullYear() && 
                                   billingMonth.getMonth() === endDate.getMonth();
                     
-                    if (match && account.Nome_Conta.toUpperCase().includes('XP')) {
-                      console.log(`[DEBUG XP] Parcela: ${t.Nome_Fantasia} (${t.Parcela_Atual}/${t.Total_Parcelas}) - R$ ${Math.abs(t.Valor)} de ${d}`);
-                    }
                     return match;
                   }
                   return false;
                 })
                 .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
               
-              if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                console.log(`[DEBUG XP] --- TOTAL DESPESAS: R$ ${expenses}`);
-              }
               
               // 2. Pagamentos: Apenas pagamentos feitos APÓS o fechamento desta fatura
               // Um pagamento feito no dia 10/04 paga a fatura de Março, não a de Abril.
@@ -479,17 +470,9 @@ const TransactionsView: React.FC = () => {
                 .filter(t => {
                   const d = getIsoDate(t.Data);
                   const match = d >= endDateStr && d <= todayStr;
-                  if (match && account.Nome_Conta.toUpperCase().includes('XP')) {
-                    console.log(`[DEBUG XP] Pagamento Abatido: R$ ${t.Valor} em ${d}`);
-                  }
                   return match;
                 })
                 .reduce((acc, t) => acc + t.Valor, 0);
-
-              if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                console.log(`[DEBUG XP] --- TOTAL PAGAMENTOS: R$ ${payments}`);
-                console.log(`[DEBUG XP] --- SALDO FINAL: R$ ${Math.round((expenses - payments) * 100) / 100}`);
-              }
 
               const balance = Math.max(0, Math.round((expenses - payments) * 100) / 100);
               

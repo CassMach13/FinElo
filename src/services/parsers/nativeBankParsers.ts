@@ -555,11 +555,6 @@ const extractInstallments = (
     const current = parseInt(match[1], 10);
     const total = parseInt(match[2], 10);
     if (current > 0 && total > 0 && current <= total) {
-      if (transactionDate) {
-        const day = transactionDate.getDate();
-        const month = transactionDate.getMonth() + 1;
-        if (current === day && total === month) return { cleanedDesc: installStr };
-      }
       return { current, total, cleanedDesc: installStr };
     }
   }
