@@ -442,27 +442,35 @@ const TransactionsView: React.FC = () => {
                 .filter(t => {
                   const d = getIsoDate(t.Data);
                   // Caso A: Compra feita dentro do mês do ciclo
-                  if (d >= startDateStr && d < endDateStr) return true;
+                  if (d >= startDateStr && d < endDateStr) {
+                    if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                      console.log(`[DEBUG XP] Nova: ${t.Nome_Fantasia} - R$ ${Math.abs(t.Valor)} em ${d}`);
+                    }
+                    return true;
+                  }
                   
                   // Caso B: Parcela de compra antiga que vence neste ciclo
                   if (t.Parcela_Atual && t.Total_Parcelas && d < startDateStr) {
-                    // 1. Extraímos a data da compra de forma segura (ignorando fuso horário)
                     const dParts = (typeof t.Data === 'string' ? t.Data.split('T')[0] : getIsoDate(t.Data)).split('-');
                     const year = parseInt(dParts[0]);
-                    const month = parseInt(dParts[1]) - 1; // 0-indexed
-                    const day = parseInt(dParts[2]);
-
-                    // 2. Calculamos o mês de competência da parcela atual
-                    // purchaseMonth + (parcela_atual - 1)
+                    const month = parseInt(dParts[1]) - 1;
                     const billingMonth = new Date(year, month + (t.Parcela_Atual - 1), 1);
                     
-                    // 3. Comparamos com o mês de fechamento da fatura
-                    return billingMonth.getFullYear() === endDate.getFullYear() && 
-                           billingMonth.getMonth() === endDate.getMonth();
+                    const match = billingMonth.getFullYear() === endDate.getFullYear() && 
+                                  billingMonth.getMonth() === endDate.getMonth();
+                    
+                    if (match && account.Nome_Conta.toUpperCase().includes('XP')) {
+                      console.log(`[DEBUG XP] Parcela: ${t.Nome_Fantasia} (${t.Parcela_Atual}/${t.Total_Parcelas}) - R$ ${Math.abs(t.Valor)} de ${d}`);
+                    }
+                    return match;
                   }
                   return false;
                 })
                 .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+              
+              if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                console.log(`[DEBUG XP] --- TOTAL DESPESAS: R$ ${expenses}`);
+              }
               
               // 2. Pagamentos: Apenas pagamentos feitos APÓS o fechamento desta fatura
               // Um pagamento feito no dia 10/04 paga a fatura de Março, não a de Abril.
@@ -470,9 +478,18 @@ const TransactionsView: React.FC = () => {
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
                 .filter(t => {
                   const d = getIsoDate(t.Data);
-                  return d >= endDateStr && d <= todayStr;
+                  const match = d >= endDateStr && d <= todayStr;
+                  if (match && account.Nome_Conta.toUpperCase().includes('XP')) {
+                    console.log(`[DEBUG XP] Pagamento Abatido: R$ ${t.Valor} em ${d}`);
+                  }
+                  return match;
                 })
                 .reduce((acc, t) => acc + t.Valor, 0);
+
+              if (account.Nome_Conta.toUpperCase().includes('XP')) {
+                console.log(`[DEBUG XP] --- TOTAL PAGAMENTOS: R$ ${payments}`);
+                console.log(`[DEBUG XP] --- SALDO FINAL: R$ ${Math.round((expenses - payments) * 100) / 100}`);
+              }
 
               const balance = Math.max(0, Math.round((expenses - payments) * 100) / 100);
               
