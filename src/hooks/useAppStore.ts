@@ -403,7 +403,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         })
         .reduce((sum, t) => sum + t.Valor, 0);
 
-      return { ...account, Saldo_Atual_Calculado: account.Saldo_Inicial + relevantTransactionsSum };
+      return { ...account, Saldo_Atual_Calculado: Math.round((account.Saldo_Inicial + relevantTransactionsSum) * 100) / 100 };
     });
   },
 

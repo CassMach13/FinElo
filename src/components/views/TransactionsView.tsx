@@ -450,7 +450,8 @@ const TransactionsView: React.FC = () => {
             });
             const cycleIncome = cycleTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
             const cycleExpense = cycleTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-            faturaAtual = Math.max(0, cycleExpense - cycleIncome);
+            const rawFaturaAtual = cycleExpense - cycleIncome;
+            faturaAtual = Math.max(0, Math.round(rawFaturaAtual * 100) / 100);
 
             // 3. Limite Utilizado TOTAL (Dívida total = Saldo Inicial + TODAS as transações sem filtro de data futura)
             // Isso é o que realmente consome o limite (inclusive parcelas futuras)

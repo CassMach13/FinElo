@@ -80,7 +80,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 ID_Conta: initialTransaction.ID_Conta || '',
                 Nome_Fantasia: initialTransaction.Nome_Fantasia || '',
                 Categoria: initialTransaction.Categoria || '',
-                Valor: Math.abs(initialTransaction.Valor).toString(),
+                Valor: Math.abs(initialTransaction.Valor).toFixed(2),
                 Tipo: initialTransaction.Tipo as 'Renda' | 'Despesa',
                 Descricao_Original: initialTransaction.Descricao_Original || '',
                 linked_asset_id: initialTransaction.linked_asset_id || '',
