@@ -436,12 +436,27 @@ const TransactionsView: React.FC = () => {
               const startDateStr = getIsoDate(startDate);
               const endDateStr = getIsoDate(endDate);
 
-              // 1. Despesas: Apenas o que foi gasto DENTRO do período do ciclo
+              // 1. Despesas: O que foi gasto no ciclo OU parcelas de compras antigas que vencem agora
               const expenses = transactions
                 .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
                 .filter(t => {
                   const d = getIsoDate(t.Data);
-                  return d >= startDateStr && d < endDateStr;
+                  // Caso A: Compra feita dentro do mês do ciclo
+                  if (d >= startDateStr && d < endDateStr) return true;
+                  
+                  // Caso B: Parcela de compra antiga que vence neste ciclo
+                  if (t.parcelas && d < startDateStr) {
+                    const [current, total] = t.parcelas.split('/').map(Number);
+                    if (current && total) {
+                      // Estimamos a data de cobrança da parcela atual: Data da Compra + (Parcela Atual - 1) meses
+                      const purchaseDate = new Date(t.Data);
+                      const billingDate = new Date(purchaseDate.getFullYear(), purchaseDate.getMonth() + (current - 1), purchaseDate.getDate());
+                      const bDateStr = getIsoDate(billingDate);
+                      // Se a parcela "cai" dentro deste ciclo, ela faz parte desta fatura
+                      return bDateStr >= startDateStr && bDateStr < endDateStr;
+                    }
+                  }
+                  return false;
                 })
                 .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
               
