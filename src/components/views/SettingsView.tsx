@@ -1098,7 +1098,7 @@ const ImportConfigModal: React.FC<ImportConfigModalProps> = ({ config, onClose, 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [formState, setFormState] = useState<Omit<ImportConfig, 'id'>>({
         Nome_Fonte: '',
-        Tipo_Fonte: 'Conta',
+        Tipo_Fonte: 'Conta Corrente',
         Fonte_Manual: false,
         Tem_Cabecalho: true,
         Linhas_Ignorar_Inicio: 0,

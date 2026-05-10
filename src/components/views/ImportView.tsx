@@ -306,7 +306,7 @@ const ImportView: React.FC = () => {
     ignoredIndices: new Set<number>()
   });
 
-  const [tempSourceType, setTempSourceType] = useState<'Conta' | 'Cartao'>('Conta');
+  const [tempSourceType, setTempSourceType] = useState<ImportConfig['Tipo_Fonte']>('Conta');
   const [tempDueDate, setTempDueDate] = useState('');
   const [invertValues, setInvertValues] = useState(false);
 
@@ -538,7 +538,7 @@ const ImportView: React.FC = () => {
       return;
     }
     let dueDateToUse: Date | undefined = undefined;
-    if (tempSourceType === 'Cartao') {
+    if (tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito') {
       if (!tempDueDate) {
         appAlert("Para importação de cartão de crédito, a Data de Vencimento é obrigatória. Ela será usada como data de pagamento.", "Aviso", "warning");
         return;
@@ -1152,11 +1152,11 @@ const ImportView: React.FC = () => {
                   <div className="flex flex-col sm:flex-row gap-6">
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="sourceType" value="Conta" checked={tempSourceType === 'Conta'} onChange={() => { setTempSourceType('Conta'); setInvertValues(false); }} className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600" />
+                        <input type="radio" name="sourceType" value="Conta Corrente" checked={tempSourceType === 'Conta' || tempSourceType === 'Conta Corrente'} onChange={() => { setTempSourceType('Conta Corrente'); setInvertValues(false); }} className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600" />
                         <span className="text-gray-300 text-sm">Conta Corrente</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="sourceType" value="Cartao" checked={tempSourceType === 'Cartao'} onChange={() => { setTempSourceType('Cartao'); setInvertValues(true); }} className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600" />
+                        <input type="radio" name="sourceType" value="Cartão de Crédito" checked={tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito'} onChange={() => { setTempSourceType('Cartão de Crédito'); setInvertValues(true); }} className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600" />
                         <span className="text-gray-300 text-sm">Cartão de Crédito</span>
                       </label>
                     </div>
