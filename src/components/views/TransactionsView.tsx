@@ -453,7 +453,7 @@ const TransactionsView: React.FC = () => {
                       const billingDate = new Date(purchaseDate.getFullYear(), purchaseDate.getMonth() + (current - 1), purchaseDate.getDate());
                       const bDateStr = getIsoDate(billingDate);
                       // Se a parcela "cai" dentro deste ciclo, ela faz parte desta fatura
-                      return bDateStr >= startDateStr && bDateStr < endDateStr;
+                      return bDateStr >= startDateStr && bDateStr <= endDateStr;
                     }
                   }
                   return false;
