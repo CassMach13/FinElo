@@ -404,14 +404,20 @@ const TransactionsView: React.FC = () => {
           const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
           const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
 
-          const getIsoDate = (date: Date | string) => {
+          // ✅ TIMEZONE-SAFE: Strings ISO do banco são lidas como texto literal,
+          // evitando que "2025-09-01" vire "2025-08-31" no Brasil (UTC-3).
+          const toLocalDateStr = (date: Date | string): string => {
             if (!date) return '';
-            const d = new Date(date);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            if (typeof date === 'string') return date.split('T')[0];
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
           };
 
+          // Gera "YYYY-MM-DD" a partir de componentes numéricos (mês 0-indexed)
+          const makeDateStr = (year: number, month: number, day: number): string =>
+            `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
           const now = new Date();
-          const todayStr = getIsoDate(now);
+          const todayStr = toLocalDateStr(now);
 
           let faturaAtual = 0;
           let totalUsedLimit = 0;
@@ -419,6 +425,7 @@ const TransactionsView: React.FC = () => {
           let diaVence = 0;
           let diasParaFechar = 0;
           let diasParaVencer = 0;
+          let invoiceHistory: { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean }[] = [];
 
           if (isCreditCard) {
             const hoje = now.getDate();
@@ -428,115 +435,76 @@ const TransactionsView: React.FC = () => {
             diaFecha = account.dia_fechamento || 0;
             diaVence = account.dia_vencimento || 0;
 
-            // --- LÓGICA DE FATURA INTELIGENTE ---
-            // --- LÓGICA DE FATURA BANCÁRIA REAL ---
-            const getInvoiceData = (targetMonthOffset: number) => {
-              const startDate = new Date(anoAtual, mesAtual + targetMonthOffset - 1, diaFecha || 1);
-              const endDate = new Date(anoAtual, mesAtual + targetMonthOffset, diaFecha || 1);
-              const startDateStr = getIsoDate(startDate);
-              const endDateStr = getIsoDate(endDate);
+            // LÓGICA SIMPLIFICADA E TIMEZONE-SAFE:
+            // - Despesas: data da transação >= startStr E < endStr (confia na data do CSV)
+            // - Pagamentos: Renda com data >= endStr E <= hoje (pagamentos pós-fechamento)
+            const getInvoiceData = (yearRef: number, monthRef: number) => {
+              const startStr = makeDateStr(yearRef, monthRef - 1, diaFecha || 1);
+              const endStr   = makeDateStr(yearRef, monthRef,     diaFecha || 1);
 
-              // 1. Despesas: O que foi gasto no ciclo OU parcelas de compras antigas que vencem agora
-              const expenses = transactions
-                .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
-                .filter(t => {
-                  const d = getIsoDate(t.Data);
-                  
-                  if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                    console.log(`[DEBUG XP] Transação: ${t.Nome_Fantasia} | Data: ${d} | Parcela: ${t.Parcela_Atual}/${t.Total_Parcelas}`);
-                  }
+              const expenses = Math.round(
+                transactions
+                  .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
+                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= startStr && d < endStr; })
+                  .reduce((acc, t) => acc + Math.abs(t.Valor), 0) * 100
+              ) / 100;
 
-                  // Caso A: Compra feita dentro do mês do ciclo
-                  if (d >= startDateStr && d < endDateStr) {
-                    if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                      console.log(`   -> INCLUÍDA (Nova)`);
-                    }
-                    return true;
-                  }
-                  
-                  // Caso B: Parcela de compra antiga que vence neste ciclo
-                  if (t.Parcela_Atual && t.Total_Parcelas && d < startDateStr) {
-                    const dParts = (typeof t.Data === 'string' ? t.Data.split('T')[0] : getIsoDate(t.Data)).split('-');
-                    const year = parseInt(dParts[0]);
-                    const month = parseInt(dParts[1]) - 1;
-                    const billingMonth = new Date(year, month + (t.Parcela_Atual - 1), 1);
-                    
-                    const match = billingMonth.getFullYear() === endDate.getFullYear() && 
-                                  billingMonth.getMonth() === endDate.getMonth();
-                    
-                    if (match && account.Nome_Conta.toUpperCase().includes('XP')) {
-                      console.log(`   -> INCLUÍDA (Parcela Antiga) | Billing: ${billingMonth.getFullYear()}-${billingMonth.getMonth()+1}`);
-                    }
-                    return match;
-                  }
-                  
-                  if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                    console.log(`   -> EXCLUÍDA`);
-                  }
-                  return false;
-                })
-                .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-
-              if (account.Nome_Conta.toUpperCase().includes('XP')) {
-                console.log(`[DEBUG XP] --- TOTAL FINAL: R$ ${expenses}`);
-              }
-              
-              
-              // 2. Pagamentos: Apenas pagamentos feitos APÓS o fechamento desta fatura
-              // Um pagamento feito no dia 10/04 paga a fatura de Março, não a de Abril.
-              const payments = transactions
-                .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
-                .filter(t => {
-                  const d = getIsoDate(t.Data);
-                  const match = d >= endDateStr && d <= todayStr;
-                  return match;
-                })
-                .reduce((acc, t) => acc + t.Valor, 0);
+              const payments = Math.round(
+                transactions
+                  .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
+                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= endStr && d <= todayStr; })
+                  .reduce((acc, t) => acc + t.Valor, 0) * 100
+              ) / 100;
 
               const balance = Math.max(0, Math.round((expenses - payments) * 100) / 100);
-              
-              const dueDate = new Date(endDate.getFullYear(), endDate.getMonth(), diaVence || diaFecha || 1);
-              if (diaVence < (diaFecha || 1)) dueDate.setMonth(dueDate.getMonth() + 1);
-              
-              return { balance, dueDate };
+              return { startStr, endStr, expenses, payments, balance };
             };
 
-            const currentInvoice = getInvoiceData(0);
-            const nextInvoice = getInvoiceData(1);
-
-            if (currentInvoice.balance > 0.01) {
-              faturaAtual = currentInvoice.balance;
-              diasParaVencer = Math.ceil((currentInvoice.dueDate.getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
-            } else {
-              faturaAtual = nextInvoice.balance;
-              diasParaVencer = Math.ceil((nextInvoice.dueDate.getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+            // Histórico dos últimos 7 ciclos
+            const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+            for (let i = 7; i >= 0; i--) {
+              const ref = new Date(anoAtual, mesAtual - i + 1, 1);
+              const y = ref.getFullYear(), m = ref.getMonth();
+              const data = getInvoiceData(y, m);
+              const label = `${MONTH_NAMES[m === 0 ? 11 : m - 1]}/${String(y).slice(2)}`;
+              invoiceHistory.push({ ...data, label, isPast: data.endStr <= todayStr });
             }
 
-            // 3. Limite Utilizado TOTAL (Dívida total = Saldo Inicial + TODAS as transações sem filtro de data futura)
-            // Isso é o que realmente consome o limite (inclusive parcelas futuras)
-            const allAccountTransactions = transactions.filter(t => t.ID_Conta === account.id);
-            const totalIncome = allAccountTransactions.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
-            const totalExpense = allAccountTransactions.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-            const totalDebt = account.Saldo_Inicial + totalIncome - totalExpense;
-            
-            totalUsedLimit = Math.abs(Math.min(totalDebt, 0));
+            // Fatura a exibir: ciclo mais antigo ainda com saldo pendente, ou ciclo vigente
+            const unpaid = invoiceHistory.filter(inv => inv.isPast && inv.balance > 0.01);
+            const current = invoiceHistory.find(inv => inv.startStr <= todayStr && inv.endStr > todayStr);
+
+            if (unpaid.length > 0) {
+              faturaAtual = unpaid[0].balance;
+            } else if (current) {
+              faturaAtual = current.expenses;
+            }
+
+            // Limite Utilizado TOTAL
+            const allT = transactions.filter(t => t.ID_Conta === account.id);
+            const totalIncome  = allT.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
+            const totalExpense  = allT.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+            totalUsedLimit = Math.abs(Math.min(account.Saldo_Inicial + totalIncome - totalExpense, 0));
 
             // Dias até fechar/vencer
             if (diaFecha > 0) {
-              let proximoFecha = hoje < diaFecha ? new Date(anoAtual, mesAtual, diaFecha) : new Date(anoAtual, mesAtual + 1, diaFecha);
-              diasParaFechar = Math.ceil((proximoFecha.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const proxFecha = hoje < diaFecha ? new Date(anoAtual, mesAtual, diaFecha) : new Date(anoAtual, mesAtual + 1, diaFecha);
+              diasParaFechar = Math.ceil((proxFecha.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             }
             if (diaVence > 0) {
-              let proximoVence = hoje <= diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
-              diasParaVencer = Math.ceil((proximoVence.getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+              const proxVence = hoje <= diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
+              diasParaVencer = Math.ceil((proxVence.getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24));
             }
           }
 
           const limite = account.limite_credito || 0;
           const limiteUsadoPct = limite > 0 ? Math.min((totalUsedLimit / limite) * 100, 100) : 0;
           const limiteDisponivel = limite > 0 ? Math.max(limite - totalUsedLimit, 0) : 0;
-
           const barColor = limiteUsadoPct > 90 ? 'bg-red-500' : limiteUsadoPct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
+
+          // Histórico filtrável para exibição
+          const relevantHistory = invoiceHistory.filter(inv => inv.expenses > 0 || inv.payments > 0).slice(-6);
+          const hasOpenInvoices = relevantHistory.some(inv => inv.isPast && inv.balance > 0.01);
 
           return (
             <div
@@ -611,7 +579,12 @@ const TransactionsView: React.FC = () => {
                             <p className="text-base font-black text-emerald-400 leading-none">{formatCurrency(limiteDisponivel)}</p>
                           </div>
                           <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between min-h-[54px]">
-                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1 text-right w-full">Fatura Atual</p>
+                            <div className="flex items-center justify-end gap-1">
+                              {hasOpenInvoices && (
+                                <span className="text-[8px] text-amber-400 font-black" title="Há faturas anteriores em aberto">⚠️</span>
+                              )}
+                              <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Fatura Atual</p>
+                            </div>
                             <div className="flex flex-col items-end gap-1">
                               <p className="text-[15px] font-black text-rose-400 leading-none">
                                 {formatCurrency(faturaAtual)}
@@ -622,7 +595,7 @@ const TransactionsView: React.FC = () => {
                                     e.stopPropagation();
                                     handlePayInvoice(account, faturaAtual);
                                   }}
-                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 transition-all active:scale-95 flex items-center gap-1 shadow-sm"
+                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 transition-all active:scale-95 shadow-sm"
                                 >
                                   PAGAR
                                 </button>
@@ -630,6 +603,34 @@ const TransactionsView: React.FC = () => {
                             </div>
                           </div>
                         </div>
+
+                        {/* Histórico de Faturas */}
+                        {relevantHistory.length > 0 && (
+                          <div className="pt-2 border-t border-white/5">
+                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1.5">Histórico de Faturas</p>
+                            <div className="space-y-0.5">
+                              {relevantHistory.map((inv, idx) => {
+                                const isOpen = inv.isPast && inv.balance > 0.01;
+                                const isCurrent = !inv.isPast;
+                                return (
+                                  <div key={idx} className={`flex items-center justify-between rounded px-1.5 py-0.5 ${isOpen ? 'bg-amber-500/10' : isCurrent ? 'bg-indigo-500/10' : ''}`}>
+                                    <span className={`text-[8px] font-bold ${isOpen ? 'text-amber-400' : isCurrent ? 'text-indigo-300' : 'text-gray-600'}`}>
+                                      {isOpen ? '⚠️' : isCurrent ? '📋' : '✅'} {inv.label}
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      {inv.payments > 0 && (
+                                        <span className="text-[7px] text-emerald-500/80">-{formatCurrency(inv.payments)}</span>
+                                      )}
+                                      <span className={`text-[8px] font-black ${isOpen ? 'text-amber-400' : isCurrent ? 'text-indigo-300' : 'text-gray-600'}`}>
+                                        {formatCurrency(inv.balance > 0.01 ? inv.balance : inv.expenses)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Dias até fechar/vencer */}
                         <div className="flex flex-col gap-1.5 pt-3 border-t border-white/5">
