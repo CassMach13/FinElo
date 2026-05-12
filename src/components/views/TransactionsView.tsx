@@ -454,6 +454,9 @@ const TransactionsView: React.FC = () => {
             // Helper para remover acentos
             const removeAccents = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+            // Normaliza a chave de origem para evitar bugs de case/espacos.
+            const normalizeOriginKey = (origin?: string) => (origin || 'manual').trim().toLowerCase();
+
             // Agrupa despesas e estornos (do mesmo arquivo) para compor o valor real da fatura
             const byOrigin = new Map<string, { total: number; minDate: string; maxDate: string }>();
             
@@ -465,21 +468,27 @@ const TransactionsView: React.FC = () => {
 
               // Detecção robusta de "Pagamento de Fatura" 
               // O XP coloca "pagamentos validos normais" no CSV.
-              const isPayment = (
+              const isStatementPayment = (
                 strNome.includes('pagamento') && strNome.includes('valido') ||
                 strDesc.includes('pagamento') && strDesc.includes('valido') ||
                 strNome.includes('pagamento de fatura') ||
                 strDesc.includes('pagamento de fatura') ||
                 (t.Tipo === 'Renda' && (
-                  strCat.includes('pagamento') ||
-                  strOrigem === 'manual'
+                  strCat.includes('pagamento')
                 ))
               );
 
-              if (isPayment) {
+              if (isStatementPayment) {
+                // Importante: em extratos de cartão (ex.: XP), esse pagamento
+                // geralmente quita a fatura ANTERIOR. Portanto não deve abater
+                // a fatura vigente do próprio arquivo/ciclo.
+                continue;
+              } else if (t.Origem === 'manual' && t.Tipo === 'Renda') {
+                // Pagamento manual lançado pelo usuário: esse sim pode abater
+                // a fatura em aberto conforme janela temporal.
                 manualPayments.push(t);
               } else {
-                let origemKey = t.Origem || 'manual';
+                let origemKey = normalizeOriginKey(t.Origem);
                 const d = toLocalDateStr(t.Data);
                 
                 // Se for manual (despesa manual ou estorno manual), agrupa por mês p/ não misturar em um super-ciclo
@@ -513,12 +522,13 @@ const TransactionsView: React.FC = () => {
             type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean; origens: string[] };
             const cycleMap = new Map<string, InvCycle>();
 
-            // Agrupa pagamentos por origem para match exato com a fatura de onde vieram
+            // Pagamentos manuais lançados pelo usuário (não os do CSV do próprio banco)
+            // podem ser usados para abatimento por ciclo.
             const paymentsByOrigin = new Map<string, typeof manualPayments>();
             const unmappedPayments: typeof manualPayments = [];
 
             for (const t of manualPayments) {
-              const orig = (t.Origem || '').toLowerCase();
+              const orig = normalizeOriginKey(t.Origem);
               if (orig && orig !== 'manual' && byOrigin.has(orig)) {
                 if (!paymentsByOrigin.has(orig)) paymentsByOrigin.set(orig, []);
                 paymentsByOrigin.get(orig)!.push(t);
@@ -530,8 +540,12 @@ const TransactionsView: React.FC = () => {
             for (const [origem, info] of byOrigin) {
               // Retornando à lógica direta e funcional: o fechamento é ditado estritamente pela data máxima do arquivo
               const [maxY, maxM] = info.maxDate.split('-').map(Number);
-              
-              const endDate = new Date(maxY, maxM, diaFecha || 1);
+
+              // maxM vem em base 1 (01-12). Converter corretamente para Date evita deslocar o ciclo em +1 mês.
+              const targetCloseDay = diaFecha > 0 ? diaFecha : 1;
+              const maxDayInMonth = new Date(maxY, maxM, 0).getDate();
+              const safeCloseDay = Math.min(targetCloseDay, maxDayInMonth);
+              const endDate = new Date(maxY, maxM - 1, safeCloseDay);
               const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, diaFecha || 1);
               const endStr = toLocalDateStr(endDate);
               const startStr = toLocalDateStr(startDate);
@@ -582,10 +596,11 @@ const TransactionsView: React.FC = () => {
             // Ordena histórico por data de fechamento
             invoiceHistory = sortedCycles.slice(-8);
 
-            // Fatura a exibir: ciclo mais recente (independente de ter saldo ou não)
-            // Se há faturas anteriores em aberto, o usuário vê isso no histórico com ⚠️
+            // Fatura a exibir: valor total da fatura vigente (compras líquidas do ciclo).
+            // Regra de negócio: "Pagamentos Válidos Normais" no CSV pertencem à fatura
+            // anterior e não devem reduzir a fatura do mês vigente.
             const mostRecent = invoiceHistory[invoiceHistory.length - 1];
-            faturaAtual = mostRecent ? mostRecent.expenses : 0;
+            faturaAtual = mostRecent ? Math.max(mostRecent.expenses, 0) : 0;
 
             // Limite Utilizado TOTAL
             const allT = transactions.filter(t => t.ID_Conta === account.id);
