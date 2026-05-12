@@ -460,15 +460,17 @@ const TransactionsView: React.FC = () => {
               const strDesc = (t.Descricao_Original || '').toLowerCase();
               const strOrigem = (t.Origem || '').toLowerCase();
 
-              // Um lançamento é "Pagamento de Fatura" e não um estorno/reembolso se:
-              // 1. For uma Renda
-              // E 2. Tiver nome/categoria indicando pagamento OU não tiver vindo de um arquivo CSV de fatura
-              const isPayment = t.Tipo === 'Renda' && (
+              // Detecção robusta de "Pagamento de Fatura" 
+              // O XP coloca "pagamentos validos normais" no CSV. Isso NÃO é uma despesa e NÃO é um estorno.
+              // É o pagamento da fatura anterior, então deve ir para manualPayments para abater do saldo,
+              // e NÃO deve entrar no cálculo do valor da fatura (expenses).
+              const isPayment = (
                 strCat.includes('pagamento') || 
-                strNome.includes('pagamento') || 
-                strDesc.includes('pagamento') ||
-                strOrigem === 'manual' || 
-                (!strOrigem.endsWith('.csv') && !strOrigem.includes('fatura'))
+                strNome.includes('pagamentos validos normais') || 
+                strDesc.includes('pagamentos validos normais') ||
+                strNome.includes('pagamento de fatura') ||
+                strDesc.includes('pagamento de fatura') ||
+                (t.Tipo === 'Renda' && strOrigem === 'manual')
               );
 
               if (isPayment) {
@@ -485,11 +487,16 @@ const TransactionsView: React.FC = () => {
 
                 const existing = byOrigin.get(origemKey);
                 
-                // IMPORTANTE: NÃO usamos Math.abs() aqui!
-                // Despesas normais = positivo (soma na fatura)
-                // Despesas negativas (usadas pelo usuário p/ cancelar coisas) = negativo (subtrai)
-                // Rendas (estornos importados via CSV) = negativo (subtrai da fatura)
-                const val = t.Tipo === 'Despesa' ? t.Valor : -t.Valor;
+                // Cálculo blindado:
+                // Despesas normais do cartão = Valor positivo
+                // Rendas (estornos/reembolsos) = Valor negativo (abatem da fatura)
+                // Se o usuário inseriu uma Despesa negativa MANUALMENTE (-33,80), respeitamos o sinal p/ cancelar.
+                let val = Math.abs(t.Valor);
+                if (t.Tipo === 'Renda') {
+                  val = -val; // Estornos sempre abatem
+                } else if (t.Tipo === 'Despesa' && t.Valor < 0) {
+                  val = -val; // Despesas negativas do usuário abatem
+                }
 
                 if (!existing) {
                   byOrigin.set(origemKey, { total: val, minDate: d, maxDate: d });
