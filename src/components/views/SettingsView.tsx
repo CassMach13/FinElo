@@ -265,6 +265,48 @@ const SettingsView: React.FC = () => {
         }));
     }, [transactions]);
 
+    const importLogAccountLabelMap = useMemo(() => {
+        const accountNames = new Map(accounts.map(a => [a.id, a.Nome_Conta]));
+        const labels = new Map<string, string>();
+
+        importLogs.forEach((log) => {
+            const importedDetails = (log.imported_details as any[]) || [];
+            const detailsAccountName = importedDetails.find(d => d?.Conta_Nome)?.Conta_Nome;
+
+            if (detailsAccountName) {
+                labels.set(log.id, detailsAccountName);
+                return;
+            }
+
+            const accountFrequency = new Map<string, number>();
+            transactions
+                .filter(t => t.Origem === log.file_name && t.ID_Conta)
+                .forEach(t => {
+                    const key = t.ID_Conta as string;
+                    accountFrequency.set(key, (accountFrequency.get(key) || 0) + 1);
+                });
+
+            if (accountFrequency.size === 0) {
+                labels.set(log.id, 'Não associada');
+                return;
+            }
+
+            if (accountFrequency.size === 1) {
+                const accountId = Array.from(accountFrequency.keys())[0];
+                labels.set(log.id, accountNames.get(accountId) || 'Conta desconhecida');
+                return;
+            }
+
+            const ordered = Array.from(accountFrequency.entries()).sort((a, b) => b[1] - a[1]);
+            const [topAccountId, topCount] = ordered[0];
+            const totalCount = ordered.reduce((sum, [, count]) => sum + count, 0);
+            const topName = accountNames.get(topAccountId) || 'Conta desconhecida';
+            labels.set(log.id, `Múltiplas (predomínio: ${topName} - ${Math.round((topCount / totalCount) * 100)}%)`);
+        });
+
+        return labels;
+    }, [importLogs, accounts, transactions]);
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
@@ -365,10 +407,13 @@ const SettingsView: React.FC = () => {
                     <CrudCard<ImportLog>
                         title="Histórico de Importações"
                         data={importLogs}
-                        headers={['Arquivo', 'Data da Importação', 'Total', 'Importados', 'Ignorados']}
+                        headers={['Arquivo', 'Conta Escolhida', 'Data da Importação', 'Total', 'Importados', 'Ignorados']}
                         renderRow={(item) => (
                             <>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-300 font-medium">
+                                    {importLogAccountLabelMap.get(item.id) || 'Não associada'}
+                                </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>

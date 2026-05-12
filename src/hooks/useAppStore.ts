@@ -524,6 +524,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Combine duplicates found here with ignored items passed from parser
     const allIgnoredDetails = [...duplicates, ...ignoredItems];
 
+    const targetAccount = get().accounts.find(a => a.id === importConfig.ID_Conta_Associada);
+
     const logEntry = {
       user_id: user.id,
       file_name: fileName,
@@ -536,7 +538,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         Descricao: t.Descricao_Original,
         Nome_Fantasia: t.Nome_Fantasia,
         Valor: t.Valor,
-        Categoria: t.Categoria
+        Categoria: t.Categoria,
+        ID_Conta: t.ID_Conta || null,
+        Conta_Nome: targetAccount?.Nome_Conta || null,
       }))
     };
 
