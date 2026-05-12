@@ -451,13 +451,16 @@ const TransactionsView: React.FC = () => {
             const allAccountT = transactions.filter(t => t.ID_Conta === account.id);
             const manualPayments: typeof transactions = [];
 
+            // Helper para remover acentos
+            const removeAccents = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
             // Agrupa despesas e estornos (do mesmo arquivo) para compor o valor real da fatura
             const byOrigin = new Map<string, { total: number; minDate: string; maxDate: string }>();
             
             for (const t of allAccountT) {
-              const strCat = (t.Categoria || '').toLowerCase();
-              const strNome = (t.Nome_Fantasia || '').toLowerCase();
-              const strDesc = (t.Descricao_Original || '').toLowerCase();
+              const strCat = removeAccents((t.Categoria || '').toLowerCase());
+              const strNome = removeAccents((t.Nome_Fantasia || '').toLowerCase());
+              const strDesc = removeAccents((t.Descricao_Original || '').toLowerCase());
               const strOrigem = (t.Origem || '').toLowerCase();
 
               // Detecção robusta de "Pagamento de Fatura" 
