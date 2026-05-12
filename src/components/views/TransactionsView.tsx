@@ -777,8 +777,8 @@ const TransactionsView: React.FC = () => {
                       <p className="font-bold mb-2">DEBUG INFO (Tire print disso):</p>
                       <pre>
                         {JSON.stringify({
-                          totalTxInAccount: allAccountT.length,
-                          recentTx: allAccountT
+                          totalTxInAccount: transactions.filter(t => t.ID_Conta === account.id).length,
+                          recentTx: transactions.filter(t => t.ID_Conta === account.id)
                             .filter(t => t.Data >= '2026-03-01' || String(t.Data).includes('2026-03') || String(t.Data).includes('2026-04'))
                             .map(t => ({
                               data: t.Data,
