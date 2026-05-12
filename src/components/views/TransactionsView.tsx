@@ -465,15 +465,18 @@ const TransactionsView: React.FC = () => {
 
               // Detecção robusta de "Pagamento de Fatura" 
               // O XP coloca "pagamentos validos normais" no CSV. Isso NÃO é uma despesa e NÃO é um estorno.
-              // É o pagamento da fatura anterior, então deve ir para manualPayments para abater do saldo,
-              // e NÃO deve entrar no cálculo do valor da fatura (expenses).
+              // É o pagamento da fatura anterior, então deve ir para manualPayments para abater do saldo.
+              // Cuidado: o usuário pode ter categorizado despesas normais como "Pagamento", então só consideramos
+              // genéricos de pagamento se for uma Renda (crédito) ou se for a string exata da XP.
               const isPayment = (
-                strCat.includes('pagamento') || 
                 strNome.includes('pagamentos validos normais') || 
                 strDesc.includes('pagamentos validos normais') ||
-                strNome.includes('pagamento de fatura') ||
-                strDesc.includes('pagamento de fatura') ||
-                (t.Tipo === 'Renda' && strOrigem === 'manual')
+                (t.Tipo === 'Renda' && (
+                  strCat.includes('pagamento') ||
+                  strNome.includes('pagamento de fatura') ||
+                  strDesc.includes('pagamento de fatura') ||
+                  strOrigem === 'manual'
+                ))
               );
 
               if (isPayment) {
