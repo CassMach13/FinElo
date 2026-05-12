@@ -776,13 +776,25 @@ const TransactionsView: React.FC = () => {
                     <div className="mt-8 p-4 bg-black/50 border border-red-500/50 rounded-xl overflow-x-auto text-xs text-red-300 font-mono">
                       <p className="font-bold mb-2">DEBUG INFO (Tire print disso):</p>
                       <pre>
-                        {JSON.stringify(invoiceHistory.slice(-3).map(inv => ({
-                          label: inv.label,
-                          endStr: inv.endStr,
-                          expenses: inv.expenses,
-                          payments: inv.payments,
-                          balance: inv.balance
-                        })), null, 2)}
+                        {JSON.stringify({
+                          totalTxInAccount: allAccountT.length,
+                          recentTx: allAccountT
+                            .filter(t => t.Data >= '2026-03-01' || String(t.Data).includes('2026-03') || String(t.Data).includes('2026-04'))
+                            .map(t => ({
+                              data: t.Data,
+                              valor: t.Valor,
+                              tipo: t.Tipo,
+                              origem: t.Origem,
+                              desc: t.Descricao_Original,
+                              nome: t.Nome_Fantasia
+                            }))
+                            .slice(0, 6),
+                          cycles: invoiceHistory.slice(-3).map(inv => ({
+                            label: inv.label,
+                            expenses: inv.expenses,
+                            payments: inv.payments
+                          }))
+                        }, null, 2)}
                       </pre>
                       <p className="font-bold mt-4 mb-2">FATURA ATUAL:</p>
                       <pre>{faturaAtual}</pre>
