@@ -772,35 +772,8 @@ const TransactionsView: React.FC = () => {
                       </div>
                     )}
                     
-                    {/* DEBUG DUMP - TEMPORARY */}
-                    <div className="mt-8 p-4 bg-black/50 border border-red-500/50 rounded-xl overflow-x-auto text-xs text-red-300 font-mono">
-                      <p className="font-bold mb-2">DEBUG INFO (Tire print disso):</p>
-                      <pre>
-                        {JSON.stringify({
-                          totalTxInAccount: transactions.filter(t => t.ID_Conta === account.id).length,
-                          recentTx: transactions.filter(t => t.ID_Conta === account.id)
-                            .filter(t => t.Data >= '2026-03-01' || String(t.Data).includes('2026-03') || String(t.Data).includes('2026-04'))
-                            .map(t => ({
-                              data: t.Data,
-                              valor: t.Valor,
-                              tipo: t.Tipo,
-                              origem: t.Origem,
-                              desc: t.Descricao_Original,
-                              nome: t.Nome_Fantasia
-                            }))
-                            .slice(0, 6),
-                          cycles: invoiceHistory.slice(-3).map(inv => ({
-                            label: inv.label,
-                            expenses: inv.expenses,
-                            payments: inv.payments
-                          }))
-                        }, null, 2)}
-                      </pre>
-                      <p className="font-bold mt-4 mb-2">FATURA ATUAL:</p>
-                      <pre>{faturaAtual}</pre>
                     </div>
-                  </div>
-                ) : (
+                  ) : (
                   // CONTA CORRENTE / OUTRO: layout original
                   <div className="mt-6 flex flex-col items-end">
                     <span className={`text-2xl font-black tracking-tighter ${currentBalance < 0 ? 'text-danger shadow-danger/10' : currentBalance > 0 ? 'text-accent shadow-accent/10' : 'text-light'}`}>
