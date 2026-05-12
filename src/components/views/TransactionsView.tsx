@@ -508,61 +508,73 @@ const TransactionsView: React.FC = () => {
               }
             }
 
-            // Para cada grupo de origem, determina o mês/ano do ciclo
-            // usando a data MÁXIMA das transações do arquivo (mais próxima do fechamento)
-            const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+            // Agrupa pagamentos por origem para match exato com a fatura de onde vieram
+            const paymentsByOrigin = new Map<string, typeof manualPayments>();
+            const unmappedPayments: typeof manualPayments = [];
 
-            // Monta histórico: agrupa por ciclo (ano+mês do endDate)
-            // Ciclo de fechamento = mês da data máxima do arquivo, arredondado para o próximo diaFecha
-            type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean; origens: string[] };
-            const cycleMap = new Map<string, InvCycle>();
+            for (const t of manualPayments) {
+              const orig = (t.Origem || '').toLowerCase();
+              if (orig && orig !== 'manual' && byOrigin.has(orig)) {
+                if (!paymentsByOrigin.has(orig)) paymentsByOrigin.set(orig, []);
+                paymentsByOrigin.get(orig)!.push(t);
+              } else {
+                unmappedPayments.push(t);
+              }
+            }
 
             for (const [origem, info] of byOrigin) {
-              // Estima o mês de fechamento pelo maxDate
+              // Usa uma data média robusta (o dia 15 do maxDate) para evitar que o fechamento caia no mês errado
               const [maxY, maxM] = info.maxDate.split('-').map(Number);
-              // maxM é 1-indexed (vem de "YYYY-MM-DD"), convertemos para 0-indexed
-              // endStr = diaFecha do mês seguinte ao maxDate
-              const endDate = new Date(maxY, maxM, diaFecha || 1); // maxM (1-indexed) funciona como mês seguinte quando passado direto
+              // maxM é 1-indexed. Ex: se maxDate é 02/09, queremos que seja fatura de Agosto.
+              // Para garantir isso, pegamos a data mediana das despesas.
+              const minM = Number(info.minDate.split('-')[1]);
+              const avgMonth = Math.floor((maxM + minM) / 2);
+              
+              const endDate = new Date(maxY, avgMonth, diaFecha || 1);
               const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, diaFecha || 1);
               const endStr = toLocalDateStr(endDate);
               const startStr = toLocalDateStr(startDate);
               const cycleKey = endStr;
 
-              // Rótulo: mês anterior ao fechamento (mês das despesas)
+              // Rótulo: mês anterior ao fechamento
               const labelMonth = endDate.getMonth() === 0 ? 11 : endDate.getMonth() - 1;
               const labelYear = endDate.getMonth() === 0 ? endDate.getFullYear() - 1 : endDate.getFullYear();
               const label = `${MONTH_NAMES[labelMonth]}/${String(labelYear).slice(2)}`;
 
+              // Calcula pagamentos exatos deste arquivo
+              const exactPayments = paymentsByOrigin.get(origem) || [];
+              const exactPaymentSum = exactPayments.reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+
               const existing = cycleMap.get(cycleKey);
               if (existing) {
                 existing.expenses = Math.round((existing.expenses + info.total) * 100) / 100;
+                existing.payments = Math.round((existing.payments + exactPaymentSum) * 100) / 100;
                 existing.origens.push(origem);
               } else {
                 cycleMap.set(cycleKey, {
                   label, startStr, endStr,
                   expenses: Math.round(info.total * 100) / 100,
-                  payments: 0, balance: 0,
+                  payments: Math.round(exactPaymentSum * 100) / 100,
+                  balance: 0,
                   isPast: endStr <= todayStr,
                   origens: [origem]
                 });
               }
             }
 
-            // Calcula pagamentos para cada ciclo com janela exclusiva:
-            // Cada pagamento pertence ao ciclo cujo fechamento imediatamente o precede.
-            // Isso evita que o mesmo pagamento seja contado em múltiplos ciclos.
             const sortedCycles = Array.from(cycleMap.values())
               .sort((a, b) => a.endStr.localeCompare(b.endStr));
 
+            // Aplica pagamentos manuais (sem origem forte) por janela de data
             for (let ci = 0; ci < sortedCycles.length; ci++) {
               const cycle = sortedCycles[ci];
-              // Janela de pagamento: de endStr deste ciclo até endStr do próximo ciclo (ou hoje)
               const nextEndStr = ci + 1 < sortedCycles.length ? sortedCycles[ci + 1].endStr : todayStr;
-              cycle.payments = Math.round(
-                manualPayments
-                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d < nextEndStr; })
-                  .reduce((acc, t) => acc + t.Valor, 0) * 100
-              ) / 100;
+              
+              const windowPayments = unmappedPayments
+                .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d < nextEndStr; })
+                .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+                
+              cycle.payments = Math.round((cycle.payments + windowPayments) * 100) / 100;
               cycle.balance = Math.max(0, Math.round((cycle.expenses - cycle.payments) * 100) / 100);
             }
 
