@@ -508,6 +508,11 @@ const TransactionsView: React.FC = () => {
               }
             }
 
+            // Constantes e estruturas para o ciclo
+            const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+            type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean; origens: string[] };
+            const cycleMap = new Map<string, InvCycle>();
+
             // Agrupa pagamentos por origem para match exato com a fatura de onde vieram
             const paymentsByOrigin = new Map<string, typeof manualPayments>();
             const unmappedPayments: typeof manualPayments = [];
