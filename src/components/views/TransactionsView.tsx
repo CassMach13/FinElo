@@ -435,49 +435,100 @@ const TransactionsView: React.FC = () => {
             diaFecha = account.dia_fechamento || 0;
             diaVence = account.dia_vencimento || 0;
 
-            // LÓGICA SIMPLIFICADA E TIMEZONE-SAFE:
-            // - Despesas: data da transação >= startStr E < endStr (confia na data do CSV)
-            // - Pagamentos: Renda com data >= endStr E <= hoje (pagamentos pós-fechamento)
-            const getInvoiceData = (yearRef: number, monthRef: number) => {
-              const startStr = makeDateStr(yearRef, monthRef - 1, diaFecha || 1);
-              const endStr   = makeDateStr(yearRef, monthRef,     diaFecha || 1);
+            // ═══════════════════════════════════════════════════════
+            // LÓGICA DEFINITIVA: AGRUPAMENTO POR ARQUIVO DE ORIGEM
+            // ═══════════════════════════════════════════════════════
+            // O XP (e muitos bancos) coloca a data ORIGINAL da compra no CSV,
+            // não a data de cobrança da parcela. Portanto filtrar por data falha.
+            // A solução é: cada fatura = soma das despesas de um mesmo arquivo importado.
+            //
+            // Algoritmo:
+            // 1. Agrupa despesas da conta por Origem (nome do arquivo)
+            // 2. Para cada grupo, usa a menor data das transações para estimar
+            //    o ciclo a que o arquivo pertence
+            // 3. Para pagamentos, ainda usa data pois pagamentos manuais/CSV têm data correta
 
-              const expenses = Math.round(
-                transactions
-                  .filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa')
-                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= startStr && d < endStr; })
-                  .reduce((acc, t) => acc + Math.abs(t.Valor), 0) * 100
-              ) / 100;
+            const accountExpenses = transactions.filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa');
+            const accountPayments = transactions.filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda');
 
-              const payments = Math.round(
-                transactions
-                  .filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda')
-                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= endStr && d <= todayStr; })
-                  .reduce((acc, t) => acc + t.Valor, 0) * 100
-              ) / 100;
-
-              const balance = Math.max(0, Math.round((expenses - payments) * 100) / 100);
-              return { startStr, endStr, expenses, payments, balance };
-            };
-
-            // Histórico dos últimos 7 ciclos
-            const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-            for (let i = 7; i >= 0; i--) {
-              const ref = new Date(anoAtual, mesAtual - i + 1, 1);
-              const y = ref.getFullYear(), m = ref.getMonth();
-              const data = getInvoiceData(y, m);
-              const label = `${MONTH_NAMES[m === 0 ? 11 : m - 1]}/${String(y).slice(2)}`;
-              invoiceHistory.push({ ...data, label, isPast: data.endStr <= todayStr });
+            // Agrupa despesas por arquivo de origem
+            const byOrigin = new Map<string, { total: number; minDate: string; maxDate: string }>();
+            for (const t of accountExpenses) {
+              const origem = t.Origem || 'manual';
+              const d = toLocalDateStr(t.Data);
+              const existing = byOrigin.get(origem);
+              if (!existing) {
+                byOrigin.set(origem, { total: Math.abs(t.Valor), minDate: d, maxDate: d });
+              } else {
+                existing.total += Math.abs(t.Valor);
+                if (d < existing.minDate) existing.minDate = d;
+                if (d > existing.maxDate) existing.maxDate = d;
+              }
             }
 
-            // Fatura a exibir: ciclo mais antigo ainda com saldo pendente, ou ciclo vigente
+            // Para cada grupo de origem, determina o mês/ano do ciclo
+            // usando a data MÁXIMA das transações do arquivo (mais próxima do fechamento)
+            const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+            // Monta histórico: agrupa por ciclo (ano+mês do endDate)
+            // Ciclo de fechamento = mês da data máxima do arquivo, arredondado para o próximo diaFecha
+            type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean; origens: string[] };
+            const cycleMap = new Map<string, InvCycle>();
+
+            for (const [origem, info] of byOrigin) {
+              // Estima o mês de fechamento pelo maxDate
+              const [maxY, maxM] = info.maxDate.split('-').map(Number);
+              // maxM é 1-indexed (vem de "YYYY-MM-DD"), convertemos para 0-indexed
+              // endStr = diaFecha do mês seguinte ao maxDate
+              const endDate = new Date(maxY, maxM, diaFecha || 1); // maxM (1-indexed) funciona como mês seguinte quando passado direto
+              const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, diaFecha || 1);
+              const endStr = toLocalDateStr(endDate);
+              const startStr = toLocalDateStr(startDate);
+              const cycleKey = endStr;
+
+              // Rótulo: mês anterior ao fechamento (mês das despesas)
+              const labelMonth = endDate.getMonth() === 0 ? 11 : endDate.getMonth() - 1;
+              const labelYear = endDate.getMonth() === 0 ? endDate.getFullYear() - 1 : endDate.getFullYear();
+              const label = `${MONTH_NAMES[labelMonth]}/${String(labelYear).slice(2)}`;
+
+              const existing = cycleMap.get(cycleKey);
+              if (existing) {
+                existing.expenses = Math.round((existing.expenses + info.total) * 100) / 100;
+                existing.origens.push(origem);
+              } else {
+                cycleMap.set(cycleKey, {
+                  label, startStr, endStr,
+                  expenses: Math.round(info.total * 100) / 100,
+                  payments: 0, balance: 0,
+                  isPast: endStr <= todayStr,
+                  origens: [origem]
+                });
+              }
+            }
+
+            // Calcula pagamentos para cada ciclo (por data: Renda após o fechamento)
+            for (const cycle of cycleMap.values()) {
+              cycle.payments = Math.round(
+                accountPayments
+                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d <= todayStr; })
+                  .reduce((acc, t) => acc + t.Valor, 0) * 100
+              ) / 100;
+              cycle.balance = Math.max(0, Math.round((cycle.expenses - cycle.payments) * 100) / 100);
+            }
+
+            // Ordena histórico por data de fechamento
+            invoiceHistory = Array.from(cycleMap.values())
+              .sort((a, b) => a.endStr.localeCompare(b.endStr))
+              .slice(-8);
+
+            // Fatura a exibir: ciclo mais antigo com saldo pendente, ou ciclo mais recente
             const unpaid = invoiceHistory.filter(inv => inv.isPast && inv.balance > 0.01);
-            const current = invoiceHistory.find(inv => inv.startStr <= todayStr && inv.endStr > todayStr);
+            const mostRecent = invoiceHistory[invoiceHistory.length - 1];
 
             if (unpaid.length > 0) {
               faturaAtual = unpaid[0].balance;
-            } else if (current) {
-              faturaAtual = current.expenses;
+            } else if (mostRecent) {
+              faturaAtual = mostRecent.expenses;
             }
 
             // Limite Utilizado TOTAL
