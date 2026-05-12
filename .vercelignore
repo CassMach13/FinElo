@@ -1,0 +1,39 @@
+# Dependências e builds locais
+node_modules
+dist
+.vite
+
+# Pastas pesadas não necessárias para deploy
+audios
+videos_promocionais
+instagram_strategy
+Backup
+screenshots
+MARCA
+Parcerias
+CRM
+HAR
+Segurança
+modelos de fatura
+
+# Arquivos e pastas locais de desenvolvimento
+.git
+.github
+.vscode
+.cursor
+agent-transcripts
+terminals
+mcps
+
+# Logs e temporários
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dados sensíveis e arquivos locais
+.env.local
+*_api_keys.txt
+*_keys.txt
+*.secrets

@@ -268,6 +268,12 @@ const SettingsView: React.FC = () => {
     const importLogAccountLabelMap = useMemo(() => {
         const accountNames = new Map(accounts.map(a => [a.id, a.Nome_Conta]));
         const labels = new Map<string, string>();
+        const normalizeOrigin = (value?: string) =>
+            (value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .trim()
+                .toLowerCase();
 
         importLogs.forEach((log) => {
             const importedDetails = (log.imported_details as any[]) || [];
@@ -279,8 +285,9 @@ const SettingsView: React.FC = () => {
             }
 
             const accountFrequency = new Map<string, number>();
+            const targetOrigin = normalizeOrigin(log.file_name);
             transactions
-                .filter(t => t.Origem === log.file_name && t.ID_Conta)
+                .filter(t => normalizeOrigin(t.Origem) === targetOrigin && t.ID_Conta)
                 .forEach(t => {
                     const key = t.ID_Conta as string;
                     accountFrequency.set(key, (accountFrequency.get(key) || 0) + 1);

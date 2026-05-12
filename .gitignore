@@ -31,3 +31,5 @@ Thumbs.db
 *_api_keys.txt
 *_keys.txt
 *.secrets
+
+.vercel
