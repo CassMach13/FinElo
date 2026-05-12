@@ -771,6 +771,22 @@ const TransactionsView: React.FC = () => {
                         </div>
                       </div>
                     )}
+                    
+                    {/* DEBUG DUMP - TEMPORARY */}
+                    <div className="mt-8 p-4 bg-black/50 border border-red-500/50 rounded-xl overflow-x-auto text-xs text-red-300 font-mono">
+                      <p className="font-bold mb-2">DEBUG INFO (Tire print disso):</p>
+                      <pre>
+                        {JSON.stringify(invoiceHistory.slice(-3).map(inv => ({
+                          label: inv.label,
+                          endStr: inv.endStr,
+                          expenses: inv.expenses,
+                          payments: inv.payments,
+                          balance: inv.balance
+                        })), null, 2)}
+                      </pre>
+                      <p className="font-bold mt-4 mb-2">FATURA ATUAL:</p>
+                      <pre>{faturaAtual}</pre>
+                    </div>
                   </div>
                 ) : (
                   // CONTA CORRENTE / OUTRO: layout original
