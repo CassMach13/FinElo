@@ -528,14 +528,10 @@ const TransactionsView: React.FC = () => {
             }
 
             for (const [origem, info] of byOrigin) {
-              // Usa uma data média robusta (o dia 15 do maxDate) para evitar que o fechamento caia no mês errado
+              // Retornando à lógica direta e funcional: o fechamento é ditado estritamente pela data máxima do arquivo
               const [maxY, maxM] = info.maxDate.split('-').map(Number);
-              // maxM é 1-indexed. Ex: se maxDate é 02/09, queremos que seja fatura de Agosto.
-              // Para garantir isso, pegamos a data mediana das despesas.
-              const minM = Number(info.minDate.split('-')[1]);
-              const avgMonth = Math.floor((maxM + minM) / 2);
               
-              const endDate = new Date(maxY, avgMonth, diaFecha || 1);
+              const endDate = new Date(maxY, maxM, diaFecha || 1);
               const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, diaFecha || 1);
               const endStr = toLocalDateStr(endDate);
               const startStr = toLocalDateStr(startDate);
