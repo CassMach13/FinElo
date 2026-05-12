@@ -448,21 +448,56 @@ const TransactionsView: React.FC = () => {
             //    o ciclo a que o arquivo pertence
             // 3. Para pagamentos, ainda usa data pois pagamentos manuais/CSV têm data correta
 
-            const accountExpenses = transactions.filter(t => t.ID_Conta === account.id && t.Tipo === 'Despesa');
-            const accountPayments = transactions.filter(t => t.ID_Conta === account.id && t.Tipo === 'Renda');
+            const allAccountT = transactions.filter(t => t.ID_Conta === account.id);
+            const manualPayments: typeof transactions = [];
 
-            // Agrupa despesas por arquivo de origem
+            // Agrupa despesas e estornos (do mesmo arquivo) para compor o valor real da fatura
             const byOrigin = new Map<string, { total: number; minDate: string; maxDate: string }>();
-            for (const t of accountExpenses) {
-              const origem = t.Origem || 'manual';
-              const d = toLocalDateStr(t.Data);
-              const existing = byOrigin.get(origem);
-              if (!existing) {
-                byOrigin.set(origem, { total: Math.abs(t.Valor), minDate: d, maxDate: d });
+            
+            for (const t of allAccountT) {
+              const strCat = (t.Categoria || '').toLowerCase();
+              const strNome = (t.Nome_Fantasia || '').toLowerCase();
+              const strDesc = (t.Descricao_Original || '').toLowerCase();
+              const strOrigem = (t.Origem || '').toLowerCase();
+
+              // Um lançamento é "Pagamento de Fatura" e não um estorno/reembolso se:
+              // 1. For uma Renda
+              // E 2. Tiver nome/categoria indicando pagamento OU não tiver vindo de um arquivo CSV de fatura
+              const isPayment = t.Tipo === 'Renda' && (
+                strCat.includes('pagamento') || 
+                strNome.includes('pagamento') || 
+                strDesc.includes('pagamento') ||
+                strOrigem === 'manual' || 
+                (!strOrigem.endsWith('.csv') && !strOrigem.includes('fatura'))
+              );
+
+              if (isPayment) {
+                manualPayments.push(t);
               } else {
-                existing.total += Math.abs(t.Valor);
-                if (d < existing.minDate) existing.minDate = d;
-                if (d > existing.maxDate) existing.maxDate = d;
+                let origemKey = t.Origem || 'manual';
+                const d = toLocalDateStr(t.Data);
+                
+                // Se for manual (despesa manual ou estorno manual), agrupa por mês p/ não misturar em um super-ciclo
+                if (origemKey === 'manual') {
+                  const [y, m] = d.split('-');
+                  origemKey = `manual-${y}-${m}`;
+                }
+
+                const existing = byOrigin.get(origemKey);
+                
+                // IMPORTANTE: NÃO usamos Math.abs() aqui!
+                // Despesas normais = positivo (soma na fatura)
+                // Despesas negativas (usadas pelo usuário p/ cancelar coisas) = negativo (subtrai)
+                // Rendas (estornos importados via CSV) = negativo (subtrai da fatura)
+                const val = t.Tipo === 'Despesa' ? t.Valor : -t.Valor;
+
+                if (!existing) {
+                  byOrigin.set(origemKey, { total: val, minDate: d, maxDate: d });
+                } else {
+                  existing.total += val;
+                  if (d < existing.minDate) existing.minDate = d;
+                  if (d > existing.maxDate) existing.maxDate = d;
+                }
               }
             }
 
@@ -517,7 +552,7 @@ const TransactionsView: React.FC = () => {
               // Janela de pagamento: de endStr deste ciclo até endStr do próximo ciclo (ou hoje)
               const nextEndStr = ci + 1 < sortedCycles.length ? sortedCycles[ci + 1].endStr : todayStr;
               cycle.payments = Math.round(
-                accountPayments
+                manualPayments
                   .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d < nextEndStr; })
                   .reduce((acc, t) => acc + t.Valor, 0) * 100
               ) / 100;
