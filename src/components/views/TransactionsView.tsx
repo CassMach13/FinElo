@@ -488,14 +488,11 @@ const TransactionsView: React.FC = () => {
                 const existing = byOrigin.get(origemKey);
                 
                 // Cálculo blindado:
-                // Despesas normais do cartão = Valor positivo
-                // Rendas (estornos/reembolsos) = Valor negativo (abatem da fatura)
-                // Se o usuário inseriu uma Despesa negativa MANUALMENTE (-33,80), respeitamos o sinal p/ cancelar.
+                // Despesas normais do cartão = Valor absoluto soma na fatura.
+                // Rendas (estornos/reembolsos) = Valor absoluto subtrai da fatura.
                 let val = Math.abs(t.Valor);
                 if (t.Tipo === 'Renda') {
                   val = -val; // Estornos sempre abatem
-                } else if (t.Tipo === 'Despesa' && t.Valor < 0) {
-                  val = -val; // Despesas negativas do usuário abatem
                 }
 
                 if (!existing) {
