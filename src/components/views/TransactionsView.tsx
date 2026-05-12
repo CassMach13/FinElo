@@ -506,30 +506,31 @@ const TransactionsView: React.FC = () => {
               }
             }
 
-            // Calcula pagamentos para cada ciclo (por data: Renda após o fechamento)
-            for (const cycle of cycleMap.values()) {
+            // Calcula pagamentos para cada ciclo com janela exclusiva:
+            // Cada pagamento pertence ao ciclo cujo fechamento imediatamente o precede.
+            // Isso evita que o mesmo pagamento seja contado em múltiplos ciclos.
+            const sortedCycles = Array.from(cycleMap.values())
+              .sort((a, b) => a.endStr.localeCompare(b.endStr));
+
+            for (let ci = 0; ci < sortedCycles.length; ci++) {
+              const cycle = sortedCycles[ci];
+              // Janela de pagamento: de endStr deste ciclo até endStr do próximo ciclo (ou hoje)
+              const nextEndStr = ci + 1 < sortedCycles.length ? sortedCycles[ci + 1].endStr : todayStr;
               cycle.payments = Math.round(
                 accountPayments
-                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d <= todayStr; })
+                  .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d < nextEndStr; })
                   .reduce((acc, t) => acc + t.Valor, 0) * 100
               ) / 100;
               cycle.balance = Math.max(0, Math.round((cycle.expenses - cycle.payments) * 100) / 100);
             }
 
             // Ordena histórico por data de fechamento
-            invoiceHistory = Array.from(cycleMap.values())
-              .sort((a, b) => a.endStr.localeCompare(b.endStr))
-              .slice(-8);
+            invoiceHistory = sortedCycles.slice(-8);
 
-            // Fatura a exibir: ciclo mais antigo com saldo pendente, ou ciclo mais recente
-            const unpaid = invoiceHistory.filter(inv => inv.isPast && inv.balance > 0.01);
+            // Fatura a exibir: ciclo mais recente (independente de ter saldo ou não)
+            // Se há faturas anteriores em aberto, o usuário vê isso no histórico com ⚠️
             const mostRecent = invoiceHistory[invoiceHistory.length - 1];
-
-            if (unpaid.length > 0) {
-              faturaAtual = unpaid[0].balance;
-            } else if (mostRecent) {
-              faturaAtual = mostRecent.expenses;
-            }
+            faturaAtual = mostRecent ? mostRecent.expenses : 0;
 
             // Limite Utilizado TOTAL
             const allT = transactions.filter(t => t.ID_Conta === account.id);
