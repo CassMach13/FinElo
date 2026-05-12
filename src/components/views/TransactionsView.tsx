@@ -450,6 +450,7 @@ const TransactionsView: React.FC = () => {
 
             const allAccountT = transactions.filter(t => t.ID_Conta === account.id);
             const manualPayments: typeof transactions = [];
+            const statementPaymentsByOrigin = new Map<string, number>();
 
             // Helper para remover acentos
             const removeAccents = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -464,7 +465,6 @@ const TransactionsView: React.FC = () => {
               const strCat = removeAccents((t.Categoria || '').toLowerCase());
               const strNome = removeAccents((t.Nome_Fantasia || '').toLowerCase());
               const strDesc = removeAccents((t.Descricao_Original || '').toLowerCase());
-              const strOrigem = (t.Origem || '').toLowerCase();
 
               // Detecção robusta de "Pagamento de Fatura" 
               // O XP coloca "pagamentos validos normais" no CSV.
@@ -482,6 +482,9 @@ const TransactionsView: React.FC = () => {
                 // Importante: em extratos de cartão (ex.: XP), esse pagamento
                 // geralmente quita a fatura ANTERIOR. Portanto não deve abater
                 // a fatura vigente do próprio arquivo/ciclo.
+                const paymentOriginKey = normalizeOriginKey(t.Origem);
+                const currentPayment = statementPaymentsByOrigin.get(paymentOriginKey) || 0;
+                statementPaymentsByOrigin.set(paymentOriginKey, currentPayment + Math.abs(t.Valor));
                 continue;
               } else if (t.Origem === 'manual' && t.Tipo === 'Renda') {
                 // Pagamento manual lançado pelo usuário: esse sim pode abater
@@ -519,7 +522,7 @@ const TransactionsView: React.FC = () => {
 
             // Constantes e estruturas para o ciclo
             const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-            type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean; origens: string[] };
+            type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; statementPayment: number; balance: number; isPast: boolean; origens: string[] };
             const cycleMap = new Map<string, InvCycle>();
 
             // Pagamentos manuais lançados pelo usuário (não os do CSV do próprio banco)
@@ -559,17 +562,20 @@ const TransactionsView: React.FC = () => {
               // Calcula pagamentos exatos deste arquivo
               const exactPayments = paymentsByOrigin.get(origem) || [];
               const exactPaymentSum = exactPayments.reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+              const statementPaymentSum = statementPaymentsByOrigin.get(origem) || 0;
 
               const existing = cycleMap.get(cycleKey);
               if (existing) {
                 existing.expenses = Math.round((existing.expenses + info.total) * 100) / 100;
                 existing.payments = Math.round((existing.payments + exactPaymentSum) * 100) / 100;
+                existing.statementPayment = Math.round((existing.statementPayment + statementPaymentSum) * 100) / 100;
                 existing.origens.push(origem);
               } else {
                 cycleMap.set(cycleKey, {
                   label, startStr, endStr,
                   expenses: Math.round(info.total * 100) / 100,
                   payments: Math.round(exactPaymentSum * 100) / 100,
+                  statementPayment: Math.round(statementPaymentSum * 100) / 100,
                   balance: 0,
                   isPast: endStr <= todayStr,
                   origens: [origem]
@@ -591,6 +597,18 @@ const TransactionsView: React.FC = () => {
                 
               cycle.payments = Math.round((cycle.payments + windowPayments) * 100) / 100;
               cycle.balance = Math.max(0, Math.round((cycle.expenses - cycle.payments) * 100) / 100);
+            }
+
+            // Regra de negócio do cartão XP:
+            // "Pagamentos Válidos Normais" no ciclo atual quitam a FATURA ANTERIOR.
+            // Portanto, deslocamos esse pagamento para o ciclo imediatamente anterior.
+            for (let ci = 1; ci < sortedCycles.length; ci++) {
+              const paymentForPreviousInvoice = sortedCycles[ci].statementPayment;
+              if (paymentForPreviousInvoice > 0) {
+                const previous = sortedCycles[ci - 1];
+                previous.payments = Math.round((previous.payments + paymentForPreviousInvoice) * 100) / 100;
+                previous.balance = Math.max(0, Math.round((previous.expenses - previous.payments) * 100) / 100);
+              }
             }
 
             // Ordena histórico por data de fechamento
