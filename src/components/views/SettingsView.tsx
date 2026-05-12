@@ -274,6 +274,11 @@ const SettingsView: React.FC = () => {
                 .replace(/[\u0300-\u036f]/g, '')
                 .trim()
                 .toLowerCase();
+        const normalizeLoose = (value?: string) =>
+            normalizeOrigin(value)
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+        const tokenize = (value?: string) => normalizeLoose(value).split(' ').filter(Boolean);
 
         importLogs.forEach((log) => {
             const importedDetails = (log.imported_details as any[]) || [];
@@ -294,6 +299,37 @@ const SettingsView: React.FC = () => {
                 });
 
             if (accountFrequency.size === 0) {
+                // Fallback 1: tentar inferir pela configuração de importação (logs legados)
+                const normalizedFileName = normalizeLoose(log.file_name);
+                const configCandidate = importConfigs
+                    .filter(cfg => cfg.ID_Conta_Associada)
+                    .map(cfg => ({
+                        cfg,
+                        score: tokenize(cfg.Nome_Fonte).filter(token => normalizedFileName.includes(token)).length
+                    }))
+                    .sort((a, b) => b.score - a.score)[0];
+
+                if (configCandidate && configCandidate.score > 0 && configCandidate.cfg.ID_Conta_Associada) {
+                    const inferred = accountNames.get(configCandidate.cfg.ID_Conta_Associada);
+                    if (inferred) {
+                        labels.set(log.id, inferred);
+                        return;
+                    }
+                }
+
+                // Fallback 2: heurística por nome da conta no nome do arquivo
+                const accountCandidate = accounts
+                    .map(acc => ({
+                        account: acc,
+                        score: tokenize(acc.Nome_Conta).filter(token => normalizedFileName.includes(token)).length
+                    }))
+                    .sort((a, b) => b.score - a.score)[0];
+
+                if (accountCandidate && accountCandidate.score > 0) {
+                    labels.set(log.id, accountCandidate.account.Nome_Conta);
+                    return;
+                }
+
                 labels.set(log.id, 'Não associada');
                 return;
             }
@@ -312,7 +348,7 @@ const SettingsView: React.FC = () => {
         });
 
         return labels;
-    }, [importLogs, accounts, transactions]);
+    }, [importLogs, accounts, transactions, importConfigs]);
 
     return (
         <div className="space-y-6">
