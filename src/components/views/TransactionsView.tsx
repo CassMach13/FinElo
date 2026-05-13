@@ -642,10 +642,6 @@ const TransactionsView: React.FC = () => {
           const limiteDisponivel = limite > 0 ? Math.max(limite - totalUsedLimit, 0) : 0;
           const barColor = limiteUsadoPct > 90 ? 'bg-red-500' : limiteUsadoPct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
 
-          // Histórico filtrável para exibição
-          const relevantHistory = invoiceHistory.filter(inv => inv.expenses > 0 || inv.payments > 0).slice(-6);
-          const hasOpenInvoices = relevantHistory.some(inv => inv.isPast && inv.balance > 0.01);
-
           return (
             <div
               key={account.id}
@@ -720,9 +716,6 @@ const TransactionsView: React.FC = () => {
                           </div>
                           <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between min-h-[54px]">
                             <div className="flex items-center justify-end gap-1">
-                              {hasOpenInvoices && (
-                                <span className="text-[8px] text-amber-400 font-black" title="Há faturas anteriores em aberto">⚠️</span>
-                              )}
                               <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Fatura Atual</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
@@ -743,34 +736,6 @@ const TransactionsView: React.FC = () => {
                             </div>
                           </div>
                         </div>
-
-                        {/* Histórico de Faturas */}
-                        {relevantHistory.length > 0 && (
-                          <div className="pt-2 border-t border-white/5">
-                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-1.5">Histórico de Faturas</p>
-                            <div className="space-y-0.5">
-                              {relevantHistory.map((inv, idx) => {
-                                const isOpen = inv.isPast && inv.balance > 0.01;
-                                const isCurrent = !inv.isPast;
-                                return (
-                                  <div key={idx} className={`flex items-center justify-between rounded px-1.5 py-0.5 ${isOpen ? 'bg-amber-500/10' : isCurrent ? 'bg-indigo-500/10' : ''}`}>
-                                    <span className={`text-[8px] font-bold ${isOpen ? 'text-amber-400' : isCurrent ? 'text-indigo-300' : 'text-gray-600'}`}>
-                                      {isOpen ? '⚠️' : isCurrent ? '📋' : '✅'} {inv.label}
-                                    </span>
-                                    <div className="flex items-center gap-1.5">
-                                      {inv.payments > 0 && (
-                                        <span className="text-[7px] text-emerald-500/80">-{formatCurrency(inv.payments)}</span>
-                                      )}
-                                      <span className={`text-[8px] font-black ${isOpen ? 'text-amber-400' : isCurrent ? 'text-indigo-300' : 'text-gray-600'}`}>
-                                        {formatCurrency(inv.balance > 0.01 ? inv.balance : inv.expenses)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
 
                         {/* Dias até fechar/vencer */}
                         <div className="flex flex-col gap-1.5 pt-3 border-t border-white/5">
