@@ -57,6 +57,7 @@ interface AppState {
   updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteTransactionsByOrigin: (origin: string) => Promise<void>;
+  reassignTransactionsAccountByOrigin: (origin: string, accountId: string) => Promise<{ updated: number }>;
 
   // CRUD for Categories
   fetchCategories: () => Promise<void>;
@@ -624,6 +625,31 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().recalculateAssetBalance(assetId);
       }
     }
+  },
+
+  reassignTransactionsAccountByOrigin: async (origin, accountId) => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .update({ ID_Conta: accountId })
+      .eq('Origem', origin)
+      .select('ID_Transacao');
+
+    if (error) {
+      console.error('Erro ao reatribuir conta das transações por origem:', error);
+      return { updated: 0 };
+    }
+
+    const updatedIds = new Set((data || []).map((row: any) => row.ID_Transacao));
+
+    if (updatedIds.size > 0) {
+      set((state) => ({
+        transactions: state.transactions.map((t) =>
+          updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t
+        ),
+      }));
+    }
+
+    return { updated: updatedIds.size };
   },
 
   // Categorias (com Supabase)

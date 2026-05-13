@@ -21,7 +21,7 @@ import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, deleteTransactionsByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -101,6 +101,9 @@ const SettingsView: React.FC = () => {
     // State for Import Log Details Modal
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedLogDetails, setSelectedLogDetails] = useState<{ fileName: string, ignoredDetails: any[], importedDetails: any[] } | null>(null);
+    const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+    const [reassignTargetLog, setReassignTargetLog] = useState<ImportLog | null>(null);
+    const [reassignAccountId, setReassignAccountId] = useState<string>('');
 
     const handleSaveAsset = async (assetData: Omit<Asset, 'id' | 'user_id' | 'updated_at'>) => {
         if (editingAsset) {
@@ -264,6 +267,40 @@ const SettingsView: React.FC = () => {
             Count: count
         }));
     }, [transactions]);
+
+    const openReassignModal = useCallback((log: ImportLog) => {
+        setReassignTargetLog(log);
+        setReassignAccountId('');
+        setIsReassignModalOpen(true);
+    }, []);
+
+    const applyReassignAccount = useCallback(async () => {
+        if (!reassignTargetLog || !reassignAccountId) {
+            await appAlert('Selecione uma conta para continuar.', 'Aviso', 'warning');
+            return;
+        }
+
+        const accountName = accounts.find(a => a.id === reassignAccountId)?.Nome_Conta || 'conta selecionada';
+        const confirm = await appConfirm(
+            `Isso irá mover todas as transações importadas de "${reassignTargetLog.file_name}" para "${accountName}". Deseja continuar?`,
+            'Corrigir Conta da Importação',
+            'Aplicar Correção',
+            'warning'
+        );
+
+        if (!confirm) return;
+
+        const result = await reassignTransactionsAccountByOrigin(reassignTargetLog.file_name, reassignAccountId);
+        setIsReassignModalOpen(false);
+        setReassignTargetLog(null);
+        setReassignAccountId('');
+
+        if (result.updated > 0) {
+            await appAlert(`Conta corrigida com sucesso em ${result.updated} transações.`, 'Sucesso', 'success');
+        } else {
+            await appAlert('Nenhuma transação foi atualizada. Verifique se este arquivo possui lançamentos vinculados no histórico.', 'Aviso', 'warning');
+        }
+    }, [reassignTargetLog, reassignAccountId, accounts, reassignTransactionsAccountByOrigin]);
 
     const importLogAccountLabelMap = useMemo(() => {
         const accountNames = new Map(accounts.map(a => [a.id, a.Nome_Conta]));
@@ -482,6 +519,15 @@ const SettingsView: React.FC = () => {
                                 await deleteImportLog(id, log.file_name);
                             }
                         }}
+                        renderExtraActions={(item) => (
+                            <button
+                                className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
+                                onClick={() => openReassignModal(item)}
+                                title="Corrigir conta desta importação"
+                            >
+                                Corrigir Conta
+                            </button>
+                        )}
                         searchKeys={['file_name']}
                         searchPlaceholder="Buscar por nome do arquivo..."
                         hideAddButton={true}
@@ -815,6 +861,53 @@ const SettingsView: React.FC = () => {
                     ignoredDetails={selectedLogDetails.ignoredDetails}
                     importedDetails={selectedLogDetails.importedDetails}
                 />
+            )}
+
+            {isReassignModalOpen && reassignTargetLog && (
+                <Modal
+                    isOpen={isReassignModalOpen}
+                    onClose={() => {
+                        setIsReassignModalOpen(false);
+                        setReassignTargetLog(null);
+                        setReassignAccountId('');
+                    }}
+                    title="Corrigir Conta da Importação"
+                    footer={
+                        <div className="flex justify-end gap-2">
+                            <Button variant="secondary" onClick={() => {
+                                setIsReassignModalOpen(false);
+                                setReassignTargetLog(null);
+                                setReassignAccountId('');
+                            }}>
+                                Cancelar
+                            </Button>
+                            <Button onClick={applyReassignAccount}>
+                                Aplicar
+                            </Button>
+                        </div>
+                    }
+                >
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-300">
+                            Arquivo: <span className="font-semibold text-white">{reassignTargetLog.file_name}</span>
+                        </p>
+                        <Select
+                            label="Mover transações para a conta"
+                            value={reassignAccountId}
+                            onChange={(e) => setReassignAccountId(e.target.value)}
+                        >
+                            <option value="">Selecione uma conta...</option>
+                            {accounts.map(acc => (
+                                <option key={acc.id} value={acc.id}>
+                                    {acc.Nome_Conta}
+                                </option>
+                            ))}
+                        </Select>
+                        <p className="text-xs text-gray-500">
+                            Esta ação atualiza em lote todas as transações com origem igual ao nome deste arquivo.
+                        </p>
+                    </div>
+                </Modal>
             )}
 
             {
