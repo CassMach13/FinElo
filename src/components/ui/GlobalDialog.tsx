@@ -9,9 +9,12 @@ export const GlobalDialog: React.FC = () => {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!isOpen || !options) return;
-      if (e.key === 'Escape' && !options.hideCancel) {
-        closeDialog(false);
-      } else if (e.key === 'Enter') {
+      if (e.key === 'Escape') {
+        closeDialog(options.hideCancel ? true : false);
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
         closeDialog(true);
       }
     },
@@ -50,32 +53,46 @@ export const GlobalDialog: React.FC = () => {
   } as const;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-200">
-      {/* Clique fora para fechar se não for obrigatório */}
-      <div 
-        className="absolute inset-0" 
+    <div className="fixed inset-0 z-[9999] overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
+      {/* Clique fora: cancela confirmações; alertas de uma tecla não fecham pelo fundo para evitar clique acidental */}
+      <div
+        className="fixed inset-0"
         onClick={() => !hideCancel && closeDialog(false)}
+        aria-hidden="true"
       />
-      
-      <div className="relative w-full max-w-md bg-secondary border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col transform scale-100 transition-transform duration-200">
-        
-        {/* Header Decorativo */}
-        <div className={`p-4 flex items-center gap-3 border-b border-slate-700/50 ${bgMap[variant || 'info']}`}>
-          {iconMap[variant || 'info']}
-          <h3 className="text-lg font-bold text-white tracking-wide">
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="global-dialog-title"
+        className="relative z-10 w-full max-w-2xl max-h-[min(88vh,calc(100dvh-2rem))] bg-secondary border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col min-h-0 my-6 sm:my-10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className={`flex-shrink-0 p-4 flex items-center gap-3 border-b border-slate-700/50 ${bgMap[variant || 'info']}`}
+        >
+          <span className="flex-shrink-0">{iconMap[variant || 'info']}</span>
+          <h3 id="global-dialog-title" className="text-lg font-bold text-white tracking-wide flex-1 min-w-0 pr-2 truncate">
             {title || 'Atenção'}
           </h3>
+          <button
+            type="button"
+            aria-label={hideCancel ? 'Fechar' : 'Cancelar'}
+            className="flex-shrink-0 rounded-lg p-1.5 text-gray-300 hover:bg-white/10 hover:text-white transition-colors text-2xl leading-none w-9 h-9 flex items-center justify-center"
+            onClick={() => closeDialog(hideCancel ? true : false)}
+          >
+            ×
+          </button>
         </div>
 
-        {/* Corpo */}
-        <div className="p-6">
-          <p className="text-gray-300 whitespace-pre-line leading-relaxed text-[15px]">
-            {message}
-          </p>
+        {/* Corpo rolável (mensagens longas) */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+          <p className="text-gray-300 whitespace-pre-line leading-relaxed text-[15px] break-words">{message}</p>
         </div>
 
-        {/* Footer (Ações) */}
-        <div className="px-6 py-4 bg-slate-800/30 border-t border-slate-700/50 flex justify-end gap-3 rounded-b-2xl">
+        {/* Footer fixo */}
+        <div className="flex-shrink-0 px-6 py-4 bg-slate-800/30 border-t border-slate-700/50 flex justify-end gap-3 rounded-b-2xl">
           {!hideCancel && (
             <Button
               variant="secondary"

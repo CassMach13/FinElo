@@ -15,7 +15,7 @@ import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
 import { getBelvoWidgetToken, savePluggyConnection, loadPluggyConnections, deletePluggyConnection } from '../../services/openFinanceService';
 import OpenFinanceReviewModal from '../modals/OpenFinanceReviewModal';
-import { PluggyConnection, ImportConfig, Account } from '../../types';
+import { PluggyConnection, ImportConfig, Account, CardImportCycleInput } from '../../types';
 import SaveConfigModal from '../modals/SaveConfigModal';
 
 // --- BankCard: reusable card with favorite star toggle ---
@@ -28,15 +28,24 @@ interface BankCardProps {
 }
 
 const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSelect, onToggleFavorite }) => (
-  <button
+  <div
+    role="button"
+    tabIndex={0}
+    aria-pressed={isSelected}
     onClick={onSelect}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSelect();
+      }
+    }}
     className={`group relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-200 ${
       isSelected
         ? 'border-green-500/60 bg-slate-800 ring-2 ring-green-500/30'
         : isFavorite
           ? 'border-yellow-500/30 bg-slate-800/70 hover:border-yellow-400/50 hover:bg-slate-800'
           : 'border-slate-700 hover:border-slate-500 bg-slate-800/50 hover:bg-slate-800'
-    }`}
+    } cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight`}
   >
     {/* Logo */}
     <div
@@ -65,6 +74,7 @@ const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSel
 
     {/* ⭐ Favorite toggle – top left */}
     <button
+      type="button"
       onClick={onToggleFavorite}
       title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
       className={`absolute top-1.5 left-1.5 text-base leading-none transition-all duration-150
@@ -75,7 +85,7 @@ const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSel
     >
       ⭐
     </button>
-  </button>
+  </div>
 );
 
 const ImportView: React.FC = () => {
@@ -96,6 +106,8 @@ const ImportView: React.FC = () => {
   const [selectedNativeBank, setSelectedNativeBank] = useState<NativeBankConfig | null>(null);
   const [detectedNativeBank, setDetectedNativeBank] = useState<NativeBankConfig | null>(null);
   const [nativeDueDate, setNativeDueDate] = useState('');
+  const [nativeReferenceMode, setNativeReferenceMode] = useState<'auto' | 'manual'>('auto');
+  const [nativeReferenceMonth, setNativeReferenceMonth] = useState('');
   const [selectedNativeAccountId, setSelectedNativeAccountId] = useState('');
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
 
@@ -308,6 +320,8 @@ const ImportView: React.FC = () => {
 
   const [tempSourceType, setTempSourceType] = useState<ImportConfig['Tipo_Fonte']>('Conta');
   const [tempDueDate, setTempDueDate] = useState('');
+  const [tempReferenceMode, setTempReferenceMode] = useState<'auto' | 'manual'>('auto');
+  const [tempReferenceMonth, setTempReferenceMonth] = useState('');
   const [invertValues, setInvertValues] = useState(false);
 
   // Check Monthly Limit
@@ -377,6 +391,37 @@ const ImportView: React.FC = () => {
     setDetectedNativeBank(null);
     setFile(null);
     setNotification(null);
+    setNativeDueDate('');
+    setNativeReferenceMode('auto');
+    setNativeReferenceMonth('');
+  };
+
+  const buildCardCycleInput = (
+    sourceType: ImportConfig['Tipo_Fonte'] | 'Cartao' | 'Conta',
+    dueDate: string,
+    referenceMode: 'auto' | 'manual',
+    referenceMonth: string
+  ): CardImportCycleInput | undefined => {
+    const isCard = sourceType === 'Cartao' || sourceType === 'Cartão de Crédito';
+    if (!isCard) return undefined;
+    return {
+      mode: referenceMode,
+      dueDate: dueDate || null,
+      referenceLabel: referenceMode === 'manual' ? (referenceMonth || null) : null,
+    };
+  };
+
+  const getDistinctCompetenciesFromTransactions = (txs: Array<{ Data?: string | Date }>): string[] => {
+    const keys = new Set<string>();
+    txs.forEach((tx) => {
+      if (!tx.Data) return;
+      const date = new Date(tx.Data);
+      if (Number.isNaN(date.getTime())) return;
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      keys.add(`${y}-${m}`);
+    });
+    return Array.from(keys).sort();
   };
 
   const handleNativeBankFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -413,6 +458,11 @@ const ImportView: React.FC = () => {
           setDetectedNativeBank(null);
         }
         if (selectedNativeBank.sourceType === 'Cartao') {
+          if (nativeReferenceMode === 'manual' && !nativeReferenceMonth) {
+            await appAlert("No modo manual, informe a competência da fatura (AAAA-MM).", "Aviso", "warning");
+            setIsLoading(false);
+            return;
+          }
           // The due date is already captured in `nativeDueDate` within the Native Bank Modal.
           // Parse it from YYYY-MM-DD to a Date object, defaulting to today if somehow missing.
           let paymentDate = new Date();
@@ -420,9 +470,15 @@ const ImportView: React.FC = () => {
             const [year, month, day] = nativeDueDate.split('-');
             paymentDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           }
-          await processNativeBankFile(content, selectedNativeBank, selectedFile, paymentDate);
+          const cardCycle = buildCardCycleInput(
+            selectedNativeBank.sourceType,
+            nativeDueDate,
+            nativeReferenceMode,
+            nativeReferenceMonth
+          );
+          await processNativeBankFile(content, selectedNativeBank, selectedFile, paymentDate, cardCycle);
         } else {
-          await processNativeBankFile(content, selectedNativeBank, selectedFile, undefined);
+          await processNativeBankFile(content, selectedNativeBank, selectedFile, undefined, undefined);
         }
         setIsLoading(false);
     } catch (error) {
@@ -436,12 +492,31 @@ const ImportView: React.FC = () => {
     content: string,
     bankCfg: NativeBankConfig,
     selectedFile: File,
-    paymentDate?: Date
+    paymentDate?: Date,
+    cardCycle?: CardImportCycleInput
   ) => {
     setIsLoading(true);
     setNotification(null);
     try {
       const result = parseNativeBankCSV(content, bankCfg, transactions, mappingRules, paymentDate, selectedFile.name);
+      if (bankCfg.sourceType === 'Cartao' && cardCycle?.mode !== 'manual') {
+        const competencies = getDistinctCompetenciesFromTransactions(result.newTransactions);
+        if (competencies.length > 1) {
+          const proceedAuto = await appConfirm(
+            `Detectamos lançamentos de múltiplas competências (${competencies.join(', ')}) no mesmo arquivo. Deseja continuar no modo automático mesmo assim?`,
+            'Possível Ambiguidade de Competência',
+            'Continuar automático',
+            'warning'
+          );
+          if (!proceedAuto) {
+            setNotification({
+              type: 'error',
+              message: 'Importação pausada. Defina a competência manualmente para garantir precisão da fatura.',
+            });
+            return;
+          }
+        }
+      }
       if (result.newTransactions.length > 0 || result.ignoredCount > 0) {
         const fakeConfig = {
           id: bankCfg.id,
@@ -451,7 +526,13 @@ const ImportView: React.FC = () => {
           Linhas_Ignorar_Inicio: bankCfg.skipLines,
           ID_Conta_Associada: selectedNativeAccountId || null
         };
-        const importResult = await addMultipleTransactions(result.newTransactions, fakeConfig as any, selectedFile.name, result.ignoredItems);
+        const importResult = await addMultipleTransactions(
+          result.newTransactions,
+          fakeConfig as any,
+          selectedFile.name,
+          result.ignoredItems,
+          { cardCycle }
+        );
         setNotification({
           type: 'success',
           message: `✅ Importação concluída! ${importResult.imported} novas transações, ${importResult.ignored} ignoradas.`,
@@ -548,11 +629,21 @@ const ImportView: React.FC = () => {
         appAlert("Data de vencimento inválida.", "Erro", "danger");
         return;
       }
+      if (tempReferenceMode === 'manual' && !tempReferenceMonth) {
+        await appAlert("Para modo manual, informe a competência da fatura (AAAA-MM).", "Aviso", "warning");
+        return;
+      }
     }
-    await processFile(dueDateToUse);
+    const cardCycle = buildCardCycleInput(
+      tempSourceType,
+      tempDueDate,
+      tempReferenceMode,
+      tempReferenceMonth
+    );
+    await processFile(dueDateToUse, cardCycle);
   };
 
-  const processFile = async (paymentDate?: Date) => {
+  const processFile = async (paymentDate?: Date, cardCycle?: CardImportCycleInput) => {
     setIsLoading(true);
     setNotification(null);
     try {
@@ -581,6 +672,24 @@ const ImportView: React.FC = () => {
         invertValues: invertValues
       };
       const result = await processStatementFile(file!, null, transactions, mappingRules, paymentDate, manualMappingConfig);
+      if ((tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito') && cardCycle?.mode !== 'manual') {
+        const competencies = getDistinctCompetenciesFromTransactions(result.newTransactions);
+        if (competencies.length > 1) {
+          const proceedAuto = await appConfirm(
+            `Detectamos lançamentos de múltiplas competências (${competencies.join(', ')}) no mesmo arquivo. Deseja continuar no modo automático mesmo assim?`,
+            'Possível Ambiguidade de Competência',
+            'Continuar automático',
+            'warning'
+          );
+          if (!proceedAuto) {
+            setNotification({
+              type: 'error',
+              message: 'Importação pausada. Defina a competência manualmente para garantir precisão da fatura.',
+            });
+            return;
+          }
+        }
+      }
       if (result.newTransactions.length > 0 || result.ignoredCount > 0) {
         const sourceName = selectedConfigSource || "Importação Inteligente";
         const effectiveConfig = config || {
@@ -590,7 +699,13 @@ const ImportView: React.FC = () => {
           Tem_Cabecalho: mapping.hasHeader,
           Linhas_Ignorar_Inicio: mapping.skipLines
         };
-        const importResult = await addMultipleTransactions(result.newTransactions, effectiveConfig as any, file!.name, result.ignoredItems);
+        const importResult = await addMultipleTransactions(
+          result.newTransactions,
+          effectiveConfig as any,
+          file!.name,
+          result.ignoredItems,
+          { cardCycle }
+        );
         setNotification({
           type: 'success',
           message: `Importação concluída! ${importResult.imported} novas, ${importResult.ignored} ignoradas.`,
@@ -926,7 +1041,15 @@ const ImportView: React.FC = () => {
             selectedNativeBank && (
               <Modal
                 isOpen={true}
-                onClose={() => { setSelectedNativeBank(null); setDetectedNativeBank(null); setFile(null); setNotification(null); }}
+                onClose={() => {
+                  setSelectedNativeBank(null);
+                  setDetectedNativeBank(null);
+                  setFile(null);
+                  setNotification(null);
+                  setNativeDueDate('');
+                  setNativeReferenceMode('auto');
+                  setNativeReferenceMonth('');
+                }}
                 title="Importação Automática"
                 className="max-w-xl"
                 footer={null}
@@ -967,6 +1090,44 @@ const ImportView: React.FC = () => {
                         className="w-full sm:w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                       />
                       <p className="text-xs text-blue-400 mt-1">Necessário para registrar a data de pagamento correta das despesas.</p>
+                      <div className="mt-3 pt-3 border-t border-blue-500/20">
+                        <p className="text-xs text-blue-300 font-semibold mb-2">Competência da fatura</p>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                          <label className="flex items-center gap-2 text-xs text-gray-300">
+                            <input
+                              type="radio"
+                              name="nativeReferenceMode"
+                              checked={nativeReferenceMode === 'auto'}
+                              onChange={() => setNativeReferenceMode('auto')}
+                              className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                            />
+                            Automática (pela compra mais recente)
+                          </label>
+                          <label className="flex items-center gap-2 text-xs text-gray-300">
+                            <input
+                              type="radio"
+                              name="nativeReferenceMode"
+                              checked={nativeReferenceMode === 'manual'}
+                              onChange={() => setNativeReferenceMode('manual')}
+                              className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                            />
+                            Definir manualmente
+                          </label>
+                        </div>
+                        {nativeReferenceMode === 'manual' && (
+                          <div className="mt-2">
+                            <Input
+                              label="Competência (AAAA-MM)"
+                              type="month"
+                              value={nativeReferenceMonth}
+                              onChange={(e) => setNativeReferenceMonth(e.target.value)}
+                            />
+                            <p className="text-[11px] text-blue-400 mt-1">
+                              Recomendado para arquivos antigos, garantindo precisão da fatura no histórico.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1004,7 +1165,8 @@ const ImportView: React.FC = () => {
                     htmlFor="native-file-upload"
                     className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all ${isLoading
                       ? 'border-slate-700 bg-slate-800/30 cursor-not-allowed'
-                      : (selectedNativeBank.sourceType === 'Cartao' && !nativeDueDate) || !selectedNativeAccountId
+                      : (selectedNativeBank.sourceType === 'Cartao' &&
+                          (!nativeDueDate || (nativeReferenceMode === 'manual' && !nativeReferenceMonth))) || !selectedNativeAccountId
                         ? 'border-slate-700 bg-slate-800/20 cursor-not-allowed opacity-50'
                         : 'border-slate-600 hover:border-green-500/50 hover:bg-slate-800/50 bg-slate-900/30'
                       }`}
@@ -1015,7 +1177,11 @@ const ImportView: React.FC = () => {
                       accept=".csv,.xlsx,.xls"
                       className="hidden"
                       onChange={handleNativeBankFileChange}
-                      disabled={isLoading || (selectedNativeBank.sourceType === 'Cartao' && !nativeDueDate)}
+                      disabled={
+                        isLoading ||
+                        (selectedNativeBank.sourceType === 'Cartao' &&
+                          (!nativeDueDate || (nativeReferenceMode === 'manual' && !nativeReferenceMonth)))
+                      }
                     />
                     {isLoading ? (
                       <div className="flex items-center gap-3 text-highlight">
@@ -1035,6 +1201,8 @@ const ImportView: React.FC = () => {
                         <p className="text-white font-semibold mb-1 text-center">
                           {selectedNativeBank.sourceType === 'Cartao' && !nativeDueDate
                             ? 'Informe a data de vencimento acima'
+                            : selectedNativeBank.sourceType === 'Cartao' && nativeReferenceMode === 'manual' && !nativeReferenceMonth
+                              ? 'Informe a competência (AAAA-MM)'
                             : !selectedNativeAccountId
                               ? 'Selecione a conta de destino para habilitar'
                               : `Clique para enviar o extrato`}
@@ -1152,11 +1320,34 @@ const ImportView: React.FC = () => {
                   <div className="flex flex-col sm:flex-row gap-6">
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="sourceType" value="Conta Corrente" checked={tempSourceType === 'Conta' || tempSourceType === 'Conta Corrente'} onChange={() => { setTempSourceType('Conta Corrente'); setInvertValues(false); }} className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600" />
+                        <input
+                          type="radio"
+                          name="sourceType"
+                          value="Conta Corrente"
+                          checked={tempSourceType === 'Conta' || tempSourceType === 'Conta Corrente'}
+                          onChange={() => {
+                            setTempSourceType('Conta Corrente');
+                            setInvertValues(false);
+                            setTempDueDate('');
+                            setTempReferenceMode('auto');
+                            setTempReferenceMonth('');
+                          }}
+                          className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                        />
                         <span className="text-gray-300 text-sm">Conta Corrente</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="sourceType" value="Cartão de Crédito" checked={tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito'} onChange={() => { setTempSourceType('Cartão de Crédito'); setInvertValues(true); }} className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600" />
+                        <input
+                          type="radio"
+                          name="sourceType"
+                          value="Cartão de Crédito"
+                          checked={tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito'}
+                          onChange={() => {
+                            setTempSourceType('Cartão de Crédito');
+                            setInvertValues(true);
+                          }}
+                          className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                        />
                         <span className="text-gray-300 text-sm">Cartão de Crédito</span>
                       </label>
                     </div>
@@ -1164,6 +1355,40 @@ const ImportView: React.FC = () => {
                       <div className="animate-fadeIn">
                         <Input label="Vencimento da Fatura *" type="date" value={tempDueDate} onChange={e => setTempDueDate(e.target.value)} className="w-full sm:w-auto text-sm py-1" />
                         <p className="text-xs text-blue-400 mt-1">Essa data será usada como <strong>Data de Pagamento</strong>.</p>
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs text-gray-300 font-medium">Competência da fatura</p>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="tempReferenceMode"
+                                checked={tempReferenceMode === 'auto'}
+                                onChange={() => setTempReferenceMode('auto')}
+                                className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                              />
+                              <span className="text-xs text-gray-300">Automática (compra mais recente)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="tempReferenceMode"
+                                checked={tempReferenceMode === 'manual'}
+                                onChange={() => setTempReferenceMode('manual')}
+                                className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                              />
+                              <span className="text-xs text-gray-300">Definir manualmente</span>
+                            </label>
+                          </div>
+                          {tempReferenceMode === 'manual' && (
+                            <Input
+                              label="Competência (AAAA-MM) *"
+                              type="month"
+                              value={tempReferenceMonth}
+                              onChange={e => setTempReferenceMonth(e.target.value)}
+                              className="w-full sm:w-auto text-sm py-1"
+                            />
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1307,9 +1532,21 @@ const ImportView: React.FC = () => {
             onConfirm={async (date) => {
               setPaymentDateModalOpen(false);
               if (selectedNativeBank && fileContent && file) {
-                await processNativeBankFile(fileContent, selectedNativeBank, file, date);
+                const cardCycle = buildCardCycleInput(
+                  selectedNativeBank.sourceType,
+                  nativeDueDate,
+                  nativeReferenceMode,
+                  nativeReferenceMonth
+                );
+                await processNativeBankFile(fileContent, selectedNativeBank, file, date, cardCycle);
               } else {
-                await processFile(date);
+                const cardCycle = buildCardCycleInput(
+                  tempSourceType,
+                  tempDueDate,
+                  tempReferenceMode,
+                  tempReferenceMonth
+                );
+                await processFile(date, cardCycle);
               }
             }}
           />

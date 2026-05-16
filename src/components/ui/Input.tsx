@@ -4,9 +4,10 @@ import React from 'react';
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  helpText?: string;
 }
 
-const Input: React.FC<InputProps> = ({ className = '', label, id, error, ...props }) => {
+const Input: React.FC<InputProps> = ({ className = '', label, id, error, helpText, ...props }) => {
   // Estado de erro vs Estado normal
   const borderColor = error 
     ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
@@ -41,6 +42,7 @@ const Input: React.FC<InputProps> = ({ className = '', label, id, error, ...prop
           {...props}
         />
       </div>
+      {helpText && !error && <p className="mt-1.5 ml-1 text-xs text-slate-400">{helpText}</p>}
       {error && <p className="mt-1.5 ml-1 text-xs text-red-400 font-medium animate-pulse">{error}</p>}
     </div>
   );

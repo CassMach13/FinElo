@@ -1,9 +1,9 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Card from '../ui/Card';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
-import { Category, Budget, MappingRule, ImportConfig, ImportLog, Account, Asset } from '../../types';
+import { Category, Budget, MappingRule, ImportConfig, ImportLog, Account, Asset, CardImportCycleInput } from '../../types';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
@@ -19,9 +19,13 @@ import AssetDetailModal from '../modals/AssetDetailModal';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
+import { buildImportLogAlerts, isImportedDetailRowsIncomplete, type ImportLogAlertContext } from '../../utils/importLogHealth';
+import { comparableImportOriginKey } from '../../utils/importOriginKey';
+import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
+import CreditCardInvoiceCyclesModal from '../modals/CreditCardInvoiceCyclesModal';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, reprocessCreditCardImportByOrigin, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -77,6 +81,13 @@ const SettingsView: React.FC = () => {
         fetchFamilyMembers();
     }, []);
 
+    React.useEffect(() => {
+        if (user?.email === 'cassiomq@gmail.com') {
+            refreshCreditCardShadowDashboard();
+            fetchCreditCardReprocessJobs();
+        }
+    }, [user?.email, accounts.length, transactions.length, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs]);
+
     const [isBudgetModalOpen, setBudgetModalOpen] = useState(false);
     const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
@@ -104,6 +115,38 @@ const SettingsView: React.FC = () => {
     const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
     const [reassignTargetLog, setReassignTargetLog] = useState<ImportLog | null>(null);
     const [reassignAccountId, setReassignAccountId] = useState<string>('');
+    const [isReprocessModalOpen, setIsReprocessModalOpen] = useState(false);
+    const [reprocessTargetLog, setReprocessTargetLog] = useState<ImportLog | null>(null);
+    const [reprocessMode, setReprocessMode] = useState<'auto' | 'manual'>('auto');
+    const [reprocessReferenceMonth, setReprocessReferenceMonth] = useState('');
+    const [reprocessDueDate, setReprocessDueDate] = useState('');
+    const [isRebuildModalOpen, setIsRebuildModalOpen] = useState(false);
+    const [rebuildAccountId, setRebuildAccountId] = useState('');
+    const [rebuildFromDate, setRebuildFromDate] = useState('');
+    const [rebuildToDate, setRebuildToDate] = useState('');
+    const [bulkReprocessBusy, setBulkReprocessBusy] = useState(false);
+    const [repairImportLogsBusy, setRepairImportLogsBusy] = useState(false);
+    const [repairSingleLogId, setRepairSingleLogId] = useState('');
+    const [isCreditCyclesModalOpen, setIsCreditCyclesModalOpen] = useState(false);
+
+    const importAlertContext: ImportLogAlertContext = useMemo(
+        () => ({ accounts, transactions }),
+        [accounts, transactions]
+    );
+
+    const importLogsSortedForRepair = useMemo(
+        () =>
+            [...importLogs].sort(
+                (a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime()
+            ),
+        [importLogs]
+    );
+
+    useEffect(() => {
+        if (repairSingleLogId && !importLogs.some((l) => l.id === repairSingleLogId)) {
+            setRepairSingleLogId('');
+        }
+    }, [importLogs, repairSingleLogId]);
 
     const handleSaveAsset = async (assetData: Omit<Asset, 'id' | 'user_id' | 'updated_at'>) => {
         if (editingAsset) {
@@ -291,16 +334,215 @@ const SettingsView: React.FC = () => {
         if (!confirm) return;
 
         const result = await reassignTransactionsAccountByOrigin(reassignTargetLog.file_name, reassignAccountId);
+        const selectedAccount = accounts.find(a => a.id === reassignAccountId);
+        const isCreditCardTarget = selectedAccount?.Tipo_Conta === 'Cartão de Crédito';
         setIsReassignModalOpen(false);
         setReassignTargetLog(null);
         setReassignAccountId('');
 
         if (result.updated > 0) {
-            await appAlert(`Conta corrigida com sucesso em ${result.updated} transações.`, 'Sucesso', 'success');
+            await appAlert(
+                isCreditCardTarget
+                    ? `Conta corrigida com sucesso em ${result.updated} transações. A fatura foi atualizada automaticamente.`
+                    : `Conta corrigida com sucesso em ${result.updated} transações.`,
+                'Sucesso',
+                'success'
+            );
         } else {
             await appAlert('Nenhuma transação foi atualizada. Verifique se este arquivo possui lançamentos vinculados no histórico.', 'Aviso', 'warning');
         }
     }, [reassignTargetLog, reassignAccountId, accounts, reassignTransactionsAccountByOrigin]);
+
+    const handleReprocessImport = useCallback(async (log: ImportLog) => {
+        const importedDetails = Array.isArray(log.imported_details) ? log.imported_details : [];
+        const metadata = importedDetails.find((d: any) =>
+            d?.Card_Cycle_Mode || d?.Card_Reference_Label || d?.Card_Due_Date
+        );
+
+        setReprocessTargetLog(log);
+        setReprocessMode(metadata?.Card_Cycle_Mode === 'manual' ? 'manual' : 'auto');
+        setReprocessReferenceMonth(metadata?.Card_Reference_Label || '');
+        setReprocessDueDate(metadata?.Card_Due_Date || '');
+        setIsReprocessModalOpen(true);
+    }, []);
+
+    const handleConfirmReprocessImport = useCallback(async () => {
+        if (!reprocessTargetLog) return;
+        if (reprocessMode === 'manual' && !reprocessReferenceMonth) {
+            await appAlert('Informe a competência (AAAA-MM) para reprocessamento manual.', 'Aviso', 'warning');
+            return;
+        }
+
+        const ok = await appConfirm(
+            `Reprocessar a fatura V2 para a origem "${reprocessTargetLog.file_name}"?`,
+            'Reprocessar Fatura',
+            'Reprocessar',
+            'warning'
+        );
+        if (!ok) return;
+
+        const cardCycle: CardImportCycleInput = {
+            mode: reprocessMode,
+            referenceLabel: reprocessMode === 'manual' ? reprocessReferenceMonth : null,
+            dueDate: reprocessDueDate || null,
+        };
+
+        const result = await reprocessCreditCardImportByOrigin(reprocessTargetLog.file_name, { cardCycle });
+        setIsReprocessModalOpen(false);
+        setReprocessTargetLog(null);
+        setReprocessMode('auto');
+        setReprocessReferenceMonth('');
+        setReprocessDueDate('');
+        await appAlert(result.message, result.processed > 0 ? 'Sucesso' : 'Aviso', result.processed > 0 ? 'success' : 'warning');
+    }, [reprocessTargetLog, reprocessMode, reprocessReferenceMonth, reprocessDueDate, reprocessCreditCardImportByOrigin]);
+
+    const handleRepairImportLogPayloads = useCallback(async () => {
+        const ok = await appConfirm(
+            'Reidratar todos os registros do histórico onde o JSON não bate com o ledger (origens com transações já guardadas).\n\nNenhum lançamento é apagado — apenas alinha o histórico com o extrato que você já importou.',
+            'Corrigir JSON do histórico',
+            'Reidratar',
+            'warning'
+        );
+        if (!ok) return;
+
+        setRepairImportLogsBusy(true);
+        try {
+            const result = await repairImportLogsImportedDetailsFromLedger();
+            await appAlert(result.message, 'Histórico de importações', result.updated > 0 ? 'success' : 'warning');
+        } finally {
+            setRepairImportLogsBusy(false);
+        }
+    }, [repairImportLogsImportedDetailsFromLedger]);
+
+    const handleRepairSingleImportLog = useCallback(async () => {
+        if (!repairSingleLogId) {
+            await appAlert('Selecione um arquivo na lista antes de reidratar.', 'Reidratar um arquivo', 'warning');
+            return;
+        }
+        const log = importLogs.find((l) => l.id === repairSingleLogId);
+        if (!log) {
+            await appAlert('Registro não encontrado. Atualize a página e tente de novo.', 'Reidratar', 'warning');
+            return;
+        }
+        const ok = await appConfirm(
+            `Reidratar apenas este registro?\n\n«${log.file_name}»\n\n` +
+                'O campo «imported_details» e «imported_count» serão reconstruídos a partir das transações já guardadas com a mesma origem (não inclui lançamentos manuais). ' +
+                'Metadados de cartão já salvos (competência, vencimento, vínculos de pagamento) são preservados quando existirem.\n\n' +
+                'Nenhum lançamento é apagado.',
+            'Reidratar um arquivo',
+            'Reidratar',
+            'warning'
+        );
+        if (!ok) return;
+
+        setRepairImportLogsBusy(true);
+        try {
+            const result = await repairImportLogsImportedDetailsFromLedger(log.id);
+            await appAlert(result.message, 'Histórico de importações', result.updated > 0 ? 'success' : 'warning');
+        } finally {
+            setRepairImportLogsBusy(false);
+        }
+    }, [repairSingleLogId, importLogs, repairImportLogsImportedDetailsFromLedger]);
+
+    const handleBulkReprocessAlertedImports = useCallback(async () => {
+        if (!user || !isCreditCardEngineEnabled(user)) {
+            await appAlert(
+                'O reprocessamento em lote usa o motor de cartão. Ative-o nas preferências ou use «Reprocessar fatura» em cada arquivo.',
+                'Motor de cartão',
+                'warning'
+            );
+            return;
+        }
+
+        const alerted = importLogs.filter((log) => buildImportLogAlerts(log, importAlertContext).level !== 'ok');
+        const byKey = new Map<string, ImportLog>();
+        [...alerted]
+            .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime())
+            .forEach((log) => {
+                const k = comparableImportOriginKey(log.file_name);
+                if (k && !byKey.has(k)) byKey.set(k, log);
+            });
+        const targets = Array.from(byKey.values()).filter((log) => comparableImportOriginKey(log.file_name));
+
+        if (targets.length === 0) {
+            await appAlert('Não há importações com alerta para reprocessar.', 'Histórico', 'warning');
+            return;
+        }
+
+        const ok = await appConfirm(
+            `Reprocessar no motor ${targets.length} arquivo(s) único(s) com alerta?\n\n` +
+                `Arquivos de conta corrente / investimento serão ignorados pelo motor (mensagem no relatório). ` +
+                `Nada é apagado — apenas recalcula faturas de cartão quando aplicável.`,
+            'Reprocessar todos com alertas',
+            'Reprocessar',
+            'warning'
+        );
+        if (!ok) return;
+
+        setBulkReprocessBusy(true);
+        const lines: string[] = [];
+        let successes = 0;
+        try {
+            for (const log of targets) {
+                const importedDetails = Array.isArray(log.imported_details) ? log.imported_details : [];
+                const metadata = importedDetails.find(
+                    (d: any) => d?.Card_Cycle_Mode || d?.Card_Reference_Label || d?.Card_Due_Date
+                );
+                const cardCycle: CardImportCycleInput = {
+                    mode: metadata?.Card_Cycle_Mode === 'manual' ? 'manual' : 'auto',
+                    referenceLabel: metadata?.Card_Reference_Label || null,
+                    dueDate: metadata?.Card_Due_Date || null,
+                };
+                try {
+                    const result = await reprocessCreditCardImportByOrigin(log.file_name, { cardCycle });
+                    if (result.processed > 0) successes += 1;
+                    const icon = result.processed > 0 ? '✓' : '—';
+                    lines.push(`${icon} ${log.file_name}: ${result.message}`);
+                } catch (e: any) {
+                    lines.push(`✗ ${log.file_name}: ${e?.message || 'erro ao reprocessar'}`);
+                }
+            }
+
+            const head = `${successes}/${targets.length} origem(ns) atualizaram o motor com sucesso.`;
+            const body = lines.slice(0, 30).join('\n');
+            const tail =
+                lines.length > 30 ? `\n\n… (+${lines.length - 30} linhas — veja o console se precisar do detalhe completo)` : '';
+            console.log('[BulkReprocessImport]', lines.join('\n'));
+            await appAlert(`${head}\n\n${body}${tail}`, 'Reprocessamento em lote', successes > 0 ? 'success' : 'warning');
+        } finally {
+            await fetchTransactions();
+            await fetchImportLogs();
+            setBulkReprocessBusy(false);
+        }
+    }, [user, importLogs, importAlertContext, reprocessCreditCardImportByOrigin, fetchTransactions, fetchImportLogs]);
+
+    const handleOpenRebuildModal = useCallback(() => {
+        const firstCard = accounts.find(a => a.Tipo_Conta === 'Cartão de Crédito');
+        setRebuildAccountId(firstCard?.id || '');
+        setRebuildFromDate('');
+        setRebuildToDate('');
+        setIsRebuildModalOpen(true);
+    }, [accounts]);
+
+    const handleConfirmRebuild = useCallback(async () => {
+        if (!rebuildAccountId || !rebuildFromDate || !rebuildToDate) {
+            await appAlert('Preencha conta, data inicial e data final.', 'Aviso', 'warning');
+            return;
+        }
+
+        const accountName = accounts.find(a => a.id === rebuildAccountId)?.Nome_Conta || 'conta selecionada';
+        const ok = await appConfirm(
+            `Reconstruir o Cartão V2 de "${accountName}" no período ${rebuildFromDate} até ${rebuildToDate}?`,
+            'Reconstruir Cartão por Período',
+            'Reconstruir',
+            'warning'
+        );
+        if (!ok) return;
+
+        const result = await rebuildCreditCardByPeriod(rebuildAccountId, rebuildFromDate, rebuildToDate);
+        setIsRebuildModalOpen(false);
+        await appAlert(result.message, 'Sucesso', 'success');
+    }, [rebuildAccountId, rebuildFromDate, rebuildToDate, accounts, rebuildCreditCardByPeriod]);
 
     const importLogAccountLabelMap = useMemo(() => {
         const accountNames = new Map(accounts.map(a => [a.id, a.Nome_Conta]));
@@ -386,6 +628,41 @@ const SettingsView: React.FC = () => {
 
         return labels;
     }, [importLogs, accounts, transactions, importConfigs]);
+
+    const importLogsUniqueWithAlerts = useMemo(() => {
+        const alerted = importLogs.filter((log) => buildImportLogAlerts(log, importAlertContext).level !== 'ok');
+        const byKey = new Map<string, ImportLog>();
+        [...alerted]
+            .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime())
+            .forEach((log) => {
+                const k = comparableImportOriginKey(log.file_name);
+                if (k && !byKey.has(k)) byKey.set(k, log);
+            });
+        return Array.from(byKey.values());
+    }, [importLogs, importAlertContext]);
+
+    const isImportedDetailsIncomplete = useCallback((rows: any[]) => isImportedDetailRowsIncomplete(rows), []);
+
+    const fetchImportedDetailsFromTransactions = useCallback(async (origin: string) => {
+        const { supabase } = await import('../../supabaseClient');
+        const { data, error } = await supabase
+            .from('transactions')
+            .select('Data, Descricao_Original, Nome_Fantasia, Valor, Categoria, ID_Conta')
+            .eq('Origem', origin)
+            .order('Data', { ascending: true });
+        if (error) {
+            console.error('Falha ao carregar transações por origem no modal de detalhes:', error);
+            return [];
+        }
+        return (data || []).map((tx: any) => ({
+            Data: tx.Data,
+            Descricao_Original: tx.Descricao_Original,
+            Nome_Fantasia: tx.Nome_Fantasia,
+            Valor: tx.Valor,
+            Categoria: tx.Categoria,
+            ID_Conta: tx.ID_Conta,
+        }));
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -487,8 +764,10 @@ const SettingsView: React.FC = () => {
                     <CrudCard<ImportLog>
                         title="Histórico de Importações"
                         data={importLogs}
-                        headers={['Arquivo', 'Conta Escolhida', 'Data da Importação', 'Total', 'Importados', 'Ignorados']}
-                        renderRow={(item) => (
+                        headers={['Arquivo', 'Conta Escolhida', 'Data da Importação', 'Total', 'Importados', 'Ignorados', 'Alertas']}
+                        renderRow={(item) => {
+                            const alerts = buildImportLogAlerts(item, importAlertContext);
+                            return (
                             <>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-300 font-medium">
@@ -498,15 +777,50 @@ const SettingsView: React.FC = () => {
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
+                                <td className="px-4 py-3 align-top text-center">
+                                    {alerts.badges.length === 0 ? (
+                                        <span className="text-sm text-slate-500" title="Nenhum alerta detectado por heurística">—</span>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-1 justify-center max-w-[240px] mx-auto">
+                                            {alerts.badges.map((b, i) => (
+                                                <span
+                                                    key={`${item.id}-${i}`}
+                                                    title={b}
+                                                    className={
+                                                        alerts.level === 'error'
+                                                            ? 'inline-flex px-2 py-0.5 rounded text-[10px] font-semibold leading-tight border border-red-500/40 bg-red-500/15 text-red-200'
+                                                            : 'inline-flex px-2 py-0.5 rounded text-[10px] font-semibold leading-tight border border-amber-500/35 bg-amber-500/10 text-amber-100'
+                                                    }
+                                                >
+                                                    {b}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </td>
                             </>
-                        )}
+                            );
+                        }}
                         onAdd={() => { }}
-                        onEdit={(item) => {
+                        onEdit={async (item) => {
                             if (item.ignored_count > 0 || item.imported_count > 0) {
+                                let importedDetails = Array.isArray(item.imported_details) ? item.imported_details : [];
+                                /** Logs antigos: `imported_count` vinha das linhas tentadas, não do retorno do insert+.select(). */
+                                const countMismatchVersusPayload = item.imported_count !== importedDetails.length;
+                                const needsFallback =
+                                    countMismatchVersusPayload ||
+                                    isImportedDetailsIncomplete(importedDetails) ||
+                                    (item.imported_count > 1 && importedDetails.length <= 1);
+                                if (needsFallback) {
+                                    const fallback = await fetchImportedDetailsFromTransactions(item.file_name);
+                                    if (fallback.length > 0 && (fallback.length > importedDetails.length || countMismatchVersusPayload)) {
+                                        importedDetails = fallback;
+                                    }
+                                }
                                 setSelectedLogDetails({
                                     fileName: item.file_name,
                                     ignoredDetails: item.ignored_details || [],
-                                    importedDetails: item.imported_details || []
+                                    importedDetails
                                 });
                                 setIsDetailsModalOpen(true);
                             } else {
@@ -520,13 +834,22 @@ const SettingsView: React.FC = () => {
                             }
                         }}
                         renderExtraActions={(item) => (
-                            <button
-                                className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
-                                onClick={() => openReassignModal(item)}
-                                title="Corrigir conta desta importação"
-                            >
-                                Corrigir Conta
-                            </button>
+                            <>
+                                <button
+                                    className="text-cyan-400 hover:text-cyan-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
+                                    onClick={() => handleReprocessImport(item)}
+                                    title="Reprocessar fatura desta importação"
+                                >
+                                    Reprocessar Fatura
+                                </button>
+                                <button
+                                    className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
+                                    onClick={() => openReassignModal(item)}
+                                    title="Corrigir conta desta importação"
+                                >
+                                    Corrigir Conta
+                                </button>
+                            </>
                         )}
                         searchKeys={['file_name']}
                         searchPlaceholder="Buscar por nome do arquivo..."
@@ -534,7 +857,49 @@ const SettingsView: React.FC = () => {
                         hideEditButton={false}
                         editLabel="Exibir"
                         footer={
-                            <div className="mt-4 border-t border-slate-700 pt-4">
+                            <>
+                                <div className="mt-4 border-t border-slate-700 pt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                                <Button
+                                    variant="primary"
+                                    disabled={
+                                        bulkReprocessBusy ||
+                                        repairImportLogsBusy ||
+                                        importLogsUniqueWithAlerts.length === 0 ||
+                                        !user ||
+                                        !isCreditCardEngineEnabled(user)
+                                    }
+                                    title={
+                                        !user || !isCreditCardEngineEnabled(user)
+                                            ? 'Motor de cartão necessário para reprocessamento em lote'
+                                            : 'Reprocessa no motor todas as origens únicas que exibem alerta (cartão)'
+                                    }
+                                    onClick={handleBulkReprocessAlertedImports}
+                                    className="w-full sm:w-auto"
+                                >
+                                    {bulkReprocessBusy ? 'Reprocessando…' : `Reprocessar todas com alertas (${importLogsUniqueWithAlerts.length})`}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    disabled={bulkReprocessBusy || repairImportLogsBusy || !user || !isCreditCardEngineEnabled(user)}
+                                    title={
+                                        !user || !isCreditCardEngineEnabled(user)
+                                            ? 'Motor de cartão necessário'
+                                            : 'Lista cada arquivo (cartão): competência MM/AAAA e vencimento DD/MM/AAAA'
+                                    }
+                                    onClick={() => setIsCreditCyclesModalOpen(true)}
+                                    className="w-full sm:w-auto"
+                                >
+                                    Competências por arquivo (cartão)
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    disabled={repairImportLogsBusy || bulkReprocessBusy}
+                                    onClick={handleRepairImportLogPayloads}
+                                    className="w-full sm:w-auto"
+                                    title="Alinha imported_details/imported_count em todos os lotes elegíveis"
+                                >
+                                    {repairImportLogsBusy ? 'Reidratando…' : 'Reidratar todos (histórico completo)'}
+                                </Button>
                                 <Button
                                     variant="secondary"
                                     onClick={async () => {
@@ -543,11 +908,44 @@ const SettingsView: React.FC = () => {
                                             await syncLegacyImportLogs();
                                         }
                                     }}
+                                    disabled={bulkReprocessBusy || repairImportLogsBusy}
                                     className="w-full sm:w-auto"
                                 >
                                     Sincronizar Histórico Antigo
                                 </Button>
-                            </div>
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end border-t border-slate-700 pt-4 mt-2">
+                                    <div className="w-full sm:flex-1 sm:min-w-[280px]">
+                                        <Select
+                                            label="Reidratar só este arquivo"
+                                            id="repair-single-import-log"
+                                            value={repairSingleLogId}
+                                            onChange={(e) => setRepairSingleLogId(e.target.value)}
+                                            disabled={repairImportLogsBusy || bulkReprocessBusy || importLogs.length === 0}
+                                            helpText="Um registro por vez — útil se o JSON do histórico foi editado ou ficou só com metadados. Preserva competência/vencimento quando já gravados."
+                                        >
+                                            <option value="">Selecione um arquivo…</option>
+                                            {importLogsSortedForRepair.map((log) => (
+                                                <option key={log.id} value={log.id}>
+                                                    {log.file_name} —{' '}
+                                                    {log.import_date
+                                                        ? new Date(log.import_date).toLocaleString('pt-BR')
+                                                        : 'sem data'}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        disabled={repairImportLogsBusy || bulkReprocessBusy || !repairSingleLogId}
+                                        onClick={handleRepairSingleImportLog}
+                                        className="w-full sm:w-auto shrink-0"
+                                        title="Reidrata apenas o registro escolhido (por id no histórico)"
+                                    >
+                                        {repairImportLogsBusy ? 'Reidratando…' : 'Reidratar selecionado'}
+                                    </Button>
+                                </div>
+                            </>
                         }
                     />
                 </div>
@@ -838,6 +1236,148 @@ const SettingsView: React.FC = () => {
             </div>
             {user?.email === 'cassiomq@gmail.com' && (
                 <div className="lg:col-span-2">
+                    <Card className="flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-light">Cartão V2 — Modo Sombra (Divergências)</h2>
+                            <div className="flex gap-2">
+                                <Button variant="secondary" onClick={refreshCreditCardShadowDashboard}>
+                                    Atualizar
+                                </Button>
+                                <Button variant="secondary" onClick={handleOpenRebuildModal}>
+                                    Reconstruir Cartão
+                                </Button>
+                            </div>
+                        </div>
+                        {creditCardShadowDashboard.length === 0 ? (
+                            <p className="text-sm text-gray-400">
+                                Sem dados de comparação ainda. Importe uma fatura de cartão com o shadow mode ativo.
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {creditCardShadowDashboard.map((row) => {
+                                    const badgeClass =
+                                        row.status === 'ok'
+                                            ? 'bg-green-500/20 text-green-300 border-green-500/40'
+                                            : row.status === 'divergent'
+                                                ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                                                : 'bg-slate-500/20 text-slate-300 border-slate-500/40';
+                                    const badgeLabel =
+                                        row.status === 'ok'
+                                            ? 'OK'
+                                            : row.status === 'divergent'
+                                                ? 'Divergente'
+                                                : 'Sem Dados';
+
+                                    return (
+                                        <div key={row.accountId} className="rounded-xl border border-slate-700 bg-slate-900/40 p-4">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <p className="text-sm font-semibold text-white">{row.accountName}</p>
+                                                <span className={`text-[11px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${badgeClass}`}>
+                                                    {badgeLabel}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3 text-xs">
+                                                <div>
+                                                    <p className="text-gray-400">V1 (fatura líquida)</p>
+                                                    <p className="text-white font-semibold">{formatCurrency(row.v1CurrentGross)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-gray-400">V2 (charges)</p>
+                                                    <p className="text-white font-semibold">{formatCurrency(row.v2CurrentGross)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-gray-400">V2 (fatura líquida)</p>
+                                                    <p className="text-white font-semibold">{formatCurrency(row.v2OpenAmount)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-gray-400">Diferença</p>
+                                                    <p className="text-amber-300 font-semibold">
+                                                        {formatCurrency(row.absoluteDiff)} ({row.diffPercent.toFixed(2)}%)
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-gray-500 mt-2">
+                                                Última origem analisada: {row.lastOrigin || '—'}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </Card>
+                </div>
+            )}
+            {user?.email === 'cassiomq@gmail.com' && (
+                <div className="lg:col-span-2">
+                    <Card className="flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-light">Cartão V2 — Auditoria de Reprocessamentos</h2>
+                            <Button variant="secondary" onClick={fetchCreditCardReprocessJobs}>
+                                Atualizar Logs
+                            </Button>
+                        </div>
+                        {creditCardReprocessJobs.length === 0 ? (
+                            <p className="text-sm text-gray-400">Nenhum reprocessamento registrado ainda.</p>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-slate-700">
+                                <table className="min-w-full divide-y divide-slate-800">
+                                    <thead className="bg-slate-800/70">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Início</th>
+                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Conta</th>
+                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Status</th>
+                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Resumo</th>
+                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Fim</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800">
+                                        {creditCardReprocessJobs.map((job) => {
+                                            const accountName = accounts.find(a => a.id === job.account_id)?.Nome_Conta || 'Conta desconhecida';
+                                            const statusClass =
+                                                job.status === 'success'
+                                                    ? 'text-green-300 bg-green-500/15 border-green-500/30'
+                                                    : job.status === 'failed'
+                                                        ? 'text-red-300 bg-red-500/15 border-red-500/30'
+                                                        : 'text-amber-300 bg-amber-500/15 border-amber-500/30';
+
+                                            const summary = job.summary_json || {};
+                                            const mode = typeof summary.mode === 'string' ? summary.mode : '-';
+                                            const processed = typeof summary.processed === 'number' ? summary.processed : '-';
+                                            const origin = typeof summary.origin === 'string' ? summary.origin : '';
+                                            const range = typeof summary.fromDate === 'string' && typeof summary.toDate === 'string'
+                                                ? `${summary.fromDate} → ${summary.toDate}`
+                                                : '';
+
+                                            return (
+                                                <tr key={job.id} className="text-xs">
+                                                    <td className="px-3 py-2 text-gray-300">{new Date(job.started_at).toLocaleString()}</td>
+                                                    <td className="px-3 py-2 text-white font-medium">{accountName}</td>
+                                                    <td className="px-3 py-2">
+                                                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusClass}`}>
+                                                            {job.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-gray-300">
+                                                        <span className="font-semibold text-cyan-300">{mode}</span>
+                                                        {processed !== '-' && <span> • {processed} itens</span>}
+                                                        {origin && <span> • {origin}</span>}
+                                                        {range && <span> • {range}</span>}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-gray-400">
+                                                        {job.finished_at ? new Date(job.finished_at).toLocaleString() : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </Card>
+                </div>
+            )}
+            {user?.email === 'cassiomq@gmail.com' && (
+                <div className="lg:col-span-2">
                     <CrudCard<any>
                         title="Backup e Restauração"
                         data={[]}
@@ -905,6 +1445,138 @@ const SettingsView: React.FC = () => {
                         </Select>
                         <p className="text-xs text-gray-500">
                             Esta ação atualiza em lote todas as transações com origem igual ao nome deste arquivo.
+                        </p>
+                    </div>
+                </Modal>
+            )}
+
+            {isRebuildModalOpen && (
+                <Modal
+                    isOpen={isRebuildModalOpen}
+                    onClose={() => setIsRebuildModalOpen(false)}
+                    title="Reconstruir Cartão por Período"
+                    footer={
+                        <div className="flex justify-end gap-2">
+                            <Button variant="secondary" onClick={() => setIsRebuildModalOpen(false)}>
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleConfirmRebuild}>
+                                Reconstruir
+                            </Button>
+                        </div>
+                    }
+                >
+                    <div className="space-y-4">
+                        <Select
+                            label="Conta de Cartão"
+                            value={rebuildAccountId}
+                            onChange={(e) => setRebuildAccountId(e.target.value)}
+                        >
+                            <option value="">Selecione...</option>
+                            {accounts
+                                .filter(acc => acc.Tipo_Conta === 'Cartão de Crédito')
+                                .map(acc => (
+                                    <option key={acc.id} value={acc.id}>{acc.Nome_Conta}</option>
+                                ))}
+                        </Select>
+                        <Input
+                            label="Data inicial"
+                            type="date"
+                            value={rebuildFromDate}
+                            onChange={(e) => setRebuildFromDate(e.target.value)}
+                        />
+                        <Input
+                            label="Data final"
+                            type="date"
+                            value={rebuildToDate}
+                            onChange={(e) => setRebuildToDate(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-500">
+                            Esta ação limpa e recalcula os ciclos V2 no intervalo informado, gerando log de auditoria.
+                        </p>
+                    </div>
+                </Modal>
+            )}
+
+            <CreditCardInvoiceCyclesModal
+                isOpen={isCreditCyclesModalOpen}
+                onClose={() => setIsCreditCyclesModalOpen(false)}
+            />
+
+            {isReprocessModalOpen && reprocessTargetLog && (
+                <Modal
+                    isOpen={isReprocessModalOpen}
+                    onClose={() => {
+                        setIsReprocessModalOpen(false);
+                        setReprocessTargetLog(null);
+                        setReprocessMode('auto');
+                        setReprocessReferenceMonth('');
+                        setReprocessDueDate('');
+                    }}
+                    title="Reprocessar Fatura com Competência"
+                    footer={
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="secondary"
+                                onClick={() => {
+                                    setIsReprocessModalOpen(false);
+                                    setReprocessTargetLog(null);
+                                    setReprocessMode('auto');
+                                    setReprocessReferenceMonth('');
+                                    setReprocessDueDate('');
+                                }}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleConfirmReprocessImport}>
+                                Reprocessar
+                            </Button>
+                        </div>
+                    }
+                >
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-300">
+                            Arquivo: <span className="font-semibold text-white">{reprocessTargetLog.file_name}</span>
+                        </p>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-300">Competência da fatura</p>
+                            <label className="flex items-center gap-2 text-sm text-gray-300">
+                                <input
+                                    type="radio"
+                                    name="reprocessMode"
+                                    checked={reprocessMode === 'auto'}
+                                    onChange={() => setReprocessMode('auto')}
+                                    className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                                />
+                                Automática (compra mais recente)
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-300">
+                                <input
+                                    type="radio"
+                                    name="reprocessMode"
+                                    checked={reprocessMode === 'manual'}
+                                    onChange={() => setReprocessMode('manual')}
+                                    className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
+                                />
+                                Definir manualmente
+                            </label>
+                        </div>
+                        {reprocessMode === 'manual' && (
+                            <Input
+                                label="Competência (AAAA-MM) *"
+                                type="month"
+                                value={reprocessReferenceMonth}
+                                onChange={(e) => setReprocessReferenceMonth(e.target.value)}
+                            />
+                        )}
+                        <Input
+                            label="Vencimento da fatura (opcional)"
+                            type="date"
+                            value={reprocessDueDate}
+                            onChange={(e) => setReprocessDueDate(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-500">
+                            Dica: para importações antigas, use modo manual para garantir histórico de faturas preciso.
                         </p>
                     </div>
                 </Modal>

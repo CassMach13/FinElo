@@ -1,8 +1,149 @@
 import { create } from 'zustand';
 import { appAlert } from './useDialogStore';
 import { supabase } from '../supabaseClient';
-import { Transaction, Category, Budget, MappingRule, ImportConfig, Account, ImportLog, SupportTicket, Subscription, AdminMetrics, Asset, FamilyMember, AppView } from '../types';
+import {
+  Transaction,
+  Category,
+  Budget,
+  MappingRule,
+  ImportConfig,
+  Account,
+  ImportLog,
+  SupportTicket,
+  Subscription,
+  AdminMetrics,
+  Asset,
+  FamilyMember,
+  AppView,
+  CreditCardReprocessJob,
+  CardImportCycleInput,
+  CreditCardStatementV2,
+  CreditCardStatementAudit,
+  CreditCardEntry,
+  ManualStatementTotalsPayload,
+} from '../types';
 import { User } from '@supabase/supabase-js';
+import { isCardV2Enabled, isCardV2ShadowEnabled, isCreditCardEngineEnabled } from '../services/featureFlagService';
+import { creditCardStatementService, CreditCardShadowDashboardRow, getCreditCardShadowDashboard, CardClassifierRules, CardClassifierOverrides } from '../services/creditCardStatementService';
+import { creditCardEngineService } from '../services/creditCardEngineService';
+import { creditCardMigrationService } from '../services/creditCardMigrationService';
+import { ClassificationRules } from '../domain/credit-card/classifiers';
+import { comparableImportOriginKey } from '../utils/importOriginKey';
+import { isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
+
+const parseClassifierKeywords = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+};
+
+const getCardClassifierRules = (user: User | null): CardClassifierRules | undefined => {
+  if (!user) return undefined;
+  const metadata = (user.user_metadata || {}) as Record<string, unknown>;
+  const paymentKeywords = parseClassifierKeywords(metadata.cardPaymentKeywords);
+  const creditKeywords = parseClassifierKeywords(metadata.cardCreditKeywords);
+  if (paymentKeywords.length === 0 && creditKeywords.length === 0) return undefined;
+  return { paymentKeywords, creditKeywords };
+};
+
+const shouldAutoSyncCreditCardLedger = (user: User | null): boolean =>
+  Boolean(
+    user?.id &&
+      (isCreditCardEngineEnabled(user) || isCardV2ShadowEnabled(user) || isCardV2Enabled(user))
+  );
+
+const engineClassifierRulesFromUser = (user: User | null): ClassificationRules | undefined => {
+  const legacy = getCardClassifierRules(user);
+  if (!legacy) return undefined;
+  const out: ClassificationRules = {};
+  if (legacy.paymentKeywords?.length) out.paymentKeywords = legacy.paymentKeywords;
+  if (legacy.creditKeywords?.length) out.refundKeywords = legacy.creditKeywords;
+  return Object.keys(out).length ? out : undefined;
+};
+
+const parseManualCardCycleToDue = (
+  cardCycle?: CardImportCycleInput
+): { dueYear?: number; dueMonth?: number; dueDate?: string } => {
+  const dueDate =
+    cardCycle?.dueDate && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(cardCycle.dueDate)
+      ? cardCycle.dueDate
+      : undefined;
+  if (!cardCycle?.referenceLabel || !/^\d{4}-(0[1-9]|1[0-2])$/.test(cardCycle.referenceLabel)) {
+    return { dueDate };
+  }
+  const [y, m] = cardCycle.referenceLabel.split('-');
+  return { dueYear: Number(y), dueMonth: Number(m), dueDate };
+};
+
+async function syncImportedCardOrigin(opts: {
+  getState: () => { transactions: Transaction[]; accounts: Account[] };
+  user: User;
+  accountId: string;
+  origin: string;
+  classifierOverrides?: CardClassifierOverrides;
+  cardCycle?: CardImportCycleInput;
+}): Promise<void> {
+  const { transactions, accounts } = opts.getState();
+  const account = accounts.find((a) => a.id === opts.accountId);
+  if (!account || account.Tipo_Conta !== 'Cartão de Crédito') return;
+
+  const txs = transactions.filter((t) => t.ID_Conta === opts.accountId && t.Origem === opts.origin);
+  const due = opts.cardCycle ? parseManualCardCycleToDue(opts.cardCycle) : {};
+  const engineRules = engineClassifierRulesFromUser(opts.user);
+
+  if (isCreditCardEngineEnabled(opts.user)) {
+    await creditCardEngineService.reprocessImportOriginFromTransactions({
+      userId: opts.user.id,
+      account,
+      origin: opts.origin,
+      transactions: txs,
+      rules: engineRules,
+      paymentOverrideTransactionIds: opts.classifierOverrides?.paymentTransactionIds,
+      refundOverrideTransactionIds: opts.classifierOverrides?.refundTransactionIds,
+      dueYear: due.dueYear,
+      dueMonth: due.dueMonth,
+      dueDate: due.dueDate,
+    });
+    return;
+  }
+
+  if (isCardV2ShadowEnabled(opts.user) || isCardV2Enabled(opts.user)) {
+    await creditCardStatementService.reprocessImportOrigin({
+      userId: opts.user.id,
+      account,
+      origin: opts.origin,
+      transactions: txs,
+      cardCycle: opts.cardCycle,
+      classifierRules: getCardClassifierRules(opts.user),
+      classifierOverrides: opts.classifierOverrides,
+    });
+  }
+}
+
+async function removeImportedCardArtifacts(opts: {
+  userId: string;
+  user: User;
+  account: Account;
+  origin: string;
+  deletedTransactions: Transaction[];
+}): Promise<void> {
+  if (isCreditCardEngineEnabled(opts.user)) {
+    await creditCardEngineService.removeOriginFromEngine({
+      accountId: opts.account.id,
+      origin: opts.origin,
+    });
+    return;
+  }
+  if (isCardV2ShadowEnabled(opts.user) || isCardV2Enabled(opts.user)) {
+    await creditCardStatementService.removeOriginFromStatements({
+      userId: opts.userId,
+      account: opts.account,
+      origin: opts.origin,
+      deletedTransactions: opts.deletedTransactions,
+    });
+  }
+}
 
 
 // Interface para o estado da nossa aplicação
@@ -53,7 +194,13 @@ interface AppState {
 
   // Funções para manipular o estado (ações)
   addTransaction: (transaction: Omit<Transaction, 'ID_Transacao' | 'Origem'> | Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => Promise<void>;
-  addMultipleTransactions: (newTransactions: Omit<Transaction, 'ID_Transacao' | 'user_id'>[], importConfig: ImportConfig, fileName: string, ignoredItems?: any[]) => Promise<{ imported: number, ignored: number }>;
+  addMultipleTransactions: (
+    newTransactions: Omit<Transaction, 'ID_Transacao' | 'user_id'>[],
+    importConfig: ImportConfig,
+    fileName: string,
+    ignoredItems?: any[],
+    options?: { cardCycle?: CardImportCycleInput }
+  ) => Promise<{ imported: number, ignored: number }>;
   updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteTransactionsByOrigin: (origin: string) => Promise<void>;
@@ -122,6 +269,49 @@ interface AppState {
   fetchPendingInvites: () => Promise<void>;
   respondToInvite: (inviteId: string, status: 'accepted' | 'declined') => Promise<void>;
 
+  // Card V2 shadow mode
+  creditCardShadowDashboard: CreditCardShadowDashboardRow[];
+  creditCardReprocessJobs: CreditCardReprocessJob[];
+  creditCardStatements: CreditCardStatementV2[];
+  creditCardStatementEntries: CreditCardEntry[];
+  selectedCreditCardStatementAudit: CreditCardStatementAudit | null;
+  refreshCreditCardShadowDashboard: () => Promise<void>;
+  fetchCreditCardReprocessJobs: () => Promise<void>;
+  /** Incrementado quando o motor de cartão atualiza dados em `credit_card_statements` (refetch nos cards de Transações). */
+  creditCardEngineRevision: number;
+  bumpCreditCardEngineRevision: () => void;
+  getCardStatements: (accountIdOrCardRowId: string) => Promise<CreditCardStatementV2[]>;
+  getStatementDetail: (statementId: string) => Promise<{ statement: CreditCardStatementV2; entries: CreditCardEntry[] } | null>;
+  getStatementAudit: (statementId: string) => Promise<CreditCardStatementAudit | null>;
+  payStatement: (
+    statementId: string,
+    paymentData: { paymentDate: string; amount: number; paymentAccountId?: string; notes?: string }
+  ) => Promise<CreditCardStatementV2 | null>;
+  /** Grava totais conferidos na fatura (manual_totals_json) e recalcula com overlay. */
+  saveStatementManualTotals: (
+    statementId: string,
+    payload: ManualStatementTotalsPayload
+  ) => Promise<CreditCardStatementV2 | null>;
+  reprocessImportLot: (importLotId: string) => Promise<{ statementId: string; processedEntries: number }>;
+  /** Recalcula todas as competências do cartão no banco (aplica pagamentos vindos da fatura seguinte, corrige «Pago»/«Aberto»). */
+  recalculateAllCardStatementsForAccount: (accountId: string) => Promise<void>;
+  backfillCreditCardHistory: (accountId: string) => Promise<{ processedLots: number; processedEntries: number }>;
+  reprocessCreditCardImportByOrigin: (origin: string, options?: { cardCycle?: CardImportCycleInput }) => Promise<{ processed: number; message: string }>;
+  rebuildCreditCardByPeriod: (accountId: string, fromDate: string, toDate: string) => Promise<{ message: string }>;
+  syncCreditCardHistoryFromAccount: (accountId: string) => Promise<{ message: string; origins: number; processed: number }>;
+  saveCardImportLotClassification: (
+    origin: string,
+    accountId: string,
+    referenceLabel: string,
+    dueDate: string,
+    options?: {
+      paymentTransactionIds?: string[];
+      refundTransactionIds?: string[];
+    }
+  ) => Promise<{ updatedLogs: number; message: string }>;
+  /** Reidrata `imported_details` + `imported_count` nas importações onde o JSON não bate com o ledger (ex.: só metadados de cartão). Opcional: só um registro (`logId`). */
+  repairImportLogsImportedDetailsFromLedger: (logId?: string | null) => Promise<{ updated: number; message: string }>;
+
   // Founder's Pack Counter
   founderCount: number;
   fetchFounderCount: () => Promise<void>;
@@ -157,11 +347,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   currentView: 'dashboard',
   setCurrentView: (view) => set({ currentView: view }),
+
   pendingInvites: [],
   founderCount: 0,
+  creditCardShadowDashboard: [],
+  creditCardReprocessJobs: [],
+  creditCardStatements: [],
+  creditCardStatementEntries: [],
+  selectedCreditCardStatementAudit: null,
+  creditCardEngineRevision: 0,
 
   // --- AÇÕES ---
 
+  bumpCreditCardEngineRevision: () => set((s) => ({ creditCardEngineRevision: s.creditCardEngineRevision + 1 })),
   // Filtros de Transação
   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
   setUser: (user) => {
@@ -199,6 +397,899 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  refreshCreditCardShadowDashboard: async () => {
+    const { accounts, transactions, user } = get();
+    const classifierRules = getCardClassifierRules(user);
+    try {
+      if (user && isCardV2ShadowEnabled(user) && !isCreditCardEngineEnabled(user)) {
+        const creditAccounts = accounts.filter(a => a.Tipo_Conta === 'Cartão de Crédito');
+        for (const account of creditAccounts) {
+          const accountOrigins = transactions
+            .filter(t => t.ID_Conta === account.id && t.Origem && t.Origem !== 'manual')
+            .map(t => t.Origem as string);
+
+          const latestOrigin = accountOrigins.sort((a, b) => {
+            const aDate = new Date(
+              transactions
+                .filter(t => t.ID_Conta === account.id && t.Origem === a)
+                .sort((x, y) => new Date(y.Data).getTime() - new Date(x.Data).getTime())[0]?.Data || 0
+            ).getTime();
+            const bDate = new Date(
+              transactions
+                .filter(t => t.ID_Conta === account.id && t.Origem === b)
+                .sort((x, y) => new Date(y.Data).getTime() - new Date(x.Data).getTime())[0]?.Data || 0
+            ).getTime();
+            return bDate - aDate;
+          })[0];
+
+          if (latestOrigin) {
+            const txFromOrigin = transactions.filter(t => t.ID_Conta === account.id && t.Origem === latestOrigin);
+            await creditCardStatementService.processShadowImport({
+              userId: user.id,
+              account,
+              origin: latestOrigin,
+              transactions: txFromOrigin,
+              classifierRules,
+            });
+          }
+        }
+      }
+
+      const rows = await getCreditCardShadowDashboard(accounts, transactions);
+      set({ creditCardShadowDashboard: rows });
+    } catch (error) {
+      console.error('[CardV2][Shadow] Falha ao atualizar dashboard de divergencias:', error);
+    }
+  },
+
+  fetchCreditCardReprocessJobs: async () => {
+    const { user } = get();
+    if (!user) {
+      set({ creditCardReprocessJobs: [] });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('credit_card_reprocess_jobs')
+      .select('*')
+      .order('started_at', { ascending: false })
+      .limit(30);
+
+    if (error) {
+      console.error('[CardV2][Ops] Falha ao buscar jobs de reprocessamento:', error);
+      return;
+    }
+
+    set({ creditCardReprocessJobs: (data as CreditCardReprocessJob[]) || [] });
+  },
+
+  getCardStatements: async (accountIdOrCardId) => {
+    const user = get().user;
+    if (!user) {
+      set({ creditCardStatements: [] });
+      return [];
+    }
+
+    let cardRowId = accountIdOrCardId;
+    const account = get().accounts.find((a) => a.id === accountIdOrCardId);
+
+    try {
+      if (account?.Tipo_Conta === 'Cartão de Crédito') {
+        const ensured = await creditCardEngineService.ensureCreditCardForAccount(user.id, account);
+        cardRowId = ensured.id;
+      } else if (account && account.Tipo_Conta !== 'Cartão de Crédito') {
+        set({ creditCardStatements: [] });
+        return [];
+      }
+
+      const statements = await creditCardEngineService.getCardStatements(cardRowId);
+      const mapped = statements.map((statement) => ({
+        id: statement.id,
+        user_id: get().user?.id || '',
+        card_id: statement.cardId,
+        account_id: statement.accountId,
+        purchase_reference_label: statement.purchaseReferenceLabel,
+        due_year: statement.dueYear,
+        due_month: statement.dueMonth,
+        due_date: statement.dueDate || null,
+        closing_date: statement.closingDate || null,
+        status: statement.status,
+        source_import_lot_ids: statement.sourceImportLotIds,
+        total_purchases: statement.totalPurchases,
+        total_fees: statement.totalFees,
+        total_interest: statement.totalInterest,
+        total_refunds: statement.totalRefunds,
+        statement_total: statement.statementTotal,
+        total_payments: statement.totalPayments,
+        open_balance: statement.openBalance,
+        manual_totals: statement.manualTotals ?? null,
+      })) as CreditCardStatementV2[];
+      set({ creditCardStatements: mapped });
+      return mapped;
+    } catch (error) {
+      console.error('[CardEngine] Falha ao listar faturas do cartão:', error);
+      set({ creditCardStatements: [] });
+      throw error;
+    }
+  },
+
+  getStatementDetail: async (statementId) => {
+    try {
+      const detail = await creditCardEngineService.getStatementDetail(statementId);
+      const statement: CreditCardStatementV2 = {
+        id: detail.statement.id,
+        user_id: get().user?.id || '',
+        card_id: detail.statement.cardId,
+        account_id: detail.statement.accountId,
+        purchase_reference_label: detail.statement.purchaseReferenceLabel,
+        due_year: detail.statement.dueYear,
+        due_month: detail.statement.dueMonth,
+        due_date: detail.statement.dueDate || null,
+        closing_date: detail.statement.closingDate || null,
+        status: detail.statement.status,
+        source_import_lot_ids: detail.statement.sourceImportLotIds,
+        total_purchases: detail.statement.totalPurchases,
+        total_fees: detail.statement.totalFees,
+        total_interest: detail.statement.totalInterest,
+        total_refunds: detail.statement.totalRefunds,
+        statement_total: detail.statement.statementTotal,
+        total_payments: detail.statement.totalPayments,
+        open_balance: detail.statement.openBalance,
+        manual_totals: detail.statement.manualTotals ?? null,
+      };
+      const entries = detail.entries.map((entry) => ({
+        id: entry.id || '',
+        user_id: get().user?.id || '',
+        card_id: detail.statement.cardId,
+        account_id: detail.statement.accountId,
+        import_lot_id: entry.importLotId || '',
+        source_file_name: entry.sourceFileName,
+        source_row_index: entry.sourceRowIndex,
+        source_row_hash: entry.sourceRowHash,
+        transaction_id: entry.transactionId || null,
+        posted_date: entry.postedDate,
+        description_raw: entry.description,
+        description_normalized: entry.descriptionNormalized,
+        merchant_name: entry.merchantName || null,
+        holder_name: entry.holderName || null,
+        amount: entry.amount,
+        abs_amount: entry.absAmount,
+        direction: entry.direction,
+        entry_type: entry.entryType,
+        installment_current: entry.installmentCurrent || null,
+        installment_total: entry.installmentTotal || null,
+        category_id: entry.categoryId || null,
+        classification_source: entry.classificationSource,
+        classification_confidence: entry.classificationConfidence,
+        statement_id: entry.statementId || null,
+      })) as CreditCardEntry[];
+      set({ creditCardStatementEntries: entries });
+      return { statement, entries };
+    } catch (error) {
+      console.error('[CardEngine] Falha ao carregar detalhe da fatura:', error);
+      return null;
+    }
+  },
+
+  getStatementAudit: async (statementId) => {
+    try {
+      const audit = await creditCardEngineService.getStatementAudit(statementId);
+      set({ selectedCreditCardStatementAudit: audit });
+      return audit;
+    } catch (error) {
+      console.error('[CardEngine] Falha ao carregar auditoria da fatura:', error);
+      return null;
+    }
+  },
+
+  payStatement: async (statementId, paymentData) => {
+    const { user } = get();
+    if (!user) return null;
+    try {
+      const recalculated = await creditCardEngineService.payStatement(user.id, statementId, paymentData);
+      set((state) => ({
+        creditCardStatements: state.creditCardStatements.map((statement) =>
+          statement.id === statementId
+            ? {
+                ...statement,
+                status: recalculated.status,
+                total_purchases: recalculated.totalPurchases,
+                total_fees: recalculated.totalFees,
+                total_interest: recalculated.totalInterest,
+                total_refunds: recalculated.totalRefunds,
+                statement_total: recalculated.statementTotal,
+                total_payments: recalculated.totalPayments,
+                open_balance: recalculated.openBalance,
+                manual_totals: recalculated.manualTotals ?? null,
+              }
+            : statement
+        ),
+      }));
+      get().bumpCreditCardEngineRevision();
+      return {
+        id: recalculated.id,
+        user_id: user.id,
+        card_id: recalculated.cardId,
+        account_id: recalculated.accountId,
+        purchase_reference_label: recalculated.purchaseReferenceLabel,
+        due_year: recalculated.dueYear,
+        due_month: recalculated.dueMonth,
+        due_date: recalculated.dueDate || null,
+        closing_date: recalculated.closingDate || null,
+        status: recalculated.status,
+        source_import_lot_ids: recalculated.sourceImportLotIds,
+        total_purchases: recalculated.totalPurchases,
+        total_fees: recalculated.totalFees,
+        total_interest: recalculated.totalInterest,
+        total_refunds: recalculated.totalRefunds,
+        statement_total: recalculated.statementTotal,
+        total_payments: recalculated.totalPayments,
+        open_balance: recalculated.openBalance,
+        manual_totals: recalculated.manualTotals ?? null,
+      } as CreditCardStatementV2;
+    } catch (error) {
+      console.error('[CardEngine] Falha ao pagar fatura:', error);
+      return null;
+    }
+  },
+
+  saveStatementManualTotals: async (statementId, payload) => {
+    const { user } = get();
+    if (!user) return null;
+    try {
+      const s = await creditCardEngineService.saveStatementManualTotals(statementId, payload);
+      const updated: CreditCardStatementV2 = {
+        id: s.id,
+        user_id: user.id,
+        card_id: s.cardId,
+        account_id: s.accountId,
+        purchase_reference_label: s.purchaseReferenceLabel,
+        due_year: s.dueYear,
+        due_month: s.dueMonth,
+        due_date: s.dueDate || null,
+        closing_date: s.closingDate || null,
+        status: s.status,
+        source_import_lot_ids: s.sourceImportLotIds,
+        total_purchases: s.totalPurchases,
+        total_fees: s.totalFees,
+        total_interest: s.totalInterest,
+        total_refunds: s.totalRefunds,
+        statement_total: s.statementTotal,
+        total_payments: s.totalPayments,
+        open_balance: s.openBalance,
+        manual_totals: s.manualTotals ?? null,
+      };
+      set((state) => ({
+        creditCardStatements: state.creditCardStatements.map((st) =>
+          st.id === statementId ? updated : st
+        ),
+      }));
+      await get().getStatementDetail(statementId);
+      get().bumpCreditCardEngineRevision();
+      return updated;
+    } catch (error) {
+      console.error('[CardEngine] Falha ao salvar totais manuais:', error);
+      return null;
+    }
+  },
+
+  reprocessImportLot: async (importLotId) => {
+    const result = await creditCardEngineService.reprocessImportLot(importLotId);
+    get().bumpCreditCardEngineRevision();
+    return result;
+  },
+
+  recalculateAllCardStatementsForAccount: async (accountId) => {
+    const { user, accounts } = get();
+    if (!user) return;
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) return;
+    const ensured = await creditCardEngineService.ensureCreditCardForAccount(user.id, account);
+    await creditCardEngineService.recalculateAllStatementsForCard(ensured.id);
+    get().bumpCreditCardEngineRevision();
+  },
+
+  backfillCreditCardHistory: async (accountId) => {
+    const { user, accounts, transactions, importLogs } = get();
+    if (!user) return { processedLots: 0, processedEntries: 0 };
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) return { processedLots: 0, processedEntries: 0 };
+    return creditCardMigrationService.backfillAccountFromTransactions({
+      userId: user.id,
+      account,
+      transactions,
+      importLogs,
+    }).then((result) => {
+      get().bumpCreditCardEngineRevision();
+      return result;
+    });
+  },
+
+  reprocessCreditCardImportByOrigin: async (origin, options) => {
+    const { user, accounts, transactions, importLogs } = get();
+    if (!user) return { processed: 0, message: 'Usuário não autenticado.' };
+
+    const targetKey = comparableImportOriginKey(origin);
+    let txByOrigin = transactions.filter((t) => t.ID_Conta && comparableImportOriginKey(t.Origem) === targetKey);
+
+    const latestLogForOrigin = [...importLogs]
+      .filter((log) => comparableImportOriginKey(log.file_name) === comparableImportOriginKey(origin))
+      .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime())[0];
+
+    if (txByOrigin.length === 0 && latestLogForOrigin) {
+      const idSet = new Set<string>();
+      const det = Array.isArray(latestLogForOrigin.imported_details) ? latestLogForOrigin.imported_details : [];
+      det.forEach((row: any) => {
+        const tid = row?.ID_Transacao ?? row?.transaction_id ?? row?.transactionId;
+        if (tid && typeof tid === 'string') idSet.add(tid);
+      });
+      if (idSet.size > 0) {
+        txByOrigin = transactions.filter((t) => t.ID_Transacao && idSet.has(t.ID_Transacao));
+      }
+    }
+
+    if (txByOrigin.length === 0) {
+      return {
+        processed: 0,
+        message:
+          'Nenhuma transação encontrada para esta origem. O nome no histórico pode não bater com o campo Origem das transações — reimporte, use “Corrigir conta”, ou confira se o log ainda guarda os IDs das linhas importadas.',
+      };
+    }
+
+    const originWeights = new Map<string, number>();
+    txByOrigin.forEach((tx) => {
+      const o = String(tx.Origem || '');
+      if (!o) return;
+      originWeights.set(o, (originWeights.get(o) || 0) + 1);
+    });
+    const canonicalOrigin =
+      Array.from(originWeights.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      origin ||
+      latestLogForOrigin?.file_name ||
+      '';
+
+    const frequency = new Map<string, number>();
+    txByOrigin.forEach((tx) => {
+      const id = tx.ID_Conta as string;
+      frequency.set(id, (frequency.get(id) || 0) + 1);
+    });
+
+    const targetAccountId = Array.from(frequency.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const account = accounts.find((a) => a.id === targetAccountId);
+
+    if (!account) {
+      return { processed: 0, message: 'Conta associada não encontrada para esta origem.' };
+    }
+
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      return { processed: 0, message: `A origem está ligada à conta "${account.Nome_Conta}", que não é cartão de crédito.` };
+    }
+
+    const scopedTx = txByOrigin.filter((t) => t.ID_Conta === account.id);
+
+    const extractCardCycleFromLog = (log?: ImportLog): CardImportCycleInput | undefined => {
+      if (!log) return undefined;
+      const details = Array.isArray(log.imported_details) ? log.imported_details : [];
+      const withMetadata = details.find((d: any) =>
+        d?.ID_Conta === account.id &&
+        (d?.Card_Reference_Label || d?.Card_Due_Date || d?.Card_Cycle_Mode)
+      );
+      if (!withMetadata) return undefined;
+      return {
+        mode: withMetadata.Card_Cycle_Mode || 'auto',
+        referenceLabel: withMetadata.Card_Reference_Label || null,
+        dueDate: withMetadata.Card_Due_Date || null,
+      };
+    };
+
+    const effectiveCardCycle = options?.cardCycle || extractCardCycleFromLog(latestLogForOrigin);
+    const due = effectiveCardCycle ? parseManualCardCycleToDue(effectiveCardCycle) : {};
+
+    let processed = 0;
+    if (isCreditCardEngineEnabled(user)) {
+      const result = await creditCardEngineService.reprocessImportOriginFromTransactions({
+        userId: user.id,
+        account,
+        origin: canonicalOrigin,
+        transactions: scopedTx,
+        rules: engineClassifierRulesFromUser(user),
+        dueYear: due.dueYear,
+        dueMonth: due.dueMonth,
+        dueDate: due.dueDate,
+      });
+      processed = result.processed;
+    } else {
+      const result = await creditCardStatementService.reprocessImportOrigin({
+        userId: user.id,
+        account,
+        origin: canonicalOrigin,
+        transactions: scopedTx,
+        cardCycle: effectiveCardCycle,
+        classifierRules: getCardClassifierRules(user),
+      });
+      processed = result.processed;
+    }
+
+    await get().refreshCreditCardShadowDashboard();
+    await get().fetchCreditCardReprocessJobs();
+    get().bumpCreditCardEngineRevision();
+    return { processed, message: `Fatura reprocessada (${processed} itens).` };
+  },
+
+  rebuildCreditCardByPeriod: async (accountId, fromDate, toDate) => {
+    const { user, accounts } = get();
+    if (!user) return { message: 'Usuário não autenticado.' };
+    const classifierRules = getCardClassifierRules(user);
+
+    const account = accounts.find((a) => a.id === accountId);
+    if (!account) return { message: 'Conta não encontrada.' };
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      return { message: 'A conta selecionada não é cartão de crédito.' };
+    }
+
+    if (isCreditCardEngineEnabled(user)) {
+      return {
+        message:
+          'Contas no motor novo de cartão não usam mais a reconstrução legado por período. Migre ou sincronize o histórico a partir das importações e do reprocessamento pela origem (Configurações → Histórico de importações).',
+      };
+    }
+
+    await creditCardStatementService.rebuildStatementsForWindow({
+      userId: user.id,
+      accountId,
+      fromDate,
+      toDate,
+      classifierRules,
+    });
+
+    await get().refreshCreditCardShadowDashboard();
+    await get().fetchCreditCardReprocessJobs();
+    return { message: `Reconstrução concluída para ${account.Nome_Conta} (${fromDate} até ${toDate}).` };
+  },
+
+  syncCreditCardHistoryFromAccount: async (accountId) => {
+    const { user, accounts, importLogs } = get();
+    if (!user) return { message: 'Usuário não autenticado.', origins: 0, processed: 0 };
+    const classifierRules = getCardClassifierRules(user);
+
+    const account = accounts.find((a) => a.id === accountId);
+    if (!account) return { message: 'Conta não encontrada.', origins: 0, processed: 0 };
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      return { message: 'A conta selecionada não é cartão de crédito.', origins: 0, processed: 0 };
+    }
+
+    const { data: freshCardTx, error: freshCardTxError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('ID_Conta', accountId)
+      .neq('Origem', 'manual');
+    if (freshCardTxError) throw freshCardTxError;
+    const cardTx = ((freshCardTx || []) as Transaction[])
+      .filter((tx) => tx.Origem && tx.Origem !== 'manual');
+    if (cardTx.length === 0) {
+      return { message: `Nenhuma importação de cartão encontrada para ${account.Nome_Conta}.`, origins: 0, processed: 0 };
+    }
+
+    const toReferenceFromTxDate = (value?: string | Date | null): string | null => {
+      if (!value) return null;
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const buildDueDateFromReference = (referenceLabel: string): string => {
+      const [yearStr, monthStr] = referenceLabel.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const safeYear = Number.isNaN(year) ? new Date().getFullYear() : year;
+      const safeMonth = Number.isNaN(month) ? (new Date().getMonth() + 1) : month;
+      const dueDate = new Date(safeYear, safeMonth, 1); // competência (compras) + 1 mês
+      const safeDay = Math.min(Math.max(account.dia_vencimento || 10, 1), 28);
+      return `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+    };
+
+    const groupedByOrigin = new Map<string, Transaction[]>();
+    cardTx.forEach((tx) => {
+      const origin = tx.Origem as string;
+      const current = groupedByOrigin.get(origin) || [];
+      current.push(tx);
+      groupedByOrigin.set(origin, current);
+    });
+
+    const origins = Array.from(groupedByOrigin.keys());
+    let latestImportLogs = importLogs;
+    if (origins.length > 0) {
+      const { data: freshLogs, error: freshLogsError } = await supabase
+        .from('import_logs')
+        .select('*')
+        .in('file_name', origins)
+        .order('import_date', { ascending: false });
+      if (!freshLogsError && Array.isArray(freshLogs)) {
+        latestImportLogs = freshLogs as ImportLog[];
+      }
+    }
+
+    const lotByOrigin = new Map<string, {
+      referenceLabel: string;
+      dueDate: string | null;
+      classifierOverrides?: CardClassifierOverrides;
+    }>();
+    latestImportLogs
+      .slice()
+      .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime())
+      .forEach((log) => {
+        if (!groupedByOrigin.has(log.file_name)) return;
+        if (lotByOrigin.has(log.file_name)) return;
+        const details = Array.isArray(log.imported_details) ? log.imported_details : [];
+        const row = details.find((d: any) =>
+          d?.ID_Conta === accountId &&
+          d?.Card_Reference_Label &&
+          /^\d{4}-(0[1-9]|1[0-2])$/.test(d.Card_Reference_Label)
+        );
+        if (!row) return;
+        lotByOrigin.set(log.file_name, {
+          referenceLabel: row.Card_Reference_Label,
+          dueDate: row.Card_Due_Date && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(row.Card_Due_Date)
+            ? row.Card_Due_Date
+            : null,
+          classifierOverrides: {
+            paymentTransactionIds: Array.isArray(row.Card_Payment_Tx_Ids) ? row.Card_Payment_Tx_Ids.filter(Boolean) : [],
+            refundTransactionIds: Array.isArray(row.Card_Refund_Tx_Ids) ? row.Card_Refund_Tx_Ids.filter(Boolean) : [],
+          },
+        });
+      });
+
+    const lotAssignments: Array<{
+      origin: string;
+      txs: Transaction[];
+      referenceLabel: string;
+      dueDate: string;
+      classified: boolean;
+      classifierOverrides?: CardClassifierOverrides;
+    }> = [];
+    const pendingOrigins: string[] = [];
+
+    groupedByOrigin.forEach((txs, origin) => {
+      const maxDate = txs
+        .map((tx) => new Date(tx.Data))
+        .filter((d) => !Number.isNaN(d.getTime()))
+        .sort((a, b) => b.getTime() - a.getTime())[0];
+      const inferredReference = maxDate ? toReferenceFromTxDate(maxDate) : null;
+      const lot = lotByOrigin.get(origin);
+      const referenceLabel = lot?.referenceLabel || inferredReference;
+      if (!referenceLabel) return;
+
+      const dueDate = lot?.dueDate || buildDueDateFromReference(referenceLabel);
+      const classified = Boolean(lot?.referenceLabel);
+      if (!classified) pendingOrigins.push(origin);
+
+      lotAssignments.push({
+        origin,
+        txs,
+        referenceLabel,
+        dueDate,
+        classified,
+        classifierOverrides: lot?.classifierOverrides,
+      });
+    });
+
+    if (lotAssignments.length === 0) {
+      return { message: `Não foi possível inferir competências para ${account.Nome_Conta}.`, origins: 0, processed: 0 };
+    }
+
+    // Rebuild completo da conta para evitar lixo legado/duplicado.
+    const { data: existingStatements, error: existingStatementsError } = await supabase
+      .from('credit_card_statements')
+      .select('id')
+      .eq('account_id', accountId);
+    if (existingStatementsError) throw existingStatementsError;
+
+    const statementIds = (existingStatements || []).map((s: any) => s.id).filter(Boolean);
+    if (statementIds.length > 0) {
+      for (let i = 0; i < statementIds.length; i += 200) {
+        const idsChunk = statementIds.slice(i, i + 200);
+        const { error: deleteItemsError } = await supabase
+          .from('credit_card_statement_items')
+          .delete()
+          .in('statement_id', idsChunk);
+        if (deleteItemsError) throw deleteItemsError;
+      }
+      const { error: deleteStatementsError } = await supabase
+        .from('credit_card_statements')
+        .delete()
+        .eq('account_id', accountId);
+      if (deleteStatementsError) throw deleteStatementsError;
+    }
+
+    const orderedAssignments = lotAssignments
+      .slice()
+      .sort((a, b) => {
+        if (a.referenceLabel !== b.referenceLabel) return a.referenceLabel.localeCompare(b.referenceLabel);
+        return a.origin.localeCompare(b.origin);
+      });
+
+    let processedTotal = 0;
+    for (const assignment of orderedAssignments) {
+      if (isCreditCardEngineEnabled(user)) {
+        const dueParsed = parseManualCardCycleToDue({
+          mode: 'manual',
+          referenceLabel: assignment.referenceLabel,
+          dueDate: assignment.dueDate || buildDueDateFromReference(assignment.referenceLabel),
+        });
+        const engineResult = await creditCardEngineService.reprocessImportOriginFromTransactions({
+          userId: user.id,
+          account,
+          origin: assignment.origin,
+          transactions: assignment.txs,
+          rules: engineClassifierRulesFromUser(user),
+          paymentOverrideTransactionIds: assignment.classifierOverrides?.paymentTransactionIds,
+          refundOverrideTransactionIds: assignment.classifierOverrides?.refundTransactionIds,
+          dueYear: dueParsed.dueYear,
+          dueMonth: dueParsed.dueMonth,
+          dueDate:
+            assignment.dueDate ||
+            dueParsed.dueDate ||
+            buildDueDateFromReference(assignment.referenceLabel),
+        });
+        processedTotal += engineResult.processed;
+      } else {
+        const result = await creditCardStatementService.reprocessImportOrigin({
+          userId: user.id,
+          account,
+          origin: assignment.origin,
+          transactions: assignment.txs,
+          cardCycle: {
+            mode: 'manual',
+            referenceLabel: assignment.referenceLabel,
+            dueDate: assignment.dueDate || buildDueDateFromReference(assignment.referenceLabel),
+          },
+          classifierRules,
+          classifierOverrides: assignment.classifierOverrides,
+        });
+        processedTotal += result.processed;
+      }
+    }
+
+    await get().refreshCreditCardShadowDashboard();
+    await get().fetchCreditCardReprocessJobs();
+
+    get().bumpCreditCardEngineRevision();
+    return {
+      message: pendingOrigins.length > 0
+        ? `Histórico sincronizado para ${account.Nome_Conta}: ${orderedAssignments.length} lote(s) processados. ${pendingOrigins.length} lote(s) ainda sem classificação manual (${pendingOrigins.join(', ')}).`
+        : `Histórico sincronizado para ${account.Nome_Conta}: ${orderedAssignments.length} lote(s) processados com classificação manual.`,
+      origins: orderedAssignments.length,
+      processed: processedTotal,
+    };
+  },
+
+  saveCardImportLotClassification: async (origin, accountId, referenceLabel, dueDate, options) => {
+    const { importLogs } = get();
+    const targetLogs = importLogs
+      .filter((log) => log.file_name === origin)
+      .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime());
+
+    if (targetLogs.length === 0) {
+      return { updatedLogs: 0, message: 'Nenhum lote encontrado para esta origem.' };
+    }
+
+    const isReferenceValid = /^\d{4}-(0[1-9]|1[0-2])$/.test(referenceLabel);
+    const isDueValid = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(dueDate);
+    if (!isReferenceValid || !isDueValid) {
+      return { updatedLogs: 0, message: 'Competência ou vencimento inválidos.' };
+    }
+
+    let updatedLogs = 0;
+    const paymentTransactionIds = Array.from(new Set((options?.paymentTransactionIds || []).filter(Boolean)));
+    const refundTransactionIds = Array.from(new Set((options?.refundTransactionIds || []).filter(Boolean)));
+    for (const log of targetLogs) {
+      const details = Array.isArray(log.imported_details) ? [...log.imported_details] : [];
+      let touched = false;
+
+      if (details.length === 0) {
+        const originKey = comparableImportOriginKey(origin);
+        const txsForOrigin = get().transactions.filter(
+          (t) =>
+            t.ID_Conta === accountId &&
+            t.Origem &&
+            t.Origem !== 'manual' &&
+            comparableImportOriginKey(String(t.Origem)) === originKey
+        );
+        const accountLabel = get().accounts.find((a) => a.id === accountId)?.Nome_Conta;
+        if (txsForOrigin.length > 0) {
+          txsForOrigin.sort((a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime());
+          txsForOrigin.forEach((tx) => {
+            details.push({
+              ID_Transacao: tx.ID_Transacao,
+              Origem: tx.Origem,
+              Data: tx.Data,
+              Descricao: tx.Descricao_Original,
+              Nome_Fantasia: tx.Nome_Fantasia,
+              Valor: tx.Valor,
+              Categoria: tx.Categoria,
+              ID_Conta: tx.ID_Conta,
+              Conta_Nome: accountLabel || null,
+              Card_Cycle_Mode: 'manual',
+              Card_Reference_Label: referenceLabel,
+              Card_Due_Date: dueDate,
+              Card_Payment_Tx_Ids: paymentTransactionIds,
+              Card_Refund_Tx_Ids: refundTransactionIds,
+            });
+          });
+        } else {
+          details.push({
+            ID_Conta: accountId,
+            Card_Cycle_Mode: 'manual',
+            Card_Reference_Label: referenceLabel,
+            Card_Due_Date: dueDate,
+            Card_Payment_Tx_Ids: paymentTransactionIds,
+            Card_Refund_Tx_Ids: refundTransactionIds,
+          });
+        }
+        touched = true;
+      } else {
+        let updatedAnyRow = false;
+        for (let i = 0; i < details.length; i += 1) {
+          const row = details[i] || {};
+          const shouldUpdateRow =
+            row.ID_Conta === accountId ||
+            row.ID_Conta === null ||
+            row.ID_Conta === undefined ||
+            row.ID_Conta === '';
+
+          if (!shouldUpdateRow) continue;
+
+          details[i] = {
+            ...row,
+            ID_Conta: row.ID_Conta || accountId,
+            Card_Cycle_Mode: 'manual',
+            Card_Reference_Label: referenceLabel,
+            Card_Due_Date: dueDate,
+            Card_Payment_Tx_Ids: paymentTransactionIds,
+            Card_Refund_Tx_Ids: refundTransactionIds,
+          };
+          touched = true;
+          updatedAnyRow = true;
+        }
+
+        // Alguns lotes legados possuem detalhes sem conta vinculada ao cartão.
+        // Nesses casos, persistimos uma linha de metadados para não bloquear classificação.
+        if (!updatedAnyRow) {
+          details.push({
+            ID_Conta: accountId,
+            Card_Cycle_Mode: 'manual',
+            Card_Reference_Label: referenceLabel,
+            Card_Due_Date: dueDate,
+            Card_Payment_Tx_Ids: paymentTransactionIds,
+            Card_Refund_Tx_Ids: refundTransactionIds,
+            _meta_only: true,
+          });
+          touched = true;
+        }
+      }
+
+      if (!touched) continue;
+
+      const countableRows = details.filter((r: any) => !(r && (r as { _meta_only?: boolean })._meta_only));
+      const updatePayload: { imported_details: typeof details; imported_count?: number } = {
+        imported_details: details,
+      };
+      if (
+        countableRows.length > 1 ||
+        (countableRows.length === 1 && Boolean(countableRows[0]?.ID_Transacao))
+      ) {
+        updatePayload.imported_count = countableRows.length;
+      }
+
+      const { error } = await supabase.from('import_logs').update(updatePayload).eq('id', log.id);
+      if (!error) updatedLogs += 1;
+    }
+
+    if (updatedLogs > 0) {
+      await get().fetchImportLogs();
+      return { updatedLogs, message: `Classificação salva em ${updatedLogs} lote(s).` };
+    }
+
+    return { updatedLogs: 0, message: 'Nenhum lote foi atualizado.' };
+  },
+
+  repairImportLogsImportedDetailsFromLedger: async (onlyLogId?: string | null) => {
+    const { user } = get();
+    if (!user) return { updated: 0, message: 'Usuário não autenticado.' };
+
+    await get().fetchTransactions();
+    const { importLogs, transactions, accounts } = get();
+
+    const logsToProcess = onlyLogId
+      ? importLogs.filter((l) => l.id === onlyLogId)
+      : importLogs;
+
+    if (onlyLogId && logsToProcess.length === 0) {
+      return { updated: 0, message: 'Registro de importação não encontrado.' };
+    }
+
+    let updated = 0;
+    for (const log of logsToProcess) {
+      const det = Array.isArray(log.imported_details) ? log.imported_details : [];
+      const key = comparableImportOriginKey(log.file_name);
+      if (!key) continue;
+      const rows = transactions.filter(
+        (t) =>
+          t.Origem &&
+          t.Origem !== 'manual' &&
+          comparableImportOriginKey(String(t.Origem)) === key
+      );
+      if (rows.length === 0) continue;
+
+      if (
+        det.length === rows.length &&
+        log.imported_count === rows.length &&
+        !isImportedDetailRowsIncomplete(det)
+      ) {
+        continue;
+      }
+
+      const meta: Record<string, unknown> = {};
+      const fromDet = det.find(
+        (r: any) =>
+          r &&
+          typeof r === 'object' &&
+          (r.Card_Reference_Label || r.Card_Due_Date || r.Card_Cycle_Mode)
+      );
+      const keysMeta = ['Card_Cycle_Mode', 'Card_Reference_Label', 'Card_Due_Date', 'Card_Payment_Tx_Ids', 'Card_Refund_Tx_Ids'] as const;
+      if (fromDet && typeof fromDet === 'object') {
+        for (const mk of keysMeta) {
+          if ((fromDet as Record<string, unknown>)[mk] != null) meta[mk] = (fromDet as Record<string, unknown>)[mk];
+        }
+      }
+
+      const sorted = [...rows].sort((a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime());
+      const nameForAccount = (id: string | null | undefined) =>
+        id ? accounts.find((a) => a.id === id)?.Nome_Conta || null : null;
+
+      const nextDetails = sorted.map((tx) => ({
+        ID_Transacao: tx.ID_Transacao,
+        Origem: tx.Origem,
+        Data: tx.Data,
+        Descricao: tx.Descricao_Original,
+        Nome_Fantasia: tx.Nome_Fantasia,
+        Valor: tx.Valor,
+        Categoria: tx.Categoria,
+        ID_Conta: tx.ID_Conta,
+        Conta_Nome: nameForAccount(tx.ID_Conta),
+        ...meta,
+      }));
+
+      const { error } = await supabase
+        .from('import_logs')
+        .update({
+          imported_details: nextDetails,
+          imported_count: nextDetails.length,
+        })
+        .eq('id', log.id);
+      if (!error) updated += 1;
+    }
+
+    if (updated > 0) await get().fetchImportLogs();
+
+    if (onlyLogId) {
+      return {
+        updated,
+        message:
+          updated === 0
+            ? 'Nada foi alterado: este arquivo já está alinhado com o ledger, ou não há transações (origem não manual) com a mesma chave de arquivo.'
+            : 'Este arquivo foi reidratado: imported_details e imported_count foram alinhados às transações já guardadas.',
+      };
+    }
+
+    return {
+      updated,
+      message:
+        updated === 0
+          ? 'Nenhum registro precisou de reidratação (ou não há transações no ledger para estas origens).'
+          : `${updated} registro(s) de importação reidratado(s) com base nas transações guardadas.`,
+    };
+  },
+
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -214,7 +1305,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       budgets: [],
       mappingRules: [],
       importConfigs: [],
-      importLogs: []
+      importLogs: [],
+      creditCardShadowDashboard: [],
+      creditCardReprocessJobs: [],
+      creditCardStatements: [],
+      creditCardStatementEntries: [],
+      selectedCreditCardStatementAudit: null,
+      creditCardEngineRevision: 0,
     });
     // O redirecionamento será tratado no componente App.tsx
   },
@@ -233,6 +1330,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().fetchSubscription(),
       get().fetchAssets(),
       get().fetchFounderCount(),
+      get().fetchCreditCardReprocessJobs(),
     ]);
     set({ isLoading: false });
   },
@@ -304,6 +1402,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         console.log('%c[Store: addAccount] 3. Estado atualizado. Novo array de contas:', 'color: #3399ff', newState.accounts);
         return newState;
       });
+      if (newAccount.Tipo_Conta === 'Cartão de Crédito' && isCreditCardEngineEnabled(user)) {
+        try {
+          await creditCardEngineService.ensureCreditCardForAccount(user.id, newAccount);
+        } catch (syncErr) {
+          console.warn('[Store: addAccount] Falha ao criar/sincronizar credit_cards:', syncErr);
+        }
+      }
       return newAccount;
     } else {
       console.warn('%c[Store: addAccount] 2. Supabase não retornou nem erro, nem dados.', 'color: #ff9933');
@@ -326,8 +1431,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else if (data) {
       console.log('[Store: updateAccount] Sucesso! Conta atualizada:', data[0]);
       set((state) => ({
-        accounts: state.accounts.map(a => a.id === id ? data[0] as Account : a)
+        accounts: state.accounts.map((a) => (a.id === id ? (data[0] as Account) : a)),
       }));
+
+      const saved = data[0] as Account;
+      const syncUser = get().user;
+      if (syncUser?.id && saved?.Tipo_Conta === 'Cartão de Crédito' && isCreditCardEngineEnabled(syncUser)) {
+        try {
+          await creditCardEngineService.ensureCreditCardForAccount(syncUser.id, saved);
+        } catch (syncErr) {
+          console.warn('[Store: updateAccount] Falha ao sincronizar credit_cards (limite/dias):', syncErr);
+        }
+      }
     }
   },
 
@@ -448,50 +1563,92 @@ export const useAppStore = create<AppState>((set, get) => ({
       for (const assetId of affectedAssetIds) {
         await get().recalculateAssetBalance(assetId);
       }
+
+      const ledgerSync = shouldAutoSyncCreditCardLedger(user);
+      if (ledgerSync) {
+        const cardAccounts = new Map(
+          get().accounts
+            .filter(a => a.Tipo_Conta === 'Cartão de Crédito')
+            .map(a => [a.id, a])
+        );
+
+        const grouped = new Map<string, Transaction[]>();
+        addedTransactions.forEach((tx) => {
+          if (!tx.ID_Conta || tx.Origem === 'manual') return;
+          if (!cardAccounts.has(tx.ID_Conta)) return;
+          const key = `${tx.ID_Conta}::${tx.Origem}`;
+          const current = grouped.get(key) || [];
+          current.push(tx);
+          grouped.set(key, current);
+        });
+
+        for (const [key] of grouped.entries()) {
+          const [accountId, origin] = key.split('::');
+          if (!cardAccounts.has(accountId)) continue;
+          try {
+            await syncImportedCardOrigin({
+              getState: () => ({
+                transactions: get().transactions,
+                accounts: get().accounts,
+              }),
+              user,
+              accountId,
+              origin,
+            });
+          } catch (autoError) {
+            console.error('[CardV2][Auto] Falha ao sincronizar inclusão manual/importada:', autoError);
+          }
+        }
+
+        if (grouped.size > 0) {
+          get().bumpCreditCardEngineRevision();
+        }
+
+        if (isCardV2ShadowEnabled(user)) {
+          await get().refreshCreditCardShadowDashboard();
+          await get().fetchCreditCardReprocessJobs();
+        }
+      }
     }
   },
 
-  addMultipleTransactions: async (newTransactions, importConfig, fileName, ignoredItems = []) => {
+  addMultipleTransactions: async (newTransactions, importConfig, fileName, ignoredItems = [], options) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { imported: 0, ignored: 0 };
 
-    const { transactions } = get();
+    // Política de proteção simplificada:
+    // bloquear apenas quando o nome do arquivo já foi importado pelo usuário.
+    const { data: existingFileLog, error: existingFileLogError } = await supabase
+      .from('import_logs')
+      .select('id')
+      .eq('file_name', fileName)
+      .limit(1);
+    if (existingFileLogError) {
+      throw new Error(`Não foi possível validar duplicidade de arquivo: ${existingFileLogError.message}`);
+    }
+    if ((existingFileLog || []).length > 0) {
+      throw new Error(`Arquivo já importado anteriormente (${fileName}). Renomeie o arquivo se quiser importar novamente.`);
+    }
 
-    // 1. Identify duplicates
+    const normalizeCardCycle = (input?: CardImportCycleInput): CardImportCycleInput | undefined => {
+      if (!input) return undefined;
+      const safeRef = input.referenceLabel && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.referenceLabel)
+        ? input.referenceLabel
+        : null;
+      const safeDue = input.dueDate && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(input.dueDate)
+        ? input.dueDate
+        : null;
+      return {
+        mode: input.mode || 'auto',
+        referenceLabel: safeRef,
+        dueDate: safeDue,
+      };
+    };
+    const normalizedCardCycle = normalizeCardCycle(options?.cardCycle);
+
+    // 1. Sem deduplicação por linha: todos os lançamentos parseados seguem para importação.
     const duplicates: any[] = [];
-    const toImport: Omit<Transaction, 'ID_Transacao' | 'user_id'>[] = [];
-
-    newTransactions.forEach(newTx => {
-      const isDuplicate = transactions.some(existingTx => {
-        // Duplicate criteria: Same Date, Value, Original Description, Installment, AND Payment Date
-        const getIsoDate = (d: Date | string | undefined | null) => d ? new Date(d).toISOString().split('T')[0] : 'null';
-
-        const sameDate = getIsoDate(existingTx.Data) === getIsoDate(newTx.Data);
-        const sameValue = existingTx.Valor === newTx.Valor;
-        const sameDesc = (existingTx.Descricao_Original || '').trim() === (newTx.Descricao_Original || '').trim();
-        const sameParcela = (existingTx.Parcela_Atual || 1) === (newTx.Parcela_Atual || 1);
-        const samePaymentDate = getIsoDate(existingTx.Data_Pagamento) === getIsoDate(newTx.Data_Pagamento);
-        // STRICT CHECK: Also compare Account ID to allow same transaction in different accounts
-        // If importConfig defines an account, use it. Otherwise check if transaction already has one.
-        const targetAccountId = importConfig.ID_Conta_Associada || newTx.ID_Conta;
-        const sameAccount = targetAccountId ? existingTx.ID_Conta === targetAccountId : true; // If no account specified, be conservative (match any)
-
-        return sameDate && sameValue && sameDesc && sameParcela && samePaymentDate && sameAccount;
-      });
-
-
-
-      if (isDuplicate) {
-        duplicates.push({
-          Data: newTx.Data,
-          Valor: newTx.Valor,
-          Descricao: newTx.Descricao_Original,
-          Motivo: 'Duplicado (detectado na importação)'
-        });
-      } else {
-        toImport.push(newTx);
-      }
-    });
+    const toImport: Omit<Transaction, 'ID_Transacao' | 'user_id'>[] = [...newTransactions];
 
     // 2. Prepare transactions to insert
     const transactionsWithContext = toImport.map(t => ({
@@ -501,6 +1658,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
 
     // 3. Insert new transactions
+    let insertedBatch: Transaction[] = [];
+    /** Erro bulk insert (quando há; `select()` vazio não indica erro se `error` vier preenchido). */
+    let bulkInsertErrorMessage: string | null = null;
     if (transactionsWithContext.length > 0) {
       const { data, error } = await supabase
         .from('transactions')
@@ -508,13 +1668,25 @@ export const useAppStore = create<AppState>((set, get) => ({
         .select();
 
       if (error) {
+        bulkInsertErrorMessage = error.message;
         console.error('Erro ao adicionar múltiplas transações:', error);
       } else if (data) {
-        const newBatch = data as Transaction[];
-        set((state) => ({ transactions: [...state.transactions, ...newBatch] }));
+        insertedBatch = data as Transaction[];
+        const attempted = transactionsWithContext.length;
+        const got = insertedBatch.length;
+        if (got !== attempted) {
+          console.error(
+            '[addMultipleTransactions] Divergência pós-insert: linhas tentadas:',
+            attempted,
+            'persistidas conforme retorno da API:',
+            got,
+            '— log de importação gravará apenas com len(imported_details) === imported_count.'
+          );
+        }
+        set((state) => ({ transactions: [...state.transactions, ...insertedBatch] }));
 
         // Automação: Atualizar saldo do patrimônio para a nova leva se houver vínculo
-        const affectedAssetIds = new Set(newBatch.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
+        const affectedAssetIds = new Set(insertedBatch.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
         for (const assetId of affectedAssetIds) {
           await get().recalculateAssetBalance(assetId);
         }
@@ -523,33 +1695,107 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // 4. Log the import result
     // Combine duplicates found here with ignored items passed from parser
-    const allIgnoredDetails = [...duplicates, ...ignoredItems];
+    let allIgnoredDetails = [...duplicates, ...ignoredItems];
 
     const targetAccount = get().accounts.find(a => a.id === importConfig.ID_Conta_Associada);
+
+    const attemptedCount = transactionsWithContext.length;
+    const persistedCount = insertedBatch.length;
+
+    /** Só usar linhas efetivamente retornadas pelo insert+.select(); nunca declarar mais importações que entries no JSON (evita 125 vs 124 no histórico). */
+    let imported_details_payload =
+      persistedCount > 0
+        ? insertedBatch.map((tx) => ({
+            ID_Transacao: tx.ID_Transacao,
+            Origem: tx.Origem ?? null,
+            Data: tx.Data,
+            Descricao: tx.Descricao_Original,
+            Nome_Fantasia: tx.Nome_Fantasia,
+            Valor: tx.Valor,
+            Categoria: tx.Categoria,
+            ID_Conta: tx.ID_Conta || null,
+            Conta_Nome: targetAccount?.Nome_Conta || null,
+            Card_Cycle_Mode: normalizedCardCycle?.mode || null,
+            Card_Reference_Label: normalizedCardCycle?.referenceLabel || null,
+            Card_Due_Date: normalizedCardCycle?.dueDate || null,
+          }))
+        : [];
+
+    if (attemptedCount > 0 && persistedCount === 0) {
+      allIgnoredDetails = [
+        ...allIgnoredDetails,
+        {
+          Motivo:
+            bulkInsertErrorMessage ??
+            'API não retornou linhas após insert (verifique erro de rede, RLS ou constraints).',
+          Esperadas: attemptedCount,
+        },
+      ];
+    }
+
+    /** Contagem persistida deve coincidir sempre com imported_details_payload.length */
+    const imported_count_saved = imported_details_payload.length;
 
     const logEntry = {
       user_id: user.id,
       file_name: fileName,
-      total_transactions: newTransactions.length + ignoredItems.length, // Total includes those ignored by parser
-      imported_count: transactionsWithContext.length,
+      total_transactions: newTransactions.length + ignoredItems.length, // Linhas vistas pelo parser + ignoradas por ele
+      imported_count: imported_count_saved,
       ignored_count: allIgnoredDetails.length,
       ignored_details: allIgnoredDetails,
-      imported_details: transactionsWithContext.map(t => ({
-        Data: t.Data,
-        Descricao: t.Descricao_Original,
-        Nome_Fantasia: t.Nome_Fantasia,
-        Valor: t.Valor,
-        Categoria: t.Categoria,
-        ID_Conta: t.ID_Conta || null,
-        Conta_Nome: targetAccount?.Nome_Conta || null,
-      }))
+      imported_details: imported_details_payload,
     };
 
     const { error: logError } = await supabase.from('import_logs').insert([logEntry]);
     if (logError) console.error('Erro ao salvar log de importação:', logError);
     else get().fetchImportLogs(); // Refresh logs
 
-    return { imported: transactionsWithContext.length, ignored: allIgnoredDetails.length };
+    // 5. Card engine processing (single source of truth)
+    if (insertedBatch.length > 0 && shouldAutoSyncCreditCardLedger(user)) {
+      const targetAccount = get().accounts.find(a => a.id === importConfig.ID_Conta_Associada);
+      if (targetAccount?.Tipo_Conta === 'Cartão de Crédito') {
+        try {
+          const rows = insertedBatch.map((tx, index) => ({
+            sourceRowIndex: index + 1,
+            postedDate: new Date(tx.Data).toISOString().slice(0, 10),
+            description: tx.Descricao_Original || tx.Nome_Fantasia || '',
+            holderName: tx.Portador || undefined,
+            amount: Number(tx.Valor || 0),
+            installmentCurrent: tx.Parcela_Atual || undefined,
+            installmentTotal: tx.Total_Parcelas || undefined,
+            merchantName: tx.Nome_Fantasia || undefined,
+            transactionId: tx.ID_Transacao || undefined,
+          }));
+          const dueYear = normalizedCardCycle?.referenceLabel ? Number(normalizedCardCycle.referenceLabel.split('-')[0]) : undefined;
+          const dueMonth = normalizedCardCycle?.referenceLabel ? Number(normalizedCardCycle.referenceLabel.split('-')[1]) : undefined;
+          const engineResult = await creditCardEngineService.normalizeAndPersistImportLot({
+            userId: user.id,
+            account: targetAccount,
+            sourceFileName: fileName,
+            rows,
+            dueYear,
+            dueMonth,
+            dueDate: normalizedCardCycle?.dueDate || undefined,
+            rules: engineClassifierRulesFromUser(user),
+          });
+          console.log('[CardEngine] Importação processada:', {
+            fileName,
+            account: targetAccount.Nome_Conta,
+            entries: engineResult.entries,
+            statementId: engineResult.statementId,
+          });
+          get().bumpCreditCardEngineRevision();
+          if (isCardV2ShadowEnabled(user)) {
+            await get().refreshCreditCardShadowDashboard();
+            await get().fetchCreditCardReprocessJobs();
+          }
+        } catch (engineError) {
+          console.error('[CardEngine] Falha ao processar importação no engine:', engineError);
+        }
+      }
+    }
+
+    return { imported: imported_count_saved, ignored: allIgnoredDetails.length };
   },
 
   updateTransaction: async (updatedTransaction) => {
@@ -581,12 +1827,58 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (oldAssetId && oldAssetId !== updated.linked_asset_id) {
         await get().recalculateAssetBalance(oldAssetId);
       }
+
+      const { user, accounts } = get();
+      if (!user) return;
+      if (!shouldAutoSyncCreditCardLedger(user)) return;
+
+      const candidates = [oldTransaction, updated].filter(Boolean) as Transaction[];
+      const reprocessKeys = new Set<string>();
+      const cardAccounts = new Map(
+        accounts
+          .filter(a => a.Tipo_Conta === 'Cartão de Crédito')
+          .map(a => [a.id, a])
+      );
+
+      candidates.forEach((tx) => {
+        if (!tx.ID_Conta || !tx.Origem || tx.Origem === 'manual') return;
+        if (!cardAccounts.has(tx.ID_Conta)) return;
+        reprocessKeys.add(`${tx.ID_Conta}::${tx.Origem}`);
+      });
+
+      for (const key of reprocessKeys) {
+        const [accountId, origin] = key.split('::');
+        if (!cardAccounts.has(accountId)) continue;
+        try {
+          await syncImportedCardOrigin({
+            getState: () => ({
+              transactions: get().transactions,
+              accounts: get().accounts,
+            }),
+            user,
+            accountId,
+            origin,
+          });
+        } catch (autoError) {
+          console.error('[CardV2][Auto] Falha ao sincronizar edição de transação:', autoError);
+        }
+      }
+
+      if (reprocessKeys.size > 0) {
+        get().bumpCreditCardEngineRevision();
+      }
+
+      if (isCardV2ShadowEnabled(user)) {
+        await get().refreshCreditCardShadowDashboard();
+        await get().fetchCreditCardReprocessJobs();
+      }
     }
   },
 
   deleteTransaction: async (transactionId) => {
     const transaction = get().transactions.find(t => t.ID_Transacao === transactionId);
     const assetId = transaction?.linked_asset_id;
+    const { user, accounts } = get();
 
     const { error } = await supabase.from('transactions').delete().eq('ID_Transacao', transactionId);
 
@@ -601,18 +1893,70 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (assetId) {
         await get().recalculateAssetBalance(assetId);
       }
+
+      if (user && transaction?.ID_Conta && transaction?.Origem && transaction.Origem !== 'manual') {
+        const ledgerSync = shouldAutoSyncCreditCardLedger(user);
+        const account = accounts.find((a) => a.id === transaction.ID_Conta);
+
+        if (ledgerSync && account?.Tipo_Conta === 'Cartão de Crédito') {
+          const remainingTx = get().transactions.filter(
+            (t) => t.ID_Conta === account.id && t.Origem === transaction.Origem
+          );
+
+          try {
+            if (remainingTx.length > 0) {
+              await syncImportedCardOrigin({
+                getState: () => ({
+                  transactions: get().transactions,
+                  accounts: get().accounts,
+                }),
+                user,
+                accountId: account.id,
+                origin: transaction.Origem,
+              });
+            } else {
+              await removeImportedCardArtifacts({
+                userId: user.id,
+                user,
+                account,
+                origin: transaction.Origem,
+                deletedTransactions: [transaction],
+              });
+            }
+          } catch (autoError) {
+            console.error('[CardV2][Auto] Falha ao sincronizar exclusão de transação:', autoError);
+          }
+
+          get().bumpCreditCardEngineRevision();
+
+          if (isCardV2ShadowEnabled(user)) {
+            await get().refreshCreditCardShadowDashboard();
+            await get().fetchCreditCardReprocessJobs();
+          }
+        }
+      }
     }
   },
 
   deleteTransactionsByOrigin: async (origin) => {
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData.user;
+    if (!authUser) return;
+
+    const transactionsByOrigin = get().transactions.filter(t => t.Origem === origin);
+
     // Identify affected assets before deletion
     const affectedAssetIds = new Set(
-      get().transactions
-        .filter(t => t.Origem === origin && t.linked_asset_id)
+      transactionsByOrigin
+        .filter(t => t.linked_asset_id)
         .map(t => t.linked_asset_id as string)
     );
 
-    const { error } = await supabase.from('transactions').delete().eq('Origem', origin);
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('Origem', origin)
+      .eq('user_id', authUser.id);
     if (error) {
       console.error('Erro ao deletar lote de transações:', error);
     } else {
@@ -624,14 +1968,63 @@ export const useAppStore = create<AppState>((set, get) => ({
       for (const assetId of affectedAssetIds) {
         await get().recalculateAssetBalance(assetId);
       }
+
+      const ledgerSync = shouldAutoSyncCreditCardLedger(authUser);
+      if (ledgerSync) {
+        const cardAccounts = get().accounts.filter(a => a.Tipo_Conta === 'Cartão de Crédito');
+        const groupedByAccount = new Map<string, Transaction[]>();
+
+        transactionsByOrigin.forEach((tx) => {
+          if (!tx.ID_Conta) return;
+          const account = cardAccounts.find((a) => a.id === tx.ID_Conta);
+          if (!account) return;
+          const current = groupedByAccount.get(account.id) || [];
+          current.push(tx);
+          groupedByAccount.set(account.id, current);
+        });
+
+        for (const [accountId, deletedTx] of groupedByAccount.entries()) {
+          const account = cardAccounts.find((a) => a.id === accountId);
+          if (!account) continue;
+
+          try {
+            await removeImportedCardArtifacts({
+              userId: authUser.id,
+              user: authUser,
+              account,
+              origin,
+              deletedTransactions: deletedTx,
+            });
+          } catch (autoError) {
+            console.error('[CardV2][Auto] Falha ao sincronizar exclusão por origem:', autoError);
+          }
+        }
+
+        if (groupedByAccount.size > 0) {
+          get().bumpCreditCardEngineRevision();
+        }
+
+        if (isCardV2ShadowEnabled(authUser)) {
+          await get().refreshCreditCardShadowDashboard();
+          await get().fetchCreditCardReprocessJobs();
+        }
+      }
     }
   },
 
   reassignTransactionsAccountByOrigin: async (origin, accountId) => {
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData.user;
+    if (!authUser) {
+      console.error('Usuário não autenticado para reatribuição por origem.');
+      return { updated: 0 };
+    }
+
     const { data, error } = await supabase
       .from('transactions')
       .update({ ID_Conta: accountId })
       .eq('Origem', origin)
+      .eq('user_id', authUser.id)
       .select('ID_Transacao');
 
     if (error) {
@@ -647,6 +2040,39 @@ export const useAppStore = create<AppState>((set, get) => ({
           updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t
         ),
       }));
+
+      const targetAccount = get().accounts.find((a) => a.id === accountId);
+      const shouldProcessCardLedger =
+        targetAccount?.Tipo_Conta === 'Cartão de Crédito' && shouldAutoSyncCreditCardLedger(authUser);
+
+      if (targetAccount && shouldProcessCardLedger) {
+        try {
+          const scopedTx = get().transactions
+            .filter((t) => t.Origem === origin)
+            .map((t) => (updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t))
+            .filter((t) => t.ID_Conta === accountId);
+
+          await syncImportedCardOrigin({
+            getState: () => ({
+              transactions: get().transactions.map((t) =>
+                updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t
+              ),
+              accounts: get().accounts,
+            }),
+            user: authUser,
+            accountId,
+            origin,
+          });
+
+          if (isCardV2ShadowEnabled(authUser)) {
+            await get().refreshCreditCardShadowDashboard();
+            await get().fetchCreditCardReprocessJobs();
+          }
+        } catch (reprocessError) {
+          console.error('[CardV2][Auto] Falha ao reprocessar após corrigir conta:', reprocessError);
+        }
+        get().bumpCreditCardEngineRevision();
+      }
     }
 
     return { updated: updatedIds.size };
@@ -939,6 +2365,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    const transactionsByOrigin = get().transactions.filter(t => t.Origem === fileName);
+
     // 1. Delete transactions from this import
     console.log(`[deleteImportLog] Tentando excluir transações com Origem = "${fileName}"...`);
     const { error: txError, count } = await supabase
@@ -984,6 +2412,42 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Recalcular saldo de todos os ativos afetados
       for (const assetId of affectedAssetIds) {
         await get().recalculateAssetBalance(assetId);
+      }
+
+      const ledgerSync = shouldAutoSyncCreditCardLedger(user);
+      if (ledgerSync) {
+        const cardAccounts = get().accounts.filter(a => a.Tipo_Conta === 'Cartão de Crédito');
+        const groupedByAccount = new Map<string, Transaction[]>();
+
+        transactionsByOrigin.forEach((tx) => {
+          if (!tx.ID_Conta) return;
+          const account = cardAccounts.find((a) => a.id === tx.ID_Conta);
+          if (!account) return;
+          const current = groupedByAccount.get(account.id) || [];
+          current.push(tx);
+          groupedByAccount.set(account.id, current);
+        });
+
+        for (const [accountId, deletedTx] of groupedByAccount.entries()) {
+          const account = cardAccounts.find((a) => a.id === accountId);
+          if (!account) continue;
+          try {
+            await removeImportedCardArtifacts({
+              userId: user.id,
+              user,
+              account,
+              origin: fileName,
+              deletedTransactions: deletedTx,
+            });
+          } catch (autoError) {
+            console.error('[CardV2][Auto] Falha ao sincronizar exclusão de importação:', autoError);
+          }
+        }
+
+        if (isCardV2ShadowEnabled(user)) {
+          await get().refreshCreditCardShadowDashboard();
+          await get().fetchCreditCardReprocessJobs();
+        }
       }
 
       await appAlert('Importação e transações associadas excluídas com sucesso!', 'Sucesso', 'success');

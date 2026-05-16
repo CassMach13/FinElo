@@ -874,9 +874,25 @@ export function parseNativeBankCSV(
       const cleanedDate = parseDate(rawDate);
       const cleanedValue = parseMonetaryValue(rawValue, bankConfig.numberFormat);
 
-      if (!cleanedDate || cleanedValue === null || !rawDesc) continue;
-
-      const installInfo = extractInstallments(rawDesc, cleanedDate);
+      if (!cleanedDate || cleanedValue === null || !rawDesc) {
+        const hasSignals = row.some((c) => String(c ?? '').trim().length > 0);
+        if (hasSignals) {
+          ignoredCount++;
+          ignoredItems.push({
+            Motivo: [
+              '[Bradesco]',
+              !rawDesc ? 'sem descrição' : '',
+              !cleanedDate ? 'data inválida ou vazia' : '',
+              cleanedValue === null ? 'valor não interpretado pelo parser (formato/decimais)' : '',
+              'esta linha NÃO gerou lançamento no FinElo.',
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            RawRow: rowStr.slice(0, 450),
+          });
+        }
+        continue;
+      }
       const finalValue = bankConfig.invertValues ? -cleanedValue : cleanedValue;
       const finalType: 'Renda' | 'Despesa' = finalValue >= 0 ? 'Renda' : 'Despesa';
 
@@ -983,8 +999,26 @@ export function parseNativeBankCSV(
       }
     }
 
-    // Skip rows that can't be parsed as valid transactions
+    // Linhas ilegíveis: gravar como ignoradas (histórico) — nunca omitir ao silêncio
     if (!cleanedDate || cleanedValue === null || !rawDesc) {
+      const hasSignals = row.some((c) => String(c ?? '').trim().length > 0);
+      if (hasSignals) {
+        ignoredCount++;
+        ignoredItems.push({
+          Motivo: [
+            !rawDesc ? 'sem descrição' : '',
+            !cleanedDate ? 'data inválida ou vazia' : '',
+            cleanedValue === null ? 'valor não interpretado pelo parser (formato/decimais)' : '',
+            'linha omitida ao importar; confira especialmente Pagamentos/agregados de fatura (XP).',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          RawRow: rowStr.slice(0, 450),
+          Descricao: rawDesc || '(vazio)',
+          DataTextoBruto: rawDate || '(vazio)',
+          ValorTextoBruto: rawValue || '(vazio)',
+        });
+      }
       continue;
     }
 
@@ -1008,6 +1042,31 @@ export function parseNativeBankCSV(
         suggestedName = rule.Nome_Fantasia_Sugerido;
         suggestedCategory = rule.Categoria_Sugerida;
         break;
+      }
+    }
+
+    // Pagamentos/agregados de fatura viram entrada (Renda) após invertValues — alinhar rótulos ao parserService
+    if (
+      bankConfig.sourceType === 'Cartao' &&
+      bankConfig.invertValues &&
+      finalValue > 0
+    ) {
+      const CREDIT_CARD_PAYMENT_KEYWORDS = [
+        'PAGAMENTO',
+        'PAGTO',
+        'LIQUIDACAO',
+        'CREDITO',
+        'DEPOSITO',
+        'ESTORNO',
+        'VALIDOS NORMAIS',
+        'PAGAMENTOS VALIDOS',
+      ];
+      const isPotentialPayment = CREDIT_CARD_PAYMENT_KEYWORDS.some((kw) =>
+        rawDesc.toUpperCase().includes(kw)
+      );
+      if (isPotentialPayment && (suggestedCategory === '-' || suggestedCategory === 'Outros')) {
+        suggestedCategory = 'Pagamento de Fatura';
+        suggestedName = 'Pagamento de Fatura';
       }
     }
 

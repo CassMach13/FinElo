@@ -90,7 +90,14 @@ export default function MainLayout() {
         if (currentView === 'admin' && !isAdmin) {
             setCurrentView('dashboard');
         }
-    }, [currentView, isAdmin]);
+    }, [currentView, isAdmin, setCurrentView]);
+
+    // Links antigos (?view=credit-cards) ou estado local obsoleto → Transações
+    useEffect(() => {
+        if ((currentView as string) === 'credit-cards') {
+            setCurrentView('transactions');
+        }
+    }, [currentView, setCurrentView]);
 
     return (
         <div id="main-layout" className="flex flex-col h-screen bg-primary text-light overflow-hidden">

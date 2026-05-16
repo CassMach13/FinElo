@@ -109,6 +109,209 @@ export interface ImportLog {
   imported_details?: any;
 }
 
+export interface CardImportCycleInput {
+  mode?: 'auto' | 'manual';
+  referenceLabel?: string | null; // YYYY-MM
+  dueDate?: string | null; // YYYY-MM-DD
+}
+
+export type CreditCardEntryDirection = 'debit' | 'credit';
+export type CreditCardEntryType =
+  | 'purchase'
+  | 'installment_purchase'
+  | 'refund'
+  | 'invoice_payment'
+  | 'fee'
+  | 'interest'
+  | 'adjustment'
+  | 'ignored'
+  | 'needs_review';
+export type CreditCardClassificationSource = 'import_rule' | 'user' | 'system' | 'reprocess';
+
+export interface CreditCard {
+  id: string;
+  user_id: string;
+  account_id: string;
+  name: string;
+  holder_name?: string | null;
+  issuer?: string | null;
+  limit_amount: number;
+  closing_day: number;
+  due_day: number;
+  linked_payment_account_id?: string | null;
+  archived: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreditCardImportLot {
+  id: string;
+  user_id: string;
+  card_id: string;
+  account_id: string;
+  source_file_name: string;
+  source_file_path?: string | null;
+  imported_at: string;
+  statement_due_year: number;
+  statement_due_month: number;
+  statement_due_date?: string | null;
+  purchase_reference_label?: string | null;
+  status: 'pending_review' | 'confirmed' | 'reprocessed' | 'error';
+  raw_row_count: number;
+  imported_row_count: number;
+  ignored_row_count: number;
+  checksum?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreditCardEntry {
+  id: string;
+  user_id: string;
+  card_id: string;
+  account_id: string;
+  import_lot_id: string;
+  source_file_name: string;
+  source_row_index: number;
+  source_row_hash: string;
+  transaction_id?: string | null;
+  posted_date?: string | null;
+  description_raw: string;
+  description_normalized?: string;
+  merchant_name?: string | null;
+  holder_name?: string | null;
+  amount: number;
+  abs_amount: number;
+  direction: CreditCardEntryDirection;
+  entry_type: CreditCardEntryType;
+  installment_current?: number | null;
+  installment_total?: number | null;
+  category_id?: string | null;
+  classification_source: CreditCardClassificationSource;
+  classification_confidence?: number;
+  statement_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type CreditCardStatementStatus = 'open' | 'closed' | 'paid' | 'partial';
+
+export interface CreditCardStatement {
+  id: string;
+  user_id: string;
+  account_id: string;
+  reference_label: string;
+  close_date?: string | null;
+  due_date?: string | null;
+  total_charges: number;
+  total_credits: number;
+  total_payments: number;
+  open_amount: number;
+  source_origin?: string | null;
+  status: CreditCardStatementStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type CreditCardStatementItemType = 'charge' | 'refund' | 'payment';
+
+export interface CreditCardStatementItem {
+  id: string;
+  user_id: string;
+  account_id: string;
+  statement_id: string;
+  transaction_id?: string | null;
+  item_type: CreditCardStatementItemType;
+  amount: number;
+  posted_date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreditCardStatementV2 {
+  id: string;
+  user_id: string;
+  card_id: string;
+  account_id: string;
+  purchase_reference_label: string;
+  due_year: number;
+  due_month: number;
+  due_date?: string | null;
+  closing_date?: string | null;
+  status: 'open' | 'closed' | 'paid' | 'partial' | 'overdue';
+  source_import_lot_ids?: string[];
+  total_purchases: number;
+  total_fees: number;
+  total_interest: number;
+  total_refunds: number;
+  statement_total: number;
+  total_payments: number;
+  open_balance: number;
+  created_at?: string;
+  updated_at?: string;
+  /** Indicações manuais do usuário para total/pago desta competência (sobrescreve o motor no recálculo). */
+  manual_totals?: ManualStatementTotalsPayload | null;
+}
+
+/** Totais conferidos pelo usuário na fatura física/digital. */
+export interface ManualStatementTotalsPayload {
+  use_manual: boolean;
+  /** Se omitido/null com use_manual, mantém valor calculado pelo motor. */
+  statement_total?: number | null;
+  total_payments?: number | null;
+  user_note?: string | null;
+}
+
+export interface CreditCardPayment {
+  id: string;
+  user_id: string;
+  card_id: string;
+  statement_id: string;
+  payment_account_id?: string | null;
+  payment_transaction_id?: string | null;
+  payment_date: string;
+  amount: number;
+  source: 'manual' | 'imported_statement' | 'bank_account_import';
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreditCardStatementAudit {
+  statementId: string;
+  sourceCsvRows: number;
+  importedEntries: number;
+  statementItems: number;
+  ignoredRows: number;
+  needsReviewRows: number;
+  purchasesTotal: number;
+  refundsTotal: number;
+  feesTotal: number;
+  interestTotal: number;
+  paymentsFromNextInvoice: number;
+  statementTotal: number;
+  openBalance: number;
+  unclassifiedPositiveEntries: number;
+  rowsInImportNotInStatement: number;
+  rowsInStatementNotInImport: number;
+  duplicateSourceHashes: number;
+  crossCardContaminationRisk: boolean;
+}
+
+export type CreditCardReprocessJobStatus = 'running' | 'success' | 'failed';
+
+export interface CreditCardReprocessJob {
+  id: string;
+  user_id: string;
+  account_id: string;
+  started_at: string;
+  finished_at?: string | null;
+  status: CreditCardReprocessJobStatus;
+  summary_json?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface SupportMessage {
   id: string;
   ticket_id: string;
@@ -222,5 +425,14 @@ export interface FamilyMember {
   created_at: string;
 }
 
-export type AppView = 'dashboard' | 'import' | 'transactions' | 'investments' | 'settings' | 'help' | 'admin' | 'pricing' | 'success';
+export type AppView =
+  | 'dashboard'
+  | 'import'
+  | 'transactions'
+  | 'investments'
+  | 'settings'
+  | 'help'
+  | 'admin'
+  | 'pricing'
+  | 'success';
 

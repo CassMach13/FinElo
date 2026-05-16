@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
-import { Transaction, Category, MappingRule, Account } from './../../types';
+import { Transaction, Category, MappingRule, Account, CreditCardStatement, CreditCardStatementItem } from './../../types';
 import Card from './../ui/Card';
 import Modal from './../ui/Modal';
 import Input from './../ui/Input';
@@ -10,10 +10,15 @@ import MultiSelect from './../ui/MultiSelect';
 import Select from './../ui/Select';
 import Button from './../ui/Button';
 import { TourButton } from '../TourButton';
+import { isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featureFlagService';
+import { creditCardEngineService } from '../../services/creditCardEngineService';
+import { supabase } from '../../supabaseClient';
 
 import { formatCurrency } from '../../utils/formatters';
+import { pickPrimaryStatementForPayment } from '../../utils/pickCreditCardStatementForPayment';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import CreditCardInvoiceCyclesModal from '../modals/CreditCardInvoiceCyclesModal';
 import AccountModal from './AccountModal';
 import CategoryModal from '../modals/CategoryModal';
 import NewTransactionModal from '../modals/NewTransactionModal';
@@ -22,8 +27,121 @@ import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
 
+const DEFAULT_CARD_PAYMENT_KEYWORDS = [
+  'pagamentos válidos normais',
+  'pagamentos validos normais',
+  'pagamentos válidos',
+  'pagamentos validos',
+  'pagamento de fatura',
+  'pagto de fatura',
+];
+
+const DEFAULT_CARD_CREDIT_KEYWORDS = [
+  'estorno',
+  'reembolso',
+  'devolu',
+  'cancelamento',
+  'ajuste positivo',
+];
+
+const normalizeRuleText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const normalizeOriginKey = (value?: string | null) =>
+  (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const parseKeywordList = (value: unknown, fallback: string[]) => {
+  if (!Array.isArray(value)) return fallback;
+  const normalized = value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+  return normalized.length > 0 ? normalized : fallback;
+};
+
+const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+
+const PT_BR_MONTH_TO_NUMBER: Record<string, number> = {
+  jan: 1,
+  fev: 2,
+  mar: 3,
+  abr: 4,
+  mai: 5,
+  jun: 6,
+  jul: 7,
+  ago: 8,
+  set: 9,
+  out: 10,
+  nov: 11,
+  dez: 12,
+};
+
+const parseInvoicePeriodFromOrigin = (origin?: string | null): { referenceLabel: string; dueYear: number; dueMonth: number } | null => {
+  if (!origin) return null;
+  const match = origin.match(/(?:_|-|\s)(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?:_|-|\s)(\d{4})/i);
+  if (!match) return null;
+  const dueMonth = PT_BR_MONTH_TO_NUMBER[match[1].toLowerCase()];
+  const dueYear = Number(match[2]);
+  if (!dueMonth || !dueYear) return null;
+
+  const refDate = new Date(dueYear, dueMonth - 2, 1); // mês de compras = mês anterior ao mês da fatura
+  return {
+    referenceLabel: `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, '0')}`,
+    dueYear,
+    dueMonth,
+  };
+};
+
+const normalizeOriginBaseKey = (value?: string | null) => {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  const parts = raw.split(/[\\/]/g);
+  const base = parts[parts.length - 1] || raw;
+  return normalizeOriginKey(base);
+};
+
+const DEBUG_TARGET_ORIGIN = 'fatura_cartao_xp_cassio_jan_2025.csv';
+const DEBUG_TARGET_AMOUNT = 49.76;
+const isDebugTargetTx = (origin?: string | null, amount?: number | null) => {
+  const normalizedOrigin = normalizeOriginKey(origin || '');
+  const normalizedAmount = Math.abs(Number(amount || 0));
+  return normalizedOrigin.includes(DEBUG_TARGET_ORIGIN) && Math.abs(normalizedAmount - DEBUG_TARGET_AMOUNT) < 0.001;
+};
+
 const TransactionsView: React.FC = () => {
-  const { transactions, accounts, assets, fetchAllData, isLoading, getSortedCategories, addTransaction, updateTransaction, deleteTransaction, deleteTransactionsByOrigin, addMappingRule, transactionFilters, setTransactionFilters, addCategory, addAccount, updateAccount, getAccountsWithCalculatedBalance } = useAppStore();
+  const {
+    transactions,
+    accounts,
+    assets,
+    fetchAllData,
+    isLoading,
+    getSortedCategories,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    deleteTransactionsByOrigin,
+    addMappingRule,
+    transactionFilters,
+    setTransactionFilters,
+    addCategory,
+    addAccount,
+    updateAccount,
+    getAccountsWithCalculatedBalance,
+    user,
+    syncCreditCardHistoryFromAccount,
+    saveCardImportLotClassification,
+    updateUserPreferences,
+    getCardStatements,
+    payStatement,
+        setCurrentView,
+        creditCardEngineRevision,
+  } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
@@ -33,8 +151,37 @@ const TransactionsView: React.FC = () => {
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [predefinedTransaction, setPredefinedTransaction] = useState<Transaction | null>(null);
+  const [payInvoiceEngineModal, setPayInvoiceEngineModal] = useState<{
+    open: boolean;
+    account: Account | null;
+    amountDraft: string;
+    dateDraft: string;
+    isSubmitting: boolean;
+  }>({
+    open: false,
+    account: null,
+    amountDraft: '',
+    dateDraft: '',
+    isSubmitting: false,
+  });
+
+  const isoTodayStr = () => new Date().toISOString().slice(0, 10);
+
+  const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
 
   const handlePayInvoice = (account: Account, amount: number) => {
+    if (user && isCreditCardEngineEnabled(user)) {
+      const amountStr = amount > 0 ? String(amount).replace('.', ',') : '';
+      setPayInvoiceEngineModal({
+        open: true,
+        account,
+        amountDraft: amountStr,
+        dateDraft: isoTodayStr(),
+        isSubmitting: false,
+      });
+      return;
+    }
+
     const paymentTx: any = {
       Tipo: 'Renda',
       ID_Conta: account.id,
@@ -48,8 +195,851 @@ const TransactionsView: React.FC = () => {
     setNewTransactionModalOpen(true);
   };
 
+  const submitPayInvoiceEngineModal = async () => {
+    const { account, amountDraft, dateDraft } = payInvoiceEngineModal;
+    if (!user || !account) return;
+
+    if (!dateDraft || !amountDraft.trim()) {
+      await appAlert('Informe data e valor do pagamento.', 'Pagamento', 'warning');
+      return;
+    }
+    const amount = Number(amountDraft.replace(',', '.'));
+    if (Number.isNaN(amount) || amount <= 0) {
+      await appAlert('Valor de pagamento inválido.', 'Pagamento', 'warning');
+      return;
+    }
+
+    setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: true }));
+
+    try {
+      const statements = await getCardStatements(account.id);
+      const targetStatement = pickPrimaryStatementForPayment(statements);
+      if (!targetStatement) {
+        await appAlert(
+          'Não há fatura no motor para este cartão. Confira importações e reprocessamentos em Configurações → Histórico de importações, ou valide a migração do motor no Supabase.',
+          'Pagamento',
+          'warning'
+        );
+        setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: false }));
+        return;
+      }
+
+      const result = await payStatement(targetStatement.id, {
+        paymentDate: dateDraft,
+        amount,
+        paymentAccountId: account.linked_payment_account_id || undefined,
+        notes: 'Pagamento registrado via atalho em Transações',
+      });
+
+      if (!result) {
+        await appAlert(
+          'Não foi possível registrar o pagamento. Verifique os dados e se o motor de cartão está configurado.',
+          'Pagamento',
+          'danger'
+        );
+        setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: false }));
+        return;
+      }
+
+      setPayInvoiceEngineModal({
+        open: false,
+        account: null,
+        amountDraft: '',
+        dateDraft: '',
+        isSubmitting: false,
+      });
+
+      await fetchAllData();
+
+      await appAlert('Pagamento registrado com sucesso.', 'Pagamento', 'success');
+    } catch (error) {
+      console.error('[TransactionsView] Pagamento via motor (atalho Transações):', error);
+      await appAlert(
+        'Erro ao consultar faturas ou registrar o pagamento. Tente novamente.',
+        'Pagamento',
+        'danger'
+      );
+      setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: false }));
+    }
+  };
+
+  const openStatementHistory = async (account: Account) => {
+    setStatementHistoryModalOpen(true);
+    setIsSyncingHistory(true);
+    setStatementHistoryError(null);
+    setStatementHistoryAccount(account);
+    setExpandedStatementId(null);
+
+    try {
+      const { data: accountTxData, error: accountTxError } = await supabase
+        .from('transactions')
+        .select('ID_Transacao, Origem, Data, ID_Conta, Valor, Tipo, Nome_Fantasia, Descricao_Original')
+        .eq('ID_Conta', account.id)
+        .neq('Origem', 'manual')
+        .not('Origem', 'is', null);
+      if (accountTxError) throw accountTxError;
+
+      const byOriginKey = new Map<string, { count: number; maxDate: Date | null; origins: Set<string> }>();
+      (accountTxData || []).forEach((tx: any) => {
+        const origin = tx.Origem as string;
+        const originKey = normalizeOriginKey(origin);
+        if (!originKey) return;
+        const current = byOriginKey.get(originKey) || { count: 0, maxDate: null, origins: new Set<string>() };
+        if (origin) current.origins.add(origin);
+        const txDate = tx.Data ? new Date(tx.Data) : null;
+        const nextMax = (!current.maxDate || (txDate && txDate > current.maxDate)) ? txDate : current.maxDate;
+        byOriginKey.set(originKey, { count: current.count + 1, maxDate: nextMax || current.maxDate, origins: current.origins });
+      });
+
+      const { data: logsData, error: logsError } = await supabase
+        .from('import_logs')
+        .select('file_name, import_date, imported_details')
+        .order('import_date', { ascending: false });
+      if (logsError) throw logsError;
+
+      const logsByOriginKey = new Map<string, any>();
+      const metadataByOriginKey = new Map<string, {
+        referenceLabel: string;
+        dueDate: string;
+        classified: boolean;
+        paymentIds: string[];
+        refundIds: string[];
+      }>();
+
+      (logsData || []).forEach((log: any) => {
+        const originKey = normalizeOriginKey(log?.file_name);
+        if (!originKey) return;
+        const details = Array.isArray(log?.imported_details) ? log.imported_details : [];
+        const accountRows = details.filter((d: any) => d?.ID_Conta === account.id);
+        if (accountRows.length > 0 || byOriginKey.has(originKey)) {
+          if (!logsByOriginKey.has(originKey)) logsByOriginKey.set(originKey, log);
+          const current = byOriginKey.get(originKey) || { count: 0, maxDate: null, origins: new Set<string>() };
+          if (log?.file_name) current.origins.add(log.file_name);
+          byOriginKey.set(originKey, current);
+        }
+
+        if (accountRows.length > 0) {
+          const metaWithRef = accountRows.find((d: any) => /^\d{4}-(0[1-9]|1[0-2])$/.test(d?.Card_Reference_Label || ''));
+          const paymentIds = accountRows.flatMap((d: any) => Array.isArray(d?.Card_Payment_Tx_Ids) ? d.Card_Payment_Tx_Ids : []).filter(Boolean);
+          const refundIds = accountRows.flatMap((d: any) => Array.isArray(d?.Card_Refund_Tx_Ids) ? d.Card_Refund_Tx_Ids : []).filter(Boolean);
+          metadataByOriginKey.set(originKey, {
+            referenceLabel: metaWithRef?.Card_Reference_Label || '',
+            dueDate: metaWithRef?.Card_Due_Date || '',
+            classified: !!metaWithRef,
+            paymentIds,
+            refundIds,
+          });
+        }
+      });
+
+      const originKeys = Array.from(byOriginKey.keys());
+      if (originKeys.length === 0) {
+        setStatementHistoryRows([]);
+        setCardImportLots([]);
+        return;
+      }
+
+      const txDataByOriginAll: any[] = [];
+      if (originKeys.length > 0 && user?.id) {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('ID_Transacao, Origem, Data, ID_Conta, Valor, Tipo, Nome_Fantasia, Descricao_Original, user_id')
+          .eq('user_id', user.id)
+          .neq('Origem', 'manual')
+          .not('Origem', 'is', null);
+        if (error) throw error;
+        txDataByOriginAll.push(...(data || []));
+      }
+
+      const originKeysByBase = new Map<string, Set<string>>();
+      byOriginKey.forEach((info, originKey) => {
+        const candidates = [originKey, ...Array.from(info.origins)];
+        candidates.forEach((origin) => {
+          const baseKey = normalizeOriginBaseKey(origin);
+          if (!baseKey) return;
+          const current = originKeysByBase.get(baseKey) || new Set<string>();
+          current.add(originKey);
+          originKeysByBase.set(baseKey, current);
+        });
+      });
+
+      const sourceRowsByOrigin = new Map<string, any[]>();
+      (txDataByOriginAll || []).forEach((tx: any) => {
+        const rawOriginKey = normalizeOriginKey(tx.Origem);
+        const baseOriginKey = normalizeOriginBaseKey(tx.Origem);
+
+        if (rawOriginKey && byOriginKey.has(rawOriginKey)) {
+          const current = sourceRowsByOrigin.get(rawOriginKey) || [];
+          current.push(tx);
+          sourceRowsByOrigin.set(rawOriginKey, current);
+          return;
+        }
+
+        if (!baseOriginKey) return;
+        const candidateOriginKeys = Array.from(originKeysByBase.get(baseOriginKey) || []);
+        if (candidateOriginKeys.length === 0) return;
+        candidateOriginKeys.forEach((candidateKey) => {
+          const current = sourceRowsByOrigin.get(candidateKey) || [];
+          current.push(tx);
+          sourceRowsByOrigin.set(candidateKey, current);
+        });
+      });
+      if (import.meta.env.DEV) {
+        const debugTargetRows = (txDataByOriginAll || []).filter((tx: any) => isDebugTargetTx(tx.Origem, tx.Valor));
+        console.log('[CardV2][debug][Cassio Jan/2025 R$49.76][sourceRowsByOrigin]', {
+          found: debugTargetRows.length > 0,
+          rows: debugTargetRows.map((tx: any) => ({
+            transactionId: tx.ID_Transacao,
+            origin: tx.Origem,
+            accountId: tx.ID_Conta,
+            date: tx.Data,
+            amount: tx.Valor,
+            tipo: tx.Tipo,
+            description: `${tx.Descricao_Original || ''} ${tx.Nome_Fantasia || ''}`.trim(),
+          })),
+        });
+      }
+      originKeys.forEach((originKey) => {
+        if (!sourceRowsByOrigin.has(originKey)) sourceRowsByOrigin.set(originKey, []);
+      });
+
+      const paymentKeywords = parseKeywordList(
+        user?.user_metadata?.cardPaymentKeywords,
+        DEFAULT_CARD_PAYMENT_KEYWORDS
+      );
+      const creditKeywords = parseKeywordList(
+        user?.user_metadata?.cardCreditKeywords,
+        DEFAULT_CARD_CREDIT_KEYWORDS
+      );
+      const hasPaymentKeyword = (text: string) => {
+        const normalizedText = normalizeRuleText(text || '');
+        return paymentKeywords.some((keyword) => normalizedText.includes(normalizeRuleText(keyword)));
+      };
+      const hasCreditKeyword = (text: string) => {
+        const normalizedText = normalizeRuleText(text || '');
+        return creditKeywords.some((keyword) => normalizedText.includes(normalizeRuleText(keyword)));
+      };
+      const classifyTx = (tx: any, originKey: string): 'charge' | 'refund' | 'payment' => {
+        const txId = tx?.ID_Transacao as string | undefined;
+        const metadata = metadataByOriginKey.get(originKey);
+        if (txId && metadata?.paymentIds.includes(txId)) return 'payment';
+        if (txId && metadata?.refundIds.includes(txId)) return 'refund';
+
+        const rawText = `${tx.Descricao_Original || ''} ${tx.Nome_Fantasia || ''}`;
+        const isPositiveCardEntry = tx.Tipo === 'Renda' || Number(tx.Valor || 0) > 0;
+        if (hasPaymentKeyword(rawText) && isPositiveCardEntry) return 'payment';
+        if (tx.Tipo === 'Renda' && hasCreditKeyword(rawText)) return 'refund';
+        if (hasCreditKeyword(rawText)) return 'refund';
+        if (import.meta.env.DEV && isPositiveCardEntry) {
+          console.warn('[CardV2][guardrail] Positive card entry without payment/refund classification kept as charge', {
+            transactionId: tx.ID_Transacao,
+            origin: tx.Origem,
+            amount: tx.Valor,
+            description: rawText,
+          });
+        }
+        const finalType: 'charge' | 'refund' | 'payment' = 'charge';
+        if (import.meta.env.DEV && isDebugTargetTx(tx.Origem, tx.Valor)) {
+          console.log('[CardV2][debug][Cassio Jan/2025 R$49.76][classifyTx]', {
+            transactionId: tx.ID_Transacao,
+            origin: tx.Origem,
+            originKey,
+            amount: tx.Valor,
+            tipo: tx.Tipo,
+            rawText,
+            finalType,
+            metadataOverridePayment: !!(tx.ID_Transacao && metadata?.paymentIds.includes(tx.ID_Transacao)),
+            metadataOverrideRefund: !!(tx.ID_Transacao && metadata?.refundIds.includes(tx.ID_Transacao)),
+          });
+        }
+        return finalType;
+      };
+
+      const inferReference = (maxDate: Date | null) => {
+        if (!maxDate || Number.isNaN(maxDate.getTime())) return '';
+        return `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, '0')}`;
+      };
+      const inferDueDate = (referenceLabel: string) => {
+        if (!referenceLabel) return '';
+        const [y, m] = referenceLabel.split('-').map(Number);
+        const safeDay = Math.min(Math.max(account.dia_vencimento || 10, 1), 28);
+        const due = new Date(y, m, safeDay);
+        return `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+      };
+
+      type HydratedStatement = CreditCardStatement & {
+        items: CreditCardStatementItem[];
+        invoiceSourceFiles: string[];
+        paymentSourceFiles: string[];
+        paymentFromOwnFiles: number;
+        expectedChargesFromFiles: number;
+        expectedCreditsFromFiles: number;
+        chargeDiffFromFiles: number;
+        unmatchedFileItems: Array<{ id: string; description: string; amount: number; postedDate: string; sourceFile: string }>;
+      };
+
+      const statementBuckets = new Map<string, HydratedStatement>();
+      originKeys.forEach((originKey) => {
+        const stats = byOriginKey.get(originKey)!;
+        const metadata = metadataByOriginKey.get(originKey);
+        const rows = sourceRowsByOrigin.get(originKey) || [];
+        const originCandidates = Array.from(stats.origins).sort((a, b) => a.localeCompare(b));
+        const parsedFromFilename = parseInvoicePeriodFromOrigin(originCandidates[0]);
+        const referenceLabel = metadata?.referenceLabel || parsedFromFilename?.referenceLabel || inferReference(stats.maxDate);
+        const dueDate = metadata?.dueDate || (
+          parsedFromFilename
+            ? `${parsedFromFilename.dueYear}-${String(parsedFromFilename.dueMonth).padStart(2, '0')}-${String(Math.min(Math.max(account.dia_vencimento || 10, 1), 28)).padStart(2, '0')}`
+            : inferDueDate(referenceLabel)
+        );
+        if (!referenceLabel) return;
+
+        const bucketKey = `${referenceLabel}|${dueDate || ''}`;
+        const invoiceSource = originCandidates;
+
+        if (!statementBuckets.has(bucketKey)) {
+          statementBuckets.set(bucketKey, {
+            id: bucketKey,
+            user_id: user?.id || '',
+            account_id: account.id,
+            reference_label: referenceLabel,
+            due_date: dueDate || null,
+            close_date: null,
+            total_charges: 0,
+            total_credits: 0,
+            total_payments: 0,
+            open_amount: 0,
+            source_origin: invoiceSource.join(' | '),
+            status: 'open',
+            items: [],
+            invoiceSourceFiles: [],
+            paymentSourceFiles: [],
+            paymentFromOwnFiles: 0,
+            expectedChargesFromFiles: 0,
+            expectedCreditsFromFiles: 0,
+            chargeDiffFromFiles: 0,
+            unmatchedFileItems: [],
+          });
+        }
+
+        const statement = statementBuckets.get(bucketKey)!;
+        const invoiceFileSet = new Set(statement.invoiceSourceFiles);
+        invoiceSource.forEach((origin) => invoiceFileSet.add(origin));
+        statement.invoiceSourceFiles = Array.from(invoiceFileSet).sort((a, b) => a.localeCompare(b));
+
+        let charges = 0;
+        let refunds = 0;
+        let payments = 0;
+
+        rows.forEach((tx: any) => {
+          const txType = classifyTx(tx, originKey);
+          const amount = Math.abs(Number(tx.Valor || 0));
+          if (txType === 'charge') charges += amount;
+          if (txType === 'refund') refunds += amount;
+          if (txType === 'payment') payments += amount;
+
+          statement.items.push({
+            id: tx.ID_Transacao || `${originKey}-${tx.Data}-${tx.Valor}-${tx.Nome_Fantasia || ''}`,
+            user_id: user?.id || '',
+            account_id: account.id,
+            statement_id: bucketKey,
+            transaction_id: tx.ID_Transacao || null,
+            item_type: txType,
+            amount,
+            posted_date: tx.Data ? new Date(tx.Data).toISOString().slice(0, 10) : null,
+          });
+          if (import.meta.env.DEV && isDebugTargetTx(tx.Origem, tx.Valor)) {
+            console.log('[CardV2][debug][Cassio Jan/2025 R$49.76][statementBucket]', {
+              transactionId: tx.ID_Transacao,
+              origin: tx.Origem,
+              amount: tx.Valor,
+              txType,
+              bucketKey,
+              referenceLabel,
+              dueDate,
+              foundInBucket: true,
+            });
+          }
+        });
+
+        statement.total_charges = roundCurrency(statement.total_charges + charges);
+        statement.total_credits = roundCurrency(statement.total_credits + refunds);
+        statement.total_payments = roundCurrency(statement.total_payments + payments);
+        statement.expectedChargesFromFiles = statement.total_charges;
+        statement.expectedCreditsFromFiles = statement.total_credits;
+        statement.paymentFromOwnFiles = statement.total_payments;
+        if (payments > 0) {
+          const paymentSourceSet = new Set(statement.paymentSourceFiles);
+          invoiceSource.forEach((origin) => paymentSourceSet.add(origin));
+          statement.paymentSourceFiles = Array.from(paymentSourceSet).sort((a, b) => a.localeCompare(b));
+        }
+      });
+
+      const hydratedRows = Array.from(statementBuckets.values())
+        .map((row) => ({
+          ...row,
+          items: row.items.sort((a, b) => {
+            const aTime = a.posted_date ? new Date(`${a.posted_date}T00:00:00`).getTime() : 0;
+            const bTime = b.posted_date ? new Date(`${b.posted_date}T00:00:00`).getTime() : 0;
+            return aTime - bTime;
+          }),
+        }))
+        .sort((a, b) => {
+          const aDate = a.due_date ? new Date(`${a.due_date}T00:00:00`).getTime() : 0;
+          const bDate = b.due_date ? new Date(`${b.due_date}T00:00:00`).getTime() : 0;
+          return bDate - aDate;
+        });
+
+      const visibleRows = hydratedRows.filter((row) =>
+        row.invoiceSourceFiles.length > 0 || Number(row.total_charges || 0) > 0 || Number(row.total_credits || 0) > 0
+      );
+
+      visibleRows.forEach((row, index, rows) => {
+        const net = Math.max(Number(row.total_charges || 0) - Number(row.total_credits || 0), 0);
+        const paymentFromNext = index > 0 ? Number(rows[index - 1]?.paymentFromOwnFiles || 0) : Number(row.paymentFromOwnFiles || 0);
+        const rawOpen = roundCurrency(net - paymentFromNext);
+        const adjustment = roundCurrency(paymentFromNext - net);
+        const adjustedOpen = Math.abs(adjustment) > 0 && Math.abs(adjustment) <= 1 ? 0 : Math.max(rawOpen, 0);
+        row.open_amount = adjustedOpen;
+        row.status = adjustedOpen <= 0 ? 'paid' : paymentFromNext > 0 ? 'partial' : 'open';
+      });
+
+      setStatementHistoryRows(visibleRows);
+
+      if (import.meta.env.DEV) {
+        visibleRows.forEach((row) => {
+          const diagnostics = row.invoiceSourceFiles.map((origin) => {
+            const originKey = normalizeOriginKey(origin);
+            const sourceRows = sourceRowsByOrigin.get(originKey) || [];
+            let charges = 0;
+            let refunds = 0;
+            let payments = 0;
+            sourceRows.forEach((tx: any) => {
+              const txType = classifyTx(tx, originKey);
+              const amount = Math.abs(Number(tx.Valor || 0));
+              if (txType === 'charge') charges += amount;
+              if (txType === 'refund') refunds += amount;
+              if (txType === 'payment') payments += amount;
+            });
+            return {
+              origin,
+              originKey,
+              txCount: sourceRows.length,
+              charges: roundCurrency(charges),
+              refunds: roundCurrency(refunds),
+              payments: roundCurrency(payments),
+            };
+          });
+          console.log('[CardV2][debug][openStatementHistory]', {
+            statementId: row.id,
+            reference: row.reference_label,
+            dueDate: row.due_date,
+            invoiceSourceFiles: row.invoiceSourceFiles,
+            diagnostics,
+          });
+        });
+      }
+
+      const lotRows = originKeys.map((originKey) => {
+        const stats = byOriginKey.get(originKey)!;
+        const metadata = metadataByOriginKey.get(originKey);
+        const log = logsByOriginKey.get(originKey);
+        const origins = Array.from(stats.origins).sort((a, b) => a.localeCompare(b));
+        const parsedFromFilename = parseInvoicePeriodFromOrigin(origins[0]);
+        const referenceLabel = metadata?.referenceLabel || parsedFromFilename?.referenceLabel || inferReference(stats.maxDate);
+        const dueDate = metadata?.dueDate || (
+          parsedFromFilename
+            ? `${parsedFromFilename.dueYear}-${String(parsedFromFilename.dueMonth).padStart(2, '0')}-${String(Math.min(Math.max(account.dia_vencimento || 10, 1), 28)).padStart(2, '0')}`
+            : inferDueDate(referenceLabel)
+        );
+        return {
+          originKey,
+          origins,
+          origin: log?.file_name || origins[0] || originKey,
+          count: Number(stats.count || sourceRowsByOrigin.get(originKey)?.length || 0),
+          referenceLabel,
+          dueDate,
+          classified: !!metadata?.classified,
+          paymentTransactionIds: metadata?.paymentIds || [],
+          refundTransactionIds: metadata?.refundIds || [],
+        };
+      }).sort((a, b) => b.referenceLabel.localeCompare(a.referenceLabel));
+
+      setCardImportLots(lotRows);
+    } catch (error: any) {
+      console.error('[CardV2][UI] Erro ao carregar histórico de faturas:', error);
+      setStatementHistoryError(error?.message || 'Não foi possível carregar o histórico de faturas.');
+    } finally {
+      setIsSyncingHistory(false);
+    }
+  };
+
+  const handleSyncCardHistory = async () => {
+    if (!statementHistoryAccount) return;
+    setStatementHistoryLoading(true);
+    setStatementHistoryError(null);
+    try {
+      const result = await syncCreditCardHistoryFromAccount(statementHistoryAccount.id);
+      await openStatementHistory(statementHistoryAccount);
+      const pendingLots = cardImportLots.filter((l) => !l.classified).length;
+      await appAlert(
+        pendingLots > 0
+          ? `${result.message} (${result.processed} itens processados). Ainda existem ${pendingLots} lote(s) pendente(s) de classificação.`
+          : `${result.message} (${result.processed} itens processados).`,
+        'Sincronização concluída',
+        'success'
+      );
+    } catch (error: any) {
+      console.error('[CardV2][UI] Erro ao sincronizar histórico de faturas:', error);
+      setStatementHistoryError(error?.message || 'Não foi possível sincronizar o histórico de faturas.');
+    } finally {
+      setStatementHistoryLoading(false);
+    }
+  };
+
+  const handleResetCardHistoryRead = async () => {
+    if (!statementHistoryAccount) return;
+
+    const confirmed = await appConfirm(
+      `Isso vai limpar competência, vencimento e classificações manuais dos lotes deste cartão (${statementHistoryAccount.Nome_Conta}). Deseja continuar?`,
+      'Resetar leitura dos cards',
+      'Resetar',
+      'danger',
+      'Cancelar'
+    );
+    if (!confirmed) return;
+
+    setStatementHistoryLoading(true);
+    setStatementHistoryError(null);
+
+    try {
+      const { data: logs, error: logsError } = await supabase
+        .from('import_logs')
+        .select('id, imported_details');
+      if (logsError) throw logsError;
+
+      for (const log of logs || []) {
+        const details = Array.isArray(log.imported_details) ? log.imported_details : [];
+        let changed = false;
+        const nextDetails = details.map((row: any) => {
+          if (row?.ID_Conta !== statementHistoryAccount.id) return row;
+          changed = true;
+          const cleaned = { ...row };
+          delete cleaned.Card_Reference_Label;
+          delete cleaned.Card_Due_Date;
+          delete cleaned.Card_Payment_Tx_Ids;
+          delete cleaned.Card_Refund_Tx_Ids;
+          return cleaned;
+        });
+
+        if (!changed) continue;
+
+        const { error: updateError } = await supabase
+          .from('import_logs')
+          .update({ imported_details: nextDetails })
+          .eq('id', log.id);
+        if (updateError) throw updateError;
+      }
+
+      await openStatementHistory(statementHistoryAccount);
+      await appAlert(
+        'Leitura do histórico resetada com sucesso. Agora os cards foram recalculados sem classificações persistidas.',
+        'Reset concluído',
+        'success'
+      );
+    } catch (error: any) {
+      console.error('[CardV2][UI] Erro ao resetar leitura do histórico:', error);
+      setStatementHistoryError(error?.message || 'Não foi possível resetar a leitura dos cards.');
+    } finally {
+      setStatementHistoryLoading(false);
+    }
+  };
+
+  const openLotClassification = (lot: {
+    originKey: string;
+    origins: string[];
+    origin: string;
+    referenceLabel: string;
+    dueDate: string;
+    classified: boolean;
+    paymentTransactionIds: string[];
+    refundTransactionIds: string[];
+  }) => {
+    setSelectedLot(lot);
+    setLotReferenceMonth(lot.referenceLabel || '');
+    setLotDueDate(lot.dueDate || '');
+    const paymentSet = new Set(lot.paymentTransactionIds || []);
+    const refundSet = new Set(lot.refundTransactionIds || []);
+    const lotTxRows = transactions
+      .filter((tx) => normalizeOriginKey(tx.Origem) === lot.originKey)
+      .map((tx) => {
+        const rawText = `${tx.Descricao_Original || ''} ${tx.Nome_Fantasia || ''}`;
+        let selectedType: 'charge' | 'payment' | 'refund' = 'charge';
+        if (tx.ID_Transacao && paymentSet.has(tx.ID_Transacao)) selectedType = 'payment';
+        else if (tx.ID_Transacao && refundSet.has(tx.ID_Transacao)) selectedType = 'refund';
+        else if (classifyDescriptionWithRules(rawText, currentPaymentKeywords, currentCreditKeywords) === 'payment') selectedType = 'payment';
+        else if (classifyDescriptionWithRules(rawText, currentPaymentKeywords, currentCreditKeywords) === 'refund') selectedType = 'refund';
+
+        const isEntryCandidate =
+          tx.Tipo === 'Renda' ||
+          selectedType === 'payment' ||
+          selectedType === 'refund';
+
+        if (!isEntryCandidate) return null;
+
+        return {
+          id: tx.ID_Transacao || `${lot.originKey}-${tx.Data}-${tx.Valor}-${tx.Nome_Fantasia}`,
+          transactionId: tx.ID_Transacao || null,
+          date: tx.Data ? new Date(tx.Data).toISOString().slice(0, 10) : '',
+          description: tx.Nome_Fantasia || tx.Descricao_Original || 'Sem descrição',
+          amount: Number(tx.Valor || 0),
+          selectedType,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => !!row)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    setLotTransactionRows(lotTxRows);
+    setLotModalOpen(true);
+  };
+
+  const handleSaveLotClassification = async () => {
+    if (!selectedLot || !statementHistoryAccount) return;
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(lotReferenceMonth)) {
+      await appAlert('Competência inválida. Use MM/AAAA no campo de mês.', 'Aviso', 'warning');
+      return;
+    }
+    if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(lotDueDate)) {
+      await appAlert('Vencimento inválido. Use DD/MM/AAAA no campo de data.', 'Aviso', 'warning');
+      return;
+    }
+
+    setIsSavingLot(true);
+    try {
+      const paymentTransactionIds = lotTransactionRows
+        .filter((row) => row.selectedType === 'payment' && !!row.transactionId)
+        .map((row) => row.transactionId as string);
+      const refundTransactionIds = lotTransactionRows
+        .filter((row) => row.selectedType === 'refund' && !!row.transactionId)
+        .map((row) => row.transactionId as string);
+
+      const targetOrigins = selectedLot.origins.length > 0 ? selectedLot.origins : [selectedLot.origin];
+      let updatedLogs = 0;
+
+      for (const origin of targetOrigins) {
+        const result = await saveCardImportLotClassification(
+          origin,
+          statementHistoryAccount.id,
+          lotReferenceMonth,
+          lotDueDate,
+          {
+            paymentTransactionIds,
+            refundTransactionIds,
+          }
+        );
+        updatedLogs += Number(result.updatedLogs || 0);
+      }
+
+      if (updatedLogs > 0) {
+        setCardImportLots((prev) =>
+          prev.map((lot) =>
+            lot.originKey === selectedLot.originKey
+              ? {
+                  ...lot,
+                  referenceLabel: lotReferenceMonth,
+                  dueDate: lotDueDate,
+                  classified: true,
+                  paymentTransactionIds,
+                  refundTransactionIds,
+                }
+              : lot
+          )
+        );
+        setSelectedLot(null);
+        setLotTransactionRows([]);
+        await appAlert('Lote classificado com sucesso. Continue classificando outros lotes e depois clique em "Sincronizar histórico".', 'Sucesso', 'success');
+      } else {
+        await appAlert('Nenhum lote foi atualizado. Verifique se os arquivos de origem ainda existem no histórico de importações.', 'Aviso', 'warning');
+      }
+    } finally {
+      setIsSavingLot(false);
+    }
+  };
+
+  const openClassifierModal = () => {
+    setPaymentKeywordsInput(currentPaymentKeywords.join('\n'));
+    setCreditKeywordsInput(currentCreditKeywords.join('\n'));
+    setClassifierModalOpen(true);
+  };
+
+  const handleSaveClassifierRules = async () => {
+    const paymentKeywords = parseInputKeywords(paymentKeywordsInput, DEFAULT_CARD_PAYMENT_KEYWORDS);
+    const creditKeywords = parseInputKeywords(creditKeywordsInput, DEFAULT_CARD_CREDIT_KEYWORDS);
+
+    setIsSavingClassifier(true);
+    try {
+      await updateUserPreferences({
+        cardPaymentKeywords: paymentKeywords,
+        cardCreditKeywords: creditKeywords,
+      });
+      setClassifierModalOpen(false);
+      await appAlert(
+        'Regras salvas. Para aplicar em todas as faturas históricas, clique em "Sincronizar histórico".',
+        'Classificação atualizada',
+        'success'
+      );
+    } catch (error: any) {
+      console.error('[CardV2][Rules] Erro ao salvar regras de classificação:', error);
+      await appAlert('Não foi possível salvar as regras agora. Tente novamente.', 'Erro', 'danger');
+    } finally {
+      setIsSavingClassifier(false);
+    }
+  };
+
+  const formatStatementReferencePtBr = (
+    statement: CreditCardStatement,
+    items: CreditCardStatementItem[],
+    account?: Account | null
+  ): string => {
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    const maxItemDate = items
+      .map((i) => i.posted_date ? new Date(`${i.posted_date}T00:00:00`) : null)
+      .filter((d): d is Date => !!d && !Number.isNaN(d.getTime()))
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    const dueDateFromItems = (() => {
+      if (!maxItemDate || !account?.dia_vencimento) return null;
+      const day = Math.min(Math.max(account.dia_vencimento, 1), 28);
+      return new Date(maxItemDate.getFullYear(), maxItemDate.getMonth() + 1, day);
+    })();
+
+    // Regra bancária: compras de março pertencem à fatura de abril (mês do vencimento).
+    const refDateFromItems = maxItemDate
+      ? new Date(maxItemDate.getFullYear(), maxItemDate.getMonth() + 1, 1)
+      : null;
+
+    const buildRefDateFromDueDate = (dueDateStr?: string | null): Date | null => {
+      if (!dueDateStr) return null;
+      const due = new Date(`${dueDateStr}T00:00:00`);
+      if (Number.isNaN(due.getTime())) return null;
+      return new Date(due.getFullYear(), due.getMonth(), 1);
+    };
+
+    const buildRefDateFromReference = (reference?: string | null): Date | null => {
+      if (!reference) return null;
+      const match = reference.match(/^(\d{4})-(\d{2})$/);
+      if (!match) return null;
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      return new Date(year, month - 1, 1);
+    };
+
+    const purchaseRefDate =
+      buildRefDateFromReference(statement.reference_label) ||
+      refDateFromItems;
+    const invoiceRefDate =
+      buildRefDateFromDueDate(statement.due_date) ||
+      (purchaseRefDate ? new Date(purchaseRefDate.getFullYear(), purchaseRefDate.getMonth() + 1, 1) : null);
+
+    if (!purchaseRefDate || Number.isNaN(purchaseRefDate.getTime()) || !invoiceRefDate || Number.isNaN(invoiceRefDate.getTime())) {
+      return `Fatura ${statement.reference_label || '—'}`;
+    }
+
+    const monthLabel = monthNames[invoiceRefDate.getMonth()];
+    const yearLabel = invoiceRefDate.getFullYear();
+    const purchaseMonthLabel = monthNames[purchaseRefDate.getMonth()];
+    const purchaseYearLabel = purchaseRefDate.getFullYear();
+    const dueDate = (statement.due_date ? new Date(`${statement.due_date}T00:00:00`) : null) || dueDateFromItems;
+    const dueLabel = dueDate ? dueDate.toLocaleDateString('pt-BR') : null;
+
+    return dueLabel
+      ? `Compras de ${purchaseMonthLabel} de ${purchaseYearLabel} | Fatura de ${monthLabel}/${yearLabel} (venc. ${dueLabel})`
+      : `Compras de ${purchaseMonthLabel} de ${purchaseYearLabel} | Fatura de ${monthLabel}/${yearLabel}`;
+  };
+
+  const statusToPtBr = (status?: string): string => {
+    switch (status) {
+      case 'open':
+        return 'Em aberto';
+      case 'partial':
+        return 'Parcial';
+      case 'paid':
+        return 'Paga';
+      case 'closed':
+        return 'Fechada';
+      default:
+        return status || '—';
+    }
+  };
+
+  const itemTypeToPtBr = (itemType?: string): string => {
+    switch (itemType) {
+      case 'charge':
+        return 'Compra';
+      case 'refund':
+        return 'Estorno';
+      case 'payment':
+        return 'Pagamento';
+      default:
+        return itemType || 'Item';
+    }
+  };
+
   const [isMappingRuleModalOpen, setMappingRuleModalOpen] = useState(false);
   const [transactionForRule, setTransactionForRule] = useState<Transaction | null>(null);
+  const [isStatementHistoryModalOpen, setStatementHistoryModalOpen] = useState(false);
+  const [statementHistoryLoading, setStatementHistoryLoading] = useState(false);
+  const [statementHistoryError, setStatementHistoryError] = useState<string | null>(null);
+  const [statementHistoryAccount, setStatementHistoryAccount] = useState<Account | null>(null);
+  const [statementHistoryRows, setStatementHistoryRows] = useState<Array<CreditCardStatement & {
+    items: CreditCardStatementItem[];
+    invoiceSourceFiles: string[];
+    paymentSourceFiles: string[];
+    paymentFromOwnFiles: number;
+    expectedChargesFromFiles: number;
+    expectedCreditsFromFiles: number;
+    chargeDiffFromFiles: number;
+    unmatchedFileItems: Array<{ id: string; description: string; amount: number; postedDate: string; sourceFile: string }>;
+  }>>([]);
+  const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null);
+  const [isSyncingHistory, setIsSyncingHistory] = useState(false);
+  const [paymentInfoOpenFor, setPaymentInfoOpenFor] = useState<string | null>(null);
+  const [cardImportLots, setCardImportLots] = useState<Array<{
+    originKey: string;
+    origins: string[];
+    origin: string;
+    count: number;
+    referenceLabel: string;
+    dueDate: string;
+    classified: boolean;
+    paymentTransactionIds: string[];
+    refundTransactionIds: string[];
+  }>>([]);
+  const [isLotModalOpen, setLotModalOpen] = useState(false);
+  const [selectedLot, setSelectedLot] = useState<{
+    originKey: string;
+    origins: string[];
+    origin: string;
+    referenceLabel: string;
+    dueDate: string;
+    classified: boolean;
+    paymentTransactionIds: string[];
+    refundTransactionIds: string[];
+  } | null>(null);
+  const [lotReferenceMonth, setLotReferenceMonth] = useState('');
+  const [lotDueDate, setLotDueDate] = useState('');
+  const [isSavingLot, setIsSavingLot] = useState(false);
+  const [lotTransactionRows, setLotTransactionRows] = useState<Array<{
+    id: string;
+    transactionId: string | null;
+    date: string;
+    description: string;
+    amount: number;
+    selectedType: 'charge' | 'payment' | 'refund';
+  }>>([]);
+  const [isClassifierModalOpen, setClassifierModalOpen] = useState(false);
+  const [isSavingClassifier, setIsSavingClassifier] = useState(false);
+  const [paymentKeywordsInput, setPaymentKeywordsInput] = useState('');
+  const [creditKeywordsInput, setCreditKeywordsInput] = useState('');
 
   // New Modals State
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
@@ -59,11 +1049,225 @@ const TransactionsView: React.FC = () => {
 
   const categories = getSortedCategories();
   const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id && !acc.is_archived), [accounts]);
+  const cardEngineEnabled = isCreditCardEngineEnabled(user);
+  const cardV2Enabled = isCardV2Enabled(user);
+  const cardSnapshotPipelineEnabled = cardV2Enabled || cardEngineEnabled;
+  const [cardV2SnapshotByAccount, setCardV2SnapshotByAccount] = useState<Map<string, { currentOpenAmount: number; usedLimit: number; hasData: boolean }>>(new Map());
+
+  const currentPaymentKeywords = useMemo(
+    () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
+    [user?.user_metadata?.cardPaymentKeywords]
+  );
+
+  const currentCreditKeywords = useMemo(
+    () => parseKeywordList(user?.user_metadata?.cardCreditKeywords, DEFAULT_CARD_CREDIT_KEYWORDS),
+    [user?.user_metadata?.cardCreditKeywords]
+  );
+
+  const parseInputKeywords = useCallback((input: string, fallback: string[]) => {
+    const values = input
+      .split(/\r?\n|,/g)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    return values.length > 0 ? values : fallback;
+  }, []);
+
+  const classifyDescriptionWithRules = useCallback((description: string, paymentKeywords: string[], creditKeywords: string[]) => {
+    const text = normalizeRuleText(description || '');
+    const isPayment = paymentKeywords.some((keyword) => text.includes(normalizeRuleText(keyword)));
+    if (isPayment) return 'payment';
+    const isCredit = creditKeywords.some((keyword) => text.includes(normalizeRuleText(keyword)));
+    if (isCredit) return 'refund';
+    return 'charge';
+  }, []);
+
+  const classifierPreview = useMemo(() => {
+    const paymentDraft = parseInputKeywords(paymentKeywordsInput, currentPaymentKeywords);
+    const creditDraft = parseInputKeywords(creditKeywordsInput, currentCreditKeywords);
+    const targetRows = statementHistoryRows.slice(0, 2);
+
+    return targetRows.map((row) => {
+      let changed = 0;
+      row.items.forEach((item: any) => {
+        const description = item.description || item.description_raw || '';
+        const before = classifyDescriptionWithRules(description, currentPaymentKeywords, currentCreditKeywords);
+        const after = classifyDescriptionWithRules(description, paymentDraft, creditDraft);
+        if (before !== after) changed += 1;
+      });
+      return {
+        statementId: row.id,
+        label: formatStatementReferencePtBr(row, row.items, statementHistoryAccount),
+        changed,
+        total: row.items.length,
+      };
+    });
+  }, [
+    classifyDescriptionWithRules,
+    parseInputKeywords,
+    paymentKeywordsInput,
+    creditKeywordsInput,
+    currentPaymentKeywords,
+    currentCreditKeywords,
+    statementHistoryRows,
+    statementHistoryAccount,
+  ]);
 
   // Efeito para buscar as transações do Supabase na montagem do componente
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCardV2Snapshots = async () => {
+      if (!cardSnapshotPipelineEnabled || !user?.id) {
+        if (!cancelled) setCardV2SnapshotByAccount(new Map());
+        return;
+      }
+
+      const creditAccounts = accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito' && !a.is_archived);
+      const creditAccountIds = creditAccounts.map((a) => a.id);
+
+      if (creditAccountIds.length === 0) {
+        if (!cancelled) setCardV2SnapshotByAccount(new Map());
+        return;
+      }
+
+      type CardLink = { accountId: string; cardId: string };
+      const links: CardLink[] = [];
+      for (const acc of creditAccounts) {
+        try {
+          const ensured = await creditCardEngineService.ensureCreditCardForAccount(user.id, acc);
+          links.push({ accountId: acc.id, cardId: ensured.id });
+        } catch (e) {
+          console.warn('[CardV2][UI] Não foi possível resolver credit_cards para snapshot:', acc.id, e);
+        }
+      }
+
+      const cardIds = links.map((l) => l.cardId);
+      const cardIdToAccountId = new Map(links.map((l) => [l.cardId, l.accountId] as const));
+
+      if (cardIds.length === 0) {
+        if (!cancelled) setCardV2SnapshotByAccount(new Map());
+        return;
+      }
+
+      const statementSelect =
+        'account_id, card_id, open_amount, open_balance, statement_total, due_date, due_year, due_month, status';
+
+      const { data, error } = await supabase
+        .from('credit_card_statements')
+        .select(statementSelect)
+        .in('card_id', cardIds)
+        .order('due_year', { ascending: false })
+        .order('due_month', { ascending: false });
+
+      let rowsOut = data;
+
+      if (error) {
+        const legacy = await supabase
+          .from('credit_card_statements')
+          .select(statementSelect)
+          .in('card_id', cardIds)
+          .order('due_date', { ascending: false });
+        if (legacy.error) {
+          console.error('[CardV2][UI] Falha ao buscar snapshots de cartão:', legacy.error);
+          if (!cancelled) setCardV2SnapshotByAccount(new Map());
+          return;
+        }
+        rowsOut = legacy.data;
+      }
+
+      if (cancelled) return;
+
+      const sortedRows = [...(rowsOut || [])].sort((a: any, b: any) => {
+        const dy = (Number(b.due_year) || 0) - (Number(a.due_year) || 0);
+        if (dy !== 0) return dy;
+        return (Number(b.due_month) || 0) - (Number(a.due_month) || 0);
+      });
+
+      const grouped = new Map<string, any[]>();
+      sortedRows.forEach((row: any) => {
+        const accountKey = row.account_id || cardIdToAccountId.get(row.card_id);
+        if (!accountKey) return;
+        const current = grouped.get(accountKey) || [];
+        current.push(row);
+        grouped.set(accountKey, current);
+      });
+
+      const snapshotMap = new Map<string, { currentOpenAmount: number; usedLimit: number; hasData: boolean }>();
+
+      creditAccountIds.forEach((accountId) => {
+        const rows = grouped.get(accountId) || [];
+        if (rows.length === 0) {
+          snapshotMap.set(accountId, { currentOpenAmount: 0, usedLimit: 0, hasData: false });
+          return;
+        }
+
+        const openField = (r: any) =>
+          Number((cardEngineEnabled ? r.open_balance ?? r.open_amount : r.open_amount) || 0);
+
+        const currentStatement =
+          rows.find((r) => r.status === 'open' || r.status === 'partial' || r.status === 'overdue') ||
+          rows.find((r) => openField(r) > 0.009) ||
+          rows[0];
+
+        /** Uso do limite segundo o ledger (Saldo_Inicial + Rendas − Despesas nas transações). */
+        const usedLimit = (() => {
+          const account = accounts.find((a) => a.id === accountId);
+          if (!account) return 0;
+          const allT = transactions.filter((t) => t.ID_Conta === accountId);
+          const totalIncome = allT.filter((t) => t.Tipo === 'Renda').reduce((acc, t) => acc + Number(t.Valor || 0), 0);
+          const totalExpense = allT
+            .filter((t) => t.Tipo === 'Despesa')
+            .reduce((acc, t) => acc + Math.abs(Number(t.Valor || 0)), 0);
+          return Math.abs(Math.min(Number(account.Saldo_Inicial || 0) + totalIncome - totalExpense, 0));
+        })();
+
+        const displayTotal = cardEngineEnabled
+          ? (() => {
+              const EPS = 0.02;
+              const statementNet = Math.max(Number(currentStatement?.statement_total ?? 0), 0);
+              let amountDue = Math.max(
+                Number(currentStatement?.open_balance ?? currentStatement?.open_amount ?? 0),
+                0
+              );
+              if (statementNet > EPS && amountDue > statementNet + EPS) {
+                amountDue = statementNet;
+              }
+              let out: number;
+              if (amountDue <= EPS && statementNet > EPS) {
+                out = 0;
+              } else if (amountDue > EPS) {
+                out = Math.min(amountDue, statementNet > EPS ? statementNet : amountDue);
+              } else {
+                out = statementNet;
+              }
+              return roundCurrency(out);
+            })()
+          : Math.max(Number(currentStatement?.open_amount || 0), 0);
+
+        const ledgerUsedRounded = roundCurrency(Math.max(usedLimit, 0));
+        const faturaOpenRounded = roundCurrency(displayTotal);
+        /** Se o motor mostra fatura maior que o ledger indica, o % e o «Disponível» acompanham o maior dos dois (evita disponível+fatura > limite). */
+        const coherentUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
+
+        snapshotMap.set(accountId, {
+          currentOpenAmount: faturaOpenRounded,
+          usedLimit: coherentUsedLimit,
+          hasData: true,
+        });
+      });
+
+      setCardV2SnapshotByAccount(snapshotMap);
+    };
+
+    loadCardV2Snapshots();
+    return () => {
+      cancelled = true;
+    };
+  }, [cardSnapshotPipelineEnabled, user?.id, accounts, transactions, cardEngineEnabled, creditCardEngineRevision]);
 
   const accountsMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -635,6 +1839,17 @@ const TransactionsView: React.FC = () => {
               const proxVence = hoje <= diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
               diasParaVencer = Math.ceil((proxVence.getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24));
             }
+
+            const v2Snapshot = cardV2SnapshotByAccount.get(account.id);
+            const shouldUseCardSnapshot =
+              (cardV2Enabled || cardEngineEnabled) &&
+              !!v2Snapshot &&
+              v2Snapshot.hasData;
+
+            if (shouldUseCardSnapshot) {
+              faturaAtual = v2Snapshot.currentOpenAmount;
+              totalUsedLimit = v2Snapshot.usedLimit;
+            }
           }
 
           const limite = account.limite_credito || 0;
@@ -696,7 +1911,11 @@ const TransactionsView: React.FC = () => {
                           <div className="flex justify-between items-center mb-1.5 px-0.5">
                             <span className="text-[10px] text-gray-400 uppercase tracking-wide font-bold">Uso do Limite</span>
                             <span className={`text-[10px] font-black ${limiteUsadoPct > 90 ? 'text-red-400' : 'text-indigo-300'}`}>
-                                {limiteUsadoPct.toFixed(0)}%
+                                {limiteUsadoPct.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                                %
                             </span>
                           </div>
                           <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
@@ -722,23 +1941,25 @@ const TransactionsView: React.FC = () => {
                               <p className="text-[15px] font-black text-rose-400 leading-none">
                                 {formatCurrency(faturaAtual)}
                               </p>
-                              {faturaAtual > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handlePayInvoice(account, faturaAtual);
-                                  }}
-                                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 transition-all active:scale-95 shadow-sm"
-                                >
-                                  PAGAR
-                                </button>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                {faturaAtual > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePayInvoice(account, faturaAtual);
+                                    }}
+                                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 transition-all active:scale-95 shadow-sm"
+                                  >
+                                    PAGAR
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
 
                         {/* Dias até fechar/vencer */}
-                        <div className="flex flex-col gap-1.5 pt-3 border-t border-white/5">
+                        <div className="flex flex-col gap-2 pt-3 border-t border-white/5">
                           {diaFecha > 0 ? (
                             <div className="flex justify-between items-center text-[10px]">
                               <span className="text-amber-400/80 font-medium flex items-center gap-1.5">
@@ -746,18 +1967,33 @@ const TransactionsView: React.FC = () => {
                               </span>
                               <span className="text-gray-600 font-bold">DIA {diaFecha}</span>
                             </div>
-                          ) : (
-                            <span className="text-[10px] text-gray-600 font-bold uppercase italic">🗓️ Ciclo: Primeiro do mês</span>
-                          )}
+                          ) : null}
                           {diaVence > 0 && (
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-indigo-400/80 font-medium flex items-center gap-1.5">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+                              <span className="text-[10px] text-indigo-400/85 font-medium flex items-center gap-1.5 shrink-0">
                                 <span className="text-xs">📅</span> Vencimento em <b>{diasParaVencer}d</b>
                               </span>
-                              <span className="text-gray-600 font-bold">DIA {diaVence}</span>
+                              <span
+                                className="text-[10px] sm:text-[11px] font-bold text-cyan-300 tracking-wide px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-400/35 shadow-[0_0_14px_rgba(34,211,238,0.12)] sm:text-right whitespace-nowrap sm:whitespace-normal sm:max-w-[58%]"
+                                title={`Fatura vence todo dia ${diaVence}`}
+                              >
+                                Vencimento da Fatura: Dia {diaVence}
+                              </span>
                             </div>
                           )}
                         </div>
+                        {cardEngineEnabled && (
+                          <button
+                            type="button"
+                            className="mt-2 w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-cyan-300/95 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/[0.07] transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCreditInvoiceCyclesAccountId(account.id);
+                            }}
+                          >
+                            Competências das importações
+                          </button>
+                        )}
                       </>
                     ) : (
                       // Cartão sem limite configurado
@@ -780,6 +2016,18 @@ const TransactionsView: React.FC = () => {
                             </button>
                           )}
                         </div>
+                        {cardEngineEnabled && (
+                          <button
+                            type="button"
+                            className="mt-3 w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-cyan-300/95 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/[0.07] transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCreditInvoiceCyclesAccountId(account.id);
+                            }}
+                          >
+                            Competências das importações
+                          </button>
+                        )}
                       </div>
                     )}
                     
@@ -1083,6 +2331,439 @@ const TransactionsView: React.FC = () => {
         totalRecords={filteredTransactions.length}
       />
 
+      {false && isStatementHistoryModalOpen && (
+        <Modal
+          isOpen={isStatementHistoryModalOpen}
+          onClose={() => setStatementHistoryModalOpen(false)}
+          title={`Histórico de Faturas${statementHistoryAccount ? ` - ${statementHistoryAccount.Nome_Conta}` : ''}`}
+          className="max-w-4xl"
+        >
+          <div className="mb-3 space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-sky-200">
+                O histórico é montado automaticamente com base nas importações já feitas deste cartão.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-[11px] font-bold px-2 py-1 rounded border border-red-500/30 text-red-200 hover:bg-red-500/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={statementHistoryLoading || isSyncingHistory || !statementHistoryAccount}
+                  onClick={handleResetCardHistoryRead}
+                >
+                  Resetar leitura
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] font-bold px-2 py-1 rounded border border-amber-500/30 text-amber-200 hover:bg-amber-500/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={statementHistoryLoading || isSyncingHistory || cardImportLots.length === 0}
+                  onClick={() => setLotModalOpen(true)}
+                >
+                  Classificar lotes ({cardImportLots.filter((l) => !l.classified).length})
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] font-bold px-2 py-1 rounded border border-sky-500/30 text-sky-200 hover:bg-sky-500/15 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                  disabled={statementHistoryLoading || isSyncingHistory || !statementHistoryAccount}
+                  onClick={handleSyncCardHistory}
+                >
+                  {isSyncingHistory && (
+                    <span className="h-3 w-3 rounded-full border-2 border-sky-200/80 border-t-transparent animate-spin" />
+                  )}
+                  {isSyncingHistory ? 'Sincronizando...' : 'Sincronizar histórico'}
+                </button>
+              </div>
+            </div>
+            {isSyncingHistory && (
+              <p className="text-[11px] text-sky-300/90 animate-pulse">
+                Atualizando suas faturas agora. Isso pode levar alguns segundos.
+              </p>
+            )}
+            {!isSyncingHistory && cardImportLots.filter((l) => !l.classified).length > 0 && (
+              <p className="text-[11px] text-amber-300/90">
+                Existem lotes pendentes de classificação. Para máxima precisão, classifique-os em DD/MM/AAAA.
+              </p>
+            )}
+          </div>
+          {statementHistoryLoading ? (
+            <div className="py-10 text-center text-gray-400">
+              <div className="inline-flex items-center gap-2">
+                <span className="h-4 w-4 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin" />
+                <span className="animate-pulse">Carregando histórico...</span>
+              </div>
+            </div>
+          ) : statementHistoryError ? (
+            <div className="py-6 text-center text-red-300">{statementHistoryError}</div>
+          ) : statementHistoryRows.length === 0 ? (
+            <div className="py-8 text-center text-gray-400">Nenhuma fatura encontrada para esta conta.</div>
+          ) : (
+            <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+              {statementHistoryRows.map((statement, index, rows) => {
+                const isExpanded = expandedStatementId === statement.id;
+                const totalSourceFiles = statement.invoiceSourceFiles || [];
+                const netInvoiceTotal = totalSourceFiles.length > 0
+                  ? Number(statement.expectedChargesFromFiles || 0)
+                  : Number(statement.total_charges || 0);
+                const creditsForInvoice = totalSourceFiles.length > 0
+                  ? Number(statement.expectedCreditsFromFiles || 0)
+                  : Number(statement.total_credits || 0);
+                // Regra funcional validada com o usuário:
+                // - "Pagamento da Fatura Anterior" = pagamento oriundo dos mesmos arquivos do card.
+                // - "Saldo aberto" = usa o pagamento que virá no próximo card (acima).
+                const paymentPreviousDisplay = Number(statement.paymentFromOwnFiles || 0);
+                const paymentFromNextCard = index > 0
+                  ? Number(rows[index - 1]?.paymentFromOwnFiles || 0)
+                  : 0;
+                const totalSourceOrigin = totalSourceFiles.length > 0 ? totalSourceFiles.join(' | ') : 'Origem não identificada';
+                const paymentSourceFiles = statement.paymentSourceFiles || [];
+                const paymentSourceOrigin = paymentSourceFiles.length > 0 ? paymentSourceFiles.join(' | ') : 'Origem não identificada';
+                const hasSourceInconsistency = paymentSourceFiles.some((origin) => !totalSourceFiles.includes(origin));
+                const effectiveInvoiceTotal = Math.max(netInvoiceTotal - creditsForInvoice, 0);
+                const derivedOpenRaw = Math.round((effectiveInvoiceTotal - paymentFromNextCard) * 100) / 100;
+                const adjustmentDelta = Math.round((paymentFromNextCard - effectiveInvoiceTotal) * 100) / 100;
+                const isSmallClosingAdjustment = index > 0 && Math.abs(adjustmentDelta) > 0 && Math.abs(adjustmentDelta) <= 1;
+                const displayOpenAmount = index > 0
+                  ? (isSmallClosingAdjustment ? 0 : Math.max(derivedOpenRaw, 0))
+                  : Number(statement.open_amount || 0);
+                const displayStatus: 'paid' | 'partial' | 'open' = index > 0
+                  ? (displayOpenAmount <= 0
+                    ? 'paid'
+                    : paymentFromNextCard > 0
+                      ? 'partial'
+                      : 'open')
+                  : (statement.status === 'paid' || statement.status === 'partial' || statement.status === 'open'
+                    ? statement.status
+                    : 'open');
+                const statusColor =
+                  displayStatus === 'paid'
+                    ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/25'
+                    : displayStatus === 'partial'
+                      ? 'text-amber-300 bg-amber-500/15 border-amber-500/25'
+                      : 'text-sky-300 bg-sky-500/15 border-sky-500/25';
+                return (
+                  <div key={statement.id} className="border border-slate-700 rounded-xl bg-slate-900/40 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-white font-semibold">
+                          {formatStatementReferencePtBr(statement, statement.items, statementHistoryAccount)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${statusColor}`}>
+                          {statusToPtBr(displayStatus)}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs text-sky-300 hover:text-sky-200 font-bold"
+                          onClick={() => setExpandedStatementId((prev) => (prev === statement.id ? null : statement.id))}
+                        >
+                          {isExpanded ? 'Ocultar itens' : 'Ver itens'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
+                      <div>
+                        <p className="text-gray-500">Total da Fatura</p>
+                        <p className="text-white font-semibold">{formatCurrency(netInvoiceTotal)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Créditos</p>
+                        <p className="text-emerald-300 font-semibold">{formatCurrency(Number(statement.total_credits || 0))}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 inline-flex items-center gap-1">
+                          Pagamento da Fatura Anterior
+                          <button
+                            type="button"
+                            className="text-[10px] text-gray-400 border border-slate-600 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center leading-none hover:text-white hover:border-slate-400"
+                            onClick={() => setPaymentInfoOpenFor((prev) => (prev === statement.id ? null : statement.id))}
+                            aria-label="Mostrar explicação do pagamento da fatura anterior"
+                          >
+                            ?
+                          </button>
+                        </p>
+                        {paymentInfoOpenFor === statement.id && (
+                          <p className="mt-1 text-[11px] text-sky-200 bg-slate-900/80 border border-slate-700 rounded px-2 py-1 max-w-[320px]">
+                            Esse valor representa o pagamento do Total da Fatura do card abaixo.
+                          </p>
+                        )}
+                        <p className="text-amber-300 font-semibold">{formatCurrency(paymentPreviousDisplay)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Saldo aberto</p>
+                        <p className="text-rose-300 font-semibold">{formatCurrency(displayOpenAmount)}</p>
+                      </div>
+                    </div>
+                    {isSmallClosingAdjustment && (
+                      <p className="mt-2 text-[11px] text-amber-300">
+                        Ajuste de fechamento do emissor: {adjustmentDelta > 0 ? '+' : '-'}{formatCurrency(Math.abs(adjustmentDelta))}.
+                      </p>
+                    )}
+                    {statement.chargeDiffFromFiles !== 0 && (
+                      <p className="mt-1 text-[11px] text-amber-300">
+                        Auditoria de arquivos: diferença de {formatCurrency(Math.abs(statement.chargeDiffFromFiles))} no Total da Fatura
+                        ({statement.chargeDiffFromFiles > 0 ? 'faltando no card' : 'excedente no card'}).
+                      </p>
+                    )}
+                    <div className="mt-2 rounded border border-slate-700/70 bg-slate-900/40 px-2 py-1.5">
+                      <p className="text-[10px] uppercase tracking-wide text-gray-400">Auditoria por lote</p>
+                      <p className="text-[11px] text-gray-300">
+                        Total da Fatura: <span className="text-sky-200">{totalSourceOrigin}</span>
+                      </p>
+                      <p className="text-[11px] text-gray-300">
+                        Arquivo(s) da Fatura: <span className="text-sky-200">{totalSourceFiles.length > 0 ? totalSourceFiles.join(' | ') : 'Não identificado'}</span>
+                      </p>
+                      <p className="text-[11px] text-gray-300">
+                        Pagamento da Fatura Anterior: <span className="text-amber-200">{paymentSourceOrigin}</span>
+                      </p>
+                      <p className="text-[11px] text-gray-300">
+                        Arquivo(s) do Pagamento: <span className="text-amber-200">{paymentSourceFiles.length > 0 ? paymentSourceFiles.join(' | ') : 'Não identificado'}</span>
+                      </p>
+                      {hasSourceInconsistency && (
+                        <p className="text-[11px] text-amber-300 mt-1">
+                          Inconsistência confirmada: esta auditoria encontrou múltiplos arquivos vinculados no mesmo cálculo.
+                        </p>
+                      )}
+                      {statement.unmatchedFileItems.length > 0 && (
+                        <p className="text-[11px] text-amber-300 mt-1">
+                          Itens do(s) arquivo(s) não vinculados ao card: {statement.unmatchedFileItems.length}.
+                        </p>
+                      )}
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-3 border-t border-slate-800 pt-3">
+                        {statement.items.length === 0 ? (
+                          <p className="text-xs text-gray-500">Sem itens detalhados nesta fatura.</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {statement.unmatchedFileItems.length > 0 && (
+                              <div className="mb-2 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-2">
+                                <p className="text-[11px] font-semibold text-amber-300 mb-1">
+                                  Auditoria detalhada: itens do arquivo que não entraram neste card
+                                </p>
+                                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                  {statement.unmatchedFileItems.slice(0, 30).map((item) => (
+                                    <div key={`unmatched-${item.id}`} className="text-[11px] text-amber-100 flex items-center justify-between gap-2">
+                                      <span className="truncate">
+                                        {item.postedDate ? new Date(`${item.postedDate}T00:00:00`).toLocaleDateString('pt-BR') : '—'} • {item.description} • {item.sourceFile}
+                                      </span>
+                                      <span className="font-semibold whitespace-nowrap">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {statement.items.map((item: any) => {
+                              const isCreditItem = item.item_type === 'refund' || item.item_type === 'payment';
+                              const typeColor = isCreditItem ? 'text-emerald-300' : 'text-rose-300';
+                              const amountColor = isCreditItem ? 'text-emerald-300' : 'text-rose-300';
+                              return (
+                              <div key={item.id} className="flex items-center justify-between text-xs bg-slate-800/50 rounded px-2 py-1">
+                                <div className="flex flex-col">
+                                  <span className={`font-semibold ${typeColor}`}>{item.description || 'Sem descrição'}</span>
+                                  <span className="text-[11px] text-gray-500">
+                                    {item.posted_date ? new Date(`${item.posted_date}T00:00:00`).toLocaleDateString('pt-BR') : '—'} • {itemTypeToPtBr(item.item_type)}
+                                  </span>
+                                </div>
+                                <span className={`font-semibold ${amountColor}`}>{formatCurrency(Number(item.amount || 0))}</span>
+                              </div>
+                            )})}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {false && isLotModalOpen && statementHistoryAccount && (
+        <Modal
+          isOpen={isLotModalOpen}
+          onClose={() => { if (!isSavingLot) { setLotModalOpen(false); setSelectedLot(null); } }}
+          title={`Classificar Lotes - ${statementHistoryAccount.Nome_Conta}`}
+          className="max-w-3xl"
+          footer={
+            selectedLot ? (
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setSelectedLot(null)} disabled={isSavingLot}>
+                  Voltar
+                </Button>
+                <Button onClick={handleSaveLotClassification} disabled={isSavingLot || !lotReferenceMonth || !lotDueDate}>
+                  {isSavingLot ? 'Salvando...' : 'Salvar classificação'}
+                </Button>
+              </div>
+            ) : null
+          }
+        >
+          {!selectedLot ? (
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+              {cardImportLots.length === 0 ? (
+                <p className="text-sm text-gray-400">Nenhum lote encontrado para classificação.</p>
+              ) : (
+                cardImportLots.map((lot) => (
+                  <div key={lot.originKey} className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{lot.origin}</p>
+                      <p className="text-xs text-gray-400">
+                        Competência: {lot.referenceLabel || '—'} • Vencimento: {lot.dueDate ? new Date(`${lot.dueDate}T00:00:00`).toLocaleDateString('pt-BR') : '—'} • Itens: {lot.count}
+                      </p>
+                      {lot.origins.length > 1 && (
+                        <p className="text-[11px] text-gray-500">
+                          Variações de origem consolidadas: {lot.origins.length}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className={`text-xs font-bold px-2 py-1 rounded border ${lot.classified
+                        ? 'border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/10'
+                        : 'border-amber-500/30 text-amber-200 hover:bg-amber-500/10'
+                        }`}
+                      onClick={() => openLotClassification(lot)}
+                    >
+                      {lot.classified ? 'Revisar' : 'Classificar'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p className="text-sm text-white font-semibold">{selectedLot.origin}</p>
+                <p className="text-xs text-gray-400">Preencha os dados do lote no padrão brasileiro (DD/MM/AAAA).</p>
+              </div>
+              <Input
+                label="Mês de referência da fatura"
+                type="month"
+                value={lotReferenceMonth}
+                onChange={(e) => setLotReferenceMonth(e.target.value)}
+                helpText="Exibido como competência da fatura (MM/AAAA)."
+              />
+              <Input
+                label="Data de vencimento"
+                type="date"
+                value={lotDueDate}
+                onChange={(e) => setLotDueDate(e.target.value)}
+                helpText="Será exibida no histórico como DD/MM/AAAA."
+              />
+              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p className="text-sm font-semibold text-white mb-2">Classificação manual dos lançamentos deste lote</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  Classifique somente as entradas do cartão. Use Pagamento de Fatura ou Estorno/Reembolso.
+                </p>
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {lotTransactionRows.length === 0 ? (
+                    <p className="text-xs text-gray-500">Nenhuma entrada identificada neste lote para classificação manual.</p>
+                  ) : (
+                    lotTransactionRows.map((row, idx) => (
+                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center text-xs bg-slate-800/60 rounded px-2 py-1.5">
+                        <div className="col-span-3 text-gray-300">{row.date ? new Date(`${row.date}T00:00:00`).toLocaleDateString('pt-BR') : '—'}</div>
+                        <div className="col-span-5 text-gray-100 truncate">{row.description}</div>
+                        <div className={`col-span-2 font-semibold ${row.amount < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
+                          {formatCurrency(Math.abs(row.amount))}
+                        </div>
+                        <div className="col-span-2">
+                          <Select
+                            value={row.selectedType === 'refund' ? 'refund' : 'payment'}
+                            onChange={(e) => {
+                              const nextType = e.target.value as 'payment' | 'refund';
+                              setLotTransactionRows((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, selectedType: nextType } : item))
+                              );
+                            }}
+                          >
+                            <option value="payment">Pagamento de Fatura</option>
+                            <option value="refund">Estorno/Reembolso</option>
+                          </Select>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {false && isClassifierModalOpen && (
+        <Modal
+          isOpen={isClassifierModalOpen}
+          onClose={() => { if (!isSavingClassifier) setClassifierModalOpen(false); }}
+          title="Classificação de Lançamentos"
+          className="max-w-3xl"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setClassifierModalOpen(false)} disabled={isSavingClassifier}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveClassifierRules} disabled={isSavingClassifier}>
+                {isSavingClassifier ? 'Salvando...' : 'Salvar regras'}
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-gray-300">
+              Defina os termos que identificam automaticamente o que é pagamento da fatura anterior e o que é crédito/estorno.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p className="text-sm font-semibold text-white mb-2">Termos de pagamento da fatura anterior</p>
+                <textarea
+                  value={paymentKeywordsInput}
+                  onChange={(e) => setPaymentKeywordsInput(e.target.value)}
+                  rows={7}
+                  className="w-full rounded bg-slate-950/70 border border-slate-700 px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Um termo por linha (ex.: pagamentos válidos normais)"
+                />
+              </div>
+              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p className="text-sm font-semibold text-white mb-2">Termos de crédito/estorno</p>
+                <textarea
+                  value={creditKeywordsInput}
+                  onChange={(e) => setCreditKeywordsInput(e.target.value)}
+                  rows={7}
+                  className="w-full rounded bg-slate-950/70 border border-slate-700 px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Um termo por linha (ex.: estorno)"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-sky-200 mb-2">
+                Preview de impacto (1-2 faturas)
+              </p>
+              {classifierPreview.length === 0 ? (
+                <p className="text-xs text-gray-400">Abra o histórico de um cartão para visualizar o impacto antes de sincronizar.</p>
+              ) : (
+                <div className="space-y-2">
+                  {classifierPreview.map((row) => (
+                    <div key={row.statementId} className="text-xs text-gray-200 rounded border border-slate-700/70 bg-slate-900/40 px-2 py-1.5">
+                      <p className="font-semibold text-white">{row.label}</p>
+                      <p>
+                        Reclassificações potenciais: <span className="text-amber-300 font-semibold">{row.changed}</span> de {row.total} lançamento(s).
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-amber-300">
+              Após salvar, clique em "Sincronizar histórico" para recalcular as faturas com as novas regras.
+            </p>
+          </div>
+        </Modal>
+      )}
+
       {isNewTransactionModalOpen && (
         <NewTransactionModal
           onClose={() => {
@@ -1130,6 +2811,72 @@ const TransactionsView: React.FC = () => {
           onClose={() => setCategoryModalOpen(false)}
           onSave={handleSaveCategory}
         />
+      )}
+
+      <CreditCardInvoiceCyclesModal
+        isOpen={creditInvoiceCyclesAccountId !== null}
+        onClose={() => setCreditInvoiceCyclesAccountId(null)}
+        filterAccountId={creditInvoiceCyclesAccountId}
+      />
+
+      {payInvoiceEngineModal.open && payInvoiceEngineModal.account && (
+        <Modal
+          isOpen={true}
+          onClose={() => {
+            setPayInvoiceEngineModal((s) =>
+              s.isSubmitting ? s : { open: false, account: null, amountDraft: '', dateDraft: '', isSubmitting: false }
+            );
+          }}
+          title="Registrar pagamento de fatura"
+          className="max-w-lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-400">
+              Cartão: <span className="text-white">{payInvoiceEngineModal.account.Nome_Conta}</span>
+            </p>
+            <p className="text-sm text-gray-400">
+              O pagamento será registrado na fatura alvo escolhida pelo motor (competência em aberto, parcial ou com saldo pendente).
+            </p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Pagamentos vindos do extrato costumam aparecer após importação. Use este fluxo para pagamentos manuais ou ainda não lançados no motor.
+            </p>
+            <Input
+              label="Data do pagamento"
+              type="date"
+              value={payInvoiceEngineModal.dateDraft}
+              onChange={(e) => setPayInvoiceEngineModal((s) => ({ ...s, dateDraft: e.target.value }))}
+              disabled={payInvoiceEngineModal.isSubmitting}
+            />
+            <Input
+              label="Valor"
+              type="text"
+              value={payInvoiceEngineModal.amountDraft}
+              onChange={(e) => setPayInvoiceEngineModal((s) => ({ ...s, amountDraft: e.target.value }))}
+              placeholder="0,00"
+              disabled={payInvoiceEngineModal.isSubmitting}
+            />
+            <div className="flex gap-2 justify-end pt-2">
+              <Button
+                variant="secondary"
+                disabled={payInvoiceEngineModal.isSubmitting}
+                onClick={() =>
+                  setPayInvoiceEngineModal({
+                    open: false,
+                    account: null,
+                    amountDraft: '',
+                    dateDraft: '',
+                    isSubmitting: false,
+                  })
+                }
+              >
+                Cancelar
+              </Button>
+              <Button disabled={payInvoiceEngineModal.isSubmitting} onClick={() => void submitPayInvoiceEngineModal()}>
+                {payInvoiceEngineModal.isSubmitting ? 'Salvando...' : 'Registrar pagamento'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {deleteConfirmation && (
