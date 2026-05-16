@@ -67,6 +67,22 @@ const parseKeywordList = (value: unknown, fallback: string[]) => {
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
 
+/** Dados vindos do motor/Supabase; o uso pelo ledger é recalculado no render com transactions atuais. */
+type CreditCardMotorStatementSnap = {
+  currentOpenAmount: number;
+  hasData: boolean;
+  fetchCompleted: boolean;
+};
+
+/** Cobre todos os cartões após tentativa de snapshot — evita mapa vazio e UX pendente infinita. */
+function buildCreditCardSnapshotPlaceholderMap(creditAccountIds: string[]): Map<string, CreditCardMotorStatementSnap> {
+  const m = new Map<string, CreditCardMotorStatementSnap>();
+  creditAccountIds.forEach((id) =>
+    m.set(id, { currentOpenAmount: 0, hasData: false, fetchCompleted: true })
+  );
+  return m;
+}
+
 const PT_BR_MONTH_TO_NUMBER: Record<string, number> = {
   jan: 1,
   fev: 2,
@@ -1052,7 +1068,21 @@ const TransactionsView: React.FC = () => {
   const cardEngineEnabled = isCreditCardEngineEnabled(user);
   const cardV2Enabled = isCardV2Enabled(user);
   const cardSnapshotPipelineEnabled = cardV2Enabled || cardEngineEnabled;
-  const [cardV2SnapshotByAccount, setCardV2SnapshotByAccount] = useState<Map<string, { currentOpenAmount: number; usedLimit: number; hasData: boolean }>>(new Map());
+  const [cardV2SnapshotByAccount, setCardV2SnapshotByAccount] = useState<Map<string, CreditCardMotorStatementSnap>>(
+    new Map()
+  );
+
+  /** Evita re-fetch do snapshot só porque `accounts` ganhou nova referência no Zustand com os mesmos cartões. */
+  const creditCardAccountIdsKey = useMemo(
+    () =>
+      accounts
+        .filter((a) => a.Tipo_Conta === 'Cartão de Crédito' && !a.is_archived)
+        .map((a) => a.id)
+        .slice()
+        .sort()
+        .join('|'),
+    [accounts]
+  );
 
   const currentPaymentKeywords = useMemo(
     () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
@@ -1126,12 +1156,32 @@ const TransactionsView: React.FC = () => {
         return;
       }
 
-      const creditAccounts = accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito' && !a.is_archived);
+      const { accounts: accountsNow } = useAppStore.getState();
+      const creditAccounts = accountsNow.filter((a) => a.Tipo_Conta === 'Cartão de Crédito' && !a.is_archived);
       const creditAccountIds = creditAccounts.map((a) => a.id);
 
       if (creditAccountIds.length === 0) {
         if (!cancelled) setCardV2SnapshotByAccount(new Map());
         return;
+      }
+
+      if (!cancelled) {
+        setCardV2SnapshotByAccount((prev) => {
+          let changed = false;
+          const next = new Map(prev);
+          for (const id of creditAccountIds) {
+            const cur = next.get(id);
+            if (cur?.fetchCompleted) {
+              next.set(id, {
+                currentOpenAmount: cur.currentOpenAmount,
+                hasData: cur.hasData,
+                fetchCompleted: false,
+              });
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
       }
 
       type CardLink = { accountId: string; cardId: string };
@@ -1149,7 +1199,7 @@ const TransactionsView: React.FC = () => {
       const cardIdToAccountId = new Map(links.map((l) => [l.cardId, l.accountId] as const));
 
       if (cardIds.length === 0) {
-        if (!cancelled) setCardV2SnapshotByAccount(new Map());
+        if (!cancelled) setCardV2SnapshotByAccount(buildCreditCardSnapshotPlaceholderMap(creditAccountIds));
         return;
       }
 
@@ -1173,7 +1223,7 @@ const TransactionsView: React.FC = () => {
           .order('due_date', { ascending: false });
         if (legacy.error) {
           console.error('[CardV2][UI] Falha ao buscar snapshots de cartão:', legacy.error);
-          if (!cancelled) setCardV2SnapshotByAccount(new Map());
+          if (!cancelled) setCardV2SnapshotByAccount(buildCreditCardSnapshotPlaceholderMap(creditAccountIds));
           return;
         }
         rowsOut = legacy.data;
@@ -1196,12 +1246,16 @@ const TransactionsView: React.FC = () => {
         grouped.set(accountKey, current);
       });
 
-      const snapshotMap = new Map<string, { currentOpenAmount: number; usedLimit: number; hasData: boolean }>();
+      const snapshotMap = new Map<string, CreditCardMotorStatementSnap>();
 
       creditAccountIds.forEach((accountId) => {
         const rows = grouped.get(accountId) || [];
         if (rows.length === 0) {
-          snapshotMap.set(accountId, { currentOpenAmount: 0, usedLimit: 0, hasData: false });
+          snapshotMap.set(accountId, {
+            currentOpenAmount: 0,
+            hasData: false,
+            fetchCompleted: true,
+          });
           return;
         }
 
@@ -1212,18 +1266,6 @@ const TransactionsView: React.FC = () => {
           rows.find((r) => r.status === 'open' || r.status === 'partial' || r.status === 'overdue') ||
           rows.find((r) => openField(r) > 0.009) ||
           rows[0];
-
-        /** Uso do limite segundo o ledger (Saldo_Inicial + Rendas − Despesas nas transações). */
-        const usedLimit = (() => {
-          const account = accounts.find((a) => a.id === accountId);
-          if (!account) return 0;
-          const allT = transactions.filter((t) => t.ID_Conta === accountId);
-          const totalIncome = allT.filter((t) => t.Tipo === 'Renda').reduce((acc, t) => acc + Number(t.Valor || 0), 0);
-          const totalExpense = allT
-            .filter((t) => t.Tipo === 'Despesa')
-            .reduce((acc, t) => acc + Math.abs(Number(t.Valor || 0)), 0);
-          return Math.abs(Math.min(Number(account.Saldo_Inicial || 0) + totalIncome - totalExpense, 0));
-        })();
 
         const displayTotal = cardEngineEnabled
           ? (() => {
@@ -1248,26 +1290,27 @@ const TransactionsView: React.FC = () => {
             })()
           : Math.max(Number(currentStatement?.open_amount || 0), 0);
 
-        const ledgerUsedRounded = roundCurrency(Math.max(usedLimit, 0));
         const faturaOpenRounded = roundCurrency(displayTotal);
-        /** Se o motor mostra fatura maior que o ledger indica, o % e o «Disponível» acompanham o maior dos dois (evita disponível+fatura > limite). */
-        const coherentUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
 
         snapshotMap.set(accountId, {
           currentOpenAmount: faturaOpenRounded,
-          usedLimit: coherentUsedLimit,
           hasData: true,
+          fetchCompleted: true,
         });
       });
 
-      setCardV2SnapshotByAccount(snapshotMap);
+      if (!cancelled) {
+        setCardV2SnapshotByAccount(snapshotMap);
+      }
     };
 
     loadCardV2Snapshots();
     return () => {
       cancelled = true;
     };
-  }, [cardSnapshotPipelineEnabled, user?.id, accounts, transactions, cardEngineEnabled, creditCardEngineRevision]);
+    // Não dependemos de `accounts` nem de `transactions`: o primeiro define os IDs via `creditCardAccountIdsKey`;
+    // evita re-fetch quando o Zustand substitui o array com os mesmos cartões (ex.: ao voltar à aba Transações).
+  }, [cardSnapshotPipelineEnabled, user?.id, creditCardAccountIdsKey, cardEngineEnabled, creditCardEngineRevision]);
 
   const accountsMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -1847,8 +1890,11 @@ const TransactionsView: React.FC = () => {
               v2Snapshot.hasData;
 
             if (shouldUseCardSnapshot) {
-              faturaAtual = v2Snapshot.currentOpenAmount;
-              totalUsedLimit = v2Snapshot.usedLimit;
+              const faturaOpenRounded = roundCurrency(v2Snapshot.currentOpenAmount);
+              const ledgerUsedRounded = roundCurrency(Math.max(totalUsedLimit, 0));
+              faturaAtual = faturaOpenRounded;
+              /** Mesma regra do motor: max(ledger, fatura em aberto). Atualiza com transactions sem novo fetch. */
+              totalUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
             }
           }
 
@@ -1856,6 +1902,12 @@ const TransactionsView: React.FC = () => {
           const limiteUsadoPct = limite > 0 ? Math.min((totalUsedLimit / limite) * 100, 100) : 0;
           const limiteDisponivel = limite > 0 ? Math.max(limite - totalUsedLimit, 0) : 0;
           const barColor = limiteUsadoPct > 90 ? 'bg-red-500' : limiteUsadoPct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
+
+          const awaitingMotorSnapshotUi =
+            isCreditCard &&
+            limite > 0 &&
+            cardSnapshotPipelineEnabled &&
+            !cardV2SnapshotByAccount.get(account.id)?.fetchCompleted;
 
           return (
             <div
@@ -1906,6 +1958,39 @@ const TransactionsView: React.FC = () => {
                   <div className="mt-5 space-y-4">
                     {limite > 0 ? (
                       <>
+                        {awaitingMotorSnapshotUi ? (
+                          <div
+                            className="space-y-4"
+                            aria-busy="true"
+                            aria-live="polite"
+                            aria-label="Sincronizando valores do cartão com o motor"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center mb-1.5 px-0.5">
+                                <span className="sr-only">Carregando uso do limite</span>
+                                <div className="h-2.5 w-28 rounded-md bg-slate-700/90 animate-pulse" />
+                                <div className="h-2.5 w-10 rounded-md bg-slate-700/90 animate-pulse" />
+                              </div>
+                              <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                <div className="h-full w-[32%] rounded-full bg-slate-600/40 animate-pulse" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 pt-1">
+                              <div className="bg-white/5 p-2 rounded-xl border border-white/5 space-y-2 min-h-[54px]">
+                                <div className="h-2 w-20 rounded bg-slate-700/80 animate-pulse" />
+                                <div className="h-7 w-[92%] rounded-md bg-emerald-500/12 animate-pulse" />
+                              </div>
+                              <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between gap-2 min-h-[54px] items-end">
+                                <div className="h-2 w-[72px] rounded bg-slate-700/80 animate-pulse" />
+                                <div className="h-7 w-[88%] rounded-md bg-rose-500/12 animate-pulse" />
+                              </div>
+                            </div>
+                            <p className="text-[9px] text-slate-500 text-center leading-snug px-1">
+                              Sincronizando limite e fatura com o motor…
+                            </p>
+                          </div>
+                        ) : (
+                          <>
                         {/* Barra de uso do limite */}
                         <div>
                           <div className="flex justify-between items-center mb-1.5 px-0.5">
@@ -1957,6 +2042,8 @@ const TransactionsView: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                          </>
+                        )}
 
                         {/* Dias até fechar/vencer */}
                         <div className="flex flex-col gap-2 pt-3 border-t border-white/5">
@@ -1985,7 +2072,13 @@ const TransactionsView: React.FC = () => {
                         {cardEngineEnabled && (
                           <button
                             type="button"
-                            className="mt-2 w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-cyan-300/95 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/[0.07] transition-colors"
+                            disabled={awaitingMotorSnapshotUi}
+                            title={
+                              awaitingMotorSnapshotUi
+                                ? 'Aguarde a sincronização dos valores do cartão'
+                                : undefined
+                            }
+                            className="mt-2 w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-cyan-300/95 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/[0.07] transition-colors disabled:opacity-40 disabled:pointer-events-none disabled:hover:text-cyan-300/95"
                             onClick={(e) => {
                               e.stopPropagation();
                               setCreditInvoiceCyclesAccountId(account.id);
