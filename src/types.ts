@@ -260,6 +260,10 @@ export interface ManualStatementTotalsPayload {
   statement_total?: number | null;
   total_payments?: number | null;
   user_note?: string | null;
+  /** 'credit': pagamento a mais; 'bank_adjustment': arredondamento/ajuste; 'offset_prior_credit': abateu déficit com crédito declarado em meses anteriores. */
+  micro_divergence_feedback?: 'credit' | 'bank_adjustment' | 'offset_prior_credit' | null;
+  /** Valor (R$) somado ao total pago para zerar micro-déficit usando crédito de meses anteriores. */
+  prior_credit_abatement?: number | null;
 }
 
 export interface CreditCardPayment {

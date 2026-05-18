@@ -10,6 +10,23 @@ interface ImportDetailsModalProps {
     fileName: string;
 }
 
+const formatImportDetailDatePtBr = (raw: unknown): string => {
+    if (raw == null || raw === '') return '-';
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+        const d = new Date(`${raw.slice(0, 10)}T12:00:00`);
+        return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
+    }
+    const d = new Date(raw as string | number | Date);
+    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
+};
+
+const parseImportDetailValor = (item: Record<string, unknown>): number | null => {
+    const raw = item.Valor ?? item.valor;
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) ? n : null;
+};
+
 const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClose, ignoredDetails, importedDetails, fileName }) => {
     const [activeTab, setActiveTab] = useState<'imported' | 'ignored'>(importedDetails.length > 0 ? 'imported' : 'ignored');
 
@@ -63,16 +80,25 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                 {importedDetails.map((item, index) => (
                                     <tr key={index}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                            {item.Data ? new Date(item.Data).toLocaleDateString() : '-'}
+                                            {formatImportDetailDatePtBr(item.Data)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-300 break-words max-w-xs opacity-75">
-                                            {item.Descricao || item.Descricao_Original || '-'}
+                                            {item.Descricao_Original || item.Descricao || '-'}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-white font-medium break-words max-w-xs">
                                             {item.Nome_Fantasia || '-'}
                                         </td>
-                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${(item.Valor || 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                                            {item.Valor ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor) : '-'}
+                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${(() => {
+                                            const v = parseImportDetailValor(item as Record<string, unknown>);
+                                            if (v === null) return 'text-gray-500';
+                                            return v < 0 ? 'text-red-400' : 'text-green-400';
+                                        })()}`}>
+                                            {(() => {
+                                                const v = parseImportDetailValor(item as Record<string, unknown>);
+                                                return v === null
+                                                    ? '-'
+                                                    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-accent font-medium">
                                             {item.Categoria || 'Sucesso'}
@@ -102,7 +128,7 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                 {ignoredDetails.map((item, index) => (
                                     <tr key={index}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                            {item.Data ? new Date(item.Data).toLocaleDateString() : '-'}
+                                            {formatImportDetailDatePtBr(item.Data)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-300 break-words max-w-xs opacity-75">
                                             {item.Descricao || item.RawRow || item.Descricao_Original || '-'}
@@ -110,8 +136,17 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                         <td className="px-6 py-4 text-sm text-gray-300 break-words max-w-xs">
                                             {item.Nome_Fantasia || '-'}
                                         </td>
-                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${(item.Valor || 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                                            {item.Valor ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Valor) : '-'}
+                                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${(() => {
+                                            const v = parseImportDetailValor(item as Record<string, unknown>);
+                                            if (v === null) return 'text-gray-500';
+                                            return v < 0 ? 'text-red-400' : 'text-green-400';
+                                        })()}`}>
+                                            {(() => {
+                                                const v = parseImportDetailValor(item as Record<string, unknown>);
+                                                return v === null
+                                                    ? '-'
+                                                    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-danger font-medium whitespace-nowrap">
                                             {item.Motivo || 'Desconhecido'}

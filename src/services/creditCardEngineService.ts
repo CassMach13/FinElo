@@ -1,8 +1,12 @@
 import { supabase } from '../supabaseClient';
 import { Account, Transaction } from '../types';
 import { creditCardStatementEngine } from '../domain/credit-card/creditCardStatementEngine';
-import { getPreviousReferenceLabel } from '../domain/credit-card/assignment';
-import { mergePaymentsWithInvoiceLinesFromNextStatement, inferStatusFromTotals } from '../domain/credit-card/payments';
+import {
+  mergePaymentsWithInvoiceLinesFromFutureStatements,
+  getPreviousStatementRow,
+  inferStatusFromTotals,
+  resolveImportedInvoicePaymentTarget,
+} from '../domain/credit-card/payments';
 import {
   ClassificationOverrides,
   ClassificationRules,
@@ -17,6 +21,14 @@ import {
   CreditCardManualTotalsPayload,
 } from '../domain/credit-card/types';
 const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+/** Abatimento por crédito anterior; apenas valores finitos e > 0 são aplicados ao overlay. */
+const normalizePriorCreditAbatement = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return round2(n);
+};
 
 const mergeClassificationOverridesFromPaymentRefundTxIds = (
   normalizedEntries: CreditCardImportEntry[],
@@ -55,7 +67,8 @@ const toIsoDate = (value: Date | string | undefined | null): string | null => {
 const toReferenceLabel = (year: number, month: number): string =>
   `${year}-${String(month).padStart(2, '0')}`;
 
-const parseReferenceFromFileName = (fileName: string): { dueYear: number; dueMonth: number } | null => {
+/** Inferência de competência (vencimento) a partir do nome do arquivo — também usada na importação pelo store. */
+export const parseCreditCardReferenceFromFileName = (fileName: string): { dueYear: number; dueMonth: number } | null => {
   const normalized = fileName
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -110,21 +123,40 @@ export function parseManualTotalsJson(raw: unknown): CreditCardManualTotalsPaylo
   else if (o.total_payments === null) out.total_payments = null;
   if (typeof o.user_note === 'string') out.user_note = o.user_note;
   else if (o.user_note === null) out.user_note = null;
+  const fb = o.micro_divergence_feedback;
+  if (fb === 'credit' || fb === 'bank_adjustment' || fb === 'offset_prior_credit') {
+    out.micro_divergence_feedback = fb;
+  } else {
+    out.micro_divergence_feedback = null;
+  }
+  const ab = o.prior_credit_abatement;
+  const normalizedAb = normalizePriorCreditAbatement(ab);
+  if (normalizedAb !== null) out.prior_credit_abatement = normalizedAb;
+  else if (ab === null) out.prior_credit_abatement = null;
+
   return out;
 }
 
 function applyManualTotalsOverlay(computed: CreditCardStatement): CreditCardStatement {
   const manual = computed.manualTotals;
-  if (!manual?.use_manual) return computed;
 
-  const st =
-    manual.statement_total !== null && manual.statement_total !== undefined
-      ? round2(Number(manual.statement_total))
-      : computed.statementTotal;
-  const pay =
-    manual.total_payments !== null && manual.total_payments !== undefined
-      ? round2(Number(manual.total_payments))
-      : computed.totalPayments;
+  let st = computed.statementTotal;
+  let pay = computed.totalPayments;
+
+  if (manual?.use_manual) {
+    if (manual.statement_total !== null && manual.statement_total !== undefined) {
+      st = round2(Number(manual.statement_total));
+    }
+    if (manual.total_payments !== null && manual.total_payments !== undefined) {
+      pay = round2(Number(manual.total_payments));
+    }
+  }
+
+  const abate = normalizePriorCreditAbatement(manual?.prior_credit_abatement);
+  if (abate !== null) {
+    pay = round2(pay + abate);
+  }
+
   const open = round2(Math.max(st - pay, 0));
   const status = inferStatusFromTotals(st, pay, computed.dueDate ?? null);
 
@@ -134,7 +166,7 @@ function applyManualTotalsOverlay(computed: CreditCardStatement): CreditCardStat
     totalPayments: pay,
     openBalance: open,
     status,
-    manualTotals: manual,
+    manualTotals: manual ?? null,
   };
 }
 
@@ -169,16 +201,50 @@ export const creditCardEngineService = {
       a.dueYear !== b.dueYear ? a.dueYear - b.dueYear : a.dueMonth - b.dueMonth
     );
     const idx = sortedAsc.findIndex((s) => s.id === statementId);
-    const nextStmt = idx >= 0 && idx + 1 < sortedAsc.length ? sortedAsc[idx + 1] : undefined;
-    let nextEntries: CreditCardImportEntry[] = [];
-    if (nextStmt) {
-      nextEntries = (await this.getStatementDetail(nextStmt.id)).entries;
-    }
-    const paymentsForRecalc = mergePaymentsWithInvoiceLinesFromNextStatement(
-      detail.statement,
-      detail.payments,
-      nextEntries
+    const futureStmts = idx >= 0 ? sortedAsc.slice(idx + 1) : [];
+    const futurePacks = await Promise.all(
+      futureStmts.map(async (fs) => ({
+        importStatement: { id: fs.id, dueYear: fs.dueYear, dueMonth: fs.dueMonth },
+        entries: (await this.getStatementDetail(fs.id)).entries,
+      }))
     );
+
+    const needsFutureInvoiceMerge = futurePacks.some((p) =>
+      p.entries.some((e) => e.entryType === 'invoice_payment' && inferDirection(e.amount) === 'credit')
+    );
+
+    let paymentsForRecalc = detail.payments;
+    if (needsFutureInvoiceMerge) {
+      const invoiceTotalsById = await this.buildStatementTotalsMapForIds(sortedAsc.map((s) => s.id));
+
+      const { data: allPayRows, error: allPayErr } = await supabase
+        .from('credit_card_payments')
+        .select('*')
+        .eq('card_id', detail.statement.cardId)
+        .order('payment_date', { ascending: true });
+      if (allPayErr) throw allPayErr;
+
+      const allPaymentsOnCard = ((allPayRows || []) as any[]).map((row) => ({
+        id: row.id,
+        cardId: row.card_id,
+        statementId: row.statement_id,
+        paymentAccountId: row.payment_account_id,
+        paymentTransactionId: row.payment_transaction_id,
+        paymentDate: row.payment_date,
+        amount: Number(row.amount || 0),
+        source: row.source,
+        notes: row.notes || undefined,
+      })) as CreditCardPayment[];
+
+      paymentsForRecalc = mergePaymentsWithInvoiceLinesFromFutureStatements(
+        detail.statement,
+        detail.payments,
+        allPaymentsOnCard,
+        futurePacks,
+        sortedAsc,
+        invoiceTotalsById
+      );
+    }
     const recalculated = creditCardStatementEngine.recalculateStatement({
       statement: detail.statement,
       entries: detail.entries,
@@ -210,14 +276,39 @@ export const creditCardEngineService = {
 
   async saveStatementManualTotals(
     statementId: string,
-    payload: CreditCardManualTotalsPayload
+    payload: Partial<CreditCardManualTotalsPayload>
   ): Promise<CreditCardStatement> {
-    const json: Record<string, unknown> = {
-      use_manual: Boolean(payload.use_manual),
-      user_note: payload.user_note ?? null,
+    const detail = await this.getStatementDetail(statementId);
+    const prev = detail.statement.manualTotals ?? undefined;
+    const mergedPriorAbate =
+      payload.prior_credit_abatement !== undefined
+        ? normalizePriorCreditAbatement(payload.prior_credit_abatement)
+        : normalizePriorCreditAbatement(prev?.prior_credit_abatement);
+
+    const merged: CreditCardManualTotalsPayload = {
+      use_manual:
+        payload.use_manual !== undefined ? Boolean(payload.use_manual) : Boolean(prev?.use_manual),
+      statement_total:
+        payload.statement_total !== undefined ? payload.statement_total : prev?.statement_total,
+      total_payments:
+        payload.total_payments !== undefined ? payload.total_payments : prev?.total_payments,
+      user_note: payload.user_note !== undefined ? payload.user_note : prev?.user_note,
+      micro_divergence_feedback:
+        payload.micro_divergence_feedback !== undefined
+          ? payload.micro_divergence_feedback ?? null
+          : prev?.micro_divergence_feedback ?? null,
+      prior_credit_abatement: mergedPriorAbate,
     };
-    if (payload.statement_total !== undefined) json.statement_total = payload.statement_total;
-    if (payload.total_payments !== undefined) json.total_payments = payload.total_payments;
+
+    const json: Record<string, unknown> = {
+      use_manual: merged.use_manual,
+      user_note: merged.user_note ?? null,
+      micro_divergence_feedback: merged.micro_divergence_feedback ?? null,
+      prior_credit_abatement: merged.prior_credit_abatement ?? null,
+    };
+    if (merged.statement_total !== undefined) json.statement_total = merged.statement_total;
+    if (merged.total_payments !== undefined) json.total_payments = merged.total_payments;
+
     const { error } = await supabase
       .from('credit_card_statements')
       .update({ manual_totals_json: json })
@@ -323,9 +414,11 @@ export const creditCardEngineService = {
   },
 
   /**
-   * Lançamentos `invoice_payment` importados na fatura N (nome do arquivo / vencimento) representam na prática o
-   * pagamento que o banco aplica à fatura do ciclo **anterior**. Persistimos em credit_card_payments na statement N-1
-   * para alimentar total_payments / open_balance / limite disponível corretamente.
+   * Persiste linhas `invoice_payment` do CSV na competência correta:
+   * - uma única linha no arquivo: mantém convenção XP (crédito aplicado à fatura **anterior** à competência do arquivo);
+   * - duas ou mais linhas: cada uma vai para a competência cujo (due_year, due_month) coincide com o mês civil da data,
+   *   desde que essa fatura exista e esteja entre [anterior ao arquivo, arquivo] (inclusive) — cobre pagamentos parciais
+   *   em meses diferentes que aparecem no mesmo extrato.
    */
   async persistImportedInvoicePaymentsForPreviousStatement(opts: {
     userId: string;
@@ -336,33 +429,46 @@ export const creditCardEngineService = {
     classifiedEntries: CreditCardImportEntry[];
     inputRows: Array<{ sourceRowIndex: number; transactionId?: string }>;
   }): Promise<string | undefined> {
-    const currentRef = toReferenceLabel(opts.dueYear, opts.dueMonth);
-    const prevRef = getPreviousReferenceLabel(currentRef);
-
-    const { data: prevStmt, error } = await supabase
-      .from('credit_card_statements')
-      .select('id')
-      .eq('card_id', opts.cardId)
-      .eq('reference_label', prevRef)
-      .maybeSingle();
-    if (error) {
-      console.warn('[CardEngine] Busca da fatura anterior para pagamentos importados:', error.message);
-      return undefined;
-    }
-    if (!prevStmt?.id) {
-      console.info(
-        '[CardEngine] Sem fatura anterior no banco (%s); pagamento XP agregado não foi vinculado ainda.',
-        prevRef
-      );
-      return undefined;
-    }
+    const cardStatements = await this.getCardStatements(opts.cardId);
+    const sortedAsc = [...cardStatements].sort((a, b) =>
+      a.dueYear !== b.dueYear ? a.dueYear - b.dueYear : a.dueMonth - b.dueMonth
+    );
+    const sortedPick = sortedAsc.map((s) => ({ id: s.id, dueYear: s.dueYear, dueMonth: s.dueMonth }));
+    const importPick = { dueYear: opts.dueYear, dueMonth: opts.dueMonth };
 
     const targets = opts.classifiedEntries.filter(
       (e) => e.entryType === 'invoice_payment' && inferDirection(e.amount) === 'credit'
     );
     if (targets.length === 0) return undefined;
 
+    const prevStmt = getPreviousStatementRow(sortedPick, importPick);
+    const importRowStmt = sortedPick.find(
+      (s) => s.dueYear === importPick.dueYear && s.dueMonth === importPick.dueMonth
+    );
+    const totalsIds = [prevStmt?.id, importRowStmt?.id].filter(Boolean) as string[];
+    let statementTotalsById: Map<string, number> | undefined;
+    if (totalsIds.length >= 2) {
+      statementTotalsById = await this.buildStatementTotalsMapForIds(totalsIds);
+    }
+
+    let lastStmtId: string | undefined;
+
     for (const entry of targets) {
+      const targetStmt = resolveImportedInvoicePaymentTarget(
+        entry,
+        targets,
+        sortedPick,
+        importPick,
+        statementTotalsById ? { statementTotalsById } : undefined
+      );
+      if (!targetStmt?.id) {
+        console.info(
+          '[CardEngine] Pagamento importado sem statement alvo (competência inexistente ou fora da faixa):',
+          entry.sourceRowHash
+        );
+        continue;
+      }
+
       const row = opts.inputRows.find((r) => r.sourceRowIndex === entry.sourceRowIndex);
       const tid = row?.transactionId || entry.transactionId || undefined;
       const amt = round2(Math.abs(Number(entry.amount || 0)));
@@ -379,7 +485,7 @@ export const creditCardEngineService = {
           .from('credit_card_payments')
           .delete()
           .eq('card_id', opts.cardId)
-          .eq('statement_id', prevStmt.id)
+          .eq('statement_id', targetStmt.id)
           .eq('source', 'imported_statement')
           .like('notes', `%${entry.sourceRowHash}%`);
       }
@@ -387,7 +493,7 @@ export const creditCardEngineService = {
       const { error: insErr } = await supabase.from('credit_card_payments').insert({
         user_id: opts.userId,
         card_id: opts.cardId,
-        statement_id: prevStmt.id,
+        statement_id: targetStmt.id,
         payment_transaction_id: tid || null,
         payment_date: entry.postedDate,
         amount: amt,
@@ -396,10 +502,12 @@ export const creditCardEngineService = {
       });
       if (insErr) {
         console.error('[CardEngine] Falha ao gravar pagamento importado:', insErr.message);
+      } else {
+        lastStmtId = targetStmt.id;
       }
     }
 
-    return prevStmt.id as string;
+    return lastStmtId;
   },
 
   async getCardStatements(cardId: string): Promise<CreditCardStatement[]> {
@@ -411,6 +519,24 @@ export const creditCardEngineService = {
       .order('due_month', { ascending: false });
     if (error) throw error;
     return ((data || []) as Record<string, unknown>[]).map((row) => mapRowToCreditCardStatement(row));
+  },
+
+  /** Totais de fatura só com lançamentos (sem pagamentos), para desempatar vínculo de pagamento importado. */
+  async buildStatementTotalsMapForIds(statementIds: string[]): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    const unique = [...new Set(statementIds.filter(Boolean))];
+    await Promise.all(
+      unique.map(async (id) => {
+        const detail = await this.getStatementDetail(id);
+        const rec = creditCardStatementEngine.recalculateStatement({
+          statement: detail.statement,
+          entries: detail.entries,
+          payments: [],
+        });
+        map.set(id, rec.statementTotal);
+      })
+    );
+    return map;
   },
 
   /** Recalcula todas as competências do cartão em ordem cronológica (cada fatura incorpora linhas de pagamento da seguinte). */
@@ -583,7 +709,7 @@ export const creditCardEngineService = {
     refundOverrideTransactionIds?: string[];
   }): Promise<{ statementId: string; lotId: string; entries: number }> {
     const ensuredCard = await this.ensureCreditCardForAccount(input.userId, input.account);
-    const inferred = parseReferenceFromFileName(input.sourceFileName);
+    const inferred = parseCreditCardReferenceFromFileName(input.sourceFileName);
     const dueYear = input.dueYear || inferred?.dueYear || new Date().getFullYear();
     const dueMonth = input.dueMonth || inferred?.dueMonth || new Date().getMonth() + 1;
     const statementDueDate = input.dueDate || toIsoDate(new Date(dueYear, dueMonth - 1, Math.min(28, input.account.dia_vencimento || 10)));
@@ -640,6 +766,20 @@ export const creditCardEngineService = {
     const lotId = lotData.id as string;
 
     const referenceLabel = toReferenceLabel(dueYear, dueMonth);
+
+    const { data: existingStmt } = await supabase
+      .from('credit_card_statements')
+      .select('source_import_lot_ids')
+      .eq('user_id', input.userId)
+      .eq('account_id', input.account.id)
+      .eq('reference_label', referenceLabel)
+      .maybeSingle();
+
+    const priorLotIds = Array.isArray(existingStmt?.source_import_lot_ids)
+      ? (existingStmt!.source_import_lot_ids as string[])
+      : [];
+    const mergedLotIds = [...new Set([...priorLotIds, lotId])];
+
     const { data: statementData, error: statementError } = await supabase
       .from('credit_card_statements')
       .upsert(
@@ -652,7 +792,7 @@ export const creditCardEngineService = {
           due_year: dueYear,
           due_month: dueMonth,
           due_date: statementDueDate,
-          source_import_lot_ids: [lotId],
+          source_import_lot_ids: mergedLotIds,
           status: 'open',
         },
         { onConflict: 'user_id,account_id,reference_label' }

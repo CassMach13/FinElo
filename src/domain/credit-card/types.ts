@@ -17,6 +17,13 @@ export type CreditCardStatementStatus = 'open' | 'closed' | 'paid' | 'partial' |
 
 export type CreditCardPaymentSource = 'manual' | 'imported_statement' | 'bank_account_import';
 
+/** Classificação opcional pelo usuário para micro-divergência entre total da fatura e total pago. */
+export type CreditCardMicroDivergenceFeedback =
+  | 'credit'
+  | 'bank_adjustment'
+  /** Déficit coberto com valor que o usuário marcou como «crédito» em competências anteriores. */
+  | 'offset_prior_credit';
+
 export interface CreditCardImportLotInput {
   userId: string;
   cardId: string;
@@ -84,6 +91,10 @@ export interface CreditCardManualTotalsPayload {
   statement_total?: number | null;
   total_payments?: number | null;
   user_note?: string | null;
+  /** Feedback do usuário sobre micro-divergência fatura vs pago (crédito/ajuste só registram; abatimento altera total pago persistido). */
+  micro_divergence_feedback?: CreditCardMicroDivergenceFeedback | null;
+  /** Valor somado ao total pago para cobrir micro-déficit com base em crédito declarado em competências anteriores. */
+  prior_credit_abatement?: number | null;
 }
 
 export interface CreditCardPayment {

@@ -2,7 +2,15 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
-import { Transaction, Category, MappingRule, Account, CreditCardStatement, CreditCardStatementItem } from './../../types';
+import {
+  Transaction,
+  Category,
+  MappingRule,
+  Account,
+  CreditCardStatement,
+  CreditCardStatementItem,
+  CreditCardStatementV2,
+} from './../../types';
 import Card from './../ui/Card';
 import Modal from './../ui/Modal';
 import Input from './../ui/Input';
@@ -66,6 +74,86 @@ const parseKeywordList = (value: unknown, fallback: string[]) => {
 };
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+
+/** Faixa em R$ para oferecer classificação de micro-divergência (evita misturar com fatura realmente em aberto). */
+const MOTOR_MICRO_DIVERGENCE_MAX_ABS = 5;
+
+function motorInvoiceMicroDelta(row: CreditCardStatementV2): number {
+  return roundCurrency(Number(row.total_payments ?? 0) - Number(row.statement_total ?? 0));
+}
+
+function motorInvoiceShowMicroDivergenceFeedback(row: CreditCardStatementV2): boolean {
+  const ad = Math.abs(motorInvoiceMicroDelta(row));
+  return ad >= 0.01 && ad <= MOTOR_MICRO_DIVERGENCE_MAX_ABS;
+}
+
+/** Há classificação manual de micro-divergência ou abatimento salvo no Supabase. */
+function motorInvoiceHasRecordedMicroFeedback(row: CreditCardStatementV2): boolean {
+  const fb = row.manual_totals?.micro_divergence_feedback;
+  if (fb === 'credit' || fb === 'bank_adjustment' || fb === 'offset_prior_credit') return true;
+  const ab = Number(row.manual_totals?.prior_credit_abatement ?? 0);
+  return ab >= 0.01;
+}
+
+/** Após recálculo o delta pode sair da faixa visual; mantemos transparência do que o usuário escolheu. */
+function motorInvoiceShowRecordedMicroBanner(row: CreditCardStatementV2): boolean {
+  return motorInvoiceHasRecordedMicroFeedback(row) && !motorInvoiceShowMicroDivergenceFeedback(row);
+}
+
+function motorInvoiceRecordedMicroFeedbackSummary(row: CreditCardStatementV2): string {
+  const fb = row.manual_totals?.micro_divergence_feedback;
+  const ab = roundCurrency(Number(row.manual_totals?.prior_credit_abatement ?? 0));
+  if (fb === 'offset_prior_credit' || ab >= 0.01) {
+    if (ab >= 0.01) {
+      return `Você registrou abatimento com crédito disponível de ${formatCurrency(ab)} nesta competência (o total pago do motor já considera esse abatimento após o recálculo).`;
+    }
+    return 'Você registrou abatimento com crédito disponível nesta competência.';
+  }
+  if (fb === 'credit') {
+    return 'Você registrou o excesso de pagamento como crédito / pago a mais. Esse valor pode ser usado em «Abater com crédito disponível» em outras competências deste cartão com déficit pequeno (inclusive em mês anterior ao da declaração).';
+  }
+  if (fb === 'bank_adjustment') {
+    return 'Você registrou a diferença como ajuste bancário (apenas para sua análise e histórico).';
+  }
+  return '';
+}
+
+function motorInvoiceStatementsSortedAsc(rowsAnyOrder: CreditCardStatementV2[]): CreditCardStatementV2[] {
+  return [...rowsAnyOrder].sort((a, b) => {
+    const ay = Number(a.due_year) || 0;
+    const by = Number(b.due_year) || 0;
+    if (ay !== by) return ay - by;
+    return (Number(a.due_month) || 0) - (Number(b.due_month) || 0);
+  });
+}
+
+/** Valor «pago a mais» quando o usuário marca explicitamente «Crédito / pago a mais». */
+function motorInvoiceDeclaredCreditSurplus(row: CreditCardStatementV2): number {
+  if (row.manual_totals?.micro_divergence_feedback !== 'credit') return 0;
+  return Math.max(0, roundCurrency(Number(row.total_payments ?? 0) - Number(row.statement_total ?? 0)));
+}
+
+/**
+ * Crédito que **esta** competência ainda pode usar em «Abater com crédito disponível»: total declarado como
+ * «Crédito / pago a mais» em qualquer mês do cartão, menos `prior_credit_abatement` já gravado nas **outras**
+ * competências. Permite usar crédito de mês posterior para sanear déficit de mês anterior (conferência manual).
+ */
+function motorInvoiceAvailableCreditForAbatement(
+  rowsAnyOrder: CreditCardStatementV2[],
+  row: CreditCardStatementV2
+): number {
+  let produced = 0;
+  let consumedOthers = 0;
+  for (const r of motorInvoiceStatementsSortedAsc(rowsAnyOrder)) {
+    produced += motorInvoiceDeclaredCreditSurplus(r);
+    if (r.id === row.id) continue;
+    const rawAb = r.manual_totals?.prior_credit_abatement;
+    const ab =
+      typeof rawAb === 'number' && Number.isFinite(rawAb) ? roundCurrency(rawAb) : 0;
+    if (ab > 0) consumedOthers += ab;
+  }
+  return roundCurrency(Math.max(0, produced - consumedOthers));
+}
 
 /** Dados vindos do motor/Supabase; o uso pelo ledger é recalculado no render com transactions atuais. */
 type CreditCardMotorStatementSnap = {
@@ -155,8 +243,10 @@ const TransactionsView: React.FC = () => {
     updateUserPreferences,
     getCardStatements,
     payStatement,
-        setCurrentView,
-        creditCardEngineRevision,
+    saveStatementManualTotals,
+    recalculateAllCardStatementsForAccount,
+    setCurrentView,
+    creditCardEngineRevision,
   } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -181,9 +271,161 @@ const TransactionsView: React.FC = () => {
     isSubmitting: false,
   });
 
+  const [motorInvoiceHistoryOpen, setMotorInvoiceHistoryOpen] = useState(false);
+  const [motorInvoiceHistoryAccount, setMotorInvoiceHistoryAccount] = useState<Account | null>(null);
+  const [motorInvoiceRows, setMotorInvoiceRows] = useState<CreditCardStatementV2[]>([]);
+  const [motorInvoiceLoading, setMotorInvoiceLoading] = useState(false);
+  const [motorInvoiceError, setMotorInvoiceError] = useState<string | null>(null);
+  const [motorMicroFeedbackSavingId, setMotorMicroFeedbackSavingId] = useState<string | null>(null);
+  const [motorInvoiceRecalculating, setMotorInvoiceRecalculating] = useState(false);
+  const [motorInvoiceRecalcToast, setMotorInvoiceRecalcToast] = useState<string | null>(null);
+
   const isoTodayStr = () => new Date().toISOString().slice(0, 10);
 
   const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
+
+  const openMotorInvoiceHistoryModal = useCallback(
+    async (account: Account) => {
+      setMotorInvoiceHistoryAccount(account);
+      setMotorInvoiceHistoryOpen(true);
+      setMotorInvoiceLoading(true);
+      setMotorInvoiceError(null);
+      setMotorInvoiceRows([]);
+      setMotorInvoiceRecalcToast(null);
+      try {
+        const rows = await getCardStatements(account.id);
+        const sorted = [...(rows || [])].sort((a, b) => {
+          const dy = (Number(b.due_year) || 0) - (Number(a.due_year) || 0);
+          if (dy !== 0) return dy;
+          return (Number(b.due_month) || 0) - (Number(a.due_month) || 0);
+        });
+        setMotorInvoiceRows(sorted);
+      } catch (e: any) {
+        setMotorInvoiceError(e?.message || 'Não foi possível carregar o histórico de faturas.');
+      } finally {
+        setMotorInvoiceLoading(false);
+      }
+    },
+    [getCardStatements]
+  );
+
+  useEffect(() => {
+    if (!motorInvoiceRecalcToast) return;
+    const id = window.setTimeout(() => setMotorInvoiceRecalcToast(null), 6000);
+    return () => window.clearTimeout(id);
+  }, [motorInvoiceRecalcToast]);
+
+  const persistMotorInvoiceMicroFeedback = useCallback(
+    async (row: CreditCardStatementV2, feedback: 'credit' | 'bank_adjustment' | null) => {
+      if (!motorInvoiceHistoryAccount) return;
+      setMotorMicroFeedbackSavingId(row.id);
+      try {
+        const prev = row.manual_totals;
+        const clearPriorAbatement = feedback === null || feedback === 'credit';
+        const result = await saveStatementManualTotals(row.id, {
+          use_manual: prev?.use_manual ?? false,
+          statement_total: prev?.statement_total,
+          total_payments: prev?.total_payments,
+          user_note: prev?.user_note ?? null,
+          micro_divergence_feedback: feedback,
+          ...(clearPriorAbatement ? { prior_credit_abatement: null } : {}),
+        });
+        if (!result) {
+          await appAlert('Não foi possível salvar a classificação. Tente de novo.', 'Faturas', 'warning');
+          return;
+        }
+        const rows = await getCardStatements(motorInvoiceHistoryAccount.id);
+        const sorted = [...(rows || [])].sort((a, b) => {
+          const dy = (Number(b.due_year) || 0) - (Number(a.due_year) || 0);
+          if (dy !== 0) return dy;
+          return (Number(b.due_month) || 0) - (Number(a.due_month) || 0);
+        });
+        setMotorInvoiceRows(sorted);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Erro ao salvar.';
+        await appAlert(msg, 'Faturas', 'danger');
+      } finally {
+        setMotorMicroFeedbackSavingId(null);
+      }
+    },
+    [motorInvoiceHistoryAccount, saveStatementManualTotals, getCardStatements]
+  );
+
+  const persistMotorInvoicePriorCreditAbatement = useCallback(
+    async (row: CreditCardStatementV2) => {
+      if (!motorInvoiceHistoryAccount) return;
+      const prev = row.manual_totals;
+      const prevAbate = roundCurrency(Number(prev?.prior_credit_abatement ?? 0));
+      const payDisplayed = roundCurrency(Number(row.total_payments ?? 0));
+      const payMotor = roundCurrency(Math.max(0, payDisplayed - prevAbate));
+      const grossDeficit = roundCurrency(Math.max(0, Number(row.statement_total ?? 0) - payMotor));
+      const accumulated = motorInvoiceAvailableCreditForAbatement(motorInvoiceRows, row);
+      const amount = roundCurrency(Math.min(grossDeficit, accumulated));
+      if (amount < 0.01) {
+        await appAlert(
+          'Não há crédito disponível declarado («Crédito / pago a mais» em alguma competência deste cartão) para este déficit, ou o valor já foi todo usado em abatimentos em outras competências. Marque «Crédito / pago a mais» onde o pagamento foi maior que o total (pode ser em mês posterior ao déficit), ou use ajuste bancário.',
+          'Faturas',
+          'warning'
+        );
+        return;
+      }
+      setMotorMicroFeedbackSavingId(row.id);
+      try {
+        const result = await saveStatementManualTotals(row.id, {
+          use_manual: prev?.use_manual ?? false,
+          statement_total: prev?.statement_total,
+          total_payments: prev?.total_payments,
+          user_note: prev?.user_note ?? null,
+          micro_divergence_feedback: 'offset_prior_credit',
+          prior_credit_abatement: amount,
+        });
+        if (!result) {
+          await appAlert('Não foi possível aplicar o abatimento. Tente de novo.', 'Faturas', 'warning');
+          return;
+        }
+        const rows = await getCardStatements(motorInvoiceHistoryAccount.id);
+        const sorted = [...(rows || [])].sort((a, b) => {
+          const dy = (Number(b.due_year) || 0) - (Number(a.due_year) || 0);
+          if (dy !== 0) return dy;
+          return (Number(b.due_month) || 0) - (Number(a.due_month) || 0);
+        });
+        setMotorInvoiceRows(sorted);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Erro ao salvar.';
+        await appAlert(msg, 'Faturas', 'danger');
+      } finally {
+        setMotorMicroFeedbackSavingId(null);
+      }
+    },
+    [motorInvoiceHistoryAccount, motorInvoiceRows, saveStatementManualTotals, getCardStatements]
+  );
+
+  const handleMotorRecalculateAllStatements = useCallback(async () => {
+    if (!motorInvoiceHistoryAccount) return;
+    setMotorInvoiceRecalculating(true);
+    setMotorInvoiceRecalcToast(null);
+    setMotorInvoiceError(null);
+    try {
+      await recalculateAllCardStatementsForAccount(motorInvoiceHistoryAccount.id);
+      const rows = await getCardStatements(motorInvoiceHistoryAccount.id);
+      const sorted = [...(rows || [])].sort((a, b) => {
+        const dy = (Number(b.due_year) || 0) - (Number(a.due_year) || 0);
+        if (dy !== 0) return dy;
+        return (Number(b.due_month) || 0) - (Number(a.due_month) || 0);
+      });
+      setMotorInvoiceRows(sorted);
+      setMotorInvoiceRecalcToast(
+        'Todas as faturas deste cartão foram recalculadas. Confira totais, pagamentos e saldos na lista abaixo.'
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erro ao recalcular.';
+      setMotorInvoiceError(msg);
+      setMotorInvoiceRecalcToast(null);
+      await appAlert(msg, 'Faturas', 'danger');
+    } finally {
+      setMotorInvoiceRecalculating(false);
+    }
+  }, [motorInvoiceHistoryAccount, recalculateAllCardStatementsForAccount, getCardStatements]);
 
   const handlePayInvoice = (account: Account, amount: number) => {
     if (user && isCreditCardEngineEnabled(user)) {
@@ -982,9 +1224,39 @@ const TransactionsView: React.FC = () => {
         return 'Paga';
       case 'closed':
         return 'Fechada';
+      case 'overdue':
+        return 'Vencida';
       default:
         return status || '—';
     }
+  };
+
+  /**
+   * Competência da fatura em MM/AAAA para o usuário.
+   * Usa `due_month`/`due_year` da tabela (alinhados ao `reference_label` / ciclo definido nas importações).
+   * Não usar `purchase_reference_label`: no motor ele é derivado por `calcReferenceLabelFromDue` como mês de compras
+   * (ex.: fatura de dezembro/2024 → "2024-11"), o que confunde na UI.
+   */
+  const formatMotorStatementCompetenceMmYyyy = (s: CreditCardStatementV2): string => {
+    const dm = Number(s.due_month);
+    const dy = Number(s.due_year);
+    if (dm >= 1 && dm <= 12 && dy > 0) {
+      return `${String(dm).padStart(2, '0')}/${dy}`;
+    }
+    const ref = (s.purchase_reference_label || '').trim();
+    const ym = ref.match(/^(\d{4})-(\d{2})$/);
+    if (ym) {
+      const y = Number(ym[1]);
+      const m = Number(ym[2]);
+      if (m >= 1 && m <= 12 && y > 0) return `${String(m).padStart(2, '0')}/${y}`;
+    }
+    if (s.due_date) {
+      const d = new Date(`${s.due_date}T12:00:00`);
+      if (!Number.isNaN(d.getTime())) {
+        return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      }
+    }
+    return '—';
   };
 
   const itemTypeToPtBr = (itemType?: string): string => {
@@ -2026,9 +2298,20 @@ const TransactionsView: React.FC = () => {
                               <p className="text-[15px] font-black text-rose-400 leading-none">
                                 {formatCurrency(faturaAtual)}
                               </p>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void openMotorInvoiceHistoryModal(account);
+                                  }}
+                                  className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[8px] font-black px-1.5 py-0.5 rounded border border-cyan-500/25 transition-all active:scale-95 shadow-sm"
+                                >
+                                  HISTÓRICO
+                                </button>
                                 {faturaAtual > 0 && (
                                   <button
+                                    type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handlePayInvoice(account, faturaAtual);
@@ -2093,12 +2376,18 @@ const TransactionsView: React.FC = () => {
                       <div className="mt-2 flex flex-col items-end">
                         <span className="text-2xl font-black text-red-400 tracking-tight">{formatCurrency(faturaAtual)}</span>
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">Fatura Atual</p>
-                        <div className="flex gap-2 w-full mt-4">
+                        <div className="flex flex-wrap gap-2 w-full mt-4">
                           <button
-                            className="flex-1 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                            className="flex-1 min-w-[120px] py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
                             onClick={e => { e.stopPropagation(); setEditingAccount(account); setAccountModalOpen(true); }}
                           >
                             Configurar Limite
+                          </button>
+                          <button
+                            className="px-3 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                            onClick={e => { e.stopPropagation(); void openMotorInvoiceHistoryModal(account); }}
+                          >
+                            Histórico
                           </button>
                           {faturaAtual > 0 && (
                             <button
@@ -2911,6 +3200,274 @@ const TransactionsView: React.FC = () => {
         onClose={() => setCreditInvoiceCyclesAccountId(null)}
         filterAccountId={creditInvoiceCyclesAccountId}
       />
+
+      <Modal
+        isOpen={motorInvoiceHistoryOpen}
+        onClose={() => {
+          setMotorInvoiceHistoryOpen(false);
+          setMotorInvoiceHistoryAccount(null);
+          setMotorInvoiceRows([]);
+          setMotorInvoiceError(null);
+          setMotorInvoiceRecalcToast(null);
+        }}
+        title={`Faturas importadas${motorInvoiceHistoryAccount ? ` — ${motorInvoiceHistoryAccount.Nome_Conta}` : ''}`}
+        className="max-w-lg"
+      >
+        <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+          O <span className="text-gray-300 font-medium">total pago (motor)</span> vem da soma dos registros em{' '}
+          <span className="text-gray-300 font-medium">credit_card_payments</span> ligados a essa competência, após o
+          último recálculo. Na importação, linhas de pagamento de fatura do CSV do{' '}
+          <span className="text-gray-300 font-medium">mês seguinte</span> também entram nesse total quando ainda não
+          haviam sido gravadas como pagamento — o motor evita duplicar pela transação ou pelo hash da linha do CSV.
+        </p>
+        <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+          Se o total pago for <span className="text-gray-300 font-medium">maior</span> que o total da fatura, o saldo em
+          aberto aparece zerado; o valor “a mais”{' '}
+          <span className="text-gray-300 font-medium">não é transferido automaticamente</span> para a próxima competência
+          (cada mês é calculado só com os próprios lançamentos e pagamentos associados).
+        </p>
+        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+          Se a diferença entre total da fatura e total pago for pequena (até R${' '}
+          {MOTOR_MICRO_DIVERGENCE_MAX_ABS.toFixed(2).replace('.', ',')}): quando o pagamento foi{' '}
+          <span className="text-gray-400">maior</span> que a fatura, indique{' '}
+          <span className="text-gray-400">crédito / pagamento a mais</span> ou{' '}
+          <span className="text-gray-400">ajuste bancário</span> (registro para análise). Quando foi{' '}
+          <span className="text-gray-400">menor</span> (déficit), use{' '}
+          <span className="text-gray-400">abatimento com crédito disponível</span> (total declarado como «Crédito / pago a mais»
+          em qualquer competência deste cartão, já descontando abatimentos aplicados nas demais) ou{' '}
+          <span className="text-gray-400">ajuste bancário</span>. O abatimento atualiza o total pago e o saldo desta
+          competência após o recálculo.
+        </p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <p className="text-xs text-gray-500 leading-relaxed flex-1 mb-0">
+            Vários CSV ou titulares no mesmo cartão alteram o total por competência. Quando o próximo extrato traz um único
+            pagamento de fatura datado no mês anterior, o motor associa esse pagamento à competência cujo total de
+            lançamentos está mais próximo do valor pago (evita déficits artificiais por vínculo incorreto).
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={motorInvoiceLoading || motorInvoiceRecalculating || !motorInvoiceHistoryAccount}
+            onClick={() => void handleMotorRecalculateAllStatements()}
+            className="shrink-0 text-xs self-start sm:self-center whitespace-nowrap"
+          >
+            {motorInvoiceRecalculating ? 'Recalculando…' : 'Recalcular todas as faturas'}
+          </Button>
+        </div>
+        {motorInvoiceRecalcToast ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-4 rounded-lg border border-emerald-500/45 bg-emerald-950/55 px-3 py-2.5 text-xs text-emerald-100 leading-relaxed shadow-lg shadow-black/20"
+          >
+            {motorInvoiceRecalcToast}
+          </div>
+        ) : null}
+        {motorInvoiceLoading ? (
+          <div className="py-10 flex items-center justify-center gap-2 text-gray-400">
+            <span className="h-4 w-4 rounded-full border-2 border-gray-400/70 border-t-transparent animate-spin" />
+            <span>Carregando faturas…</span>
+          </div>
+        ) : motorInvoiceError ? (
+          <div className="py-6 text-center text-red-300 text-sm">{motorInvoiceError}</div>
+        ) : motorInvoiceRows.length === 0 ? (
+          <div className="py-8 text-center text-gray-400 text-sm">
+            Nenhuma fatura encontrada no motor para este cartão. Importe extratos ou sincronize o histórico.
+          </div>
+        ) : (
+          <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+            {motorInvoiceRows.map((row) => {
+              const microDelta = motorInvoiceMicroDelta(row);
+              const creditPoolAvailable = motorInvoiceAvailableCreditForAbatement(motorInvoiceRows, row);
+              const deficitAmt = roundCurrency(Math.max(0, -microDelta));
+              const hasMicroSavedChoice =
+                !!row.manual_totals?.micro_divergence_feedback ||
+                (Number(row.manual_totals?.prior_credit_abatement) > 0);
+              return (
+              <li
+                key={row.id}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 flex flex-col gap-1"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Competência</span>
+                    <span className="text-sm font-bold text-white leading-tight tabular-nums">
+                      {formatMotorStatementCompetenceMmYyyy(row)}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 shrink-0">
+                    {statusToPtBr(row.status)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline gap-2 flex-wrap">
+                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Total da fatura</span>
+                  <span className="text-base font-black text-rose-300 tabular-nums">
+                    {formatCurrency(Number(row.statement_total ?? 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline gap-2 flex-wrap border-t border-white/5 pt-1.5 mt-0.5">
+                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Total pago (motor)</span>
+                  <span className="text-sm font-bold text-emerald-400/90 tabular-nums">
+                    {formatCurrency(Number(row.total_payments ?? 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline gap-2 flex-wrap">
+                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Saldo em aberto</span>
+                  <span
+                    className={`text-sm font-bold tabular-nums ${
+                      Number(row.open_balance ?? 0) <= 0.005 ? 'text-gray-400' : 'text-amber-300'
+                    }`}
+                  >
+                    {formatCurrency(Number(row.open_balance ?? 0))}
+                  </span>
+                </div>
+                {motorInvoiceShowMicroDivergenceFeedback(row) ? (
+                  <div className="mt-2 pt-2 border-t border-white/10 space-y-2">
+                    {hasMicroSavedChoice ? (
+                      <p className="text-[10px] text-amber-100/88 leading-snug rounded-md border border-amber-500/35 bg-amber-950/35 px-2 py-1.5">
+                        <span className="font-semibold text-amber-50/95">Apontamento registrado.</span>{' '}
+                        Você pode mudar a opção abaixo ou usar Limpar.
+                      </p>
+                    ) : null}
+                    <p className="text-[10px] text-amber-100/85 leading-snug">
+                      Diferença de {formatCurrency(Math.abs(microDelta))}{' '}
+                      {microDelta > 0
+                        ? '(total pago maior que o total da fatura).'
+                        : '(total pago menor que o total da fatura — déficit).'}{' '}
+                      O que se aplica?
+                    </p>
+                    {microDelta < 0 ? (
+                      <>
+                        <p className="text-[9px] text-gray-500 leading-snug">
+                          Crédito disponível para abatimento (soma do declarado como «Crédito / pago a mais» neste cartão,
+                          menos abatimentos já aplicados nas outras competências — pode incluir competência posterior):{' '}
+                          <span className="text-gray-400 tabular-nums">{formatCurrency(creditPoolAvailable)}</span>
+                          {deficitAmt > creditPoolAvailable + 0.005 ? (
+                            <>
+                              {' '}
+                              — insuficiente para cobrir todo o déficit de{' '}
+                              <span className="tabular-nums">{formatCurrency(deficitAmt)}</span>; você pode abater o que
+                              couber e classificar o restante como ajuste bancário.
+                            </>
+                          ) : null}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 items-center">
+                          <button
+                            type="button"
+                            disabled={
+                              motorMicroFeedbackSavingId === row.id ||
+                              creditPoolAvailable < 0.01 ||
+                              deficitAmt < 0.01
+                            }
+                            onClick={() => void persistMotorInvoicePriorCreditAbatement(row)}
+                            className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg border transition-colors disabled:opacity-40 ${
+                              row.manual_totals?.micro_divergence_feedback === 'offset_prior_credit'
+                                ? 'border-violet-400/70 bg-violet-500/20 text-violet-100'
+                                : 'border-white/15 bg-white/[0.06] text-gray-300 hover:bg-white/[0.1]'
+                            }`}
+                          >
+                            Abater com crédito disponível
+                          </button>
+                          <button
+                            type="button"
+                            disabled={motorMicroFeedbackSavingId === row.id}
+                            onClick={() => void persistMotorInvoiceMicroFeedback(row, 'bank_adjustment')}
+                            className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg border transition-colors disabled:opacity-40 ${
+                              row.manual_totals?.micro_divergence_feedback === 'bank_adjustment'
+                                ? 'border-sky-400/70 bg-sky-500/20 text-sky-100'
+                                : 'border-white/15 bg-white/[0.06] text-gray-300 hover:bg-white/[0.1]'
+                            }`}
+                          >
+                            Ajuste bancário
+                          </button>
+                          <button
+                            type="button"
+                            disabled={motorMicroFeedbackSavingId === row.id || !hasMicroSavedChoice}
+                            onClick={() => void persistMotorInvoiceMicroFeedback(row, null)}
+                            className="text-[9px] font-semibold px-2 py-1 rounded-lg text-gray-500 hover:text-gray-400 disabled:opacity-40"
+                          >
+                            Limpar
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <button
+                          type="button"
+                          disabled={motorMicroFeedbackSavingId === row.id}
+                          onClick={() => void persistMotorInvoiceMicroFeedback(row, 'credit')}
+                          className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg border transition-colors disabled:opacity-40 ${
+                            row.manual_totals?.micro_divergence_feedback === 'credit'
+                              ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
+                              : 'border-white/15 bg-white/[0.06] text-gray-300 hover:bg-white/[0.1]'
+                          }`}
+                        >
+                          Crédito / pago a mais
+                        </button>
+                        <button
+                          type="button"
+                          disabled={motorMicroFeedbackSavingId === row.id}
+                          onClick={() => void persistMotorInvoiceMicroFeedback(row, 'bank_adjustment')}
+                          className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg border transition-colors disabled:opacity-40 ${
+                            row.manual_totals?.micro_divergence_feedback === 'bank_adjustment'
+                              ? 'border-sky-400/70 bg-sky-500/20 text-sky-100'
+                              : 'border-white/15 bg-white/[0.06] text-gray-300 hover:bg-white/[0.1]'
+                          }`}
+                        >
+                          Ajuste bancário
+                        </button>
+                        <button
+                          type="button"
+                          disabled={motorMicroFeedbackSavingId === row.id || !hasMicroSavedChoice}
+                          onClick={() => void persistMotorInvoiceMicroFeedback(row, null)}
+                          className="text-[9px] font-semibold px-2 py-1 rounded-lg text-gray-500 hover:text-gray-400 disabled:opacity-40"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : motorInvoiceShowRecordedMicroBanner(row) ? (
+                  <div className="mt-2 pt-2 border-t border-white/10 space-y-2">
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-950/35 px-2.5 py-2 space-y-2">
+                      <p className="text-[10px] text-amber-100/90 leading-snug">
+                        <span className="font-semibold text-amber-50/95">Apontamento registrado.</span>{' '}
+                        {motorInvoiceRecordedMicroFeedbackSummary(row)}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={motorMicroFeedbackSavingId === row.id}
+                        onClick={() => void persistMotorInvoiceMicroFeedback(row, null)}
+                        className="text-[9px] font-semibold px-2 py-1 rounded-lg text-amber-200/95 hover:text-amber-50 border border-amber-500/40 hover:bg-amber-500/15 disabled:opacity-40 transition-colors"
+                      >
+                        Limpar apontamento
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {(row.due_date || row.closing_date) && (
+                  <p className="text-[10px] text-gray-500">
+                    {row.due_date ? (
+                      <>
+                        Venc.:{' '}
+                        {new Date(`${row.due_date}T12:00:00`).toLocaleDateString('pt-BR')}
+                      </>
+                    ) : null}
+                    {row.due_date && row.closing_date ? ' · ' : null}
+                    {row.closing_date ? (
+                      <>
+                        Fech.:{' '}
+                        {new Date(`${row.closing_date}T12:00:00`).toLocaleDateString('pt-BR')}
+                      </>
+                    ) : null}
+                  </p>
+                )}
+              </li>
+              );
+            })}
+          </ul>
+        )}
+      </Modal>
 
       {payInvoiceEngineModal.open && payInvoiceEngineModal.account && (
         <Modal

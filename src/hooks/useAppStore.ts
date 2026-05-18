@@ -25,7 +25,7 @@ import {
 import { User } from '@supabase/supabase-js';
 import { isCardV2Enabled, isCardV2ShadowEnabled, isCreditCardEngineEnabled } from '../services/featureFlagService';
 import { creditCardStatementService, CreditCardShadowDashboardRow, getCreditCardShadowDashboard, CardClassifierRules, CardClassifierOverrides } from '../services/creditCardStatementService';
-import { creditCardEngineService } from '../services/creditCardEngineService';
+import { creditCardEngineService, parseCreditCardReferenceFromFileName } from '../services/creditCardEngineService';
 import { creditCardMigrationService } from '../services/creditCardMigrationService';
 import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
@@ -290,7 +290,7 @@ interface AppState {
   /** Grava totais conferidos na fatura (manual_totals_json) e recalcula com overlay. */
   saveStatementManualTotals: (
     statementId: string,
-    payload: ManualStatementTotalsPayload
+    payload: Partial<ManualStatementTotalsPayload>
   ) => Promise<CreditCardStatementV2 | null>;
   reprocessImportLot: (importLotId: string) => Promise<{ statementId: string; processedEntries: number }>;
   /** Recalcula todas as competências do cartão no banco (aplica pagamentos vindos da fatura seguinte, corrige «Pago»/«Aberto»). */
@@ -1766,8 +1766,19 @@ export const useAppStore = create<AppState>((set, get) => ({
             merchantName: tx.Nome_Fantasia || undefined,
             transactionId: tx.ID_Transacao || undefined,
           }));
-          const dueYear = normalizedCardCycle?.referenceLabel ? Number(normalizedCardCycle.referenceLabel.split('-')[0]) : undefined;
-          const dueMonth = normalizedCardCycle?.referenceLabel ? Number(normalizedCardCycle.referenceLabel.split('-')[1]) : undefined;
+          let dueYear = normalizedCardCycle?.referenceLabel
+            ? Number(normalizedCardCycle.referenceLabel.split('-')[0])
+            : undefined;
+          let dueMonth = normalizedCardCycle?.referenceLabel
+            ? Number(normalizedCardCycle.referenceLabel.split('-')[1])
+            : undefined;
+          if (dueYear === undefined || dueMonth === undefined) {
+            const inferredRef = parseCreditCardReferenceFromFileName(fileName);
+            if (inferredRef) {
+              dueYear = dueYear ?? inferredRef.dueYear;
+              dueMonth = dueMonth ?? inferredRef.dueMonth;
+            }
+          }
           const engineResult = await creditCardEngineService.normalizeAndPersistImportLot({
             userId: user.id,
             account: targetAccount,

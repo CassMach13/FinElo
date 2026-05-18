@@ -1,7 +1,14 @@
 import { buildStatementAudit } from './audit';
-import { assignEntriesToStatement, formatReferenceLabel, getNextReferenceLabel } from './assignment';
+import { assignEntriesToStatement } from './assignment';
 import { classifyEntryType, ClassificationOverrides, ClassificationRules, inferDirection, normalizeDescription } from './classifiers';
-import { applyImportedPaymentFromNextStatement, inferStatusFromTotals, sumPaymentsForStatement } from './payments';
+import {
+  getPreviousStatementRow,
+  creditCardPaymentDuplicatesInList,
+  creditCardPaymentMatchesImportEntry,
+  inferStatusFromTotals,
+  resolveImportedInvoicePaymentTarget,
+  sumPaymentsForStatement,
+} from './payments';
 import {
   CreditCardImportEntry,
   CreditCardImportLotInput,
@@ -141,10 +148,18 @@ export const creditCardStatementEngine = {
 
   recalculateStatement(input: RecalculateStatementInput): CreditCardStatement {
     const statementEntries = input.entries.filter((entry) => entry.statementId === input.statement.id);
+    /** Compras/parcelas ainda «needs_review» (ex.: classificação pendente) não entravam em nenhuma soma → fatura subcontada vs XP */
+    const unclassifiedDebitPurchases = round2(
+      statementEntries
+        .filter(
+          (entry) => entry.entryType === 'needs_review' && inferDirection(entry.amount) === 'debit'
+        )
+        .reduce((acc, entry) => acc + Math.abs(entry.amount), 0)
+    );
     const totalPurchases = round2(
       statementEntries
         .filter((entry) => entry.entryType === 'purchase' || entry.entryType === 'installment_purchase')
-        .reduce((acc, entry) => acc + Math.abs(entry.amount), 0)
+        .reduce((acc, entry) => acc + Math.abs(entry.amount), 0) + unclassifiedDebitPurchases
     );
     const totalFees = round2(
       statementEntries
@@ -197,58 +212,80 @@ export const creditCardStatementEngine = {
       if (a.dueYear !== b.dueYear) return a.dueYear - b.dueYear;
       return a.dueMonth - b.dueMonth;
     });
-    const statementsByReference = new Map<string, CreditCardStatement>(
-      sorted.map((statement) => [formatReferenceLabel(statement.dueYear, statement.dueMonth), statement])
-    );
+    const sortedAscPick = sorted.map((s) => ({ id: s.id, dueYear: s.dueYear, dueMonth: s.dueMonth }));
+
+    const statementTotalsById = new Map<string, number>();
+    sorted.forEach((st) => {
+      const statementEntries = input.entriesByStatement.get(st.id) || [];
+      const rec = this.recalculateStatement({
+        statement: st,
+        entries: statementEntries.map((entry) => ({ ...entry, statementId: st.id })),
+        payments: [],
+      });
+      statementTotalsById.set(st.id, rec.statementTotal);
+    });
 
     const paymentAssignments = new Map<string, CreditCardPayment[]>();
     input.payments.forEach((payment) => {
       const current = paymentAssignments.get(payment.statementId) || [];
-      current.push(payment);
+      current.push({ ...payment });
       paymentAssignments.set(payment.statementId, current);
     });
 
-    // Rule: imported payment observed in N+1 should apply to N.
-    sorted.forEach((statement) => {
-      const currentReference = formatReferenceLabel(statement.dueYear, statement.dueMonth);
-      const nextReference = getNextReferenceLabel(currentReference);
-      const nextStatement = statementsByReference.get(nextReference);
-      if (!nextStatement) return;
-
-      const nextStatementPayments = input.payments.filter(
-        (payment) => payment.statementId === nextStatement.id && payment.source === 'imported_statement'
-      );
-
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const nextStatement = sorted[i + 1];
       const nextStatementEntries = input.entriesByStatement.get(nextStatement.id) || [];
-      const nextStatementEntryInvoicePayments = nextStatementEntries.filter(
-        (entry) =>
-          entry.entryType === 'invoice_payment' && inferDirection(entry.amount) === 'credit'
+      const invoicePaymentEntries = nextStatementEntries.filter(
+        (entry) => entry.entryType === 'invoice_payment' && inferDirection(entry.amount) === 'credit'
       );
 
-      if (nextStatementPayments.length === 0 && nextStatementEntryInvoicePayments.length === 0) return;
+      const bucketNext = paymentAssignments.get(nextStatement.id) || [];
+      const importedOnNext = bucketNext.filter((p) => p.source === 'imported_statement');
+      const restOnNext = bucketNext.filter((p) => p.source !== 'imported_statement');
+      paymentAssignments.set(nextStatement.id, restOnNext);
 
-      const targetStatement = applyImportedPaymentFromNextStatement(statementsByReference, nextReference);
-      if (!targetStatement || targetStatement.id !== statement.id) return;
+      if (importedOnNext.length === 0 && invoicePaymentEntries.length === 0) continue;
 
-      const assigned = paymentAssignments.get(statement.id) || [];
-      const syntheticFromEntries: CreditCardPayment[] = nextStatementEntryInvoicePayments.map((entry) => ({
-        cardId: nextStatement.cardId,
-        statementId: statement.id,
-        paymentDate: entry.postedDate,
-        amount: Math.abs(entry.amount),
-        source: 'imported_statement',
-        notes: `invoice_payment_entry:${entry.sourceRowHash}`,
-      }));
+      const importPick = { dueYear: nextStatement.dueYear, dueMonth: nextStatement.dueMonth };
 
-      paymentAssignments.set(statement.id, [
-        ...assigned,
-        ...nextStatementPayments.map((payment) => ({
-          ...payment,
-          statementId: statement.id,
-        })),
-        ...syntheticFromEntries,
-      ]);
-    });
+      for (const entry of invoicePaymentEntries) {
+        const target = resolveImportedInvoicePaymentTarget(entry, invoicePaymentEntries, sortedAscPick, importPick, {
+          statementTotalsById,
+        });
+        if (!target) continue;
+        const assigned = paymentAssignments.get(target.id) || [];
+        if (creditCardPaymentMatchesImportEntry(assigned, entry)) continue;
+        assigned.push({
+          cardId: nextStatement.cardId,
+          statementId: target.id,
+          paymentDate: entry.postedDate,
+          amount: Math.abs(entry.amount),
+          source: 'imported_statement',
+          notes: `invoice_payment_entry:${entry.sourceRowHash}`,
+        });
+        paymentAssignments.set(target.id, assigned);
+      }
+
+      for (const payment of importedOnNext) {
+        let target: { id: string } | null = null;
+        if (invoicePaymentEntries.length < 2) {
+          target = getPreviousStatementRow(sortedAscPick, importPick);
+        } else {
+          target = resolveImportedInvoicePaymentTarget(
+            { postedDate: payment.paymentDate, amount: payment.amount },
+            invoicePaymentEntries,
+            sortedAscPick,
+            importPick,
+            { statementTotalsById }
+          );
+        }
+        if (!target) continue;
+        const assigned = paymentAssignments.get(target.id) || [];
+        if (creditCardPaymentDuplicatesInList(assigned, payment)) continue;
+        assigned.push({ ...payment, statementId: target.id });
+        paymentAssignments.set(target.id, assigned);
+      }
+    }
 
     return sorted.map((statement) => {
       const statementEntries = input.entriesByStatement.get(statement.id) || [];
