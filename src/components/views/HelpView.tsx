@@ -5,15 +5,14 @@ import Button from './../ui/Button';
 import Input from './../ui/Input';
 import Select from './../ui/Select';
 import { useAppStore } from './../../hooks/useAppStore';
-import { ChevronDownIcon, ChevronUpIcon } from './../ui/icons';
 import { TourButton } from '../TourButton';
+import HelpCenterBrowse from '../help/HelpCenterBrowse';
 
 const HelpView: React.FC = () => {
     const { createSupportTicket, fetchSupportTickets, supportTickets, sendMessage, user } = useAppStore();
-    const [activeTab, setActiveTab] = useState<'faq' | 'new' | 'history'>('faq');
+    const [activeTab, setActiveTab] = useState<'topics' | 'new' | 'history'>('topics');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Form states
     const [type, setType] = useState<'question' | 'bug' | 'feature'>('question');
     const [subject, setSubject] = useState('');
     const [description, setDescription] = useState('');
@@ -24,7 +23,6 @@ const HelpView: React.FC = () => {
         fetchSupportTickets();
     }, [fetchSupportTickets]);
 
-    // Helper: Handle quick send
     const handleSendMessage = async (ticketId: string, message: string, file?: File | null) => {
         if (!message.trim() && !file) return;
         await sendMessage(ticketId, message, file || undefined);
@@ -39,7 +37,6 @@ const HelpView: React.FC = () => {
                 subject,
                 description
             }, file || undefined);
-            // Reset form
             setSubject('');
             setDescription('');
             setType('question');
@@ -53,7 +50,6 @@ const HelpView: React.FC = () => {
         }
     };
 
-    // Calculate unread replies
     const unreadCount = supportTickets.filter(t => {
         if (!t.messages || t.messages.length === 0) return false;
         const sortedMessages = [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -61,49 +57,37 @@ const HelpView: React.FC = () => {
         return lastMsg.sender_id !== user?.id;
     }).length;
 
-    const faqItems = [
-        {
-            question: 'Como importo minhas transações bancárias?',
-            answer: 'Na aba "Importar", você pode fazer upload de arquivos Excel (.xlsx, .xls), OFX ou CSV fornecido pelo seu banco. O sistema categoriza automaticamente o que conseguir.'
-        },
-        {
-            question: 'Como instalar o FinElo como um aplicativo no meu celular?',
-            answer: 'No iPhone (iOS): Abra o Safari, acesse o app, clique no ícone de compartilhar (no rodapé, quadrado com uma seta para cima) e selecione "Adicionar à Tela de Início". No Android: Abra o Chrome, clique nos três pontinhos no canto superior e selecione "Instalar Aplicativo" ou "Adicionar à Tela Inicial". Isso removerá as barras do navegador e deixará o FinElo com cara de app nativo.'
-        },
-        {
-            question: 'Como crio uma categoria personalizada?',
-            answer: 'Vá em "Transações" -> clique no ícone de "Configurações" (ou gerenciar categorias) e adicione novas categorias conforme sua necessidade.'
-        },
-        {
-            question: 'Posso compartilhar minha conta com meu cônjuge?',
-            answer: 'Sim! Se você utiliza uma mesma conta de login, ambos podem acessar. Futuramente teremos função de multi-usuário.'
-        },
-    ];
-
     return (
         <div className="space-y-6 animate-fade-in-up">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                    Central de Ajuda
-                </h1>
+            <div className="flex justify-between items-center flex-wrap gap-3">
+                <div>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                        Central de Ajuda
+                    </h1>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Busque por palavra-chave ou navegue pelos tópicos de cada área do FinElo.
+                    </p>
+                </div>
                 <TourButton currentView="help" />
             </div>
 
-            {/* Abas */}
-            <div className="flex bg-slate-800/50 p-1 rounded-lg w-fit">
+            <div className="flex flex-wrap bg-slate-800/50 p-1 rounded-lg w-fit gap-1">
                 <button
-                    onClick={() => setActiveTab('faq')}
-                    className={`px-4 py-2 rounded-md transition-all ${activeTab === 'faq' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
+                    id="help-tab-topics"
+                    onClick={() => setActiveTab('topics')}
+                    className={`px-4 py-2 rounded-md transition-all ${activeTab === 'topics' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
                 >
-                    Perguntas Frequentes
+                    Tópicos
                 </button>
                 <button
+                    id="help-tab-new"
                     onClick={() => setActiveTab('new')}
                     className={`px-4 py-2 rounded-md transition-all ${activeTab === 'new' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
                 >
                     Novo Chamado
                 </button>
                 <button
+                    id="help-tab-history"
                     onClick={() => setActiveTab('history')}
                     className={`px-4 py-2 rounded-md transition-all relative ${activeTab === 'history' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
                 >
@@ -117,24 +101,9 @@ const HelpView: React.FC = () => {
                 </button>
             </div>
 
-            {/* Conteúdo das Abas */}
             <div className="min-h-[400px]">
-                {activeTab === 'faq' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {faqItems.map((item, index) => (
-                            <Card key={index} className="hover:bg-slate-800/60 transition-colors cursor-pointer group">
-                                <h3 className="font-bold text-lg mb-2 text-slate-200 group-hover:text-cyan-400 transition-colors">{item.question}</h3>
-                                <p className="text-slate-400 text-sm">{item.answer}</p>
-                            </Card>
-                        ))}
-                        <div className="md:col-span-2 bg-gradient-to-r from-purple-900/20 to-cyan-900/20 p-6 rounded-2xl border border-white/5 text-center mt-4">
-                            <h3 className="font-bold text-xl mb-2">Não encontrou o que procura?</h3>
-                            <p className="text-slate-400 mb-4">Abra um chamado direto para nossa equipe de suporte.</p>
-                            <Button variant="primary" onClick={() => setActiveTab('new')}>
-                                Falar com Suporte
-                            </Button>
-                        </div>
-                    </div>
+                {activeTab === 'topics' && (
+                    <HelpCenterBrowse onOpenSupport={() => setActiveTab('new')} />
                 )}
 
                 {activeTab === 'new' && (
@@ -145,7 +114,7 @@ const HelpView: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-400 mb-1">Tipo de Solicitação</label>
                                 <Select
                                     value={type}
-                                    onChange={(e) => setType(e.target.value as any)}
+                                    onChange={(e) => setType(e.target.value as 'question' | 'bug' | 'feature')}
                                 >
                                     <option value="question">Dúvida Geral</option>
                                     <option value="bug">Reportar Problema (Bug)</option>
@@ -185,8 +154,8 @@ const HelpView: React.FC = () => {
                                             <span>📎</span> <span className="font-semibold">{file.name}</span>
                                         </p>
                                         <label className="flex items-start gap-3 cursor-pointer group">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 className="mt-0.5 w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-500 bg-slate-900 cursor-pointer"
                                                 checked={hasFileAcceptance}
                                                 onChange={(e) => setHasFileAcceptance(e.target.checked)}
@@ -271,11 +240,10 @@ const HelpView: React.FC = () => {
                                             )}
                                         </div>
 
-                                        {/* History */}
                                         {ticket.messages && ticket.messages.length > 0 && (
                                             <div className="space-y-3 mb-4 pl-4 border-l-2 border-slate-700">
                                                 {[...(ticket.messages || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map(msg => {
-                                                    const isMe = msg.sender_id === user?.id; // user is available from valid useAppStore
+                                                    const isMe = msg.sender_id === user?.id;
                                                     return (
                                                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                                             <span className="text-[10px] text-gray-500 mb-1">{isMe ? 'Você' : 'Suporte FinElo'} - {new Date(msg.created_at).toLocaleString()}</span>
@@ -303,7 +271,6 @@ const HelpView: React.FC = () => {
                                             </div>
                                         )}
 
-                                        {/* Reply Input */}
                                         <div className="mt-4 flex gap-2">
                                             {(ticket.status === 'closed' || ticket.status === 'resolved') ? (
                                                 <div className="w-full bg-slate-800/50 border border-slate-700 p-3 rounded-lg flex justify-between items-center">
@@ -332,10 +299,10 @@ const HelpView: React.FC = () => {
                                                                 if (e.key === 'Enter') {
                                                                     const val = e.currentTarget.value;
                                                                     const attachmentInput = (e.currentTarget.parentElement?.nextElementSibling?.querySelector('input[type="file"]') as HTMLInputElement);
-                                                                    const file = attachmentInput?.files?.[0];
-                                                                    
-                                                                    if (val.trim() || file) {
-                                                                        handleSendMessage(ticket.id, val, file);
+                                                                    const fileAtt = attachmentInput?.files?.[0];
+
+                                                                    if (val.trim() || fileAtt) {
+                                                                        handleSendMessage(ticket.id, val, fileAtt);
                                                                         e.currentTarget.value = '';
                                                                         if (attachmentInput) attachmentInput.value = '';
                                                                     }
@@ -375,11 +342,11 @@ const HelpView: React.FC = () => {
                                                     }}>
                                                         Enviar
                                                     </Button>
-                                                <div className="w-full mt-2 pl-1">
-                                                    <p className="text-[9px] text-slate-500 leading-tight">
-                                                        <strong>Aviso de Privacidade:</strong> Ao optar por anexar e enviar arquivos nesta conversa, você consente com o compartilhamento e isenta a FinElo de responsabilidade sobre o tráfego destes dados sensíveis de suporte (LGPD).
-                                                    </p>
-                                                </div>
+                                                    <div className="w-full mt-2 pl-1">
+                                                        <p className="text-[9px] text-slate-500 leading-tight">
+                                                            <strong>Aviso de Privacidade:</strong> Ao optar por anexar e enviar arquivos nesta conversa, você consente com o compartilhamento e isenta a FinElo de responsabilidade sobre o tráfego destes dados sensíveis de suporte (LGPD).
+                                                        </p>
+                                                    </div>
                                                 </>
                                             )}
                                         </div>

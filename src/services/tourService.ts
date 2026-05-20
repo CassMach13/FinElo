@@ -178,10 +178,18 @@ export const tourStepsByView: Record<string, DriveStep[]> = {
             }
         },
         {
-            element: '#help-tab-faq',
+            element: '#help-tab-topics',
             popover: {
-                title: 'Perguntas Frequentes',
-                description: 'Tire suas dúvidas instantaneamente navegando pelas perguntas mais comuns da comunidade.',
+                title: 'Tópicos e busca',
+                description: 'Pesquise por palavra-chave ou filtre por área do sistema (Transações, Importar, etc.). Os assuntos estão organizados como no menu lateral.',
+                side: 'bottom'
+            }
+        },
+        {
+            element: '#help-credit-card-guide',
+            popover: {
+                title: 'Guia de cartão',
+                description: 'Dentro de Tópicos → Transações, expanda o guia completo: importação, manual ou misto, com conferência e correção de faturas.',
                 side: 'bottom'
             }
         },

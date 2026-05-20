@@ -213,9 +213,10 @@ const TransactionsView: React.FC = () => {
   const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
 
   const loadImportHistoryCompetenceCards = useCallback(
-    (account: Account) => {
-      const userPaymentConfirmations = user?.id
-        ? listCompetencePaymentConfirmations(user.id, account.id)
+    async (account: Account) => {
+      const ownerUserId = account.user_id;
+      const userPaymentConfirmations = ownerUserId
+        ? await listCompetencePaymentConfirmations(ownerUserId, account.id)
         : [];
       return creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
         accountId: account.id,
@@ -226,7 +227,7 @@ const TransactionsView: React.FC = () => {
         userPaymentConfirmations,
       });
     },
-    [accounts, transactions, importLogs, user?.id, competenceConfirmRevision]
+    [accounts, transactions, importLogs, competenceConfirmRevision]
   );
 
   const openMotorInvoiceHistoryModal = useCallback((account: Account) => {
@@ -240,16 +241,27 @@ const TransactionsView: React.FC = () => {
     if (!motorInvoiceHistoryOpen || !motorInvoiceHistoryAccount) return;
     if (creditInvoiceCyclesAccountId !== null) return;
 
+    let cancelled = false;
     setMotorInvoiceLoading(true);
     setMotorInvoiceError(null);
-    try {
-      setMotorInvoiceCompetenceCards(loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Não foi possível carregar o histórico de faturas.';
-      setMotorInvoiceError(msg);
-    } finally {
-      setMotorInvoiceLoading(false);
-    }
+
+    void (async () => {
+      try {
+        const cards = await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount);
+        if (!cancelled) setMotorInvoiceCompetenceCards(cards);
+      } catch (e: unknown) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : 'Não foi possível carregar o histórico de faturas.';
+          setMotorInvoiceError(msg);
+        }
+      } finally {
+        if (!cancelled) setMotorInvoiceLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     motorInvoiceHistoryOpen,
     motorInvoiceHistoryAccount,
@@ -273,15 +285,23 @@ const TransactionsView: React.FC = () => {
       );
       if (!ok) return;
 
-      saveCompetencePaymentConfirmation({
-        userId: user.id,
-        accountId: motorInvoiceHistoryAccount.id,
-        referenceMonth: card.referenceMonth,
-        settledAmount: amount,
-        confirmedAt: new Date().toISOString(),
-      });
-      setCompetenceConfirmRevision((v) => v + 1);
-      setMotorInvoiceCompetenceCards(loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
+      try {
+        await saveCompetencePaymentConfirmation({
+          userId: motorInvoiceHistoryAccount.user_id,
+          accountId: motorInvoiceHistoryAccount.id,
+          referenceMonth: card.referenceMonth,
+          settledAmount: amount,
+          confirmedAt: new Date().toISOString(),
+        });
+        setCompetenceConfirmRevision((v) => v + 1);
+        setMotorInvoiceCompetenceCards(await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
+      } catch {
+        await appAlert(
+          'Não foi possível salvar a confirmação. Verifique sua conexão e se a migração do banco foi aplicada.',
+          'Erro',
+          'danger'
+        );
+      }
     },
     [user?.id, motorInvoiceHistoryAccount, loadImportHistoryCompetenceCards]
   );
@@ -298,9 +318,21 @@ const TransactionsView: React.FC = () => {
       );
       if (!ok) return;
 
-      removeCompetencePaymentConfirmation(user.id, motorInvoiceHistoryAccount.id, card.referenceMonth);
-      setCompetenceConfirmRevision((v) => v + 1);
-      setMotorInvoiceCompetenceCards(loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
+      try {
+        await removeCompetencePaymentConfirmation(
+          motorInvoiceHistoryAccount.user_id,
+          motorInvoiceHistoryAccount.id,
+          card.referenceMonth
+        );
+        setCompetenceConfirmRevision((v) => v + 1);
+        setMotorInvoiceCompetenceCards(await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
+      } catch {
+        await appAlert(
+          'Não foi possível desfazer a confirmação. Verifique sua conexão e se a migração do banco foi aplicada.',
+          'Erro',
+          'danger'
+        );
+      }
     },
     [user?.id, motorInvoiceHistoryAccount, loadImportHistoryCompetenceCards]
   );
