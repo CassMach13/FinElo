@@ -146,10 +146,18 @@ export const investmentService = {
         }
 
         // 3. Insert them into the new month
-        const newInvestments = previousInvestments.map(inv => ({
+        const newInvestments = previousInvestments.map((inv) => ({
             user_id: userId,
             institution: inv.institution,
             product_type: inv.product_type,
+            product_name: inv.product_name,
+            yield_rate: inv.yield_rate,
+            monthly_yield_rate: inv.monthly_yield_rate,
+            application_date: inv.application_date,
+            maturity_date: inv.maturity_date,
+            invested_principal: inv.invested_principal,
+            gross_return_amount: inv.gross_return_amount,
+            original_applied_amount: inv.original_applied_amount,
             balance: inv.balance,
             reference_month: targetReferenceMonth,
         }));

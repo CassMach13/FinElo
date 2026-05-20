@@ -61,8 +61,15 @@ export interface Investment {
   product_type: string;
   product_name?: string;
   yield_rate?: string;
+  /** Rendimento ou juros mensais esperados (manual ou planilha). */
+  monthly_yield_rate?: string;
+  application_date?: string;
   maturity_date?: string;
   invested_principal?: number;
+  /** Rendimento bruto informado no extrato XP (ex.: coluna Rendimento bruto). */
+  gross_return_amount?: number;
+  /** Valor aplicado original do extrato, quando a seção traz essa coluna. */
+  original_applied_amount?: number;
   balance: number;
   reference_month: string; // ISO date string matching the first of the month
   source_file?: string;

@@ -254,8 +254,8 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'investments',
     title: 'Como acompanho meus investimentos?',
     answer:
-      'Na aba Investimentos, cadastre instituição, tipo e valores por mês. O painel mostra evolução e composição da carteira conforme os lançamentos registrados.',
-    keywords: ['investimento', 'carteira', 'ações', 'fundo', 'rentabilidade'],
+      'Importe a planilha XP (lê data da aplicação, vencimento e rentabilidade) ou use + Adicionar para lançar manualmente com saldo, valor aplicado, datas e rendimento mensal esperado. A tabela exibe aplicação, vencimento e rentabilidade por ativo.',
+    keywords: ['investimento', 'carteira', 'ações', 'fundo', 'rentabilidade', 'aplicação', 'planilha', 'xp'],
     action: 'navigate',
     navigateTo: 'investments',
   },

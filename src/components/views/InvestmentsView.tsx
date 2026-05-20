@@ -5,6 +5,7 @@ import { Investment } from '../../types';
 import { investmentService } from '../../services/investmentService';
 import InvestmentModal from '../modals/InvestmentModal';
 import InvestmentImportModal from '../modals/InvestmentImportModal';
+import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -145,6 +146,18 @@ const InvestmentsView: React.FC = () => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     };
 
+    const formatInvestmentDate = (iso?: string) => {
+        if (!iso) return null;
+        return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    };
+
+    const formatYieldCell = (inv: Investment) => {
+        const parts: string[] = [];
+        if (inv.yield_rate) parts.push(inv.yield_rate);
+        if (inv.monthly_yield_rate) parts.push(`${inv.monthly_yield_rate}/mês`);
+        return parts.length ? parts.join(' · ') : '-';
+    };
+
     const totalBalance = investments.reduce((sum, inv) => sum + Number(inv.balance), 0);
     const uniqueInstitutions = Array.from(new Set(investments.map(inv => inv.institution))) as string[];
 
@@ -283,27 +296,32 @@ const InvestmentsView: React.FC = () => {
                                                     <span className="inline-block px-2 py-0.5 rounded bg-slate-700 border border-slate-600 text-[9px] text-gray-300 uppercase tracking-wider">
                                                         {inv.product_type}
                                                     </span>
-                                                    {inv.yield_rate && (
+                                                    {(inv.yield_rate || inv.monthly_yield_rate) && (
                                                         <span className="text-[10px] text-gray-400">
-                                                            Rende: {inv.yield_rate}
+                                                            {formatYieldCell(inv)}
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-end shrink-0">
-                                                <span className="font-bold text-lg text-white">
-                                                    {formatCurrency(Number(inv.balance))}
-                                                </span>
-                                                {inv.invested_principal && (
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">
-                                                        Investido: {formatCurrency(Number(inv.invested_principal))}
+                                            <div className="flex flex-col items-end shrink-0 gap-2">
+                                                <InvestmentBalanceDisplay
+                                                    balance={Number(inv.balance)}
+                                                    investedPrincipal={inv.invested_principal}
+                                                    originalAppliedAmount={inv.original_applied_amount}
+                                                    grossReturnAmount={inv.gross_return_amount}
+                                                    productType={inv.product_type}
+                                                    align="right"
+                                                />
+                                                <div className="flex flex-col items-end gap-0.5 text-[10px] text-gray-400 border-t border-slate-700/40 pt-2 w-full">
+                                                    <span>
+                                                        <span className="text-gray-500 uppercase tracking-wide">Aplicação </span>
+                                                        {formatInvestmentDate(inv.application_date) ?? '—'}
                                                     </span>
-                                                )}
-                                                {inv.maturity_date && (
-                                                    <span className="text-[9px] text-gray-400 mt-1 uppercase tracking-wider">
-                                                        Venc: {new Date(inv.maturity_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                                                    <span>
+                                                        <span className="text-gray-500 uppercase tracking-wide">Vencimento </span>
+                                                        {formatInvestmentDate(inv.maturity_date) ?? '—'}
                                                     </span>
-                                                )}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -327,14 +345,17 @@ const InvestmentsView: React.FC = () => {
 
                             {/* Desktop Table View */}
                             <div className="hidden sm:block overflow-x-auto w-full">
-                                <table className="min-w-[800px] sm:min-w-full text-left border-collapse">
+                                <table className="min-w-[960px] sm:min-w-full text-left border-collapse">
                                     <thead>
                                         <tr className="border-b border-slate-700/50">
-                                            <th className="pb-3 text-sm font-medium text-gray-400 pl-4 w-1/5">Instituição</th>
-                                            <th className="pb-3 text-sm font-medium text-gray-400 w-2/5">Ativo</th>
+                                            <th className="pb-3 text-sm font-medium text-gray-400 pl-4">Instituição</th>
+                                            <th className="pb-3 text-sm font-medium text-gray-400 min-w-[180px]">Ativo</th>
                                             <th className="pb-3 text-sm font-medium text-gray-400">Rentabilidade</th>
-                                            <th className="pb-3 text-sm font-medium text-gray-400">Vencimento</th>
-                                            <th className="pb-3 text-sm font-medium text-gray-400 text-right pr-4">Saldo</th>
+                                            <th className="pb-3 text-sm font-medium text-gray-400 whitespace-nowrap">Aplicação</th>
+                                            <th className="pb-3 text-sm font-medium text-gray-400 whitespace-nowrap">Vencimento</th>
+                                            <th className="pb-3 whitespace-nowrap">
+                                                <InvestmentBalanceColumnHeader />
+                                            </th>
                                             <th className="pb-3 text-sm font-medium text-gray-400 w-24 text-center">Ações</th>
                                         </tr>
                                     </thead>
@@ -350,19 +371,30 @@ const InvestmentsView: React.FC = () => {
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 text-gray-300 text-sm">{inv.yield_rate || '-'}</td>
-                                                <td className="py-4 text-gray-300 text-sm">
-                                                    {inv.maturity_date ? new Date(inv.maturity_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
+                                                <td className="py-4 text-gray-300 text-sm max-w-[140px]">{formatYieldCell(inv)}</td>
+                                                <td className="py-4 text-gray-300 text-sm whitespace-nowrap" title="Data da aplicação">
+                                                    {inv.application_date ? (
+                                                        <span className="text-slate-200">{formatInvestmentDate(inv.application_date)}</span>
+                                                    ) : (
+                                                        <span className="text-gray-600">—</span>
+                                                    )}
                                                 </td>
-                                                <td className="py-4 text-right pr-4">
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="font-bold text-white">{formatCurrency(Number(inv.balance))}</span>
-                                                        {inv.invested_principal && (
-                                                            <span className="text-xs text-gray-500" title="Valor Principal Aplicado">
-                                                                {formatCurrency(Number(inv.invested_principal))}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                <td className="py-4 text-gray-300 text-sm whitespace-nowrap" title="Data de vencimento">
+                                                    {inv.maturity_date ? (
+                                                        <span className="text-slate-200">{formatInvestmentDate(inv.maturity_date)}</span>
+                                                    ) : (
+                                                        <span className="text-gray-600">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-4 pr-4 align-top">
+                                                    <InvestmentBalanceDisplay
+                                                        balance={Number(inv.balance)}
+                                                        investedPrincipal={inv.invested_principal}
+                                                        originalAppliedAmount={inv.original_applied_amount}
+                                                        grossReturnAmount={inv.gross_return_amount}
+                                                        productType={inv.product_type}
+                                                        align="right"
+                                                    />
                                                 </td>
                                                 <td className="py-4 text-center text-gray-400">
                                                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

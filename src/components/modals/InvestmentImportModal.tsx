@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Investment } from '../../types';
 import { xpInvestmentParser, XpReconciliation } from '../../services/parsers/xpInvestmentParser';
+import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
 import { investmentService } from '../../services/investmentService';
 
 interface InvestmentImportModalProps {
@@ -202,8 +203,11 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                             <tr>
                                                 <th className="px-4 py-2 font-medium text-gray-400">Ativo</th>
                                                 <th className="px-4 py-2 font-medium text-gray-400">Rentabilidade</th>
+                                                <th className="px-4 py-2 font-medium text-gray-400">Aplicação</th>
                                                 <th className="px-4 py-2 font-medium text-gray-400">Vencimento</th>
-                                                <th className="px-4 py-2 font-medium text-gray-400 text-right">Saldo</th>
+                                                <th className="px-4 py-2">
+                                                    <InvestmentBalanceColumnHeader />
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-700/50">
@@ -215,17 +219,30 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                                             <span className="text-xs text-gray-400">{inv.product_type}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-gray-300">{inv.yield_rate || '-'}</td>
                                                     <td className="px-4 py-3 text-gray-300">
-                                                        {inv.maturity_date ? new Date(inv.maturity_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
+                                                        {[inv.yield_rate, inv.monthly_yield_rate ? `${inv.monthly_yield_rate}/mês` : null]
+                                                            .filter(Boolean)
+                                                            .join(' · ') || '-'}
                                                     </td>
-                                                    <td className="px-4 py-3 text-white text-right font-medium">
-                                                        <div className="flex flex-col items-end gap-0.5">
-                                                            <span>{formatCurrency(inv.balance)}</span>
-                                                            {inv.invested_principal && (
-                                                                <span className="text-xs text-gray-500 font-normal">P: {formatCurrency(inv.invested_principal)}</span>
-                                                            )}
-                                                        </div>
+                                                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                                                        {inv.application_date
+                                                            ? new Date(`${inv.application_date.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                                                            : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                                                        {inv.maturity_date
+                                                            ? new Date(`${inv.maturity_date.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                                                            : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3 align-top">
+                                                        <InvestmentBalanceDisplay
+                                                            balance={inv.balance}
+                                                            investedPrincipal={inv.invested_principal}
+                                                            originalAppliedAmount={inv.original_applied_amount}
+                                                            grossReturnAmount={inv.gross_return_amount}
+                                                            productType={inv.product_type}
+                                                            align="right"
+                                                        />
                                                     </td>
                                                 </tr>
                                             ))}

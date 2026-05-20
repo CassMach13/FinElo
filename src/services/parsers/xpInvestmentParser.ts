@@ -62,7 +62,16 @@ export const xpInvestmentParser = {
         } catch { /* ignore if header structure is different */ }
 
         let currentCategory = '';
-        let colMap = { value: -1, yield: -1, maturity: -1, principal: -1 };
+        let colMap = {
+            value: -1,
+            yield: -1,
+            maturity: -1,
+            principal: -1,
+            originalPrincipal: -1,
+            grossReturn: -1,
+            application: -1,
+            monthlyYield: -1,
+        };
 
         // Known top-level category names exactly as they appear in col[0] of section title rows.
         // Keys are normalized (lowercase, no accents) to avoid encoding issues.
@@ -100,7 +109,16 @@ export const xpInvestmentParser = {
         };
 
         const extractColMap = (row: any[]): typeof colMap => {
-            const map = { value: -1, yield: -1, maturity: -1, principal: -1 };
+            const map = {
+                value: -1,
+                yield: -1,
+                maturity: -1,
+                principal: -1,
+                originalPrincipal: -1,
+                grossReturn: -1,
+                application: -1,
+                monthlyYield: -1,
+            };
             for (let i = 0; i < row.length; i++) {
                 const cell = String(row[i] || '').trim();
                 const normCell = normalize(cell);
@@ -112,10 +130,43 @@ export const xpInvestmentParser = {
                     if (map.value === -1) map.value = i;
                 }
 
-                // Yield/rentabilidade column
-                if (normCell === 'taxa a mercado' || normCell === 'rentabilidade liquida' ||
-                    normCell === 'rentabilidade' || normCell === 'rentabilidade (%)' ||
-                    normCell === 'rentabilidade acumulada (%)') {
+                // Application date
+                if (
+                    normCell === 'data da aplicacao' ||
+                    normCell === 'data aplicacao' ||
+                    normCell === 'data de aplicacao' ||
+                    normCell === 'data aplicacao inicial' ||
+                    normCell === 'dt aplicacao'
+                ) {
+                    map.application = i;
+                }
+
+                // Monthly yield (separate from index / accumulated yield)
+                if (
+                    normCell === 'rentabilidade mensal' ||
+                    normCell === 'rentabilidade no mes' ||
+                    normCell === 'rentabilidade mes' ||
+                    normCell === 'juros mensal' ||
+                    normCell === 'juros no mes'
+                ) {
+                    map.monthlyYield = i;
+                }
+
+                // Yield/rentabilidade column (exclude monthly variants)
+                const isMonthlyYieldCol =
+                    normCell.includes('mensal') ||
+                    normCell.includes('no mes') ||
+                    normCell.endsWith(' mes');
+                if (
+                    !isMonthlyYieldCol &&
+                    (normCell === 'taxa a mercado' ||
+                        normCell === 'rentabilidade liquida' ||
+                        normCell === 'rentabilidade' ||
+                        normCell === 'rentabilidade (%)' ||
+                        normCell === 'rentabilidade acumulada (%)' ||
+                        normCell === 'indexador' ||
+                        normCell === 'taxa')
+                ) {
                     map.yield = i;
                 }
 
@@ -124,9 +175,23 @@ export const xpInvestmentParser = {
                     map.maturity = i;
                 }
 
-                // Principal invested column
+                // Rendimento bruto (valor em R$, não confundir com valor aplicado)
+                if (
+                    normCell === 'rendimento bruto' ||
+                    normCell === 'rentabilidade bruta' ||
+                    normCell === 'rendimento liquido'
+                ) {
+                    map.grossReturn = i;
+                }
+
+                // Principal invested column (primeira coluna "valor aplicado")
                 if (normCell === 'valor aplicado' || normCell === 'valor investido' || normCell === 'investimento inicial') {
                     if (map.principal === -1) map.principal = i;
+                }
+
+                // Total aplicado original (renda fixa XP — pode refletir aportes acumulados)
+                if (normCell === 'valor aplicado original') {
+                    map.originalPrincipal = i;
                 }
             }
             return map;
@@ -152,7 +217,16 @@ export const xpInvestmentParser = {
                 const firstNorm = normalize(first);
                 const matchedKey = Object.keys(CATEGORY_NAMES).find(k => normalize(k) === firstNorm)!;
                 currentCategory = CATEGORY_NAMES[matchedKey];
-                colMap = { value: -1, yield: -1, maturity: -1, principal: -1 };
+                colMap = {
+                    value: -1,
+                    yield: -1,
+                    maturity: -1,
+                    principal: -1,
+                    originalPrincipal: -1,
+                    grossReturn: -1,
+                    application: -1,
+                    monthlyYield: -1,
+                };
                 continue;
             }
 
@@ -186,13 +260,27 @@ export const xpInvestmentParser = {
                 };
 
                 if (colMap.yield !== -1 && row[colMap.yield]) {
-                    inv.yield_rate = String(row[colMap.yield]);
+                    inv.yield_rate = String(row[colMap.yield]).trim();
+                }
+                if (colMap.monthlyYield !== -1 && row[colMap.monthlyYield]) {
+                    inv.monthly_yield_rate = String(row[colMap.monthlyYield]).trim();
+                }
+                if (colMap.application !== -1 && row[colMap.application]) {
+                    inv.application_date = this.parseDateCell(row[colMap.application]);
                 }
                 if (colMap.maturity !== -1 && row[colMap.maturity]) {
-                    inv.maturity_date = this.parseDate(String(row[colMap.maturity]));
+                    inv.maturity_date = this.parseDateCell(row[colMap.maturity]);
                 }
                 if (colMap.principal !== -1 && row[colMap.principal]) {
                     inv.invested_principal = this.parseCurrency(String(row[colMap.principal]));
+                }
+                if (colMap.originalPrincipal !== -1 && row[colMap.originalPrincipal]) {
+                    const original = this.parseCurrency(String(row[colMap.originalPrincipal]));
+                    if (original > 0) inv.original_applied_amount = original;
+                }
+                if (colMap.grossReturn !== -1 && row[colMap.grossReturn]) {
+                    const gross = this.parseCurrency(String(row[colMap.grossReturn]));
+                    if (gross > 0) inv.gross_return_amount = gross;
                 }
 
                 investments.push(inv);
@@ -222,14 +310,40 @@ export const xpInvestmentParser = {
     },
 
     /**
-     * Converts a DD/MM/YYYY string to YYYY-MM-DD
+     * Converts Excel cell (string, serial number or Date) to YYYY-MM-DD
+     */
+    parseDateCell(cell: unknown): string | undefined {
+        if (cell == null || cell === '') return undefined;
+        if (cell instanceof Date && !isNaN(cell.getTime())) {
+            return cell.toISOString().slice(0, 10);
+        }
+        return this.parseDate(String(cell));
+    },
+
+    /**
+     * Converts DD/MM/YYYY or Excel serial to YYYY-MM-DD
      */
     parseDate(dateString: string): string | undefined {
         if (!dateString) return undefined;
-        const parts = dateString.trim().split('/');
-        if (parts.length === 3) {
-            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        const trimmed = dateString.trim();
+
+        const serial = Number(trimmed.replace(',', '.'));
+        if (!isNaN(serial) && serial > 25000 && serial < 120000) {
+            const utc = new Date(Math.round((serial - 25569) * 86400 * 1000));
+            if (!isNaN(utc.getTime())) return utc.toISOString().slice(0, 10);
         }
+
+        const parts = trimmed.split('/');
+        if (parts.length === 3) {
+            const [d, m, y] = parts;
+            const year = y.length === 2 ? `20${y}` : y;
+            return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+            return trimmed.slice(0, 10);
+        }
+
         return undefined;
-    }
+    },
 };
