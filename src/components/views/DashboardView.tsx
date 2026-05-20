@@ -8,13 +8,14 @@ import { Category, Transaction, Account } from './../../types';
 import Card from './../ui/Card';
 import ProgressBar from './../ui/ProgressBar';
 import SummaryCard from './../ui/SummaryCard';
+import NetWorthSummaryCard from '../dashboard/NetWorthSummaryCard';
 import Select from './../ui/Select';
 import Input from './../ui/Input';
 import CategorySpendChart from './../charts/CategorySpendChart';
 import IncomeExpenseChart from './../charts/IncomeExpenseChart';
 import { TourButton } from '../TourButton';
 import MonthlyEvolutionChart from './../charts/MonthlyEvolutionChart';
-import { TrendingUpIcon, TrendingDownIcon, CalendarIcon, WalletIcon, ArrowsUpDownIcon } from './../ui/icons';
+import { TrendingUpIcon, TrendingDownIcon, CalendarIcon, WalletIcon } from './../ui/icons';
 import Rule503020Widget from '../widgets/Rule503020Widget';
 import { investmentService } from '../../services/investmentService';
 
@@ -578,13 +579,13 @@ const DashboardView: React.FC = () => {
           subValue={`Aportes: ${formatCurrency(investmentSummary.invested)} • Resgates: ${formatCurrency(investmentSummary.withdrawn)}`}
           tooltip="Dinheiro efetivamente guardado (Aportes - Resgates/Retiradas)."
         />
-        <SummaryCard
-          title="Patrimônio Total"
-          value={formatCurrency(totalNetWorth)}
-          icon={<ArrowsUpDownIcon />}
-          variant={totalNetWorth === 0 ? 'default' : (totalNetWorth > 0 ? 'accent' : 'danger')}
-          subValue={`Bens: ${formatCurrency(grossAssetsTotal)} • Dívidas: ${formatCurrency(assetsDebtsTotal)} • Liq: ${formatCurrency(accountsTotal + manualInvestmentsTotal)}`}
-          tooltip="Seu Patrimônio Líquido Real: Soma de bens (menos dívidas) + saldo em conta e investimentos."
+        <NetWorthSummaryCard
+          total={totalNetWorth}
+          accounts={accountsTotal}
+          investments={manualInvestmentsTotal}
+          assetsNet={assetsNetTotal}
+          assetsGross={grossAssetsTotal}
+          assetsDebts={assetsDebtsTotal}
         />
       </div>
 
