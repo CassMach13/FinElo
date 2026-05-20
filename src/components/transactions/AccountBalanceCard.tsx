@@ -88,7 +88,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
         </div>
       </div>
 
-      <div className={`z-10 flex flex-col flex-1 ${isCreditCard ? 'gap-2' : 'gap-3'}`}>
+      <div className={`z-10 flex flex-col flex-1 ${isCreditCard ? 'gap-2 w-full min-w-0' : 'gap-3'}`}>
         {/* Cabeçalho com logo maior */}
         <div className="flex items-center gap-3 pr-8 min-w-0">
           {bankConfig?.logoUrl ? (
@@ -118,12 +118,12 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
         </div>
 
         {isCreditCard ? (
-          <div className="space-y-2 flex-1">
+          <div className="space-y-2 flex-1 w-full min-w-0">
             {limite > 0 ? (
               <>
                 {awaitingMotorSnapshotUi ? (
-                  <div className="space-y-2" aria-busy="true" aria-live="polite">
-                    <div className="h-1.5 max-w-[50%] bg-black/40 rounded-full overflow-hidden">
+                  <div className="space-y-2 w-full" aria-busy="true" aria-live="polite">
+                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
                       <div className="h-full w-[32%] rounded-full bg-slate-600/40 animate-pulse" />
                     </div>
                     <div className="h-8 rounded-lg bg-white/5 animate-pulse" />
@@ -131,17 +131,11 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                   </div>
                 ) : (
                   <>
-                    <div>
-                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide block mb-1">
-                        Uso do limite
-                      </span>
-                      <div className="flex items-center gap-2 max-w-[50%]">
-                        <div className="flex-1 min-w-0 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
-                          <div
-                            className={`h-full rounded-full transition-all duration-700 ${barColor}`}
-                            style={{ width: `${limiteUsadoPct}%` }}
-                          />
-                        </div>
+                    <div className="w-full min-w-0">
+                      <div className="flex justify-between items-center gap-2 mb-1">
+                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide shrink-0">
+                          Uso do limite
+                        </span>
                         <span
                           className={`text-[10px] font-black tabular-nums shrink-0 ${
                             limiteUsadoPct > 90 ? 'text-red-400' : 'text-indigo-300'
@@ -153,6 +147,12 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                           })}
                           %
                         </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                        <div
+                          className={`h-full max-w-full rounded-full transition-all duration-700 ${barColor}`}
+                          style={{ width: `${limiteUsadoPct}%` }}
+                        />
                       </div>
                     </div>
 
