@@ -43,6 +43,8 @@ import MappingRuleModal from '../modals/MappingRuleModal';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
+import AccountBalanceCard from '../transactions/AccountBalanceCard';
+import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
 
 const DEFAULT_CARD_PAYMENT_KEYWORDS = [
   'pagamentos válidos normais',
@@ -1258,6 +1260,15 @@ const TransactionsView: React.FC = () => {
   const cardEngineEnabled = isCreditCardEngineEnabled(user);
   const cardV2Enabled = isCardV2Enabled(user);
   const cardSnapshotPipelineEnabled = cardV2Enabled || cardEngineEnabled;
+
+  const { regularBalanceAccounts, creditBalanceAccounts } = useMemo(() => {
+    const active = getAccountsWithCalculatedBalance().filter((a) => !a.is_archived);
+    return {
+      regularBalanceAccounts: active.filter((a) => a.Tipo_Conta !== 'Cartão de Crédito'),
+      creditBalanceAccounts: active.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
+    };
+  }, [accounts, transactions, getAccountsWithCalculatedBalance]);
+
   const [cardV2SnapshotByAccount, setCardV2SnapshotByAccount] = useState<Map<string, CreditCardMotorStatementSnap>>(
     new Map()
   );
@@ -1501,6 +1512,49 @@ const TransactionsView: React.FC = () => {
     // Não dependemos de `accounts` nem de `transactions`: o primeiro define os IDs via `creditCardAccountIdsKey`;
     // evita re-fetch quando o Zustand substitui o array com os mesmos cartões (ex.: ao voltar à aba Transações).
   }, [cardSnapshotPipelineEnabled, user?.id, creditCardAccountIdsKey, cardEngineEnabled, creditCardEngineRevision]);
+
+  const renderBalanceAccountCard = useCallback(
+    (account: Account) => {
+      const bankConfig = NATIVE_BANK_CONFIGS.find((b) => b.id === account.bank_id);
+      const display = computeAccountCardDisplay(account, {
+        transactions,
+        cardV2Snapshot: cardV2SnapshotByAccount.get(account.id),
+        cardV2Enabled,
+        cardEngineEnabled,
+        cardSnapshotPipelineEnabled,
+      });
+      const isCredit = display.isCreditCard;
+      return (
+        <AccountBalanceCard
+          key={account.id}
+          account={account}
+          bankConfig={bankConfig}
+          display={display}
+          onEdit={() => {
+            setEditingAccount(account);
+            setAccountModalOpen(true);
+          }}
+          onOpenHistory={
+            isCredit ? () => void openMotorInvoiceHistoryModal(account) : undefined
+          }
+          onPayInvoice={
+            isCredit && display.faturaAtual > 0
+              ? () => handlePayInvoice(account, display.faturaAtual)
+              : undefined
+          }
+        />
+      );
+    },
+    [
+      transactions,
+      cardV2SnapshotByAccount,
+      cardV2Enabled,
+      cardEngineEnabled,
+      cardSnapshotPipelineEnabled,
+      openMotorInvoiceHistoryModal,
+      handlePayInvoice,
+    ]
+  );
 
   const accountsMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -1834,516 +1888,41 @@ const TransactionsView: React.FC = () => {
         </Card>
       </div>
 
-      <div id="transactions-balances" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {getAccountsWithCalculatedBalance().filter(a => !a.is_archived).map(account => {
-          const currentBalance = account.Saldo_Atual_Calculado ?? 0;
-          const bankConfig = NATIVE_BANK_CONFIGS.find(b => b.id === account.bank_id);
-          const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
-
-          // ✅ TIMEZONE-SAFE: Strings ISO do banco são lidas como texto literal,
-          // evitando que "2025-09-01" vire "2025-08-31" no Brasil (UTC-3).
-          const toLocalDateStr = (date: Date | string): string => {
-            if (!date) return '';
-            if (typeof date === 'string') return date.split('T')[0];
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-          };
-
-          // Gera "YYYY-MM-DD" a partir de componentes numéricos (mês 0-indexed)
-          const makeDateStr = (year: number, month: number, day: number): string =>
-            `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-          const now = new Date();
-          const todayStr = toLocalDateStr(now);
-
-          let faturaAtual = 0;
-          let totalUsedLimit = 0;
-          let diaFecha = 0;
-          let diaVence = 0;
-          let diasParaFechar = 0;
-          let diasParaVencer = 0;
-          let invoiceHistory: { label: string; startStr: string; endStr: string; expenses: number; payments: number; balance: number; isPast: boolean }[] = [];
-
-          if (isCreditCard) {
-            const hoje = now.getDate();
-            const mesAtual = now.getMonth();
-            const anoAtual = now.getFullYear();
-
-            diaFecha = account.dia_fechamento || 0;
-            diaVence = account.dia_vencimento || 0;
-
-            // ═══════════════════════════════════════════════════════
-            // LÓGICA DEFINITIVA: AGRUPAMENTO POR ARQUIVO DE ORIGEM
-            // ═══════════════════════════════════════════════════════
-            // O XP (e muitos bancos) coloca a data ORIGINAL da compra no CSV,
-            // não a data de cobrança da parcela. Portanto filtrar por data falha.
-            // A solução é: cada fatura = soma das despesas de um mesmo arquivo importado.
-            //
-            // Algoritmo:
-            // 1. Agrupa despesas da conta por Origem (nome do arquivo)
-            // 2. Para cada grupo, usa a menor data das transações para estimar
-            //    o ciclo a que o arquivo pertence
-            // 3. Para pagamentos, ainda usa data pois pagamentos manuais/CSV têm data correta
-
-            const allAccountT = transactions.filter(t => t.ID_Conta === account.id);
-            const manualPayments: typeof transactions = [];
-            const statementPaymentsByOrigin = new Map<string, number>();
-
-            // Helper para remover acentos
-            const removeAccents = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-            // Normaliza a chave de origem para evitar bugs de case/espacos.
-            const normalizeOriginKey = (origin?: string) => (origin || 'manual').trim().toLowerCase();
-
-            // Agrupa despesas e estornos (do mesmo arquivo) para compor o valor real da fatura
-            const byOrigin = new Map<string, { total: number; minDate: string; maxDate: string }>();
-            
-            for (const t of allAccountT) {
-              const strCat = removeAccents((t.Categoria || '').toLowerCase());
-              const strNome = removeAccents((t.Nome_Fantasia || '').toLowerCase());
-              const strDesc = removeAccents((t.Descricao_Original || '').toLowerCase());
-
-              // Detecção robusta de "Pagamento de Fatura" 
-              // O XP coloca "pagamentos validos normais" no CSV.
-              const isStatementPayment = (
-                strNome.includes('pagamento') && strNome.includes('valido') ||
-                strDesc.includes('pagamento') && strDesc.includes('valido') ||
-                strNome.includes('pagamento de fatura') ||
-                strDesc.includes('pagamento de fatura') ||
-                (t.Tipo === 'Renda' && (
-                  strCat.includes('pagamento')
-                ))
-              );
-
-              if (isStatementPayment) {
-                // Importante: em extratos de cartão (ex.: XP), esse pagamento
-                // geralmente quita a fatura ANTERIOR. Portanto não deve abater
-                // a fatura vigente do próprio arquivo/ciclo.
-                const paymentOriginKey = normalizeOriginKey(t.Origem);
-                const currentPayment = statementPaymentsByOrigin.get(paymentOriginKey) || 0;
-                statementPaymentsByOrigin.set(paymentOriginKey, currentPayment + Math.abs(t.Valor));
-                continue;
-              } else if (t.Origem === 'manual' && t.Tipo === 'Renda') {
-                // Pagamento manual lançado pelo usuário: esse sim pode abater
-                // a fatura em aberto conforme janela temporal.
-                manualPayments.push(t);
-              } else {
-                let origemKey = normalizeOriginKey(t.Origem);
-                const d = toLocalDateStr(t.Data);
-                
-                // Se for manual (despesa manual ou estorno manual), agrupa por mês p/ não misturar em um super-ciclo
-                if (origemKey === 'manual') {
-                  const [y, m] = d.split('-');
-                  origemKey = `manual-${y}-${m}`;
-                }
-
-                const existing = byOrigin.get(origemKey);
-                
-                // Cálculo blindado:
-                // Despesas normais do cartão = Valor absoluto soma na fatura.
-                // Rendas (estornos/reembolsos) = Valor absoluto subtrai da fatura.
-                let val = Math.abs(t.Valor);
-                if (t.Tipo === 'Renda') {
-                  val = -val; // Estornos sempre abatem
-                }
-
-                if (!existing) {
-                  byOrigin.set(origemKey, { total: val, minDate: d, maxDate: d });
-                } else {
-                  existing.total += val;
-                  if (d < existing.minDate) existing.minDate = d;
-                  if (d > existing.maxDate) existing.maxDate = d;
-                }
-              }
-            }
-
-            // Constantes e estruturas para o ciclo
-            const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-            type InvCycle = { label: string; startStr: string; endStr: string; expenses: number; payments: number; statementPayment: number; balance: number; isPast: boolean; origens: string[] };
-            const cycleMap = new Map<string, InvCycle>();
-
-            // Pagamentos manuais lançados pelo usuário (não os do CSV do próprio banco)
-            // podem ser usados para abatimento por ciclo.
-            const paymentsByOrigin = new Map<string, typeof manualPayments>();
-            const unmappedPayments: typeof manualPayments = [];
-
-            for (const t of manualPayments) {
-              const orig = normalizeOriginKey(t.Origem);
-              if (orig && orig !== 'manual' && byOrigin.has(orig)) {
-                if (!paymentsByOrigin.has(orig)) paymentsByOrigin.set(orig, []);
-                paymentsByOrigin.get(orig)!.push(t);
-              } else {
-                unmappedPayments.push(t);
-              }
-            }
-
-            for (const [origem, info] of byOrigin) {
-              // Retornando à lógica direta e funcional: o fechamento é ditado estritamente pela data máxima do arquivo
-              const [maxY, maxM] = info.maxDate.split('-').map(Number);
-
-              // maxM vem em base 1 (01-12). Converter corretamente para Date evita deslocar o ciclo em +1 mês.
-              const targetCloseDay = diaFecha > 0 ? diaFecha : 1;
-              const maxDayInMonth = new Date(maxY, maxM, 0).getDate();
-              const safeCloseDay = Math.min(targetCloseDay, maxDayInMonth);
-              const endDate = new Date(maxY, maxM - 1, safeCloseDay);
-              const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, diaFecha || 1);
-              const endStr = toLocalDateStr(endDate);
-              const startStr = toLocalDateStr(startDate);
-              const cycleKey = endStr;
-
-              // Rótulo: mês anterior ao fechamento
-              const labelMonth = endDate.getMonth() === 0 ? 11 : endDate.getMonth() - 1;
-              const labelYear = endDate.getMonth() === 0 ? endDate.getFullYear() - 1 : endDate.getFullYear();
-              const label = `${MONTH_NAMES[labelMonth]}/${String(labelYear).slice(2)}`;
-
-              // Calcula pagamentos exatos deste arquivo
-              const exactPayments = paymentsByOrigin.get(origem) || [];
-              const exactPaymentSum = exactPayments.reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-              const statementPaymentSum = statementPaymentsByOrigin.get(origem) || 0;
-
-              const existing = cycleMap.get(cycleKey);
-              if (existing) {
-                existing.expenses = Math.round((existing.expenses + info.total) * 100) / 100;
-                existing.payments = Math.round((existing.payments + exactPaymentSum) * 100) / 100;
-                existing.statementPayment = Math.round((existing.statementPayment + statementPaymentSum) * 100) / 100;
-                existing.origens.push(origem);
-              } else {
-                cycleMap.set(cycleKey, {
-                  label, startStr, endStr,
-                  expenses: Math.round(info.total * 100) / 100,
-                  payments: Math.round(exactPaymentSum * 100) / 100,
-                  statementPayment: Math.round(statementPaymentSum * 100) / 100,
-                  balance: 0,
-                  isPast: endStr <= todayStr,
-                  origens: [origem]
-                });
-              }
-            }
-
-            const sortedCycles = Array.from(cycleMap.values())
-              .sort((a, b) => a.endStr.localeCompare(b.endStr));
-
-            // Aplica pagamentos manuais (sem origem forte) por janela de data
-            for (let ci = 0; ci < sortedCycles.length; ci++) {
-              const cycle = sortedCycles[ci];
-              const nextEndStr = ci + 1 < sortedCycles.length ? sortedCycles[ci + 1].endStr : todayStr;
-              
-              const windowPayments = unmappedPayments
-                .filter(t => { const d = toLocalDateStr(t.Data); return d >= cycle.endStr && d < nextEndStr; })
-                .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-                
-              cycle.payments = Math.round((cycle.payments + windowPayments) * 100) / 100;
-              cycle.balance = Math.max(0, Math.round((cycle.expenses - cycle.payments) * 100) / 100);
-            }
-
-            // Regra de negócio do cartão XP:
-            // "Pagamentos Válidos Normais" no ciclo atual quitam a FATURA ANTERIOR.
-            // Portanto, deslocamos esse pagamento para o ciclo imediatamente anterior.
-            for (let ci = 1; ci < sortedCycles.length; ci++) {
-              const paymentForPreviousInvoice = sortedCycles[ci].statementPayment;
-              if (paymentForPreviousInvoice > 0) {
-                const previous = sortedCycles[ci - 1];
-                previous.payments = Math.round((previous.payments + paymentForPreviousInvoice) * 100) / 100;
-                previous.balance = Math.max(0, Math.round((previous.expenses - previous.payments) * 100) / 100);
-              }
-            }
-
-            // Ordena histórico por data de fechamento
-            invoiceHistory = sortedCycles.slice(-8);
-
-            // Fatura a exibir: valor total da fatura vigente (compras líquidas do ciclo).
-            // Regra de negócio: "Pagamentos Válidos Normais" no CSV pertencem à fatura
-            // anterior e não devem reduzir a fatura do mês vigente.
-            const mostRecent = invoiceHistory[invoiceHistory.length - 1];
-            faturaAtual = mostRecent ? Math.max(mostRecent.expenses, 0) : 0;
-
-            // Limite Utilizado TOTAL
-            const allT = transactions.filter(t => t.ID_Conta === account.id);
-            const totalIncome  = allT.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
-            const totalExpense  = allT.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-            totalUsedLimit = Math.abs(Math.min(account.Saldo_Inicial + totalIncome - totalExpense, 0));
-
-            // Dias até fechar/vencer
-            if (diaFecha > 0) {
-              const proxFecha = hoje < diaFecha ? new Date(anoAtual, mesAtual, diaFecha) : new Date(anoAtual, mesAtual + 1, diaFecha);
-              diasParaFechar = Math.ceil((proxFecha.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            }
-            if (diaVence > 0) {
-              const proxVence = hoje <= diaVence ? new Date(anoAtual, mesAtual, diaVence) : new Date(anoAtual, mesAtual + 1, diaVence);
-              diasParaVencer = Math.ceil((proxVence.getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24));
-            }
-
-            const v2Snapshot = cardV2SnapshotByAccount.get(account.id);
-            const shouldUseCardSnapshot =
-              (cardV2Enabled || cardEngineEnabled) &&
-              !!v2Snapshot &&
-              v2Snapshot.hasData;
-
-            if (shouldUseCardSnapshot) {
-              const faturaOpenRounded = roundCurrency(v2Snapshot.currentOpenAmount);
-              const ledgerUsedRounded = roundCurrency(Math.max(totalUsedLimit, 0));
-              faturaAtual = faturaOpenRounded;
-              /** Mesma regra do motor: max(ledger, fatura em aberto). Atualiza com transactions sem novo fetch. */
-              totalUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
-            }
-          }
-
-          const limite = account.limite_credito || 0;
-          const limiteUsadoPct = limite > 0 ? Math.min((totalUsedLimit / limite) * 100, 100) : 0;
-          const limiteDisponivel = limite > 0 ? Math.max(limite - totalUsedLimit, 0) : 0;
-          const barColor = limiteUsadoPct > 90 ? 'bg-red-500' : limiteUsadoPct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
-
-          const awaitingMotorSnapshotUi =
-            isCreditCard &&
-            limite > 0 &&
-            cardSnapshotPipelineEnabled &&
-            !cardV2SnapshotByAccount.get(account.id)?.fetchCompleted;
-
-          return (
-            <div
-              key={account.id}
-              className={`p-5 rounded-2xl shadow-xl border-l-4 flex flex-col justify-between relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] ${
-                isCreditCard 
-                  ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-indigo-500 shadow-indigo-500/10' 
-                  : 'bg-gradient-to-br from-secondary to-slate-800 border-accent shadow-accent/10'
-              }`}
-              onClick={() => {
-                setEditingAccount(account);
-                setAccountModalOpen(true);
-              }}
-              title={`Clique para editar ${account.Nome_Conta}`}
-            >
-              {/* Decorative background element */}
-              <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.03] blur-2xl ${isCreditCard ? 'bg-indigo-400' : 'bg-accent'}`} />
-              
-              {/* Edit Icon Overlay */}
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 translate-x-2 group-hover:translate-x-0">
-                <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </div>
-              </div>
-
-              <div className="z-10 h-full flex flex-col justify-between">
-                {/* Header */}
-                <div>
-                  <div className="flex items-center gap-2.5 mb-1">
-                    {bankConfig?.logoUrl ? (
-                      <div className="w-6 h-6 rounded-lg bg-white/5 p-1 flex items-center justify-center border border-white/5 shadow-inner">
-                        <img src={bankConfig.logoUrl} alt={bankConfig.name} className="w-full h-full object-contain" />
-                      </div>
-                    ) : (
-                        <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-xs border border-white/5">
-                            {isCreditCard ? '💳' : '🏦'}
-                        </div>
-                    )}
-                    <h3 className="text-gray-300 text-sm font-bold uppercase tracking-widest truncate" title={account.Nome_Conta}>{account.Nome_Conta}</h3>
-                  </div>
-                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-tighter ml-9">{account.Tipo_Conta}</span>
-                </div>
-
-                {/* CARTÃO DE CRÉDITO: layout diferenciado */}
-                {isCreditCard ? (
-                  <div className="mt-5 space-y-4">
-                    {limite > 0 ? (
-                      <>
-                        {awaitingMotorSnapshotUi ? (
-                          <div
-                            className="space-y-4"
-                            aria-busy="true"
-                            aria-live="polite"
-                            aria-label="Sincronizando valores do cartão com o motor"
-                          >
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center mb-1.5 px-0.5">
-                                <span className="sr-only">Carregando uso do limite</span>
-                                <div className="h-2.5 w-28 rounded-md bg-slate-700/90 animate-pulse" />
-                                <div className="h-2.5 w-10 rounded-md bg-slate-700/90 animate-pulse" />
-                              </div>
-                              <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                <div className="h-full w-[32%] rounded-full bg-slate-600/40 animate-pulse" />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 pt-1">
-                              <div className="bg-white/5 p-2 rounded-xl border border-white/5 space-y-2 min-h-[54px]">
-                                <div className="h-2 w-20 rounded bg-slate-700/80 animate-pulse" />
-                                <div className="h-7 w-[92%] rounded-md bg-emerald-500/12 animate-pulse" />
-                              </div>
-                              <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between gap-2 min-h-[54px] items-end">
-                                <div className="h-2 w-[72px] rounded bg-slate-700/80 animate-pulse" />
-                                <div className="h-7 w-[88%] rounded-md bg-rose-500/12 animate-pulse" />
-                              </div>
-                            </div>
-                            <p className="text-[9px] text-slate-500 text-center leading-snug px-1">
-                              Sincronizando limite e fatura com o motor…
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                        {/* Barra de uso do limite */}
-                        <div>
-                          <div className="flex justify-between items-center mb-1.5 px-0.5">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wide font-bold">Uso do Limite</span>
-                            <span className={`text-[10px] font-black ${limiteUsadoPct > 90 ? 'text-red-400' : 'text-indigo-300'}`}>
-                                {limiteUsadoPct.toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                                %
-                            </span>
-                          </div>
-                          <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                            <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${barColor} shadow-[0_0_12px_rgba(0,0,0,0.5)] relative`}
-                              style={{ width: `${limiteUsadoPct}%` }}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 pt-1">
-                          <div className="bg-white/5 p-2 rounded-xl border border-white/5">
-                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Disponível</p>
-                            <p className="text-base font-black text-emerald-400 leading-none">{formatCurrency(limiteDisponivel)}</p>
-                          </div>
-                          <div className="bg-white/5 p-2 rounded-xl border border-white/5 flex flex-col justify-between min-h-[54px]">
-                            <div className="flex items-center justify-end gap-1">
-                              <p className="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Fatura Atual</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <p className="text-[15px] font-black text-rose-400 leading-none">
-                                {formatCurrency(faturaAtual)}
-                              </p>
-                              <div className="flex flex-wrap items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void openMotorInvoiceHistoryModal(account);
-                                  }}
-                                  className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[8px] font-black px-1.5 py-0.5 rounded border border-cyan-500/25 transition-all active:scale-95 shadow-sm"
-                                >
-                                  HISTÓRICO
-                                </button>
-                                {faturaAtual > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handlePayInvoice(account, faturaAtual);
-                                    }}
-                                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20 transition-all active:scale-95 shadow-sm"
-                                  >
-                                    PAGAR
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                          </>
-                        )}
-
-                        {/* Dias até fechar/vencer */}
-                        <div className="flex flex-col gap-2 pt-3 border-t border-white/5">
-                          {diaFecha > 0 ? (
-                            <div className="flex justify-between items-center text-[10px]">
-                              <span className="text-amber-400/80 font-medium flex items-center gap-1.5">
-                                <span className="text-xs">✂️</span> Fechamento em <b>{diasParaFechar}d</b>
-                              </span>
-                              <span className="text-gray-600 font-bold">DIA {diaFecha}</span>
-                            </div>
-                          ) : null}
-                          {diaVence > 0 && (
-                            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
-                              <span className="text-[10px] text-indigo-400/85 font-medium flex items-center gap-1.5 shrink-0">
-                                <span className="text-xs">📅</span> Vencimento em <b>{diasParaVencer}d</b>
-                              </span>
-                              <span
-                                className="text-[10px] sm:text-[11px] font-bold text-cyan-300 tracking-wide px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-400/35 shadow-[0_0_14px_rgba(34,211,238,0.12)] sm:text-right whitespace-nowrap sm:whitespace-normal sm:max-w-[58%]"
-                                title={`Fatura vence todo dia ${diaVence}`}
-                              >
-                                Vencimento da Fatura: Dia {diaVence}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        {cardEngineEnabled && (
-                          <button
-                            type="button"
-                            disabled={awaitingMotorSnapshotUi}
-                            title={
-                              awaitingMotorSnapshotUi
-                                ? 'Aguarde a sincronização dos valores do cartão'
-                                : undefined
-                            }
-                            className="mt-2 w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-cyan-300/95 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/[0.07] transition-colors disabled:opacity-40 disabled:pointer-events-none disabled:hover:text-cyan-300/95"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCreditInvoiceCyclesAccountId(account.id);
-                            }}
-                          >
-                            Competências das importações
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      // Cartão sem limite configurado
-                      <div className="mt-2 flex flex-col items-end">
-                        <span className="text-2xl font-black text-red-400 tracking-tight">{formatCurrency(faturaAtual)}</span>
-                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">Fatura Atual</p>
-                        <div className="flex flex-wrap gap-2 w-full mt-4">
-                          <button
-                            className="flex-1 min-w-[120px] py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
-                            onClick={e => { e.stopPropagation(); setEditingAccount(account); setAccountModalOpen(true); }}
-                          >
-                            Configurar Limite
-                          </button>
-                          <button
-                            className="px-3 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
-                            onClick={e => { e.stopPropagation(); void openMotorInvoiceHistoryModal(account); }}
-                          >
-                            Histórico
-                          </button>
-                          {faturaAtual > 0 && (
-                            <button
-                              className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
-                              onClick={e => { e.stopPropagation(); handlePayInvoice(account, faturaAtual); }}
-                            >
-                              Pagar
-                            </button>
-                          )}
-                        </div>
-                        {cardEngineEnabled && (
-                          <button
-                            type="button"
-                            className="mt-3 w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-cyan-300/95 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/[0.07] transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCreditInvoiceCyclesAccountId(account.id);
-                            }}
-                          >
-                            Competências das importações
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    
-                    </div>
-                  ) : (
-                  // CONTA CORRENTE / OUTRO: layout original
-                  <div className="mt-6 flex flex-col items-end">
-                    <span className={`text-2xl font-black tracking-tighter ${currentBalance < 0 ? 'text-danger shadow-danger/10' : currentBalance > 0 ? 'text-accent shadow-accent/10' : 'text-light'}`}>
-                      {formatCurrency(currentBalance)}
-                    </span>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-black mt-1">Saldo Líquido</p>
-                  </div>
-                )}
-              </div>
+      <div id="transactions-balances" className="space-y-8 mb-6">
+        {regularBalanceAccounts.length > 0 && (
+          <section aria-labelledby="accounts-regular-heading">
+            <div className="flex items-center gap-3 mb-4">
+              <h2
+                id="accounts-regular-heading"
+                className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 shrink-0"
+              >
+                Contas e cartões benefício
+              </h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+              <span className="text-[10px] text-slate-600 font-bold tabular-nums">{regularBalanceAccounts.length}</span>
             </div>
-          );
-        })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {regularBalanceAccounts.map(renderBalanceAccountCard)}
+            </div>
+          </section>
+        )}
+        {creditBalanceAccounts.length > 0 && (
+          <section aria-labelledby="accounts-credit-heading">
+            <div className="flex items-center gap-3 mb-4">
+              <h2
+                id="accounts-credit-heading"
+                className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-300/80 shrink-0"
+              >
+                Cartões de crédito
+              </h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/20 to-transparent" />
+              <span className="text-[10px] text-slate-600 font-bold tabular-nums">{creditBalanceAccounts.length}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-start">
+              {creditBalanceAccounts.map(renderBalanceAccountCard)}
+            </div>
+          </section>
+        )}
       </div>
       <PaginationControls
         itemsPerPage={itemsPerPage}
