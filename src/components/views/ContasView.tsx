@@ -5,6 +5,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import AccountModal from './AccountModal';
+import { formatCurrency } from '../../utils/formatters';
 
 const ContasView: React.FC = () => {
     const { accounts, transactions, getAccountsWithCalculatedBalance, addAccount, updateAccount, deleteAccount } = useAppStore();
@@ -89,16 +90,16 @@ const ContasView: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                             {item.Tipo_Conta === 'Cartão de Crédito' && item.limite_credito ? (
-                                <span className="text-indigo-300 font-semibold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.limite_credito)}</span>
+                                <span className="text-indigo-300 font-semibold">{formatCurrency(item.limite_credito)}</span>
                             ) : (
-                                <>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Inicial)} <span className="text-xs">em {new Date(item.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span></>
+                                <>{formatCurrency(item.Saldo_Inicial)} <span className="text-xs">em {new Date(item.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span></>
                             )}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${item.is_archived ? 'text-gray-500 line-through' : 'text-light'}`}>
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.Saldo_Atual_Calculado ?? 0)}
+                            {formatCurrency(item.Saldo_Atual_Calculado ?? 0)}
                             {item.Tipo_Conta === 'Cartão de Crédito' && item.limite_credito && (
                                 <div className="text-[10px] text-gray-500 font-normal mt-0.5">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.max((item.limite_credito || 0) + (item.Saldo_Atual_Calculado ?? 0), 0))} disponível
+                                    {formatCurrency(Math.max((item.limite_credito || 0) + (item.Saldo_Atual_Calculado ?? 0), 0))} disponível
                                 </div>
                             )}
                         </td>

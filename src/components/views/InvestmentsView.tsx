@@ -6,6 +6,7 @@ import { investmentService } from '../../services/investmentService';
 import InvestmentModal from '../modals/InvestmentModal';
 import InvestmentImportModal from '../modals/InvestmentImportModal';
 import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
+import { formatCurrency } from '../../utils/formatters';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -140,10 +141,6 @@ const InvestmentsView: React.FC = () => {
         }
 
         await fetchInvestments(currentDate);
-    };
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     };
 
     const formatInvestmentDate = (iso?: string) => {

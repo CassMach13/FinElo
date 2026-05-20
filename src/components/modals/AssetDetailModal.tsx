@@ -2,7 +2,7 @@
 import React from 'react';
 import { Asset } from '../../types';
 import Modal from '../ui/Modal';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 import { calculateAmortization } from '../../utils/assetCalculations';
 
 interface AssetDetailModalProps {
@@ -73,7 +73,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, onClose, onE
           {hasDebt && asset.remaining_balance != null && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-400">(-) Saldo Devedor</span>
-              <span className="text-sm font-bold text-danger">-{formatCurrency(asset.remaining_balance)}</span>
+              <span className="text-sm font-bold text-danger">{formatCurrencySigned(-(asset.remaining_balance || 0))}</span>
             </div>
           )}
           <div className="h-px bg-slate-700 my-1" />
@@ -123,13 +123,13 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, onClose, onE
               </div>
               <div className="flex justify-between items-center text-sm pl-3 border-l-2 border-accent/40">
                 <span className="text-slate-400">├ Principal quitado</span>
-                <span className="font-semibold text-accent">+{formatCurrency(amort.principalPaid)}</span>
+                <span className="font-semibold text-accent">{formatCurrencySigned(amort.principalPaid, { showPlusForPositive: true })}</span>
               </div>
               <div className="flex justify-between items-center text-sm pl-3 border-l-2 border-danger/40">
                 <span className="text-slate-400">
                   └ {isConsortium ? 'Taxa adm. paga' : 'Juros pagos'}
                 </span>
-                <span className="font-semibold text-danger">-{formatCurrency(amort.interestPaid)}</span>
+                <span className="font-semibold text-danger">{formatCurrencySigned(-amort.interestPaid)}</span>
               </div>
             </div>
 

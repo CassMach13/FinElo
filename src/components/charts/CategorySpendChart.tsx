@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { Transaction } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ChartProps {
   data: Transaction[];
@@ -19,8 +19,6 @@ const CategorySpendChart: React.FC<ChartProps> = ({ data }) => {
       return acc;
     }, [] as { name: string; Gasto: number }[])
     .sort((a, b) => b.Gasto - a.Gasto);
-
-  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const totalExpenses = chartData.reduce((sum, item) => sum + item.Gasto, 0);
   const maxExpense = chartData.length > 0 ? Math.max(...chartData.map(c => c.Gasto)) : 0;

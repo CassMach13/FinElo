@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Transaction } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ChartProps {
     data: Transaction[];
@@ -58,9 +59,6 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({ data, viewMode, selectedD
         return Array.from(monthsMap.values());
     }, [data, viewMode, selectedDate]);
 
-    const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
-    // Calc max val to scale bars
     const maxVal = chartData.length > 0 ? Math.max(...chartData.flatMap(c => [c.Renda, c.Despesa])) : 0;
 
     if (chartData.length === 0) {
@@ -75,28 +73,23 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({ data, viewMode, selectedD
 
                 return (
                     <div key={index} className="flex flex-col items-center justify-end h-full flex-1 max-w-[60px] group relative">
-                        {/* Tooltip on hover */}
                         <div className="absolute -top-20 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs p-3 rounded pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700 flex flex-col gap-1">
                             <span className="font-bold border-b border-slate-700 pb-1 mb-1">{item.name}</span>
                             <span className="text-emerald-400">R: {formatCurrency(item.Renda)}</span>
                             <span className="text-rose-400">D: {formatCurrency(item.Despesa)}</span>
                         </div>
 
-                        {/* Bars container */}
                         <div className="flex items-end gap-1 w-full justify-center h-full">
-                            {/* Income Bar */}
                             <div
                                 className="w-full max-w-[24px] bg-emerald-500/80 hover:bg-emerald-400 rounded-t transition-all"
                                 style={{ height: `${Math.max(2, incomeHeight)}%` }}
                             />
-                            {/* Expense Bar */}
                             <div
                                 className="w-full max-w-[24px] bg-rose-500/80 hover:bg-rose-400 rounded-t transition-all"
                                 style={{ height: `${Math.max(2, expenseHeight)}%` }}
                             />
                         </div>
 
-                        {/* Label */}
                         <div className="absolute -bottom-6 w-full text-center text-[10px] text-gray-400 truncate px-1">
                             {item.name}
                         </div>

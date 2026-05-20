@@ -22,7 +22,7 @@ import { isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featu
 import { creditCardEngineService } from '../../services/creditCardEngineService';
 import { supabase } from '../../supabaseClient';
 
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 import { pickPrimaryStatementForPayment } from '../../utils/pickCreditCardStatementForPayment';
 import {
   creditCardRebuildFromImportHistoryService,
@@ -1739,7 +1739,6 @@ const TransactionsView: React.FC = () => {
   // Campos que não podem ser editados em transações importadas
   const nonEditableImportedFields: (keyof Transaction)[] = ['Data', 'Valor', 'Parcela_Atual', 'Total_Parcelas', 'ID_Conta'];
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   const formatDate = (date: Date | undefined) => date ? new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—';
 
   const categoryTypeMap = useMemo(() =>
@@ -2796,7 +2795,7 @@ const TransactionsView: React.FC = () => {
                     </div>
                     {isSmallClosingAdjustment && (
                       <p className="mt-2 text-[11px] text-amber-300">
-                        Ajuste de fechamento do emissor: {adjustmentDelta > 0 ? '+' : '-'}{formatCurrency(Math.abs(adjustmentDelta))}.
+                        Ajuste de fechamento do emissor: {formatCurrencySigned(adjustmentDelta, { showPlusForPositive: true })}.
                       </p>
                     )}
                     {statement.chargeDiffFromFiles !== 0 && (

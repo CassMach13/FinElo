@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 
 import { autoStartTour } from '../../services/tourService';
 import { loadDemoData } from '../../services/demoDataService';
@@ -652,7 +652,7 @@ const DashboardView: React.FC = () => {
                     <p className="text-xs text-gray-500">{new Date(t.Data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • {t.Categoria}</p>
                   </div>
                   <span className={`font-bold text-sm ${t.Tipo === 'Renda' ? 'text-accent' : 'text-danger'}`}>
-                    {t.Tipo === 'Despesa' ? '-' : '+'}{formatCurrency(Math.abs(t.Valor))}
+                    {formatCurrencySigned(t.Tipo === 'Despesa' ? -Math.abs(t.Valor) : Math.abs(t.Valor), { showPlusForPositive: true })}
                   </span>
                 </div>
               ))}

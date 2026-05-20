@@ -4,6 +4,7 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import { formatCurrency } from '../../utils/formatters';
 
 interface NewTransactionModalProps {
     onClose: () => void;
@@ -292,7 +293,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     />
                     {isInstallment && transaction.Valor && !isNaN(parseFloat(transaction.Valor)) && (
                         <p className="text-xs text-accent text-right">
-                            Isso resultará em {recurrenceCount} parcelas de <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(transaction.Valor) / parseFloat(recurrenceCount))}</strong>
+                            Isso resultará em {recurrenceCount} parcelas de <strong>{formatCurrency(parseFloat(transaction.Valor) / parseFloat(recurrenceCount))}</strong>
                         </p>
                     )}
                 </div>
@@ -311,7 +312,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                                 .filter(a => a.is_financed)
                                 .map(a => (
                                     <option key={a.id} value={a.id}>
-                                        {a.name} (Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(a.remaining_balance || 0)})
+                                        {a.name} (Saldo: {formatCurrency(a.remaining_balance || 0)})
                                     </option>
                                 ))
                             }

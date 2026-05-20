@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import Card from '../ui/Card';
 import ProgressBar from '../ui/ProgressBar';
 import { Transaction, Category } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 interface Rule503020WidgetProps {
     income: number;
@@ -52,8 +53,6 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({ income, operational
     const pctEssentials = (data.essentials / base) * 100;
     const pctLifestyle = (data.lifestyle / base) * 100;
     const pctSavings = (data.savings / base) * 100;
-
-    const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
     return (
         <div className="space-y-6">

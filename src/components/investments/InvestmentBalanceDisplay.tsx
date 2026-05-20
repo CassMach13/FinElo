@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency } from '../../utils/formatters';
 
 interface InvestmentBalanceDisplayProps {
   balance: number;
@@ -8,9 +9,6 @@ interface InvestmentBalanceDisplayProps {
   productType?: string;
   align?: 'left' | 'right';
 }
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 /** Rótulo de bloco — contraste legível no tema escuro */
 const blockLabel =

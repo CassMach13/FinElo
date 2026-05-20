@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ImportDetailsModalProps {
     isOpen: boolean;
@@ -97,7 +98,7 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                                 const v = parseImportDetailValor(item as Record<string, unknown>);
                                                 return v === null
                                                     ? '-'
-                                                    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+                                                    : formatCurrency(Number(v) || 0);
                                             })()}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-accent font-medium">
@@ -145,7 +146,7 @@ const IgnoredDetailsModal: React.FC<ImportDetailsModalProps> = ({ isOpen, onClos
                                                 const v = parseImportDetailValor(item as Record<string, unknown>);
                                                 return v === null
                                                     ? '-'
-                                                    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+                                                    : formatCurrency(Number(v) || 0);
                                             })()}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-danger font-medium whitespace-nowrap">

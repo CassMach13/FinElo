@@ -1,5 +1,6 @@
 import React from 'react';
 import { Transaction } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ChartProps {
   data: Transaction[];
@@ -12,8 +13,6 @@ const IncomeExpenseChart: React.FC<ChartProps> = ({ data }) => {
   const total = income + expense;
   const incomePercent = total > 0 ? (income / total) * 100 : 50;
   const expensePercent = total > 0 ? (expense / total) * 100 : 50;
-
-  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
     <div className="w-full flex justify-center items-center h-[300px]">

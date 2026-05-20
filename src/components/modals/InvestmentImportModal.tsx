@@ -3,6 +3,7 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { Investment } from '../../types';
 import { xpInvestmentParser, XpReconciliation } from '../../services/parsers/xpInvestmentParser';
 import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
+import { formatCurrency } from '../../utils/formatters';
 import { investmentService } from '../../services/investmentService';
 
 interface InvestmentImportModalProps {
@@ -114,10 +115,6 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
         } finally {
             setIsImporting(false);
         }
-    };
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     };
 
     const totalValue = parsedInvestments ? parsedInvestments.reduce((sum, inv) => sum + inv.balance, 0) : 0;
