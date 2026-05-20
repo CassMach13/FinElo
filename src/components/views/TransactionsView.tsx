@@ -1635,12 +1635,15 @@ const TransactionsView: React.FC = () => {
         const startDate = transactionFilters.startDate ? new Date(transactionFilters.startDate).getTime() : null;
         const endDate = transactionFilters.endDate ? new Date(new Date(transactionFilters.endDate).setDate(new Date(transactionFilters.endDate).getDate() + 1)).getTime() : null;
 
-        const matchesText = transactionFilters.text === '' ||
-          t.Nome_Fantasia.toLowerCase().includes(transactionFilters.text.toLowerCase()) ||
+        const searchQuery = transactionFilters.text.trim().toLowerCase();
+        const matchesText =
+          searchQuery === '' ||
+          (t.Nome_Fantasia || '').toLowerCase().includes(searchQuery) ||
+          (t.Descricao_Original || '').toLowerCase().includes(searchQuery) ||
           t.Valor.toString().includes(transactionFilters.text) ||
           t.Valor.toFixed(2).includes(transactionFilters.text) ||
           t.Valor.toString().replace('.', ',').includes(transactionFilters.text) ||
-          t.Valor.toFixed(2).replace('.', ',').includes(transactionFilters.text); // Busca por valor (ponto, vírgula, com/sem decimais)
+          t.Valor.toFixed(2).replace('.', ',').includes(transactionFilters.text);
 
         return (
           matchesText &&
@@ -1852,7 +1855,7 @@ const TransactionsView: React.FC = () => {
       <div id="transactions-filters">
         <Card title="Filtros" className="!overflow-visible z-40 relative">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-            <Input label="Buscar por descrição ou valor" name="text" value={transactionFilters.text} onChange={handleFilterChange} placeholder="Ex: iFood, 50.00..." className="xl:col-span-2" />
+            <Input label="Buscar por descrição ou valor" name="text" value={transactionFilters.text} onChange={handleFilterChange} placeholder="Ex: Shopee, iFood, 50,00… (nome ou descrição do banco)" className="xl:col-span-2" />
             <Input label="Data de Início" type="date" name="startDate" value={transactionFilters.startDate} onChange={handleFilterChange} />
             <Input label="Data de Fim" type="date" name="endDate" value={transactionFilters.endDate} onChange={handleFilterChange} />
             <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3146,7 +3149,16 @@ const EditableCell: React.FC<EditableCellProps> = ({
       className="p-0 cursor-pointer border-r border-slate-800 last:border-r-0"
       onClick={() => setIsEditing(true)}
     >
-      <div className={`relative group px-2 py-3 text-sm font-semibold border-b border-dotted ${isEditable ? 'border-slate-600 hover:border-highlight' : 'border-transparent'} ${align} ${categoryColor} ${valueColor} ${className} ${(field === 'Nome_Fantasia' || field === 'Categoria') ? 'whitespace-normal break-word' : 'whitespace-nowrap'}`}>
+      <div
+        className={`relative group px-2 py-3 text-sm font-semibold border-b border-dotted ${isEditable ? 'border-slate-600 hover:border-highlight' : 'border-transparent'} ${align} ${categoryColor} ${valueColor} ${className} ${(field === 'Nome_Fantasia' || field === 'Categoria') ? 'whitespace-normal break-word' : 'whitespace-nowrap'}`}
+        title={
+          field === 'Nome_Fantasia' &&
+          transaction.Descricao_Original &&
+          transaction.Descricao_Original.trim() !== (transaction.Nome_Fantasia || '').trim()
+            ? `Original (banco): ${transaction.Descricao_Original}`
+            : undefined
+        }
+      >
         <span>{cellContent()}</span>
         {field === 'Nome_Fantasia' && transaction.Origem !== 'manual' && onRuleCreation && (
           <button
