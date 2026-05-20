@@ -6,7 +6,10 @@ import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { comparableImportOriginKey } from '../../utils/importOriginKey';
 import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
+import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
+import { formatCurrency } from '../../utils/formatters';
 import type { Account, ImportLog, Transaction } from '../../types';
+import Select from '../ui/Select';
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 function parseBRDateToIso(value: string): string | null {
@@ -88,6 +91,52 @@ export interface CreditCardInvoiceCycleRow {
   vencimentoBR: string;
   /** Ordenação: instante do último registro em «Histórico de importações» para esta origem; fallback: transação mais recente. */
   sortUploadMs: number;
+}
+
+/** Infere a conta de cartão de um registro do histórico de importações. */
+function resolveImportLogAccountId(
+  log: ImportLog,
+  transactions: Transaction[],
+  accounts: Account[]
+): string | null {
+  const det = (log.imported_details as any[]) || [];
+  const fromMeta = det.find((d) => d?.ID_Conta)?.ID_Conta;
+  if (fromMeta) return String(fromMeta);
+
+  const normalizeOrigin = (value?: string) =>
+    (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  const targetOrigin = normalizeOrigin(log.file_name);
+  const freq = new Map<string, number>();
+  transactions
+    .filter((t) => normalizeOrigin(t.Origem) === targetOrigin && t.ID_Conta)
+    .forEach((t) => {
+      const key = t.ID_Conta as string;
+      freq.set(key, (freq.get(key) || 0) + 1);
+    });
+  if (freq.size === 1) return Array.from(freq.keys())[0];
+  if (freq.size > 1) {
+    return Array.from(freq.entries()).sort((a, b) => b[1] - a[1])[0][0];
+  }
+
+  const normalizeLoose = (value?: string) =>
+    normalizeOrigin(value)
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  const fileTokens = normalizeLoose(log.file_name).split(' ').filter(Boolean);
+  const cardAccounts = accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito');
+  const scored = cardAccounts
+    .map((acc) => ({
+      id: acc.id,
+      score: normalizeLoose(acc.Nome_Conta)
+        .split(' ')
+        .filter((token) => fileTokens.includes(token)).length,
+    }))
+    .sort((a, b) => b.score - a.score);
+  return scored[0]?.score > 0 ? scored[0].id : null;
 }
 
 function latestImportLogMsForComparable(importLogs: ImportLog[], originComparable: string): number {
@@ -219,14 +268,69 @@ function buildRowsFromStore(params: {
     });
   });
 
-  rows.sort((a, b) => {
+  if (filterAccountId) {
+    importLogs.forEach((log) => {
+      const accountId = resolveImportLogAccountId(log, transactions, accounts);
+      if (accountId !== filterAccountId) return;
+      const oc = comparableImportOriginKey(log.file_name);
+      if (!oc) return;
+      const aggKey = `${accountId}__${oc}`;
+      if (map.has(aggKey)) return;
+
+      const account = cardById.get(accountId);
+      if (!account) return;
+      const logMs = new Date(log.import_date || 0).getTime();
+      const persisted = cardCycleMetaFromImportedLog(log, accountId);
+      let competenciaBR = persisted.competenciaBR;
+      if (!competenciaBR.trim()) {
+        const suggested = creditCardRebuildFromImportHistoryService.suggestReferenceMonth(
+          log.file_name,
+          log.imported_details as unknown[]
+        );
+        if (suggested) {
+          competenciaBR = `${suggested.slice(5, 7)}/${suggested.slice(0, 4)}`;
+        }
+      }
+      let vencimentoBR = persisted.vencimentoBR;
+      if (!vencimentoBR.trim() && competenciaBR.trim()) {
+        const iso = parseMMAAAAToIsoMonth(competenciaBR);
+        const day = Number(account.dia_vencimento) || 10;
+        if (iso) vencimentoBR = computeVencimentoBRFromCompetenceIsoMonth(iso, day);
+      }
+
+      rows.push({
+        key: aggKey,
+        accountId,
+        accountName: account.Nome_Conta,
+        originComparable: oc,
+        displayOrigin: log.file_name,
+        txCount: 0,
+        competenciaBR,
+        vencimentoBR,
+        sortUploadMs: Number.isNaN(logMs) ? 0 : logMs,
+      });
+    });
+  }
+
+  return sortRowsByVencimentoDesc(rows);
+}
+
+/** Vencimento mais recente primeiro (auditoria); sem data válida vai ao final. */
+function vencimentoSortKey(vencimentoBR: string): number {
+  const iso = parseBRDateToIso(vencimentoBR.trim());
+  if (!iso) return 0;
+  const t = new Date(`${iso}T12:00:00`).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+export function sortRowsByVencimentoDesc(rows: CreditCardInvoiceCycleRow[]): CreditCardInvoiceCycleRow[] {
+  return [...rows].sort((a, b) => {
+    const kv = vencimentoSortKey(b.vencimentoBR) - vencimentoSortKey(a.vencimentoBR);
+    if (kv !== 0) return kv;
     const ac = a.accountName.localeCompare(b.accountName, 'pt-BR');
     if (ac !== 0) return ac;
-    if (b.sortUploadMs !== a.sortUploadMs) return b.sortUploadMs - a.sortUploadMs;
     return a.displayOrigin.localeCompare(b.displayOrigin, 'pt-BR');
   });
-
-  return rows;
 }
 
 /** Mantém edição local; se o usuário não digitou competência, usa o valor vindo do histórico (persistido). */
@@ -237,7 +341,7 @@ function mergeRowsPreserveInputs(
   accounts: Account[]
 ): CreditCardInvoiceCycleRow[] {
   const prevByKey = new Map(prev.map((r) => [r.key, r]));
-  return fresh.map((r) => {
+  const merged = fresh.map((r) => {
     const p = prevByKey.get(r.key);
     if (!p) return r;
     const competenciaBR = p.competenciaBR.trim() !== '' ? p.competenciaBR : r.competenciaBR;
@@ -259,6 +363,7 @@ function mergeRowsPreserveInputs(
       vencimentoBR,
     };
   });
+  return sortRowsByVencimentoDesc(merged);
 }
 
 interface Props {
@@ -273,10 +378,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
   const transactions = useAppStore((s) => s.transactions);
   const importLogs = useAppStore((s) => s.importLogs);
   const user = useAppStore((s) => s.user);
-  const reprocessCreditCardImportByOrigin = useAppStore((s) => s.reprocessCreditCardImportByOrigin);
-  const saveCardImportLotClassification = useAppStore((s) => s.saveCardImportLotClassification);
-  const fetchTransactions = useAppStore((s) => s.fetchTransactions);
-  const fetchImportLogs = useAppStore((s) => s.fetchImportLogs);
+  const rebuildCreditCardFromImportHistory = useAppStore((s) => s.rebuildCreditCardFromImportHistory);
+
+  const creditCardAccounts = useMemo(
+    () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
+    [accounts]
+  );
+
+  const [selectedCardAccountId, setSelectedCardAccountId] = useState('');
+  const effectiveFilterAccountId = filterAccountId || selectedCardAccountId || null;
 
   const [rows, setRows] = useState<CreditCardInvoiceCycleRow[]>([]);
   const [invoiceDueDayStr, setInvoiceDueDayStr] = useState('');
@@ -297,7 +407,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
     const openedNow = !prevIsOpenRef.current;
     prevIsOpenRef.current = true;
 
-    const filterSig = filterAccountId ?? '';
+    const filterSig = effectiveFilterAccountId ?? '';
     const filterChanged =
       prevFilterSigRef.current !== undefined && prevFilterSigRef.current !== filterSig;
     prevFilterSigRef.current = filterSig;
@@ -305,21 +415,26 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
     // Durante «Aplicar», saveCardImportLotClassification dispara fetchImportLogs — não pode resetar a tabela.
     if (busy) return;
 
+    if (!effectiveFilterAccountId) {
+      if (openedNow) setRows([]);
+      return;
+    }
+
     const s = useAppStore.getState();
     const fresh = buildRowsFromStore({
       accounts: s.accounts,
       transactions: s.transactions,
       importLogs: s.importLogs,
-      filterAccountId,
+      filterAccountId: effectiveFilterAccountId,
     });
 
     if (openedNow || filterChanged) {
       setRows(fresh);
-      if (filterAccountId) {
-        const acc = accounts.find((a) => a.id === filterAccountId);
+      if (effectiveFilterAccountId) {
+        const acc = accounts.find((a) => a.id === effectiveFilterAccountId);
         const dAcc = Number(acc?.dia_vencimento);
         const dayFromVen = fresh
-          .filter((row) => row.accountId === filterAccountId)
+          .filter((row) => row.accountId === effectiveFilterAccountId)
           .map((row) => {
             const isoDue = parseBRDateToIso(row.vencimentoBR.trim());
             if (!isoDue) return null;
@@ -341,14 +456,55 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
     }
 
     setRows((prev) => mergeRowsPreserveInputs(fresh, prev, invoiceDueDayStr, accounts));
-  }, [isOpen, busy, filterAccountId, accounts, transactions, importLogs, invoiceDueDayStr]);
+  }, [isOpen, busy, effectiveFilterAccountId, accounts, transactions, importLogs, invoiceDueDayStr]);
+
+  useEffect(() => {
+    if (!isOpen || filterAccountId) return;
+    if (selectedCardAccountId) return;
+    const first = creditCardAccounts[0]?.id;
+    if (first) setSelectedCardAccountId(first);
+  }, [isOpen, filterAccountId, selectedCardAccountId, creditCardAccounts]);
 
   const engineOn = user ? isCreditCardEngineEnabled(user) : false;
 
   const filteredAccountName = useMemo(
-    () => (filterAccountId ? accounts.find((a) => a.id === filterAccountId)?.Nome_Conta ?? null : null),
-    [filterAccountId, accounts]
+    () =>
+      effectiveFilterAccountId
+        ? accounts.find((a) => a.id === effectiveFilterAccountId)?.Nome_Conta ?? null
+        : null,
+    [effectiveFilterAccountId, accounts]
   );
+
+  const rowsSortedByVencimento = useMemo(() => sortRowsByVencimentoDesc(rows), [rows]);
+
+  const previewByRowKey = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof creditCardRebuildFromImportHistoryService.previewCycles>[number]>();
+    if (!effectiveFilterAccountId || rows.length === 0) return map;
+    const previews = creditCardRebuildFromImportHistoryService.previewCycles(
+      effectiveFilterAccountId,
+      rowsSortedByVencimento.map((r) => {
+        const refIso = parseMMAAAAToIsoMonth(r.competenciaBR.trim());
+        const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
+        let dueDate = '';
+        if (refIso && day != null) {
+          const venBR = computeVencimentoBRFromCompetenceIsoMonth(refIso, day);
+          dueDate = parseBRDateToIso(venBR) || '';
+        } else {
+          dueDate = parseBRDateToIso(r.vencimentoBR.trim()) || '';
+        }
+        return {
+          fileName: r.displayOrigin,
+          referenceMonth: refIso || '',
+          dueDate,
+        };
+      }),
+      transactions
+    );
+    rowsSortedByVencimento.forEach((r, i) => {
+      if (previews[i]) map.set(r.key, previews[i]);
+    });
+    return map;
+  }, [effectiveFilterAccountId, rowsSortedByVencimento, transactions, invoiceDueDayStr, accounts, user]);
 
   const validateRow = useCallback(
     (r: CreditCardInvoiceCycleRow): string | null => {
@@ -408,14 +564,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
     }
     if (!engineOn) {
       await appAlert(
-        'Ative o motor de cartão nas preferências para recalcular faturas a partir das importações.',
+        'Ative o motor de cartão nas preferências para reconstruir faturas a partir das importações.',
         'Motor de cartão',
         'warning'
       );
       return;
     }
+    if (!effectiveFilterAccountId) {
+      await appAlert('Selecione o cartão de crédito (conta escolhida na importação).', 'Cartão', 'warning');
+      return;
+    }
     if (rows.length === 0) {
-      await appAlert('Não há arquivos de cartão para processar.', 'Histórico', 'warning');
+      await appAlert('Não há arquivos deste cartão no histórico de importações.', 'Histórico', 'warning');
       return;
     }
 
@@ -428,84 +588,55 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
     }
 
     const confirmed = await appConfirm(
-      `Reprocessar ${rows.length} arquivo(s) no motor com os valores informados?`,
-      'Recalcular faturas',
+      `Reconstruir ${rows.length} fatura(s) somando as linhas de cada arquivo (compras/estornos na competência do arquivo; pagamentos de fatura abatem o mês anterior)?`,
+      'Reconstruir pelo histórico',
       'Aplicar',
       'warning'
     );
     if (!confirmed) return;
 
     setBusy(true);
-    setApplyProgress('Preparando…');
-    const lines: string[] = [];
-    let successes = 0;
-    let rowErrors = 0;
+    setApplyProgress('Somando linhas por arquivo…');
 
     try {
-      let index = 0;
-      for (const r of rows) {
-        index += 1;
-        setApplyProgress(`Processando ${index}/${rows.length}: ${r.displayOrigin}`);
-        const { referenceMonth: ref, dueDate: due } = rowIsoValues(r);
-        const cardCycle = { mode: 'manual' as const, referenceLabel: ref, dueDate: due };
-        try {
-          const result = await reprocessCreditCardImportByOrigin(r.displayOrigin, { cardCycle });
-          const logsSnapshot = useAppStore.getState().importLogs;
-          const namesToSync = new Set<string>([r.displayOrigin]);
-          logsSnapshot.forEach((log) => {
-            if (comparableImportOriginKey(log.file_name) === r.originComparable) {
-              namesToSync.add(log.file_name);
-            }
-          });
-          for (const fileName of namesToSync) {
-            await saveCardImportLotClassification(fileName, r.accountId, ref, due);
-          }
-          if (result.processed > 0) successes += 1;
-          lines.push(
-            `${result.processed > 0 ? '✓' : '—'} ${r.displayOrigin}: ${result.message} (${r.accountName})`
-          );
-        } catch (e: unknown) {
-          rowErrors += 1;
-          const msg = e instanceof Error ? e.message : 'erro';
-          lines.push(`✗ ${r.displayOrigin}: ${msg}`);
-        }
-      }
+      const cycles = rows.map((r) => {
+        const { referenceMonth, dueDate } = rowIsoValues(r);
+        return {
+          fileName: r.displayOrigin,
+          referenceMonth,
+          dueDate,
+        };
+      });
 
-      setApplyProgress('Atualizando transações e histórico…');
-      await fetchTransactions();
-      await fetchImportLogs();
+      setApplyProgress(`Processando ${cycles.length} arquivo(s)…`);
+      const result = await rebuildCreditCardFromImportHistory(effectiveFilterAccountId, cycles);
 
-      const head = `${successes}/${rows.length} origem(ns) atualizaram o motor com lançamentos processados.`;
-      const body = lines.slice(0, 24).join('\n');
-      const tail =
-        lines.length > 24 ? `\n\n… (+${lines.length - 24} linhas — detalhe completo no console)` : '';
-      console.log('[CreditCardInvoiceCyclesModal]', lines.join('\n'));
+      const lines = result.previews.map((p) => {
+        const t = p.totals;
+        return `✓ ${p.fileName}: fatura ${formatCurrency(t.statementTotal)} · pagamentos ${formatCurrency(t.totalPayments)} · ${p.transactionCount} lanç.`;
+      });
 
-      const allRowsOk = rowErrors === 0;
-
-      // Importante: liberar o botão antes do alerta — senão «Processando…» só some depois de clicar em «Entendi».
       setBusy(false);
       setApplyProgress(null);
-
-      if (allRowsOk) {
-        onClose();
-      }
+      onClose();
 
       await appAlert(
-        allRowsOk
-          ? `${head}\n\n${body}${tail}\n\n` +
-              'Este aviso resume o que foi feito. Os cards e a lista de transações já refletem o recálculo.'
-          : `${head}\n\n${body}${tail}\n\n` +
-              `Houve falha em ${rowErrors} arquivo(s). Corrija os itens marcados com ✗ e tente de novo.`,
-        allRowsOk ? 'Faturas recalculadas' : 'Recálculo com erros',
-        allRowsOk ? (successes > 0 ? 'success' : 'warning') : 'danger'
+        `${result.message}\n\n${lines.slice(0, 20).join('\n')}${lines.length > 20 ? `\n… (+${lines.length - 20})` : ''}`,
+        result.processedFiles > 0 ? 'Faturas reconstruídas' : 'Nenhum arquivo processado',
+        result.processedFiles > 0 ? 'success' : 'warning'
       );
     } catch (e: unknown) {
       console.error('[CreditCardInvoiceCyclesModal]', e);
       setBusy(false);
       setApplyProgress(null);
+      const raw = e instanceof Error ? e.message : String(e);
+      const isNetwork =
+        /failed to fetch|network|connection closed|err_connection/i.test(raw) ||
+        (e instanceof TypeError && raw.includes('fetch'));
       await appAlert(
-        e instanceof Error ? e.message : 'Falha ao atualizar dados após o processamento. Veja o console (F12).',
+        isNetwork
+          ? 'Conexão com o servidor foi interrompida durante o recálculo (muitas requisições de uma vez). Verifique a internet, aguarde alguns segundos e tente novamente. Se persistir, reconstrua em lotes menores (menos arquivos por vez).'
+          : raw || 'Falha ao reconstruir faturas. Veja o console (F12).',
         'Erro',
         'danger'
       );
@@ -513,15 +644,11 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
   }, [
     user,
     engineOn,
+    effectiveFilterAccountId,
     rows,
     validateRow,
     rowIsoValues,
-    reprocessCreditCardImportByOrigin,
-    saveCardImportLotClassification,
-    fetchTransactions,
-    fetchImportLogs,
-    invoiceDueDayStr,
-    accounts,
+    rebuildCreditCardFromImportHistory,
     onClose,
   ]);
 
@@ -530,12 +657,14 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
       const sanitized = sanitizeInvoiceDueDayInput(value);
       setInvoiceDueDayStr(sanitized);
       setRows((prev) =>
-        prev.map((r) => {
-          const iso = parseMMAAAAToIsoMonth(r.competenciaBR.trim());
-          const day = effectiveDueDayForAccount(r.accountId, sanitized, accounts);
-          const ven = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
-          return { ...r, vencimentoBR: ven };
-        })
+        sortRowsByVencimentoDesc(
+          prev.map((r) => {
+            const iso = parseMMAAAAToIsoMonth(r.competenciaBR.trim());
+            const day = effectiveDueDayForAccount(r.accountId, sanitized, accounts);
+            const ven = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
+            return { ...r, vencimentoBR: ven };
+          })
+        )
       );
     },
     [accounts]
@@ -544,13 +673,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
   const handleCompetenciaChange = useCallback(
     (key: string, value: string) => {
       setRows((prev) =>
-        prev.map((r) => {
-          if (r.key !== key) return r;
-          const iso = parseMMAAAAToIsoMonth(value.trim());
-          const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
-          const ven = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
-          return { ...r, competenciaBR: value, vencimentoBR: ven };
-        })
+        sortRowsByVencimentoDesc(
+          prev.map((r) => {
+            if (r.key !== key) return r;
+            const iso = parseMMAAAAToIsoMonth(value.trim());
+            const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
+            const ven = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
+            return { ...r, competenciaBR: value, vencimentoBR: ven };
+          })
+        )
       );
     },
     [invoiceDueDayStr, accounts]
@@ -558,16 +689,17 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
 
   const summaryHint = useMemo(() => {
     if (!engineOn) return 'Motor de cartão desativado para este usuário.';
-    if (rows.length === 0) return 'Nenhuma origem de cartão encontrada nas transações.';
-    if (filteredAccountName) return `${rows.length} arquivo(s) neste cartão.`;
-    return `Encontrado(s) ${rows.length} arquivo(s) distinto(s) vinculado(s) a cartões.`;
-  }, [engineOn, rows.length, filteredAccountName]);
+    if (!effectiveFilterAccountId) return 'Selecione o cartão para listar os arquivos do histórico de importações.';
+    if (rows.length === 0) return 'Nenhum arquivo deste cartão no histórico (nem transações vinculadas).';
+    return `${rows.length} arquivo(s) em «${filteredAccountName}» — totais calculados pela soma das linhas de cada CSV.`;
+  }, [engineOn, rows.length, filteredAccountName, effectiveFilterAccountId]);
 
   const modalTitle = filteredAccountName
-    ? `Competências — ${filteredAccountName}`
-    : 'Competência e vencimento por arquivo';
+    ? `Faturas pelo histórico — ${filteredAccountName}`
+    : 'Reconstruir faturas pelo histórico de importações';
 
-  const showAccountColumn = !filterAccountId;
+  const showAccountColumn = !effectiveFilterAccountId;
+  const showCardPicker = !filterAccountId;
 
   return (
     <Modal
@@ -580,25 +712,42 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
           <Button variant="secondary" disabled={busy} onClick={() => !busy && onClose()}>
             Fechar
           </Button>
-          <Button disabled={busy || !engineOn || rows.length === 0} onClick={handleApplyWithConfirm}>
-            {busy ? 'Processando…' : 'Aplicar e recalcular faturas'}
+          <Button
+            disabled={busy || !engineOn || !effectiveFilterAccountId || rows.length === 0}
+            onClick={handleApplyWithConfirm}
+          >
+            {busy ? 'Processando…' : 'Reconstruir faturas deste cartão'}
           </Button>
         </div>
       }
     >
       <div className="space-y-4">
         <p className="text-sm text-gray-300 leading-relaxed">
-          Informe o <strong className="text-white">dia de vencimento</strong> da fatura (apenas o dia, 1–31). Para cada arquivo, digite só a{' '}
-          <strong className="text-white">competência</strong> em <strong className="text-white">MM/AAAA</strong> (ex.:{' '}
-          <span className="text-slate-400">03/2026</span>): o <strong className="text-white">vencimento</strong> é calculado automaticamente nesse dia no{' '}
-          <strong className="text-white">mês seguinte</strong> à competência (março/2026 + dia 15 → 15/04/2026; meses com menos dias são ajustados ao último dia do mês).
-          Valores já gravados no histórico de importações após «Aplicar» são <strong className="text-white">carregados de novo</strong> ao abrir este modal.
-          Nada é inferido só pelo nome do arquivo. Ao aplicar, o motor recalcula os totais; em caso de sucesso o modal fecha e um resumo é exibido.
+          Lista os arquivos do <strong className="text-white">histórico de importações</strong> do cartão escolhido (ex.: Cartão XP).
+          Para cada arquivo, confira ou informe a <strong className="text-white">competência</strong> (<strong className="text-white">MM/AAAA</strong>) e o{' '}
+          <strong className="text-white">vencimento</strong> (calculado pelo dia informado no mês seguinte à competência).
+          Ao aplicar, o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e as{' '}
+          <strong className="text-white">estornos</strong> na competência do arquivo; <strong className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong className="text-white">anterior</strong> (padrão N+1 do extrato).
         </p>
+
+        {showCardPicker && (
+          <Select
+            label="Cartão (conta escolhida na importação)"
+            value={selectedCardAccountId}
+            onChange={(e) => setSelectedCardAccountId(e.target.value)}
+            disabled={busy || creditCardAccounts.length === 0}
+          >
+            <option value="">Selecione o cartão…</option>
+            {creditCardAccounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.Nome_Conta}
+              </option>
+            ))}
+          </Select>
+        )}
         <p className="text-xs text-gray-500">{summaryHint}</p>
         <p className="text-[11px] text-slate-600">
-          Lista ordenada pela data/hora em que cada arquivo entrou no histórico de importações (mais novo em cima); se não houver log,
-          usa-se a data mais recente das transações daquele arquivo.
+          Arquivos ordenados por <strong className="text-slate-400">vencimento</strong> (mais recente no topo) para facilitar a auditoria.
         </p>
 
         {busy && applyProgress && (
@@ -642,11 +791,13 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
                     {showAccountColumn && <th className="px-3 py-2 font-semibold">Cartão</th>}
                     <th className="px-3 py-2 font-semibold text-center">Lanç.</th>
                     <th className="px-3 py-2 font-semibold">Competência (MM/AAAA)</th>
-                    <th className="px-3 py-2 font-semibold">Vencimento (calculado)</th>
+                    <th className="px-3 py-2 font-semibold">Vencimento</th>
+                    <th className="px-3 py-2 font-semibold text-right">Total fatura</th>
+                    <th className="px-3 py-2 font-semibold text-right">Pagamentos</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {rows.map((r) => (
+                  {rowsSortedByVencimento.map((r) => (
                     <tr key={r.key} className="bg-slate-900/40 hover:bg-slate-900/70">
                       <td className="px-3 py-2 align-top text-gray-200 max-w-[200px] break-all">{r.displayOrigin}</td>
                       {showAccountColumn && (
@@ -674,6 +825,16 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
                           {r.vencimentoBR.trim() || '—'}
                         </span>
                       </td>
+                      <td className="px-3 py-2 align-top text-right text-rose-300 font-mono text-[11px] whitespace-nowrap">
+                        {previewByRowKey.get(r.key)
+                          ? formatCurrency(previewByRowKey.get(r.key)!.totals.statementTotal)
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 align-top text-right text-emerald-300 font-mono text-[11px] whitespace-nowrap">
+                        {previewByRowKey.get(r.key)
+                          ? formatCurrency(previewByRowKey.get(r.key)!.totals.totalPayments)
+                          : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -683,7 +844,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
         )}
 
         <p className="text-[11px] text-gray-500 leading-snug">
-          Após recalcular, «Disponível» e «Fatura atual» no card passam a seguir o motor quando ele está ativo.
+          A prévia usa as linhas já importadas (aba Transações). Por arquivo, a coluna Pagamentos mostra o valor do CSV; no histórico por competência, esse valor abate a fatura do mês anterior.
         </p>
       </div>
     </Modal>

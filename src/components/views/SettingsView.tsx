@@ -1,9 +1,9 @@
-
+﻿
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Card from '../ui/Card';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
-import { Category, Budget, MappingRule, ImportConfig, ImportLog, Account, Asset, CardImportCycleInput } from '../../types';
+import { Category, Budget, MappingRule, ImportConfig, ImportLog, Account, Asset } from '../../types';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
@@ -20,12 +20,9 @@ import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 import { buildImportLogAlerts, isImportedDetailRowsIncomplete, type ImportLogAlertContext } from '../../utils/importLogHealth';
-import { comparableImportOriginKey } from '../../utils/importOriginKey';
-import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
-import CreditCardInvoiceCyclesModal from '../modals/CreditCardInvoiceCyclesModal';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, reprocessCreditCardImportByOrigin, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -115,38 +112,16 @@ const SettingsView: React.FC = () => {
     const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
     const [reassignTargetLog, setReassignTargetLog] = useState<ImportLog | null>(null);
     const [reassignAccountId, setReassignAccountId] = useState<string>('');
-    const [isReprocessModalOpen, setIsReprocessModalOpen] = useState(false);
-    const [reprocessTargetLog, setReprocessTargetLog] = useState<ImportLog | null>(null);
-    const [reprocessMode, setReprocessMode] = useState<'auto' | 'manual'>('auto');
-    const [reprocessReferenceMonth, setReprocessReferenceMonth] = useState('');
-    const [reprocessDueDate, setReprocessDueDate] = useState('');
     const [isRebuildModalOpen, setIsRebuildModalOpen] = useState(false);
     const [rebuildAccountId, setRebuildAccountId] = useState('');
     const [rebuildFromDate, setRebuildFromDate] = useState('');
     const [rebuildToDate, setRebuildToDate] = useState('');
-    const [bulkReprocessBusy, setBulkReprocessBusy] = useState(false);
     const [repairImportLogsBusy, setRepairImportLogsBusy] = useState(false);
-    const [repairSingleLogId, setRepairSingleLogId] = useState('');
-    const [isCreditCyclesModalOpen, setIsCreditCyclesModalOpen] = useState(false);
 
     const importAlertContext: ImportLogAlertContext = useMemo(
         () => ({ accounts, transactions }),
         [accounts, transactions]
     );
-
-    const importLogsSortedForRepair = useMemo(
-        () =>
-            [...importLogs].sort(
-                (a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime()
-            ),
-        [importLogs]
-    );
-
-    useEffect(() => {
-        if (repairSingleLogId && !importLogs.some((l) => l.id === repairSingleLogId)) {
-            setRepairSingleLogId('');
-        }
-    }, [importLogs, repairSingleLogId]);
 
     const handleSaveAsset = async (assetData: Omit<Asset, 'id' | 'user_id' | 'updated_at'>) => {
         if (editingAsset) {
@@ -353,49 +328,6 @@ const SettingsView: React.FC = () => {
         }
     }, [reassignTargetLog, reassignAccountId, accounts, reassignTransactionsAccountByOrigin]);
 
-    const handleReprocessImport = useCallback(async (log: ImportLog) => {
-        const importedDetails = Array.isArray(log.imported_details) ? log.imported_details : [];
-        const metadata = importedDetails.find((d: any) =>
-            d?.Card_Cycle_Mode || d?.Card_Reference_Label || d?.Card_Due_Date
-        );
-
-        setReprocessTargetLog(log);
-        setReprocessMode(metadata?.Card_Cycle_Mode === 'manual' ? 'manual' : 'auto');
-        setReprocessReferenceMonth(metadata?.Card_Reference_Label || '');
-        setReprocessDueDate(metadata?.Card_Due_Date || '');
-        setIsReprocessModalOpen(true);
-    }, []);
-
-    const handleConfirmReprocessImport = useCallback(async () => {
-        if (!reprocessTargetLog) return;
-        if (reprocessMode === 'manual' && !reprocessReferenceMonth) {
-            await appAlert('Informe a competência (AAAA-MM) para reprocessamento manual.', 'Aviso', 'warning');
-            return;
-        }
-
-        const ok = await appConfirm(
-            `Reprocessar a fatura V2 para a origem "${reprocessTargetLog.file_name}"?`,
-            'Reprocessar Fatura',
-            'Reprocessar',
-            'warning'
-        );
-        if (!ok) return;
-
-        const cardCycle: CardImportCycleInput = {
-            mode: reprocessMode,
-            referenceLabel: reprocessMode === 'manual' ? reprocessReferenceMonth : null,
-            dueDate: reprocessDueDate || null,
-        };
-
-        const result = await reprocessCreditCardImportByOrigin(reprocessTargetLog.file_name, { cardCycle });
-        setIsReprocessModalOpen(false);
-        setReprocessTargetLog(null);
-        setReprocessMode('auto');
-        setReprocessReferenceMonth('');
-        setReprocessDueDate('');
-        await appAlert(result.message, result.processed > 0 ? 'Sucesso' : 'Aviso', result.processed > 0 ? 'success' : 'warning');
-    }, [reprocessTargetLog, reprocessMode, reprocessReferenceMonth, reprocessDueDate, reprocessCreditCardImportByOrigin]);
-
     const handleRepairImportLogPayloads = useCallback(async () => {
         const ok = await appConfirm(
             'Reidratar todos os registros do histórico onde o JSON não bate com o ledger (origens com transações já guardadas).\n\nNenhum lançamento é apagado — apenas alinha o histórico com o extrato que você já importou.',
@@ -413,108 +345,6 @@ const SettingsView: React.FC = () => {
             setRepairImportLogsBusy(false);
         }
     }, [repairImportLogsImportedDetailsFromLedger]);
-
-    const handleRepairSingleImportLog = useCallback(async () => {
-        if (!repairSingleLogId) {
-            await appAlert('Selecione um arquivo na lista antes de reidratar.', 'Reidratar um arquivo', 'warning');
-            return;
-        }
-        const log = importLogs.find((l) => l.id === repairSingleLogId);
-        if (!log) {
-            await appAlert('Registro não encontrado. Atualize a página e tente de novo.', 'Reidratar', 'warning');
-            return;
-        }
-        const ok = await appConfirm(
-            `Reidratar apenas este registro?\n\n«${log.file_name}»\n\n` +
-                'O campo «imported_details» e «imported_count» serão reconstruídos a partir das transações já guardadas com a mesma origem (não inclui lançamentos manuais). ' +
-                'Metadados de cartão já salvos (competência, vencimento, vínculos de pagamento) são preservados quando existirem.\n\n' +
-                'Nenhum lançamento é apagado.',
-            'Reidratar um arquivo',
-            'Reidratar',
-            'warning'
-        );
-        if (!ok) return;
-
-        setRepairImportLogsBusy(true);
-        try {
-            const result = await repairImportLogsImportedDetailsFromLedger(log.id);
-            await appAlert(result.message, 'Histórico de importações', result.updated > 0 ? 'success' : 'warning');
-        } finally {
-            setRepairImportLogsBusy(false);
-        }
-    }, [repairSingleLogId, importLogs, repairImportLogsImportedDetailsFromLedger]);
-
-    const handleBulkReprocessAlertedImports = useCallback(async () => {
-        if (!user || !isCreditCardEngineEnabled(user)) {
-            await appAlert(
-                'O reprocessamento em lote usa o motor de cartão. Ative-o nas preferências ou use «Reprocessar fatura» em cada arquivo.',
-                'Motor de cartão',
-                'warning'
-            );
-            return;
-        }
-
-        const alerted = importLogs.filter((log) => buildImportLogAlerts(log, importAlertContext).level !== 'ok');
-        const byKey = new Map<string, ImportLog>();
-        [...alerted]
-            .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime())
-            .forEach((log) => {
-                const k = comparableImportOriginKey(log.file_name);
-                if (k && !byKey.has(k)) byKey.set(k, log);
-            });
-        const targets = Array.from(byKey.values()).filter((log) => comparableImportOriginKey(log.file_name));
-
-        if (targets.length === 0) {
-            await appAlert('Não há importações com alerta para reprocessar.', 'Histórico', 'warning');
-            return;
-        }
-
-        const ok = await appConfirm(
-            `Reprocessar no motor ${targets.length} arquivo(s) único(s) com alerta?\n\n` +
-                `Arquivos de conta corrente / investimento serão ignorados pelo motor (mensagem no relatório). ` +
-                `Nada é apagado — apenas recalcula faturas de cartão quando aplicável.`,
-            'Reprocessar todos com alertas',
-            'Reprocessar',
-            'warning'
-        );
-        if (!ok) return;
-
-        setBulkReprocessBusy(true);
-        const lines: string[] = [];
-        let successes = 0;
-        try {
-            for (const log of targets) {
-                const importedDetails = Array.isArray(log.imported_details) ? log.imported_details : [];
-                const metadata = importedDetails.find(
-                    (d: any) => d?.Card_Cycle_Mode || d?.Card_Reference_Label || d?.Card_Due_Date
-                );
-                const cardCycle: CardImportCycleInput = {
-                    mode: metadata?.Card_Cycle_Mode === 'manual' ? 'manual' : 'auto',
-                    referenceLabel: metadata?.Card_Reference_Label || null,
-                    dueDate: metadata?.Card_Due_Date || null,
-                };
-                try {
-                    const result = await reprocessCreditCardImportByOrigin(log.file_name, { cardCycle });
-                    if (result.processed > 0) successes += 1;
-                    const icon = result.processed > 0 ? '✓' : '—';
-                    lines.push(`${icon} ${log.file_name}: ${result.message}`);
-                } catch (e: any) {
-                    lines.push(`✗ ${log.file_name}: ${e?.message || 'erro ao reprocessar'}`);
-                }
-            }
-
-            const head = `${successes}/${targets.length} origem(ns) atualizaram o motor com sucesso.`;
-            const body = lines.slice(0, 30).join('\n');
-            const tail =
-                lines.length > 30 ? `\n\n… (+${lines.length - 30} linhas — veja o console se precisar do detalhe completo)` : '';
-            console.log('[BulkReprocessImport]', lines.join('\n'));
-            await appAlert(`${head}\n\n${body}${tail}`, 'Reprocessamento em lote', successes > 0 ? 'success' : 'warning');
-        } finally {
-            await fetchTransactions();
-            await fetchImportLogs();
-            setBulkReprocessBusy(false);
-        }
-    }, [user, importLogs, importAlertContext, reprocessCreditCardImportByOrigin, fetchTransactions, fetchImportLogs]);
 
     const handleOpenRebuildModal = useCallback(() => {
         const firstCard = accounts.find(a => a.Tipo_Conta === 'Cartão de Crédito');
@@ -628,18 +458,6 @@ const SettingsView: React.FC = () => {
 
         return labels;
     }, [importLogs, accounts, transactions, importConfigs]);
-
-    const importLogsUniqueWithAlerts = useMemo(() => {
-        const alerted = importLogs.filter((log) => buildImportLogAlerts(log, importAlertContext).level !== 'ok');
-        const byKey = new Map<string, ImportLog>();
-        [...alerted]
-            .sort((a, b) => new Date(b.import_date || 0).getTime() - new Date(a.import_date || 0).getTime())
-            .forEach((log) => {
-                const k = comparableImportOriginKey(log.file_name);
-                if (k && !byKey.has(k)) byKey.set(k, log);
-            });
-        return Array.from(byKey.values());
-    }, [importLogs, importAlertContext]);
 
     const isImportedDetailsIncomplete = useCallback((rows: any[]) => isImportedDetailRowsIncomplete(rows), []);
 
@@ -834,22 +652,13 @@ const SettingsView: React.FC = () => {
                             }
                         }}
                         renderExtraActions={(item) => (
-                            <>
-                                <button
-                                    className="text-cyan-400 hover:text-cyan-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
-                                    onClick={() => handleReprocessImport(item)}
-                                    title="Reprocessar fatura desta importação"
-                                >
-                                    Reprocessar Fatura
-                                </button>
-                                <button
-                                    className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
-                                    onClick={() => openReassignModal(item)}
-                                    title="Corrigir conta desta importação"
-                                >
-                                    Corrigir Conta
-                                </button>
-                            </>
+                            <button
+                                className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
+                                onClick={() => openReassignModal(item)}
+                                title="Corrigir conta desta importação"
+                            >
+                                Corrigir Conta
+                            </button>
                         )}
                         searchKeys={['file_name']}
                         searchPlaceholder="Buscar por nome do arquivo..."
@@ -857,48 +666,21 @@ const SettingsView: React.FC = () => {
                         hideEditButton={false}
                         editLabel="Exibir"
                         footer={
-                            <>
-                                <div className="mt-4 border-t border-slate-700 pt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                                <Button
-                                    variant="primary"
-                                    disabled={
-                                        bulkReprocessBusy ||
-                                        repairImportLogsBusy ||
-                                        importLogsUniqueWithAlerts.length === 0 ||
-                                        !user ||
-                                        !isCreditCardEngineEnabled(user)
-                                    }
-                                    title={
-                                        !user || !isCreditCardEngineEnabled(user)
-                                            ? 'Motor de cartão necessário para reprocessamento em lote'
-                                            : 'Reprocessa no motor todas as origens únicas que exibem alerta (cartão)'
-                                    }
-                                    onClick={handleBulkReprocessAlertedImports}
-                                    className="w-full sm:w-auto"
-                                >
-                                    {bulkReprocessBusy ? 'Reprocessando…' : `Reprocessar todas com alertas (${importLogsUniqueWithAlerts.length})`}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    disabled={bulkReprocessBusy || repairImportLogsBusy || !user || !isCreditCardEngineEnabled(user)}
-                                    title={
-                                        !user || !isCreditCardEngineEnabled(user)
-                                            ? 'Motor de cartão necessário'
-                                            : 'Lista cada arquivo (cartão): competência MM/AAAA e vencimento DD/MM/AAAA'
-                                    }
-                                    onClick={() => setIsCreditCyclesModalOpen(true)}
-                                    className="w-full sm:w-auto"
-                                >
-                                    Competências por arquivo (cartão)
-                                </Button>
+                            <div className="mt-4 border-t border-slate-700 pt-4 space-y-3">
+                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                                    O histórico de faturas do cartão é calculado pelas transações importadas. Use as ações abaixo
+                                    só para corrigir metadados do histórico ou recuperar importações antigas — competências e
+                                    saldos residuais são ajustados em <span className="text-slate-400">Transações</span>.
+                                </p>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                                 <Button
                                     variant="secondary"
-                                    disabled={repairImportLogsBusy || bulkReprocessBusy}
+                                    disabled={repairImportLogsBusy}
                                     onClick={handleRepairImportLogPayloads}
                                     className="w-full sm:w-auto"
-                                    title="Alinha imported_details/imported_count em todos os lotes elegíveis"
+                                    title="Alinha imported_details/imported_count com as transações já guardadas (preserva competência/vencimento)"
                                 >
-                                    {repairImportLogsBusy ? 'Reidratando…' : 'Reidratar todos (histórico completo)'}
+                                    {repairImportLogsBusy ? 'Reidratando…' : 'Reidratar histórico de importações'}
                                 </Button>
                                 <Button
                                     variant="secondary"
@@ -908,44 +690,13 @@ const SettingsView: React.FC = () => {
                                             await syncLegacyImportLogs();
                                         }
                                     }}
-                                    disabled={bulkReprocessBusy || repairImportLogsBusy}
+                                    disabled={repairImportLogsBusy}
                                     className="w-full sm:w-auto"
                                 >
                                     Sincronizar Histórico Antigo
                                 </Button>
                                 </div>
-                                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end border-t border-slate-700 pt-4 mt-2">
-                                    <div className="w-full sm:flex-1 sm:min-w-[280px]">
-                                        <Select
-                                            label="Reidratar só este arquivo"
-                                            id="repair-single-import-log"
-                                            value={repairSingleLogId}
-                                            onChange={(e) => setRepairSingleLogId(e.target.value)}
-                                            disabled={repairImportLogsBusy || bulkReprocessBusy || importLogs.length === 0}
-                                            helpText="Um registro por vez — útil se o JSON do histórico foi editado ou ficou só com metadados. Preserva competência/vencimento quando já gravados."
-                                        >
-                                            <option value="">Selecione um arquivo…</option>
-                                            {importLogsSortedForRepair.map((log) => (
-                                                <option key={log.id} value={log.id}>
-                                                    {log.file_name} —{' '}
-                                                    {log.import_date
-                                                        ? new Date(log.import_date).toLocaleString('pt-BR')
-                                                        : 'sem data'}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        disabled={repairImportLogsBusy || bulkReprocessBusy || !repairSingleLogId}
-                                        onClick={handleRepairSingleImportLog}
-                                        className="w-full sm:w-auto shrink-0"
-                                        title="Reidrata apenas o registro escolhido (por id no histórico)"
-                                    >
-                                        {repairImportLogsBusy ? 'Reidratando…' : 'Reidratar selecionado'}
-                                    </Button>
-                                </div>
-                            </>
+                            </div>
                         }
                     />
                 </div>
@@ -1493,90 +1244,6 @@ const SettingsView: React.FC = () => {
                         />
                         <p className="text-xs text-gray-500">
                             Esta ação limpa e recalcula os ciclos V2 no intervalo informado, gerando log de auditoria.
-                        </p>
-                    </div>
-                </Modal>
-            )}
-
-            <CreditCardInvoiceCyclesModal
-                isOpen={isCreditCyclesModalOpen}
-                onClose={() => setIsCreditCyclesModalOpen(false)}
-            />
-
-            {isReprocessModalOpen && reprocessTargetLog && (
-                <Modal
-                    isOpen={isReprocessModalOpen}
-                    onClose={() => {
-                        setIsReprocessModalOpen(false);
-                        setReprocessTargetLog(null);
-                        setReprocessMode('auto');
-                        setReprocessReferenceMonth('');
-                        setReprocessDueDate('');
-                    }}
-                    title="Reprocessar Fatura com Competência"
-                    footer={
-                        <div className="flex justify-end gap-2">
-                            <Button
-                                variant="secondary"
-                                onClick={() => {
-                                    setIsReprocessModalOpen(false);
-                                    setReprocessTargetLog(null);
-                                    setReprocessMode('auto');
-                                    setReprocessReferenceMonth('');
-                                    setReprocessDueDate('');
-                                }}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button onClick={handleConfirmReprocessImport}>
-                                Reprocessar
-                            </Button>
-                        </div>
-                    }
-                >
-                    <div className="space-y-4">
-                        <p className="text-sm text-gray-300">
-                            Arquivo: <span className="font-semibold text-white">{reprocessTargetLog.file_name}</span>
-                        </p>
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium text-gray-300">Competência da fatura</p>
-                            <label className="flex items-center gap-2 text-sm text-gray-300">
-                                <input
-                                    type="radio"
-                                    name="reprocessMode"
-                                    checked={reprocessMode === 'auto'}
-                                    onChange={() => setReprocessMode('auto')}
-                                    className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
-                                />
-                                Automática (compra mais recente)
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-gray-300">
-                                <input
-                                    type="radio"
-                                    name="reprocessMode"
-                                    checked={reprocessMode === 'manual'}
-                                    onChange={() => setReprocessMode('manual')}
-                                    className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
-                                />
-                                Definir manualmente
-                            </label>
-                        </div>
-                        {reprocessMode === 'manual' && (
-                            <Input
-                                label="Competência (AAAA-MM) *"
-                                type="month"
-                                value={reprocessReferenceMonth}
-                                onChange={(e) => setReprocessReferenceMonth(e.target.value)}
-                            />
-                        )}
-                        <Input
-                            label="Vencimento da fatura (opcional)"
-                            type="date"
-                            value={reprocessDueDate}
-                            onChange={(e) => setReprocessDueDate(e.target.value)}
-                        />
-                        <p className="text-xs text-gray-500">
-                            Dica: para importações antigas, use modo manual para garantir histórico de faturas preciso.
                         </p>
                     </div>
                 </Modal>

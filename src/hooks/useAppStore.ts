@@ -27,6 +27,11 @@ import { isCardV2Enabled, isCardV2ShadowEnabled, isCreditCardEngineEnabled } fro
 import { creditCardStatementService, CreditCardShadowDashboardRow, getCreditCardShadowDashboard, CardClassifierRules, CardClassifierOverrides } from '../services/creditCardStatementService';
 import { creditCardEngineService, parseCreditCardReferenceFromFileName } from '../services/creditCardEngineService';
 import { creditCardMigrationService } from '../services/creditCardMigrationService';
+import {
+  creditCardRebuildFromImportHistoryService,
+  type ImportHistoryRebuildCycle,
+  type ImportHistoryRebuildResult,
+} from '../services/creditCardRebuildFromImportHistoryService';
 import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
@@ -199,7 +204,10 @@ interface AppState {
     importConfig: ImportConfig,
     fileName: string,
     ignoredItems?: any[],
-    options?: { cardCycle?: CardImportCycleInput }
+    options?: {
+      cardCycle?: CardImportCycleInput;
+      creditCardFileTotals?: { statementTotal?: number; totalPayments?: number };
+    }
   ) => Promise<{ imported: number, ignored: number }>;
   updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
@@ -298,6 +306,11 @@ interface AppState {
   backfillCreditCardHistory: (accountId: string) => Promise<{ processedLots: number; processedEntries: number }>;
   reprocessCreditCardImportByOrigin: (origin: string, options?: { cardCycle?: CardImportCycleInput }) => Promise<{ processed: number; message: string }>;
   rebuildCreditCardByPeriod: (accountId: string, fromDate: string, toDate: string) => Promise<{ message: string }>;
+  /** Reconstrói faturas somando linhas de cada arquivo do histórico (competência + vencimento por arquivo). */
+  rebuildCreditCardFromImportHistory: (
+    accountId: string,
+    cycles: ImportHistoryRebuildCycle[]
+  ) => Promise<ImportHistoryRebuildResult>;
   syncCreditCardHistoryFromAccount: (accountId: string) => Promise<{ message: string; origins: number; processed: number }>;
   saveCardImportLotClassification: (
     origin: string,
@@ -502,6 +515,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         statement_total: statement.statementTotal,
         total_payments: statement.totalPayments,
         open_balance: statement.openBalance,
+        statement_total_from_file: statement.statementTotalFromFile ?? null,
+        total_payments_from_file: statement.totalPaymentsFromFile ?? null,
         manual_totals: statement.manualTotals ?? null,
       })) as CreditCardStatementV2[];
       set({ creditCardStatements: mapped });
@@ -535,6 +550,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         statement_total: detail.statement.statementTotal,
         total_payments: detail.statement.totalPayments,
         open_balance: detail.statement.openBalance,
+        statement_total_from_file: detail.statement.statementTotalFromFile ?? null,
+        total_payments_from_file: detail.statement.totalPaymentsFromFile ?? null,
         manual_totals: detail.statement.manualTotals ?? null,
       };
       const entries = detail.entries.map((entry) => ({
@@ -814,6 +831,58 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().fetchCreditCardReprocessJobs();
     get().bumpCreditCardEngineRevision();
     return { processed, message: `Fatura reprocessada (${processed} itens).` };
+  },
+
+  rebuildCreditCardFromImportHistory: async (accountId, cycles) => {
+    const { user, accounts, transactions } = get();
+    if (!user) {
+      return {
+        processedFiles: 0,
+        previews: [],
+        message: 'Usuário não autenticado.',
+      };
+    }
+    const account = accounts.find((a) => a.id === accountId);
+    if (!account) {
+      return { processedFiles: 0, previews: [], message: 'Conta não encontrada.' };
+    }
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      return { processedFiles: 0, previews: [], message: 'A conta selecionada não é cartão de crédito.' };
+    }
+    if (!isCreditCardEngineEnabled(user)) {
+      return {
+        processedFiles: 0,
+        previews: [],
+        message: 'Ative o motor de cartão para reconstruir faturas pelo histórico de importações.',
+      };
+    }
+
+    const rules = engineClassifierRulesFromUser(user);
+    const result = await creditCardRebuildFromImportHistoryService.rebuildFromImportHistory({
+      userId: user.id,
+      account,
+      cycles,
+      transactions,
+      rules,
+    });
+
+    for (const cycle of cycles) {
+      const preview = result.previews.find((p) => p.fileName === cycle.fileName);
+      if (!preview || preview.transactionCount === 0) continue;
+      await get().saveCardImportLotClassification(
+        cycle.fileName,
+        accountId,
+        cycle.referenceMonth,
+        cycle.dueDate
+      );
+    }
+
+    await get().fetchTransactions();
+    await get().fetchImportLogs();
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+
+    return result;
   },
 
   rebuildCreditCardByPeriod: async (accountId, fromDate, toDate) => {
@@ -1788,6 +1857,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             dueMonth,
             dueDate: normalizedCardCycle?.dueDate || undefined,
             rules: engineClassifierRulesFromUser(user),
+            fileTotals: options?.creditCardFileTotals,
           });
           console.log('[CardEngine] Importação processada:', {
             fileName,
@@ -1838,51 +1908,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (oldAssetId && oldAssetId !== updated.linked_asset_id) {
         await get().recalculateAssetBalance(oldAssetId);
       }
-
-      const { user, accounts } = get();
-      if (!user) return;
-      if (!shouldAutoSyncCreditCardLedger(user)) return;
-
-      const candidates = [oldTransaction, updated].filter(Boolean) as Transaction[];
-      const reprocessKeys = new Set<string>();
-      const cardAccounts = new Map(
-        accounts
-          .filter(a => a.Tipo_Conta === 'Cartão de Crédito')
-          .map(a => [a.id, a])
-      );
-
-      candidates.forEach((tx) => {
-        if (!tx.ID_Conta || !tx.Origem || tx.Origem === 'manual') return;
-        if (!cardAccounts.has(tx.ID_Conta)) return;
-        reprocessKeys.add(`${tx.ID_Conta}::${tx.Origem}`);
-      });
-
-      for (const key of reprocessKeys) {
-        const [accountId, origin] = key.split('::');
-        if (!cardAccounts.has(accountId)) continue;
-        try {
-          await syncImportedCardOrigin({
-            getState: () => ({
-              transactions: get().transactions,
-              accounts: get().accounts,
-            }),
-            user,
-            accountId,
-            origin,
-          });
-        } catch (autoError) {
-          console.error('[CardV2][Auto] Falha ao sincronizar edição de transação:', autoError);
-        }
-      }
-
-      if (reprocessKeys.size > 0) {
-        get().bumpCreditCardEngineRevision();
-      }
-
-      if (isCardV2ShadowEnabled(user)) {
-        await get().refreshCreditCardShadowDashboard();
-        await get().fetchCreditCardReprocessJobs();
-      }
+      // Fase lote-arquivo: edições em Transações não reprocessam o motor (evita embaralhar faturas).
     }
   },
 

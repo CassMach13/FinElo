@@ -531,7 +531,7 @@ const ImportView: React.FC = () => {
           fakeConfig as any,
           selectedFile.name,
           result.ignoredItems,
-          { cardCycle }
+          { cardCycle, creditCardFileTotals: result.creditCardFileTotals }
         );
         setNotification({
           type: 'success',

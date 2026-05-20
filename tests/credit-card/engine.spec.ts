@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { classifyEntryType, normalizeDescription } from '../../src/domain/credit-card/classifiers';
-import { creditCardStatementEngine } from '../../src/domain/credit-card/creditCardStatementEngine';
+import {
+  buildStableSourceRowHash,
+  creditCardStatementEngine,
+} from '../../src/domain/credit-card/creditCardStatementEngine';
 import {
   mergePaymentsWithInvoiceLinesFromFutureStatements,
   mergePaymentsWithInvoiceLinesFromNextStatement,
@@ -722,5 +725,28 @@ describe('mergePaymentsWithInvoiceLinesFromFutureStatements', () => {
     const synth = merged.find((p) => p.amount === 6226.66);
     expect(synth?.statementId).toBe('st-dec');
     expect(synth?.notes).toContain('synthetic_next_statement_entry');
+  });
+
+  it('mantém o mesmo sourceRowHash ao alterar descrição ou valor (identidade por linha/tx)', () => {
+    const file = 'Fatura_XP_Abr_2026.csv';
+    const base = {
+      sourceFileName: file,
+      sourceRowIndex: 3,
+      transactionId: 'tx-abc-123',
+    };
+    const h1 = buildStableSourceRowHash(base);
+    const h2 = buildStableSourceRowHash({ ...base, sourceRowIndex: 99 });
+    expect(h1).toBe(h2);
+
+    const byRow = buildStableSourceRowHash({
+      sourceFileName: file,
+      sourceRowIndex: 3,
+    });
+    const byRowSame = buildStableSourceRowHash({
+      sourceFileName: file,
+      sourceRowIndex: 3,
+    });
+    expect(byRow).toBe(byRowSame);
+    expect(byRow).not.toBe(h1);
   });
 });

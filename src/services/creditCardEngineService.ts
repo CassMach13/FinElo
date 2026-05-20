@@ -20,7 +20,14 @@ import {
   CreditCardStatementAudit,
   CreditCardManualTotalsPayload,
 } from '../domain/credit-card/types';
+import { sumInvoicePaymentsFromClassifiedEntries } from '../utils/parseCreditCardFileTotals';
+
 const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+export interface CreditCardFileTotalsInput {
+  statementTotal?: number | null;
+  totalPayments?: number | null;
+}
 
 /** Abatimento por crédito anterior; apenas valores finitos e > 0 são aplicados ao overlay. */
 const normalizePriorCreditAbatement = (value: unknown): number | null => {
@@ -170,6 +177,110 @@ function applyManualTotalsOverlay(computed: CreditCardStatement): CreditCardStat
   };
 }
 
+/** Prioridade: conferência manual > totais do arquivo/lote > soma calculada das linhas. */
+function applyDisplayTotalsOverlay(
+  computed: CreditCardStatement,
+  opts: {
+    linesComputedTotal: number;
+    fromFile?: CreditCardFileTotalsInput | null;
+  }
+): CreditCardStatement {
+  const manual = computed.manualTotals;
+  const withManual = applyManualTotalsOverlay({ ...computed, manualTotals: manual ?? null });
+
+  const hasManualStatement =
+    Boolean(manual?.use_manual) &&
+    manual?.statement_total !== null &&
+    manual?.statement_total !== undefined;
+  const hasManualPayments =
+    Boolean(manual?.use_manual) &&
+    manual?.total_payments !== null &&
+    manual?.total_payments !== undefined;
+
+  let st = withManual.statementTotal;
+  let pay = withManual.totalPayments;
+
+  const file = opts.fromFile;
+  if (
+    !hasManualStatement &&
+    file?.statementTotal != null &&
+    Number.isFinite(file.statementTotal) &&
+    file.statementTotal > 0
+  ) {
+    st = round2(Number(file.statementTotal));
+  }
+  if (
+    !hasManualPayments &&
+    file?.totalPayments != null &&
+    Number.isFinite(file.totalPayments) &&
+    file.totalPayments >= 0
+  ) {
+    pay = round2(Number(file.totalPayments));
+  }
+
+  const open = round2(Math.max(st - pay, 0));
+  const status = inferStatusFromTotals(st, pay, withManual.dueDate ?? null);
+
+  return {
+    ...withManual,
+    statementTotal: st,
+    totalPayments: pay,
+    openBalance: open,
+    status,
+    statementTotalFromFile: file?.statementTotal ?? withManual.statementTotalFromFile ?? null,
+    totalPaymentsFromFile: file?.totalPayments ?? withManual.totalPaymentsFromFile ?? null,
+    linesComputedTotal: opts.linesComputedTotal,
+  };
+}
+
+async function loadFileTotalsForStatement(statement: CreditCardStatement): Promise<CreditCardFileTotalsInput | null> {
+  const lotIds = statement.sourceImportLotIds || [];
+  if (lotIds.length === 0) {
+    if (statement.statementTotalFromFile != null || statement.totalPaymentsFromFile != null) {
+      return {
+        statementTotal: statement.statementTotalFromFile ?? null,
+        totalPayments: statement.totalPaymentsFromFile ?? null,
+      };
+    }
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('credit_card_import_lots')
+    .select(
+      'statement_total_from_file, total_payments_from_file, statement_due_year, statement_due_month'
+    )
+    .in('id', lotIds);
+  if (error) throw error;
+
+  const rows = (data || []) as Array<{
+    statement_total_from_file: number | null;
+    total_payments_from_file: number | null;
+    statement_due_year: number;
+    statement_due_month: number;
+  }>;
+
+  const matching =
+    rows.find(
+      (r) =>
+        r.statement_due_year === statement.dueYear && r.statement_due_month === statement.dueMonth
+    ) || rows[0];
+
+  if (!matching) return null;
+
+  return {
+    statementTotal:
+      matching.statement_total_from_file ?? statement.statementTotalFromFile ?? null,
+    totalPayments: matching.total_payments_from_file ?? statement.totalPaymentsFromFile ?? null,
+  };
+}
+
+function hasAuthoritativeFileTotals(file: CreditCardFileTotalsInput | null | undefined): boolean {
+  return Boolean(
+    file?.statementTotal != null && Number.isFinite(file.statementTotal) && file.statementTotal > 0
+  );
+}
+
 function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardStatement {
   return {
     id: row.id as string,
@@ -190,6 +301,12 @@ function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardSt
     totalPayments: Number(row.total_payments || 0),
     openBalance: Number(row.open_balance ?? row.open_amount ?? 0),
     manualTotals: parseManualTotalsJson(row.manual_totals_json),
+    statementTotalFromFile:
+      row.statement_total_from_file != null ? Number(row.statement_total_from_file) : null,
+    totalPaymentsFromFile:
+      row.total_payments_from_file != null ? Number(row.total_payments_from_file) : null,
+    linesComputedTotal:
+      row.lines_computed_total != null ? Number(row.lines_computed_total) : null,
   };
 }
 
@@ -209,9 +326,14 @@ export const creditCardEngineService = {
       }))
     );
 
-    const needsFutureInvoiceMerge = futurePacks.some((p) =>
-      p.entries.some((e) => e.entryType === 'invoice_payment' && inferDirection(e.amount) === 'credit')
-    );
+    const fileTotals = await loadFileTotalsForStatement(detail.statement);
+    const authoritativeFile = hasAuthoritativeFileTotals(fileTotals);
+
+    const needsFutureInvoiceMerge =
+      !authoritativeFile &&
+      futurePacks.some((p) =>
+        p.entries.some((e) => e.entryType === 'invoice_payment' && inferDirection(e.amount) === 'credit')
+      );
 
     let paymentsForRecalc = detail.payments;
     if (needsFutureInvoiceMerge) {
@@ -251,10 +373,12 @@ export const creditCardEngineService = {
       payments: paymentsForRecalc,
     });
 
-    const persisted = applyManualTotalsOverlay({
-      ...recalculated,
-      manualTotals: detail.statement.manualTotals ?? null,
-    });
+    const linesComputedTotal = recalculated.statementTotal;
+
+    const persisted = applyDisplayTotalsOverlay(
+      { ...recalculated, manualTotals: detail.statement.manualTotals ?? null },
+      { linesComputedTotal, fromFile: fileTotals }
+    );
 
     const { error: updateStatementError } = await supabase
       .from('credit_card_statements')
@@ -267,6 +391,9 @@ export const creditCardEngineService = {
         total_payments: persisted.totalPayments,
         open_balance: persisted.openBalance,
         status: persisted.status,
+        statement_total_from_file: persisted.statementTotalFromFile ?? null,
+        total_payments_from_file: persisted.totalPaymentsFromFile ?? null,
+        lines_computed_total: persisted.linesComputedTotal ?? linesComputedTotal,
       })
       .eq('id', statementId);
     if (updateStatementError) throw updateStatementError;
@@ -360,20 +487,11 @@ export const creditCardEngineService = {
     dueMonth?: number;
     dueDate?: string;
   }): Promise<{ processed: number; statementId: string; lotId: string }> {
-    const sorted = [...input.transactions].sort(
-      (a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime()
-    );
-    const rows = sorted.map((tx, index) => ({
-      sourceRowIndex: index + 1,
-      postedDate: new Date(tx.Data).toISOString().slice(0, 10),
-      description: tx.Descricao_Original || tx.Nome_Fantasia || '',
-      holderName: tx.Portador || undefined,
-      amount: Number(tx.Valor || 0),
-      installmentCurrent: tx.Parcela_Atual || undefined,
-      installmentTotal: tx.Total_Parcelas || undefined,
-      merchantName: tx.Nome_Fantasia || undefined,
-      transactionId: tx.ID_Transacao || undefined,
-    }));
+    const rows = await this.buildImportRowsFromTransactionsPreservingIndices({
+      accountId: input.account.id,
+      origin: input.origin,
+      transactions: input.transactions,
+    });
 
     const result = await this.normalizeAndPersistImportLot({
       userId: input.userId,
@@ -389,6 +507,93 @@ export const creditCardEngineService = {
     });
 
     return { processed: rows.length, statementId: result.statementId, lotId: result.lotId };
+  },
+
+  /**
+   * Monta linhas de importação a partir de transações sem reordenar índices já gravados no motor
+   * (evita duplicar lançamentos ao reprocessar após edição de data/valor).
+   */
+  async buildImportRowsFromTransactionsPreservingIndices(input: {
+    accountId: string;
+    origin: string;
+    transactions: Transaction[];
+  }): Promise<
+    Array<{
+      sourceRowIndex: number;
+      postedDate: string;
+      description: string;
+      holderName?: string;
+      amount: number;
+      installmentCurrent?: number;
+      installmentTotal?: number;
+      merchantName?: string;
+      transactionId?: string;
+    }>
+  > {
+    const { data: existingRows, error } = await supabase
+      .from('credit_card_entries')
+      .select('source_row_index, transaction_id')
+      .eq('account_id', input.accountId)
+      .eq('source_file_name', input.origin);
+    if (error) throw error;
+
+    const indexByTxId = new Map<string, number>();
+    let maxIndex = 0;
+    (existingRows || []).forEach((row: { source_row_index?: number; transaction_id?: string | null }) => {
+      const idx = Number(row.source_row_index || 0);
+      if (idx > maxIndex) maxIndex = idx;
+      if (row.transaction_id) indexByTxId.set(row.transaction_id, idx);
+    });
+
+    let nextIndex = maxIndex + 1;
+    const sorted = [...input.transactions].sort(
+      (a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime()
+    );
+
+    return sorted.map((tx) => {
+      const txId = tx.ID_Transacao || undefined;
+      let sourceRowIndex = txId ? indexByTxId.get(txId) : undefined;
+      if (sourceRowIndex === undefined) {
+        sourceRowIndex = nextIndex;
+        nextIndex += 1;
+        if (txId) indexByTxId.set(txId, sourceRowIndex);
+      }
+
+      return {
+        sourceRowIndex,
+        postedDate: new Date(tx.Data).toISOString().slice(0, 10),
+        description: tx.Descricao_Original || tx.Nome_Fantasia || '',
+        holderName: tx.Portador || undefined,
+        amount: Number(tx.Valor || 0),
+        installmentCurrent: tx.Parcela_Atual || undefined,
+        installmentTotal: tx.Total_Parcelas || undefined,
+        merchantName: tx.Nome_Fantasia || undefined,
+        transactionId: txId,
+      };
+    });
+  },
+
+  async pruneOrphanEntriesForImportSource(input: {
+    cardId: string;
+    sourceFileName: string;
+    activeSourceRowHashes: string[];
+  }): Promise<void> {
+    const keep = new Set(input.activeSourceRowHashes);
+    const { data: existing, error } = await supabase
+      .from('credit_card_entries')
+      .select('id, source_row_hash')
+      .eq('card_id', input.cardId)
+      .eq('source_file_name', input.sourceFileName);
+    if (error) throw error;
+
+    const orphanIds = (existing || [])
+      .filter((row: { id: string; source_row_hash: string }) => !keep.has(row.source_row_hash))
+      .map((row: { id: string }) => row.id);
+
+    if (orphanIds.length === 0) return;
+
+    const { error: delError } = await supabase.from('credit_card_entries').delete().in('id', orphanIds);
+    if (delError) throw delError;
   },
 
   async ensureCreditCardForAccount(userId: string, account: Account): Promise<{ id: string; account_id: string }> {
@@ -525,17 +730,15 @@ export const creditCardEngineService = {
   async buildStatementTotalsMapForIds(statementIds: string[]): Promise<Map<string, number>> {
     const map = new Map<string, number>();
     const unique = [...new Set(statementIds.filter(Boolean))];
-    await Promise.all(
-      unique.map(async (id) => {
-        const detail = await this.getStatementDetail(id);
-        const rec = creditCardStatementEngine.recalculateStatement({
-          statement: detail.statement,
-          entries: detail.entries,
-          payments: [],
-        });
-        map.set(id, rec.statementTotal);
-      })
-    );
+    for (const id of unique) {
+      const detail = await this.getStatementDetail(id);
+      const rec = creditCardStatementEngine.recalculateStatement({
+        statement: detail.statement,
+        entries: detail.entries,
+        payments: [],
+      });
+      map.set(id, rec.statementTotal);
+    }
     return map;
   },
 
@@ -562,11 +765,7 @@ export const creditCardEngineService = {
       .single();
     if (statementError) throw statementError;
 
-    const statements = await this.getCardStatements(statementData.card_id);
-    const statement = statements.find((item) => item.id === statementId);
-    if (!statement) {
-      throw new Error('Statement not found after mapping.');
-    }
+    const statement = mapRowToCreditCardStatement(statementData as Record<string, unknown>);
 
     const { data: entriesData, error: entriesError } = await supabase
       .from('credit_card_entries')
@@ -707,6 +906,7 @@ export const creditCardEngineService = {
     overrides?: ClassificationOverrides;
     paymentOverrideTransactionIds?: string[];
     refundOverrideTransactionIds?: string[];
+    fileTotals?: CreditCardFileTotalsInput;
   }): Promise<{ statementId: string; lotId: string; entries: number }> {
     const ensuredCard = await this.ensureCreditCardForAccount(input.userId, input.account);
     const inferred = parseCreditCardReferenceFromFileName(input.sourceFileName);
@@ -740,6 +940,24 @@ export const creditCardEngineService = {
       input.rules,
       mergedOverrides
     );
+
+    const assignedForTotals = creditCardStatementEngine.assignEntriesToStatement(classified, {
+      id: 'preview',
+      dueYear,
+      dueMonth,
+    });
+    const paymentsFromLotLines = sumInvoicePaymentsFromClassifiedEntries(assignedForTotals);
+    const resolvedFileTotals: CreditCardFileTotalsInput = {
+      statementTotal:
+        input.fileTotals?.statementTotal != null && input.fileTotals.statementTotal > 0
+          ? input.fileTotals.statementTotal
+          : null,
+      totalPayments:
+        input.fileTotals?.totalPayments != null && input.fileTotals.totalPayments >= 0
+          ? input.fileTotals.totalPayments
+          : paymentsFromLotLines,
+    };
+
     const { data: lotData, error: lotError } = await supabase
       .from('credit_card_import_lots')
       .upsert(
@@ -757,6 +975,8 @@ export const creditCardEngineService = {
           raw_row_count: input.rows.length,
           imported_row_count: classified.length,
           ignored_row_count: classified.filter((entry) => entry.entryType === 'ignored').length,
+          statement_total_from_file: resolvedFileTotals.statementTotal ?? null,
+          total_payments_from_file: resolvedFileTotals.totalPayments ?? null,
         },
         { onConflict: 'card_id,source_file_name,checksum' }
       )
@@ -838,17 +1058,58 @@ export const creditCardEngineService = {
       .upsert(insertRows, { onConflict: 'card_id,source_file_name,source_row_hash' });
     if (entriesUpsertError) throw entriesUpsertError;
 
-    await this.persistImportedInvoicePaymentsForPreviousStatement({
-      userId: input.userId,
+    await this.pruneOrphanEntriesForImportSource({
       cardId: ensuredCard.id,
       sourceFileName: input.sourceFileName,
-      dueYear,
-      dueMonth,
-      classifiedEntries: assigned,
-      inputRows: input.rows,
+      activeSourceRowHashes: assigned.map((entry) => entry.sourceRowHash),
     });
 
-    await this.recalculateAllStatementsForCard(ensuredCard.id);
+    const authoritativeFromFile = hasAuthoritativeFileTotals(resolvedFileTotals);
+    if (!authoritativeFromFile) {
+      await this.persistImportedInvoicePaymentsForPreviousStatement({
+        userId: input.userId,
+        cardId: ensuredCard.id,
+        sourceFileName: input.sourceFileName,
+        dueYear,
+        dueMonth,
+        classifiedEntries: assigned,
+        inputRows: input.rows,
+      });
+    }
+
+    if (!input.skipRecalculateAllStatements) {
+      await this.recalculateAllStatementsForCard(ensuredCard.id);
+    }
+
+    const linesComputedAfter = (
+      await creditCardStatementEngine.recalculateStatement({
+        statement: {
+          id: statementId,
+          cardId: ensuredCard.id,
+          accountId: input.account.id,
+          purchaseReferenceLabel,
+          dueYear,
+          dueMonth,
+          dueDate: statementDueDate,
+          status: 'open',
+          sourceImportLotIds: mergedLotIds,
+          totalPurchases: 0,
+          totalFees: 0,
+          totalInterest: 0,
+          totalRefunds: 0,
+          statementTotal: 0,
+          totalPayments: 0,
+          openBalance: 0,
+        },
+        entries: assigned,
+        payments: [],
+      })
+    ).statementTotal;
+
+    await supabase
+      .from('credit_card_import_lots')
+      .update({ lines_computed_total: linesComputedAfter })
+      .eq('id', lotId);
 
     return { statementId, lotId, entries: assigned.length };
   },

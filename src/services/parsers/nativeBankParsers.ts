@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { Transaction, MappingRule } from '../../types';
+import { parseCreditCardFileTotals } from '../../utils/parseCreditCardFileTotals';
 import { parseOFX } from './ofxParser';
 
 export interface NativeBankConfig {
@@ -675,6 +676,8 @@ interface ParseResult {
   successCount: number;
   ignoredCount: number;
   ignoredItems: any[];
+  /** Totais do rodapé da fatura (cartão), quando detectados no arquivo. */
+  creditCardFileTotals?: { statementTotal?: number; totalPayments?: number };
 }
 
 // --- Main native parser ---
@@ -1088,5 +1091,8 @@ export function parseNativeBankCSV(
     successCount++;
   }
 
-  return { newTransactions, successCount, ignoredCount, ignoredItems };
+  const creditCardFileTotals =
+    bankConfig.sourceType === 'Cartao' ? parseCreditCardFileTotals(rawContent) : undefined;
+
+  return { newTransactions, successCount, ignoredCount, ignoredItems, creditCardFileTotals };
 }

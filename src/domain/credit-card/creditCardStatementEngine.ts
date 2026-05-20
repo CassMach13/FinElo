@@ -28,15 +28,18 @@ const stableHash = (value: string): string => {
   return `h${(hash >>> 0).toString(16)}`;
 };
 
-const rowHash = (row: {
+/**
+ * Identidade estável do lançamento no extrato (como linha do arquivo ou ID da transação).
+ * Valor, data e descrição podem mudar na UI sem criar outra linha no motor.
+ */
+export const buildStableSourceRowHash = (row: {
   sourceFileName: string;
   sourceRowIndex: number;
-  postedDate: string;
-  description: string;
-  amount: number;
+  transactionId?: string | null;
 }): string => {
-  const source = `${row.sourceFileName}|${row.sourceRowIndex}|${row.postedDate}|${row.description}|${round2(row.amount)}`;
-  return stableHash(source);
+  const tid = row.transactionId?.trim();
+  if (tid) return stableHash(`tx:${tid}`);
+  return stableHash(`row:${row.sourceFileName}|${row.sourceRowIndex}`);
 };
 
 export interface NormalizeImportLotInput extends CreditCardImportLotInput {
@@ -49,6 +52,7 @@ export interface NormalizeImportLotInput extends CreditCardImportLotInput {
     installmentCurrent?: number;
     installmentTotal?: number;
     merchantName?: string;
+    transactionId?: string;
   }>;
 }
 
@@ -72,12 +76,10 @@ export interface RecalculateCardHistoryInput {
 export const creditCardStatementEngine = {
   normalizeImportLot(input: NormalizeImportLotInput): NormalizeImportLotOutput {
     const entries = input.rows.map((row) => {
-      const sourceRowHash = rowHash({
+      const sourceRowHash = buildStableSourceRowHash({
         sourceFileName: input.sourceFileName,
         sourceRowIndex: row.sourceRowIndex,
-        postedDate: row.postedDate,
-        description: row.description,
-        amount: row.amount,
+        transactionId: row.transactionId,
       });
       const normalized = normalizeDescription(row.description);
       const amount = round2(row.amount);

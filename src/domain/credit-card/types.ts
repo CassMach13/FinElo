@@ -83,6 +83,11 @@ export interface CreditCardStatement {
   openBalance: number;
   /** Totais opcionais informados pelo usuário (persistidos em manual_totals_json). */
   manualTotals?: CreditCardManualTotalsPayload | null;
+  /** Total conforme arquivo importado (prioridade sobre soma de linhas). */
+  statementTotalFromFile?: number | null;
+  totalPaymentsFromFile?: number | null;
+  /** Soma das linhas pelo motor (auditoria). */
+  linesComputedTotal?: number | null;
 }
 
 /** Shape de `manual_totals_json` na tabela credit_card_statements. */

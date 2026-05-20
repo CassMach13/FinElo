@@ -249,6 +249,10 @@ export interface CreditCardStatementV2 {
   open_balance: number;
   created_at?: string;
   updated_at?: string;
+  /** Total oficial da competência (extrato / reconstrução por histórico). */
+  statement_total_from_file?: number | null;
+  /** Pagamentos oficiais na competência do arquivo. */
+  total_payments_from_file?: number | null;
   /** Indicações manuais do usuário para total/pago desta competência (sobrescreve o motor no recálculo). */
   manual_totals?: ManualStatementTotalsPayload | null;
 }
