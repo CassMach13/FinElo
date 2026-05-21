@@ -154,12 +154,19 @@ export function previousReferenceMonth(referenceMonth: string): string | null {
 }
 
 function suggestReferenceMonthFromLog(fileName: string, importedDetails?: unknown[]): string | null {
-  const fromFile = parseCreditCardReferenceFromFileName(fileName);
-  if (fromFile) return `${fromFile.dueYear}-${String(fromFile.dueMonth).padStart(2, '0')}`;
   const det = Array.isArray(importedDetails) ? importedDetails : [];
   const meta = det.find((d: any) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(d?.Card_Reference_Label || '')));
   if (meta?.Card_Reference_Label) return String(meta.Card_Reference_Label);
-  return null;
+  const fromFile = parseCreditCardReferenceFromFileName(fileName);
+  if (!fromFile) return null;
+  /** Nome do arquivo costuma indicar vencimento (ex. Jan_2026); competência = mês anterior. */
+  let y = fromFile.dueYear;
+  let m = fromFile.dueMonth - 1;
+  if (m < 1) {
+    m = 12;
+    y -= 1;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
 }
 
 function buildCyclesForAccount(input: {

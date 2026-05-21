@@ -23,15 +23,20 @@ import { creditCardEngineService } from '../../services/creditCardEngineService'
 import { supabase } from '../../supabaseClient';
 
 import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
-import { pickPrimaryStatementForPayment } from '../../utils/pickCreditCardStatementForPayment';
 import {
   creditCardRebuildFromImportHistoryService,
   type CompetenceHistoryCard,
 } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
+  buildDirectedPaymentDescription,
+} from '../../services/creditCardDirectedPayment';
+import PayCreditCardInvoiceModal from '../modals/PayCreditCardInvoiceModal';
+import {
   listCompetencePaymentConfirmations,
+  listCompetencePaymentConfirmationsForUser,
   removeCompetencePaymentConfirmation,
   saveCompetencePaymentConfirmation,
+  type CompetencePaymentConfirmation,
 } from '../../services/competenceInvoiceUserConfirmations';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -45,6 +50,7 @@ import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
+import { mergeMotorSnapshotWithManualLedger } from '../../services/creditCardManualMotorSync';
 
 const DEFAULT_CARD_PAYMENT_KEYWORDS = [
   'pagamentos válidos normais',
@@ -177,6 +183,7 @@ const TransactionsView: React.FC = () => {
     setCurrentView,
     creditCardEngineRevision,
     importLogs,
+    bumpCreditCardEngineRevision,
   } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -187,18 +194,18 @@ const TransactionsView: React.FC = () => {
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [predefinedTransaction, setPredefinedTransaction] = useState<Transaction | null>(null);
-  const [payInvoiceEngineModal, setPayInvoiceEngineModal] = useState<{
+  const [payInvoiceModal, setPayInvoiceModal] = useState<{
     open: boolean;
     account: Account | null;
-    amountDraft: string;
-    dateDraft: string;
-    isSubmitting: boolean;
+    suggestedAmount: number;
+    competenceCards: CompetenceHistoryCard[];
+    loading: boolean;
   }>({
     open: false,
     account: null,
-    amountDraft: '',
-    dateDraft: '',
-    isSubmitting: false,
+    suggestedAmount: 0,
+    competenceCards: [],
+    loading: false,
   });
 
   const [motorInvoiceHistoryOpen, setMotorInvoiceHistoryOpen] = useState(false);
@@ -209,6 +216,9 @@ const TransactionsView: React.FC = () => {
     CompetenceHistoryCard[]
   >([]);
   const [competenceConfirmRevision, setCompetenceConfirmRevision] = useState(0);
+  const [paymentConfirmationsByAccount, setPaymentConfirmationsByAccount] = useState<
+    Map<string, CompetencePaymentConfirmation[]>
+  >(new Map());
 
   const isoTodayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -347,99 +357,136 @@ const TransactionsView: React.FC = () => {
     return 'Aberta';
   }, []);
 
-  const handlePayInvoice = (account: Account, amount: number) => {
-    if (user && isCreditCardEngineEnabled(user)) {
-      const amountStr = amount > 0 ? String(amount).replace('.', ',') : '';
-      setPayInvoiceEngineModal({
+  const closePayInvoiceModal = useCallback(() => {
+    setPayInvoiceModal({
+      open: false,
+      account: null,
+      suggestedAmount: 0,
+      competenceCards: [],
+      loading: false,
+    });
+  }, []);
+
+  const handlePayInvoice = useCallback(
+    (account: Account, amount: number) => {
+      setPayInvoiceModal({
         open: true,
         account,
-        amountDraft: amountStr,
-        dateDraft: isoTodayStr(),
-        isSubmitting: false,
-      });
-      return;
-    }
-
-    const paymentTx: any = {
-      Tipo: 'Renda',
-      ID_Conta: account.id,
-      Nome_Fantasia: 'Pagamento de Fatura',
-      Categoria: 'Pagamento de Fatura',
-      Data: new Date(),
-      Valor: amount,
-      Descricao_Original: 'Lançamento Manual (Atalho)'
-    };
-    setPredefinedTransaction(paymentTx);
-    setNewTransactionModalOpen(true);
-  };
-
-  const submitPayInvoiceEngineModal = async () => {
-    const { account, amountDraft, dateDraft } = payInvoiceEngineModal;
-    if (!user || !account) return;
-
-    if (!dateDraft || !amountDraft.trim()) {
-      await appAlert('Informe data e valor do pagamento.', 'Pagamento', 'warning');
-      return;
-    }
-    const amount = Number(amountDraft.replace(',', '.'));
-    if (Number.isNaN(amount) || amount <= 0) {
-      await appAlert('Valor de pagamento inválido.', 'Pagamento', 'warning');
-      return;
-    }
-
-    setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: true }));
-
-    try {
-      const statements = await getCardStatements(account.id);
-      const targetStatement = pickPrimaryStatementForPayment(statements);
-      if (!targetStatement) {
-        await appAlert(
-          'Não há fatura no motor para este cartão. Confira importações e reprocessamentos em Configurações → Histórico de importações, ou valide a migração do motor no Supabase.',
-          'Pagamento',
-          'warning'
-        );
-        setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: false }));
-        return;
-      }
-
-      const result = await payStatement(targetStatement.id, {
-        paymentDate: dateDraft,
-        amount,
-        paymentAccountId: account.linked_payment_account_id || undefined,
-        notes: 'Pagamento registrado via atalho em Transações',
+        suggestedAmount: amount,
+        competenceCards: [],
+        loading: true,
       });
 
-      if (!result) {
+      void (async () => {
+        try {
+          const cards = await loadImportHistoryCompetenceCards(account);
+          setPayInvoiceModal((s) => ({
+            ...s,
+            competenceCards: cards,
+            loading: false,
+          }));
+        } catch (error) {
+          console.error('[TransactionsView] Carregar faturas para pagamento:', error);
+          closePayInvoiceModal();
+          await appAlert(
+            'Não foi possível carregar as faturas em aberto. Tente novamente.',
+            'Pagamento',
+            'danger'
+          );
+        }
+      })();
+    },
+    [loadImportHistoryCompetenceCards, closePayInvoiceModal]
+  );
+
+  const submitPayCreditCardInvoice = useCallback(
+    async ({
+      referenceMonth,
+      paymentDate,
+      amount,
+      category,
+    }: {
+      referenceMonth: string;
+      paymentDate: string;
+      amount: number;
+      category: string;
+    }) => {
+      const account = payInvoiceModal.account;
+      if (!account || !user) return;
+
+      const selectedCard = payInvoiceModal.competenceCards.find(
+        (c) => c.referenceMonth === referenceMonth
+      );
+
+      try {
+        await addTransaction({
+          Data: paymentDate,
+          Data_Pagamento: paymentDate,
+          ID_Conta: account.id,
+          Nome_Fantasia: 'Pagamento de Fatura',
+          Categoria: category,
+          Tipo: 'Renda',
+          Valor: amount,
+          Fonte: 'Manual',
+          Descricao_Original: buildDirectedPaymentDescription(referenceMonth),
+        });
+      } catch (error) {
+        console.error('[TransactionsView] Registrar pagamento manual:', error);
         await appAlert(
-          'Não foi possível registrar o pagamento. Verifique os dados e se o motor de cartão está configurado.',
+          'Não foi possível registrar o pagamento. Tente novamente.',
           'Pagamento',
           'danger'
         );
-        setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: false }));
         return;
       }
 
-      setPayInvoiceEngineModal({
-        open: false,
-        account: null,
-        amountDraft: '',
-        dateDraft: '',
-        isSubmitting: false,
-      });
+      try {
+        await updateUserPreferences({ creditCardPaymentCategory: category });
+      } catch (prefErr) {
+        console.warn('[TransactionsView] Não foi possível salvar categoria preferida de pagamento:', prefErr);
+      }
 
-      await fetchAllData();
+      if (isCreditCardEngineEnabled(user)) {
+        try {
+          const statements = await getCardStatements(account.id);
+          const target = selectedCard
+            ? statements.find(
+                (s) =>
+                  Number(s.due_year) === selectedCard.dueYear &&
+                  Number(s.due_month) === selectedCard.dueMonth
+              )
+            : statements.find(
+                (s) => (s.purchase_reference_label || '').trim() === referenceMonth
+              );
 
+          if (target) {
+            await payStatement(target.id, {
+              paymentDate,
+              amount,
+              paymentAccountId: account.linked_payment_account_id || undefined,
+              notes: `Pagamento direcionado à competência ${referenceMonth}`,
+            });
+          }
+        } catch (error) {
+          console.error('[TransactionsView] Pagamento no motor (competência escolhida):', error);
+        }
+        bumpCreditCardEngineRevision();
+      }
+
+      setCompetenceConfirmRevision((v) => v + 1);
       await appAlert('Pagamento registrado com sucesso.', 'Pagamento', 'success');
-    } catch (error) {
-      console.error('[TransactionsView] Pagamento via motor (atalho Transações):', error);
-      await appAlert(
-        'Erro ao consultar faturas ou registrar o pagamento. Tente novamente.',
-        'Pagamento',
-        'danger'
-      );
-      setPayInvoiceEngineModal((s) => ({ ...s, isSubmitting: false }));
-    }
-  };
+    },
+    [
+      payInvoiceModal.account,
+      payInvoiceModal.competenceCards,
+      user,
+      addTransaction,
+      updateUserPreferences,
+      getCardStatements,
+      payStatement,
+      bumpCreditCardEngineRevision,
+    ]
+  );
 
   const openStatementHistory = async (account: Account) => {
     setStatementHistoryModalOpen(true);
@@ -1261,6 +1308,23 @@ const TransactionsView: React.FC = () => {
   const cardV2Enabled = isCardV2Enabled(user);
   const cardSnapshotPipelineEnabled = cardV2Enabled || cardEngineEnabled;
 
+  /** Competências por arquivo: qualquer cartão com extrato importado (não só flag do motor). */
+  const showAdjustCompetenceByFile = useMemo(() => {
+    const acc = motorInvoiceHistoryAccount;
+    if (!acc) return false;
+    const hasImportedTx = transactions.some(
+      (t) =>
+        t.ID_Conta === acc.id &&
+        t.Origem &&
+        String(t.Origem).trim().toLowerCase() !== 'manual'
+    );
+    if (hasImportedTx) return true;
+    return importLogs.some((log) => {
+      const det = log.imported_details as Array<{ ID_Conta?: string }> | undefined;
+      return Array.isArray(det) && det.some((d) => d?.ID_Conta === acc.id);
+    });
+  }, [motorInvoiceHistoryAccount, transactions, importLogs]);
+
   const { regularBalanceAccounts, creditBalanceAccounts } = useMemo(() => {
     const active = getAccountsWithCalculatedBalance().filter((a) => !a.is_archived);
     return {
@@ -1268,6 +1332,48 @@ const TransactionsView: React.FC = () => {
       creditBalanceAccounts: active.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
     };
   }, [accounts, transactions, getAccountsWithCalculatedBalance]);
+
+  useEffect(() => {
+    if (creditBalanceAccounts.length === 0) {
+      setPaymentConfirmationsByAccount(new Map());
+      return;
+    }
+
+    const byOwner = new Map<string, Account[]>();
+    creditBalanceAccounts.forEach((acc) => {
+      if (!acc.user_id) return;
+      const list = byOwner.get(acc.user_id) || [];
+      list.push(acc);
+      byOwner.set(acc.user_id, list);
+    });
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const map = new Map<string, CompetencePaymentConfirmation[]>();
+        for (const [ownerId, accs] of byOwner) {
+          const rows = await listCompetencePaymentConfirmationsForUser(
+            ownerId,
+            accs.map((a) => a.id)
+          );
+          accs.forEach((acc) => {
+            map.set(
+              acc.id,
+              rows.filter((r) => r.accountId === acc.id)
+            );
+          });
+        }
+        if (!cancelled) setPaymentConfirmationsByAccount(map);
+      } catch (e) {
+        console.warn('[TransactionsView] Falha ao carregar confirmações de fatura:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [creditBalanceAccounts, competenceConfirmRevision]);
 
   const [cardV2SnapshotByAccount, setCardV2SnapshotByAccount] = useState<Map<string, CreditCardMotorStatementSnap>>(
     new Map()
@@ -1492,10 +1598,32 @@ const TransactionsView: React.FC = () => {
           : Math.max(Number(currentStatement?.open_amount || 0), 0);
 
         const faturaOpenRounded = roundCurrency(displayTotal);
+        const account = creditAccounts.find((a) => a.id === accountId);
+        const {
+          transactions: txsNow,
+          importLogs: logsNow,
+          accounts: allAccountsNow,
+        } = useAppStore.getState();
+        const confs = paymentConfirmationsByAccount.get(accountId)?.map((c) => ({
+          referenceMonth: c.referenceMonth,
+          settledAmount: c.settledAmount,
+          confirmedAt: c.confirmedAt,
+        }));
+        const mergedSnap = account
+          ? mergeMotorSnapshotWithManualLedger({
+              accountId,
+              account,
+              accounts: allAccountsNow,
+              transactions: txsNow,
+              importLogs: logsNow,
+              userPaymentConfirmations: confs,
+              snapshot: { currentOpenAmount: faturaOpenRounded, hasData: true },
+            })
+          : { currentOpenAmount: faturaOpenRounded, hasData: true };
 
         snapshotMap.set(accountId, {
-          currentOpenAmount: faturaOpenRounded,
-          hasData: true,
+          currentOpenAmount: mergedSnap.currentOpenAmount,
+          hasData: mergedSnap.hasData,
           fetchCompleted: true,
         });
       });
@@ -1511,15 +1639,28 @@ const TransactionsView: React.FC = () => {
     };
     // Não dependemos de `accounts` nem de `transactions`: o primeiro define os IDs via `creditCardAccountIdsKey`;
     // evita re-fetch quando o Zustand substitui o array com os mesmos cartões (ex.: ao voltar à aba Transações).
-  }, [cardSnapshotPipelineEnabled, user?.id, creditCardAccountIdsKey, cardEngineEnabled, creditCardEngineRevision]);
+  }, [
+    cardSnapshotPipelineEnabled,
+    user?.id,
+    creditCardAccountIdsKey,
+    cardEngineEnabled,
+    creditCardEngineRevision,
+    paymentConfirmationsByAccount,
+  ]);
 
   const renderBalanceAccountCard = useCallback(
     (account: Account) => {
       const bankConfig = NATIVE_BANK_CONFIGS.find((b) => b.id === account.bank_id);
+      const paymentConfs = paymentConfirmationsByAccount.get(account.id)?.map((c) => ({
+        referenceMonth: c.referenceMonth,
+        settledAmount: c.settledAmount,
+        confirmedAt: c.confirmedAt,
+      }));
       const display = computeAccountCardDisplay(account, {
         transactions,
         accounts,
         importLogs,
+        userPaymentConfirmations: paymentConfs,
         cardV2Snapshot: cardV2SnapshotByAccount.get(account.id),
         cardV2Enabled,
         cardEngineEnabled,
@@ -1551,6 +1692,7 @@ const TransactionsView: React.FC = () => {
       transactions,
       accounts,
       importLogs,
+      paymentConfirmationsByAccount,
       cardV2SnapshotByAccount,
       cardV2Enabled,
       cardEngineEnabled,
@@ -1732,10 +1874,8 @@ const TransactionsView: React.FC = () => {
   };
 
   const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
-    // Loop para salvar múltiplas transações (caso de recorrência/parcelamento)
-    // Usamos Promise.all para desempenho
-    await Promise.all(newTransactions.map(t => {
-      const transactionToSave: Omit<Transaction, 'ID_Transacao'> = {
+    try {
+      const payloads = newTransactions.map((t) => ({
         Data: t.Data,
         ID_Conta: t.ID_Conta,
         Data_Pagamento: t.Data_Pagamento,
@@ -1746,14 +1886,20 @@ const TransactionsView: React.FC = () => {
         Parcela_Atual: t.Parcela_Atual,
         Total_Parcelas: t.Total_Parcelas,
         Fonte: t.Fonte,
-        Origem: 'manual',
+        Origem: 'manual' as const,
         Descricao_Original: t.Nome_Fantasia,
-      };
-      return addTransaction(transactionToSave);
-    }));
-
-    setNewTransactionModalOpen(false);
-  }
+      }));
+      await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
+      setNewTransactionModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar lançamento manual:', err);
+      await appAlert(
+        'Não foi possível salvar o lançamento. Tente novamente.',
+        'Erro ao salvar',
+        'error'
+      );
+    }
+  };
 
   const openNewMappingRuleModal = (transaction: Transaction) => {
     // Apenas transações importadas podem gerar regras
@@ -2722,7 +2868,7 @@ const TransactionsView: React.FC = () => {
           vencimento). <span className="text-gray-300 font-medium">Pagamentos de fatura</span> quitam a competência{' '}
           <span className="text-gray-300 font-medium">anterior</span> (padrão XP). Vários arquivos no mesmo mês são somados.
         </p>
-        {motorInvoiceHistoryAccount && cardEngineEnabled ? (
+        {motorInvoiceHistoryAccount && showAdjustCompetenceByFile ? (
           <div className="mb-4">
             <Button
               type="button"
@@ -2732,6 +2878,12 @@ const TransactionsView: React.FC = () => {
             >
               Ajustar competências por arquivo
             </Button>
+            {!cardEngineEnabled ? (
+              <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
+                Define o mês de cada extrato no histórico (competência e vencimento). Necessário quando o import não
+                gravou competência automaticamente.
+              </p>
+            ) : null}
           </div>
         ) : null}
         {motorInvoiceError ? (
@@ -2895,65 +3047,28 @@ const TransactionsView: React.FC = () => {
         )}
       </Modal>
 
-      {payInvoiceEngineModal.open && payInvoiceEngineModal.account && (
-        <Modal
-          isOpen={true}
-          onClose={() => {
-            setPayInvoiceEngineModal((s) =>
-              s.isSubmitting ? s : { open: false, account: null, amountDraft: '', dateDraft: '', isSubmitting: false }
-            );
-          }}
-          title="Registrar pagamento de fatura"
-          className="max-w-lg"
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-400">
-              Cartão: <span className="text-white">{payInvoiceEngineModal.account.Nome_Conta}</span>
-            </p>
-            <p className="text-sm text-gray-400">
-              O pagamento será registrado na fatura alvo escolhida pelo motor (competência em aberto, parcial ou com saldo pendente).
-            </p>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Pagamentos vindos do extrato costumam aparecer após importação. Use este fluxo para pagamentos manuais ou ainda não lançados no motor.
-            </p>
-            <Input
-              label="Data do pagamento"
-              type="date"
-              value={payInvoiceEngineModal.dateDraft}
-              onChange={(e) => setPayInvoiceEngineModal((s) => ({ ...s, dateDraft: e.target.value }))}
-              disabled={payInvoiceEngineModal.isSubmitting}
-            />
-            <Input
-              label="Valor"
-              type="text"
-              value={payInvoiceEngineModal.amountDraft}
-              onChange={(e) => setPayInvoiceEngineModal((s) => ({ ...s, amountDraft: e.target.value }))}
-              placeholder="0,00"
-              disabled={payInvoiceEngineModal.isSubmitting}
-            />
-            <div className="flex gap-2 justify-end pt-2">
-              <Button
-                variant="secondary"
-                disabled={payInvoiceEngineModal.isSubmitting}
-                onClick={() =>
-                  setPayInvoiceEngineModal({
-                    open: false,
-                    account: null,
-                    amountDraft: '',
-                    dateDraft: '',
-                    isSubmitting: false,
-                  })
-                }
-              >
-                Cancelar
-              </Button>
-              <Button disabled={payInvoiceEngineModal.isSubmitting} onClick={() => void submitPayInvoiceEngineModal()}>
-                {payInvoiceEngineModal.isSubmitting ? 'Salvando...' : 'Registrar pagamento'}
-              </Button>
-            </div>
-          </div>
+      {payInvoiceModal.open && payInvoiceModal.loading && payInvoiceModal.account && (
+        <Modal isOpen={true} onClose={closePayInvoiceModal} title="Pagar fatura do cartão" className="max-w-lg">
+          <p className="text-sm text-gray-400 text-center py-6">Carregando faturas em aberto…</p>
         </Modal>
       )}
+
+      <PayCreditCardInvoiceModal
+        isOpen={payInvoiceModal.open && !payInvoiceModal.loading && !!payInvoiceModal.account}
+        account={payInvoiceModal.account}
+        competenceCards={payInvoiceModal.competenceCards}
+        categories={categories}
+        savedPaymentCategory={
+          typeof user?.user_metadata?.creditCardPaymentCategory === 'string'
+            ? user.user_metadata.creditCardPaymentCategory
+            : null
+        }
+        lastCreatedCategory={lastCreatedCategory}
+        initialAmount={payInvoiceModal.suggestedAmount}
+        onClose={closePayInvoiceModal}
+        onOpenCreateCategory={() => setCategoryModalOpen(true)}
+        onSubmit={submitPayCreditCardInvoice}
+      />
 
       {deleteConfirmation && (
         <Modal

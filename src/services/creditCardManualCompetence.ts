@@ -8,6 +8,10 @@ import type {
   CompetenceHistoryCard,
   CompetenceHistoryFileLine,
 } from './creditCardRebuildFromImportHistoryService';
+import {
+  isManualInvoicePayment,
+  parseDirectedCompetenceFromPayment,
+} from './creditCardDirectedPayment';
 
 export const MANUAL_COMPETENCE_FILE_LABEL = 'Lançamentos manuais';
 
@@ -79,8 +83,18 @@ export function appendManualCompetenceTotals(params: {
   );
   if (manualTx.length === 0) return;
 
+  const directedPaymentsByRef = new Map<string, number>();
   const byRef = new Map<string, Transaction[]>();
+
   manualTx.forEach((t) => {
+    const directedRef = parseDirectedCompetenceFromPayment(t);
+    if (directedRef && isManualInvoicePayment(t)) {
+      directedPaymentsByRef.set(
+        directedRef,
+        round2((directedPaymentsByRef.get(directedRef) || 0) + Math.abs(Number(t.Valor || 0)))
+      );
+      return;
+    }
     const ref = referenceMonthFromTransaction(t, account).trim();
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ref)) return;
     const list = byRef.get(ref) || [];
@@ -89,7 +103,10 @@ export function appendManualCompetenceTotals(params: {
   });
 
   for (const [ref, txs] of byRef) {
-    const totals = computeImportLedgerTotals(manualTransactionsToLedgerLines(txs), rules);
+    const ledgerTxs = txs.filter(
+      (t) => !(parseDirectedCompetenceFromPayment(t) && isManualInvoicePayment(t))
+    );
+    const totals = computeImportLedgerTotals(manualTransactionsToLedgerLines(ledgerTxs), rules);
     const card = ensureCompetenceCard(ref);
 
     const existingManual = card.files.find((f) => f.fileName === MANUAL_COMPETENCE_FILE_LABEL);
@@ -117,17 +134,41 @@ export function appendManualCompetenceTotals(params: {
       priorCard.totalPayments = round2(priorCard.totalPayments + paymentForPrior);
     }
   }
+
+  for (const [ref, amount] of directedPaymentsByRef) {
+    if (amount < 0.005) continue;
+    const card = ensureCompetenceCard(ref);
+    card.totalPayments = round2(card.totalPayments + amount);
+  }
 }
 
-/** Fatura vigente = competência com vencimento mais próximo ainda não passou (ou a mais recente). */
+const hasOpenBalance = (c: CompetenceHistoryCard) =>
+  c.openBalance > 0.005 || c.statementTotal - c.totalPayments > 0.005;
+
+/**
+ * Fatura vigente: prioriza a mais antiga vencida em aberto; senão a próxima a vencer com saldo;
+ * evita que lançamentos manuais futuros (ex. 2027) ocultem extrato importado vencido.
+ */
 export function pickCurrentCompetenceCard(
   cards: CompetenceHistoryCard[],
   todayIso: string
 ): CompetenceHistoryCard | undefined {
   if (cards.length === 0) return undefined;
+
+  const overdueOpen = cards
+    .filter((c) => c.dueDate && c.dueDate < todayIso && hasOpenBalance(c))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  if (overdueOpen.length > 0) return overdueOpen[0];
+
+  const upcomingOpen = cards
+    .filter((c) => c.dueDate && c.dueDate >= todayIso && hasOpenBalance(c))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  if (upcomingOpen.length > 0) return upcomingOpen[0];
+
   const upcoming = cards
     .filter((c) => c.dueDate && c.dueDate >= todayIso)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   if (upcoming.length > 0) return upcoming[0];
+
   return [...cards].sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0];
 }

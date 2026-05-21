@@ -329,23 +329,21 @@ const DashboardView: React.FC = () => {
   const displayName = getFirstName();
 
   const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
-    await Promise.all(newTransactions.map(t => {
-      const transactionToSave: Omit<Transaction, 'ID_Transacao'> = {
-        Data: t.Data,
-        ID_Conta: t.ID_Conta,
-        Data_Pagamento: t.Data_Pagamento,
-        Nome_Fantasia: t.Nome_Fantasia,
-        Categoria: t.Categoria,
-        Tipo: t.Tipo,
-        Valor: t.Valor,
-        Parcela_Atual: t.Parcela_Atual,
-        Total_Parcelas: t.Total_Parcelas,
-        Fonte: t.Fonte,
-        Origem: 'manual',
-        Descricao_Original: t.Nome_Fantasia,
-      };
-      return addTransaction(transactionToSave);
+    const payloads = newTransactions.map((t) => ({
+      Data: t.Data,
+      ID_Conta: t.ID_Conta,
+      Data_Pagamento: t.Data_Pagamento,
+      Nome_Fantasia: t.Nome_Fantasia,
+      Categoria: t.Categoria,
+      Tipo: t.Tipo,
+      Valor: t.Valor,
+      Parcela_Atual: t.Parcela_Atual,
+      Total_Parcelas: t.Total_Parcelas,
+      Fonte: t.Fonte,
+      Origem: 'manual' as const,
+      Descricao_Original: t.Nome_Fantasia,
     }));
+    await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
     setNewTransactionModalOpen(false);
   };
 

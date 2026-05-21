@@ -267,6 +267,22 @@ export function buildInvoiceCycleRowsForAccount(params: {
     const sortUploadMs = logMs > 0 ? logMs : agg.latestTxMs;
 
     const persisted = cardCycleMetaFromImportedLog(logPick, agg.accountId);
+    let competenciaBR = persisted.competenciaBR;
+    if (!competenciaBR.trim()) {
+      const suggested = creditCardRebuildFromImportHistoryService.suggestReferenceMonth(
+        displayOrigin,
+        logPick?.imported_details as unknown[] | undefined
+      );
+      if (suggested) {
+        competenciaBR = `${suggested.slice(5, 7)}/${suggested.slice(0, 4)}`;
+      }
+    }
+    let vencimentoBR = persisted.vencimentoBR;
+    if (!vencimentoBR.trim() && competenciaBR.trim()) {
+      const iso = parseMMAAAAToIsoMonth(competenciaBR);
+      const day = Number(account.dia_vencimento) || 10;
+      if (iso) vencimentoBR = computeVencimentoBRFromCompetenceIsoMonth(iso, day);
+    }
 
     rows.push({
       key: rowKey,
@@ -275,8 +291,8 @@ export function buildInvoiceCycleRowsForAccount(params: {
       originComparable: agg.originComparable,
       displayOrigin,
       txCount: agg.txCount,
-      competenciaBR: persisted.competenciaBR,
-      vencimentoBR: persisted.vencimentoBR,
+      competenciaBR,
+      vencimentoBR,
       sortUploadMs,
     });
   });

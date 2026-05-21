@@ -8,7 +8,7 @@ import { formatCurrency } from '../../utils/formatters';
 
 interface NewTransactionModalProps {
     onClose: () => void;
-    onSave: (transactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => void;
+    onSave: (transactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => void | Promise<void>;
     accounts: Account[];
     categories: Category[];
     assets: Asset[];
@@ -37,6 +37,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     };
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isSaving, setIsSaving] = useState(false);
 
     // Base State
     const [transaction, setTransaction] = useState({
@@ -122,9 +123,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!validate() || isSaving) return;
+        setIsSaving(true);
 
         const valorBase = parseFloat(transaction.Valor);
         const loopCount = isRecurrent ? parseInt(recurrenceCount) : 1;
@@ -182,7 +184,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             });
         }
 
-        onSave(transactionsToSave);
+        try {
+            await onSave(transactionsToSave);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -203,8 +209,12 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             title={initialTransaction ? "Editar Lançamento" : "Adicionar Lançamento"}
             footer={<div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                <Button type="submit" form="new-transaction-form">
-                    {isRecurrent ? `Gerar ${recurrenceCount || '?'} Lançamentos` : 'Salvar'}
+                <Button type="submit" form="new-transaction-form" disabled={isSaving}>
+                    {isSaving
+                        ? 'Salvando…'
+                        : isRecurrent
+                          ? `Gerar ${recurrenceCount || '?'} Lançamentos`
+                          : 'Salvar'}
                 </Button>
             </div>}
         >

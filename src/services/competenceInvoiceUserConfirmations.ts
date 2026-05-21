@@ -91,6 +91,33 @@ export async function listCompetencePaymentConfirmations(
   return (data || []).map((row) => rowToConfirmation(row as DbRow));
 }
 
+/** Lista confirmações do usuário (opcionalmente filtradas por contas). */
+export async function listCompetencePaymentConfirmationsForUser(
+  userId: string,
+  accountIds?: string[]
+): Promise<CompetencePaymentConfirmation[]> {
+  await migrateLegacyLocalStorageIfNeeded();
+
+  let query = supabase
+    .from(TABLE)
+    .select('user_id, account_id, reference_month, settled_amount, confirmed_at')
+    .eq('user_id', userId)
+    .order('reference_month', { ascending: true });
+
+  if (accountIds && accountIds.length > 0) {
+    query = query.in('account_id', accountIds);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[competencePaymentConfirmations] listForUser:', error.message);
+    throw error;
+  }
+
+  return (data || []).map((row) => rowToConfirmation(row as DbRow));
+}
+
 export async function saveCompetencePaymentConfirmation(
   entry: CompetencePaymentConfirmation
 ): Promise<void> {

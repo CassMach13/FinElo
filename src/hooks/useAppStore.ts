@@ -35,6 +35,8 @@ import {
 import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
+import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
+import { referenceMonthFromTransaction } from '../services/creditCardManualCompetence';
 
 const parseClassifierKeywords = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -51,6 +53,8 @@ const getCardClassifierRules = (user: User | null): CardClassifierRules | undefi
   if (paymentKeywords.length === 0 && creditKeywords.length === 0) return undefined;
   return { paymentKeywords, creditKeywords };
 };
+
+const REF_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const shouldAutoSyncCreditCardLedger = (user: User | null): boolean =>
   Boolean(
@@ -1669,11 +1673,44 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         }
 
+        const manualCardAccountIds = new Set(
+          addedTransactions
+            .filter(
+              (tx) =>
+                tx.ID_Conta &&
+                cardAccounts.has(tx.ID_Conta) &&
+                String(tx.Origem || 'manual').trim().toLowerCase() === 'manual'
+            )
+            .map((tx) => tx.ID_Conta as string)
+        );
+        const engineRules = engineClassifierRulesFromUser(user);
+        const classifierRules = getCardClassifierRules(user);
+        for (const accountId of manualCardAccountIds) {
+          scheduleManualCreditCardSync({
+            getState: () => ({
+              transactions: get().transactions,
+              accounts: get().accounts,
+              importLogs: get().importLogs,
+            }),
+            user,
+            accountId,
+            rules: engineRules,
+            classifierRules,
+            onComplete: () => {
+              get().bumpCreditCardEngineRevision();
+              if (isCardV2ShadowEnabled(user)) {
+                void get().refreshCreditCardShadowDashboard();
+                void get().fetchCreditCardReprocessJobs();
+              }
+            },
+          });
+        }
+
         if (grouped.size > 0) {
           get().bumpCreditCardEngineRevision();
         }
 
-        if (isCardV2ShadowEnabled(user)) {
+        if (isCardV2ShadowEnabled(user) && grouped.size > 0) {
           await get().refreshCreditCardShadowDashboard();
           await get().fetchCreditCardReprocessJobs();
         }
@@ -1908,7 +1945,75 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (oldAssetId && oldAssetId !== updated.linked_asset_id) {
         await get().recalculateAssetBalance(oldAssetId);
       }
-      // Fase lote-arquivo: edições em Transações não reprocessam o motor (evita embaralhar faturas).
+
+      const { user, accounts, importLogs } = get();
+      if (user && shouldAutoSyncCreditCardLedger(user)) {
+        const engineRules = engineClassifierRulesFromUser(user);
+        const cardAccounts = accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito');
+        const accountsToSync = new Map<string, { refs: Set<string>; extraRefs: Set<string> }>();
+
+        const trackRef = (accountId: string, ref: string, isExtra = false) => {
+          if (!REF_MONTH_RE.test(ref.trim())) return;
+          let bucket = accountsToSync.get(accountId);
+          if (!bucket) {
+            bucket = { refs: new Set(), extraRefs: new Set() };
+            accountsToSync.set(accountId, bucket);
+          }
+          if (isExtra) bucket.extraRefs.add(ref.trim());
+          else bucket.refs.add(ref.trim());
+        };
+
+        const isManualTx = (t: Transaction | undefined) =>
+          t && String(t.Origem || 'manual').trim().toLowerCase() === 'manual';
+
+        if (isManualTx(oldTransaction) && oldTransaction?.ID_Conta) {
+          const acc = cardAccounts.find((a) => a.id === oldTransaction.ID_Conta);
+          if (acc) trackRef(acc.id, referenceMonthFromTransaction(oldTransaction, acc));
+        }
+        if (isManualTx(updated) && updated.ID_Conta) {
+          const acc = cardAccounts.find((a) => a.id === updated.ID_Conta);
+          if (acc) trackRef(acc.id, referenceMonthFromTransaction(updated, acc));
+        }
+        if (
+          oldTransaction?.ID_Conta &&
+          updated.ID_Conta &&
+          oldTransaction.ID_Conta !== updated.ID_Conta &&
+          isManualTx(oldTransaction)
+        ) {
+          const oldAcc = cardAccounts.find((a) => a.id === oldTransaction.ID_Conta);
+          if (oldAcc) {
+            trackRef(
+              oldAcc.id,
+              referenceMonthFromTransaction(oldTransaction, oldAcc),
+              true
+            );
+          }
+        }
+
+        const classifierRules = getCardClassifierRules(user);
+        for (const [accountId, { refs, extraRefs }] of accountsToSync) {
+          scheduleManualCreditCardSync({
+            getState: () => ({
+              transactions: get().transactions,
+              accounts: get().accounts,
+              importLogs,
+            }),
+            user,
+            accountId,
+            referenceMonths: [...refs],
+            extraReferenceMonths: [...extraRefs],
+            rules: engineRules,
+            classifierRules,
+            onComplete: () => {
+              get().bumpCreditCardEngineRevision();
+              if (isCardV2ShadowEnabled(user)) {
+                void get().refreshCreditCardShadowDashboard();
+                void get().fetchCreditCardReprocessJobs();
+              }
+            },
+          });
+        }
+      }
     }
   },
 
@@ -1931,44 +2036,63 @@ export const useAppStore = create<AppState>((set, get) => ({
         await get().recalculateAssetBalance(assetId);
       }
 
-      if (user && transaction?.ID_Conta && transaction?.Origem && transaction.Origem !== 'manual') {
+      if (user && transaction?.ID_Conta) {
         const ledgerSync = shouldAutoSyncCreditCardLedger(user);
         const account = accounts.find((a) => a.id === transaction.ID_Conta);
+        const isManual = String(transaction.Origem || 'manual').trim().toLowerCase() === 'manual';
 
         if (ledgerSync && account?.Tipo_Conta === 'Cartão de Crédito') {
-          const remainingTx = get().transactions.filter(
-            (t) => t.ID_Conta === account.id && t.Origem === transaction.Origem
-          );
-
           try {
-            if (remainingTx.length > 0) {
-              await syncImportedCardOrigin({
+            if (isManual) {
+              const ref = referenceMonthFromTransaction(transaction, account);
+              scheduleManualCreditCardSync({
                 getState: () => ({
                   transactions: get().transactions,
                   accounts: get().accounts,
+                  importLogs: get().importLogs,
                 }),
                 user,
                 accountId: account.id,
-                origin: transaction.Origem,
+                extraReferenceMonths: REF_MONTH_RE.test(ref) ? [ref] : [],
+                rules: engineClassifierRulesFromUser(user),
+                classifierRules: getCardClassifierRules(user),
+                onComplete: () => get().bumpCreditCardEngineRevision(),
               });
-            } else {
-              await removeImportedCardArtifacts({
-                userId: user.id,
-                user,
-                account,
-                origin: transaction.Origem,
-                deletedTransactions: [transaction],
-              });
+            } else if (transaction.Origem) {
+              const remainingTx = get().transactions.filter(
+                (t) => t.ID_Conta === account.id && t.Origem === transaction.Origem
+              );
+
+              if (remainingTx.length > 0) {
+                await syncImportedCardOrigin({
+                  getState: () => ({
+                    transactions: get().transactions,
+                    accounts: get().accounts,
+                  }),
+                  user,
+                  accountId: account.id,
+                  origin: transaction.Origem,
+                });
+              } else {
+                await removeImportedCardArtifacts({
+                  userId: user.id,
+                  user,
+                  account,
+                  origin: transaction.Origem,
+                  deletedTransactions: [transaction],
+                });
+              }
             }
           } catch (autoError) {
             console.error('[CardV2][Auto] Falha ao sincronizar exclusão de transação:', autoError);
           }
 
-          get().bumpCreditCardEngineRevision();
-
-          if (isCardV2ShadowEnabled(user)) {
-            await get().refreshCreditCardShadowDashboard();
-            await get().fetchCreditCardReprocessJobs();
+          if (!isManual) {
+            get().bumpCreditCardEngineRevision();
+            if (isCardV2ShadowEnabled(user)) {
+              await get().refreshCreditCardShadowDashboard();
+              await get().fetchCreditCardReprocessJobs();
+            }
           }
         }
       }

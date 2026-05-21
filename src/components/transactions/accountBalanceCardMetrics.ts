@@ -12,11 +12,19 @@ type CreditCardMotorStatementSnap = {
   fetchCompleted: boolean;
 };
 
+export type CompetencePaymentConfirmationInput = {
+  referenceMonth: string;
+  settledAmount: number;
+  confirmedAt: string;
+};
+
 export interface ComputeAccountCardMetricsOptions {
   transactions: Transaction[];
   accounts: Account[];
   importLogs: ImportLog[];
   rules?: ClassificationRules;
+  /** Confirmações «já paguei no banco» — mesmas do modal Histórico de faturas. */
+  userPaymentConfirmations?: CompetencePaymentConfirmationInput[];
   cardV2Snapshot?: CreditCardMotorStatementSnap;
   cardV2Enabled: boolean;
   cardEngineEnabled: boolean;
@@ -32,6 +40,7 @@ export function computeAccountCardDisplay(
     accounts,
     importLogs,
     rules,
+    userPaymentConfirmations,
     cardV2Snapshot,
     cardV2Enabled,
     cardEngineEnabled,
@@ -240,12 +249,19 @@ export function computeAccountCardDisplay(
         transactions,
         importLogs,
         rules,
+        userPaymentConfirmations,
       });
       const currentCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
-      faturaAtual = currentCompetence ? Math.max(currentCompetence.statementTotal, 0) : 0;
-      if (shouldUseCardSnapshot && manualOnAccount) {
-        totalUsedLimit = roundCurrency(Math.max(totalUsedLimit, faturaAtual));
+      if (currentCompetence) {
+        faturaAtual = Math.max(currentCompetence.openBalance, 0);
       }
+      const openFromAllCompetences = competenceCards.reduce(
+        (sum, c) => sum + Math.max(c.openBalance, 0),
+        0
+      );
+      totalUsedLimit = roundCurrency(
+        Math.max(totalUsedLimit, faturaAtual, openFromAllCompetences)
+      );
     }
   }
 

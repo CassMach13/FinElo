@@ -486,6 +486,8 @@ export const creditCardEngineService = {
     dueYear?: number;
     dueMonth?: number;
     dueDate?: string;
+    /** Evita recalcular o cartão inteiro a cada origem (use um recálculo ao final do lote). */
+    skipRecalculateAllStatements?: boolean;
   }): Promise<{ processed: number; statementId: string; lotId: string }> {
     const rows = await this.buildImportRowsFromTransactionsPreservingIndices({
       accountId: input.account.id,
@@ -504,6 +506,7 @@ export const creditCardEngineService = {
       rules: input.rules,
       paymentOverrideTransactionIds: input.paymentOverrideTransactionIds,
       refundOverrideTransactionIds: input.refundOverrideTransactionIds,
+      skipRecalculateAllStatements: input.skipRecalculateAllStatements,
     });
 
     return { processed: rows.length, statementId: result.statementId, lotId: result.lotId };
@@ -907,6 +910,7 @@ export const creditCardEngineService = {
     paymentOverrideTransactionIds?: string[];
     refundOverrideTransactionIds?: string[];
     fileTotals?: CreditCardFileTotalsInput;
+    skipRecalculateAllStatements?: boolean;
   }): Promise<{ statementId: string; lotId: string; entries: number }> {
     const ensuredCard = await this.ensureCreditCardForAccount(input.userId, input.account);
     const inferred = parseCreditCardReferenceFromFileName(input.sourceFileName);
