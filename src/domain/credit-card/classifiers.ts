@@ -32,7 +32,16 @@ const PAYMENT_KEYWORDS = [
   'pagamentos validos',
 ];
 
-const REFUND_KEYWORDS = ['estorno', 'reembolso', 'devolucao', 'cancelamento', 'credito', 'ajuste credor'];
+/** Evite "credito" isolado — aparece em compras (ex. rotativo) e zerava a fatura. */
+const REFUND_KEYWORDS = [
+  'estorno',
+  'reembolso',
+  'devolucao',
+  'cancelamento',
+  'ajuste credor',
+  'credito estornado',
+  'estorno de',
+];
 const FEE_KEYWORDS = ['anuidade', 'tarifa'];
 const INTEREST_KEYWORDS = ['juros', 'multa', 'encargos', 'iof', 'rotativo'];
 
@@ -91,8 +100,11 @@ export const classifyEntryType = (
     return { entryType: 'purchase', classificationSource: 'system', classificationConfidence: 0.8 };
   }
 
-  /** Crédito na fatura (positivo em convenção cartão invertida) sem keyword: reduz valor a pagar — ex. estorno com descrição genérica tipo loja duplicada. */
-  return { entryType: 'adjustment', classificationSource: 'system', classificationConfidence: 0.55 };
+  /** Crédito sem keyword explícita: não assumir estorno (evita zerar fatura). */
+  if (includesAnyKeyword(normalized, refundKeywords)) {
+    return { entryType: 'refund', classificationSource: 'system', classificationConfidence: 0.7 };
+  }
+  return { entryType: 'needs_review', classificationSource: 'system', classificationConfidence: 0.45 };
 };
 
 export const normalizeDescription = (value: string): string => normalizeText(value);

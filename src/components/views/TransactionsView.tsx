@@ -26,7 +26,9 @@ import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 import {
   creditCardRebuildFromImportHistoryService,
   type CompetenceHistoryCard,
+  type CompetenceHistoryFileLine,
 } from '../../services/creditCardRebuildFromImportHistoryService';
+import { MANUAL_COMPETENCE_FILE_LABEL } from '../../services/creditCardManualCompetence';
 import {
   buildDirectedPaymentDescription,
 } from '../../services/creditCardDirectedPayment';
@@ -348,6 +350,20 @@ const TransactionsView: React.FC = () => {
     },
     [user?.id, motorInvoiceHistoryAccount, loadImportHistoryCompetenceCards]
   );
+
+  const formatHistoryFileAudit = useCallback((f: CompetenceHistoryFileLine): string => {
+    const refunds = f.totalRefunds ?? 0;
+    const debits =
+      f.totalDebits != null && Number.isFinite(f.totalDebits)
+        ? f.totalDebits
+        : Math.max(0, f.statementTotal);
+    const parts = [`${f.transactionCount} lanç.`];
+    if (debits > 0.005) parts.push(`compras ${formatCurrency(debits)}`);
+    if (refunds > 0.005) parts.push(`estornos ${formatCurrency(refunds)}`);
+    parts.push(`líquido ${formatCurrency(f.statementTotal)}`);
+    if (f.totalPayments > 0.005) parts.push(`pag. ${formatCurrency(f.totalPayments)}`);
+    return parts.join(' · ');
+  }, []);
 
   const competenceCardStatusLabel = useCallback((card: CompetenceHistoryCard): string => {
     if (card.openBalance <= 0.005) return 'Paga';
@@ -2822,6 +2838,15 @@ const TransactionsView: React.FC = () => {
           lastCreatedAccount={lastCreatedAccount}
           lastCreatedCategory={lastCreatedCategory}
           transaction={predefinedTransaction || editingTransaction}
+          onPayCreditCardInvoice={(account, suggestedAmount) => {
+            setNewTransactionModalOpen(false);
+            setEditingTransaction(null);
+            setPredefinedTransaction(null);
+            handlePayInvoice(account, suggestedAmount);
+          }}
+          loadCompetenceCards={loadImportHistoryCompetenceCards}
+          cardPaymentKeywords={currentPaymentKeywords}
+          cardCreditKeywords={currentCreditKeywords}
         />
       )}
 
@@ -2862,11 +2887,13 @@ const TransactionsView: React.FC = () => {
         className="max-w-lg"
       >
         <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Inclui{' '}
-          <span className="text-gray-300 font-medium">extratos importados</span> e{' '}
-          <span className="text-gray-300 font-medium">lançamentos manuais</span> (competência pela data de pagamento /
-          vencimento). <span className="text-gray-300 font-medium">Pagamentos de fatura</span> quitam a competência{' '}
-          <span className="text-gray-300 font-medium">anterior</span> (padrão XP). Vários arquivos no mesmo mês são somados.
+          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Mostramos{' '}
+          <span className="text-gray-300 font-medium">compras</span>, <span className="text-gray-300 font-medium">estornos</span>{' '}
+          e o <span className="text-gray-300 font-medium">total líquido</span>, por extrato importado e por lançamentos manuais.
+          Pagamentos do extrato aparecem no detalhe da fonte; para abater esta fatura use{' '}
+          <span className="text-gray-300 font-medium">Pagar fatura</span> ou confirme saldo residual.
+          Cada extrato CSV com competência configurada vira um card; use{' '}
+          <span className="text-gray-300 font-medium">Ajustar competências por arquivo</span> se faltar algum mês.
         </p>
         {motorInvoiceHistoryAccount && showAdjustCompetenceByFile ? (
           <div className="mb-4">
@@ -2929,6 +2956,40 @@ const TransactionsView: React.FC = () => {
                     {competenceCardStatusLabel(card)}
                   </span>
                 </div>
+                {(card.totalRefunds > 0.005 ||
+                  card.totalDebits > card.statementTotal + 0.005 ||
+                  (card.directedManualRefundTotal ?? 0) > 0.005) && (
+                  <div className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1">
+                    <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">
+                      Composição da fatura
+                    </p>
+                    {card.totalDebits > 0.005 ? (
+                      <div className="flex justify-between items-baseline gap-2 text-[11px]">
+                        <span className="text-gray-400">Compras e encargos</span>
+                        <span className="text-gray-200 tabular-nums font-medium">
+                          {formatCurrency(card.totalDebits)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {card.totalRefunds > 0.005 ? (
+                      <div className="flex justify-between items-baseline gap-2 text-[11px]">
+                        <span className="text-gray-400">Estornos e créditos</span>
+                        <span className="text-emerald-300/95 tabular-nums font-medium">
+                          − {formatCurrency(card.totalRefunds)}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                {(card.directedManualRefundTotal ?? 0) > 0.005 ? (
+                  <p className="text-[10px] text-violet-200/90 leading-snug rounded-lg border border-violet-500/25 bg-violet-500/10 px-2.5 py-2">
+                    <span className="font-semibold text-violet-100">Estorno manual</span> de{' '}
+                    <span className="tabular-nums font-semibold text-violet-50">
+                      {formatCurrency(card.directedManualRefundTotal ?? 0)}
+                    </span>{' '}
+                    nesta competência — já descontado do total da fatura (não consta no extrato importado).
+                  </p>
+                ) : null}
                 <div className="flex justify-between items-baseline gap-2 flex-wrap">
                   <span className="text-[10px] text-gray-500 uppercase font-semibold">Total da fatura</span>
                   <span className="text-base font-black text-rose-300 tabular-nums">
@@ -2941,6 +3002,15 @@ const TransactionsView: React.FC = () => {
                     {formatCurrency(card.totalPayments)}
                   </span>
                 </div>
+                {(card.paymentsOnExtracts ?? 0) > 0.005 ? (
+                  <p className="text-[10px] text-gray-500 leading-snug -mt-0.5">
+                    No extrato:{' '}
+                    <span className="tabular-nums text-gray-400">
+                      {formatCurrency(card.paymentsOnExtracts ?? 0)}
+                    </span>{' '}
+                    em linha de pagamento de fatura (informativo; não abate automaticamente o saldo acima).
+                  </p>
+                ) : null}
                 <div className="flex justify-between items-baseline gap-2 flex-wrap">
                   <span className="text-[10px] text-gray-500 uppercase font-semibold">Saldo em aberto</span>
                   <span
@@ -3018,28 +3088,32 @@ const TransactionsView: React.FC = () => {
                     total de fatura para calcular crédito — o valor não é repassado automaticamente.
                   </p>
                 ) : null}
-                {card.files.length > 1 ? (
-                  <details className="mt-1 text-[10px] text-gray-500">
+                {card.files.length > 0 ? (
+                  <details className="mt-1 text-[10px] text-gray-500" open={card.files.length <= 2}>
                     <summary className="cursor-pointer hover:text-gray-400">
-                      {card.files.length} arquivo(s) nesta competência
+                      {card.files.length === 1 ? 'Detalhe da fonte' : `${card.files.length} fontes nesta competência`}
                     </summary>
-                    <ul className="mt-1.5 space-y-1 pl-1 border-l border-white/10">
+                    <ul className="mt-1.5 space-y-1.5 pl-1 border-l border-white/10">
                       {card.files.map((f) => (
                         <li key={f.fileName} className="pl-2">
-                          <span className="text-gray-400 break-all">{f.fileName}</span>
-                          <span className="text-gray-600">
-                            {' '}
-                            — {f.transactionCount} lanç. · fatura {formatCurrency(f.statementTotal)} · pag.{' '}
-                            {formatCurrency(f.totalPayments)}
+                          <span
+                            className={`break-all font-medium ${
+                              f.fileName === MANUAL_COMPETENCE_FILE_LABEL
+                                ? 'text-violet-300/90'
+                                : 'text-gray-400'
+                            }`}
+                          >
+                            {f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? 'Lançamentos manuais' : f.fileName}
                           </span>
+                          <p className="text-gray-600 leading-snug mt-0.5">{formatHistoryFileAudit(f)}</p>
                         </li>
                       ))}
                     </ul>
                   </details>
-                ) : card.files[0] ? (
-                  <p className="text-[9px] text-gray-600 break-all leading-snug">{card.files[0].fileName}</p>
                 ) : null}
-                <p className="text-[9px] text-gray-600 leading-snug">Fonte: soma das linhas do extrato importado</p>
+                <p className="text-[9px] text-gray-600 leading-snug">
+                  Total = compras − estornos; pagamentos abatem saldo (extrato pode quitarem competência anterior).
+                </p>
               </li>
             ))}
             </ul>

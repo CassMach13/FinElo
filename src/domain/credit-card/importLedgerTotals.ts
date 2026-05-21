@@ -9,6 +9,8 @@ export interface ImportLedgerLineInput {
   description: string;
   amount: number;
   installmentTotal?: number;
+  /** Tipo Finelo na importação de cartão (Despesa = compra, Renda = crédito na fatura). */
+  fineloTipo?: string;
 }
 
 export interface ImportLedgerTotalsResult {
@@ -45,7 +47,9 @@ export function computeImportLedgerTotals(
 
   for (const line of lines) {
     const amount = round2(Number(line.amount || 0));
+    const absAmount = round2(Math.abs(amount));
     const normalized = normalizeDescription(line.description || '');
+    const fineloTipo = String(line.fineloTipo || '').trim();
     const classified = classifyEntryType(
       {
         amount,
@@ -55,29 +59,36 @@ export function computeImportLedgerTotals(
       },
       rules
     );
-    const type = classified.entryType;
-    byType[type] = round2((byType[type] || 0) + Math.abs(amount));
+    let type = classified.entryType;
+
+    if (fineloTipo === 'Despesa' && type !== 'invoice_payment' && type !== 'ignored') {
+      type = (line.installmentTotal || 0) > 1 ? 'installment_purchase' : 'purchase';
+    } else if (fineloTipo === 'Renda' && type !== 'invoice_payment' && type !== 'ignored') {
+      type = 'refund';
+    }
+
+    byType[type] = round2((byType[type] || 0) + absAmount);
 
     if (type === 'invoice_payment') {
-      totalInvoicePayments = round2(totalInvoicePayments + Math.abs(amount));
+      totalInvoicePayments = round2(totalInvoicePayments + absAmount);
       continue;
     }
     if (type === 'refund' || type === 'adjustment') {
-      totalRefunds = round2(totalRefunds + Math.abs(amount));
+      totalRefunds = round2(totalRefunds + absAmount);
       continue;
     }
     if (type === 'ignored') continue;
 
     if (type === 'purchase' || type === 'installment_purchase' || type === 'fee' || type === 'interest') {
-      totalDebits = round2(totalDebits + Math.abs(amount));
+      totalDebits = round2(totalDebits + absAmount);
       continue;
     }
 
     if (type === 'needs_review') {
-      if (inferDirection(amount) === 'debit' || amount < 0) {
-        totalDebits = round2(totalDebits + Math.abs(amount));
+      if (inferDirection(amount) === 'debit' || amount < 0 || fineloTipo === 'Despesa') {
+        totalDebits = round2(totalDebits + absAmount);
       } else {
-        totalOtherCredits = round2(totalOtherCredits + Math.abs(amount));
+        totalOtherCredits = round2(totalOtherCredits + absAmount);
       }
     }
   }

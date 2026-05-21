@@ -7,12 +7,18 @@ import { statementDueMonthKey } from '../utils/creditCardStatementDisplay';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import {
   buildInvoiceCycleRowsForAccount,
+  cardCycleMetaFromImportedLog,
   invoiceCycleRowToRebuildCycle,
+  parseBRDateToIso,
   parseMMAAAAToIsoMonth,
 } from './creditCardInvoiceCycleRows';
 import { creditCardEngineService } from './creditCardEngineService';
 import { parseCreditCardReferenceFromFileName } from './creditCardEngineService';
-import { appendManualCompetenceTotals } from './creditCardManualCompetence';
+import {
+  appendManualCompetenceTotals,
+  MANUAL_COMPETENCE_FILE_LABEL,
+} from './creditCardManualCompetence';
+import { parseDirectedCompetenceFromPayment } from './creditCardDirectedPayment';
 
 export interface ImportHistoryRebuildCycle {
   /** Nome do arquivo como em import_logs.file_name */
@@ -40,6 +46,11 @@ export interface ImportHistoryRebuildResult {
 export interface CompetenceHistoryFileLine {
   fileName: string;
   transactionCount: number;
+  /** Compras, taxas e juros (antes dos estornos). */
+  totalDebits?: number;
+  /** Estornos e créditos abatidos do total. */
+  totalRefunds?: number;
+  /** Líquido da fatura nesta fonte (débitos − estornos). */
   statementTotal: number;
   totalPayments: number;
 }
@@ -53,6 +64,10 @@ export interface CompetenceHistoryCard {
   dueYear: number;
   dueMonth: number;
   files: CompetenceHistoryFileLine[];
+  /** Soma de compras/encargos (todas as fontes). */
+  totalDebits: number;
+  /** Soma de estornos/créditos (todas as fontes). */
+  totalRefunds: number;
   statementTotal: number;
   totalPayments: number;
   /** Antes de aplicar crédito excedente de competências anteriores. */
@@ -66,6 +81,12 @@ export interface CompetenceHistoryCard {
   userConfirmedPaid?: boolean;
   userConfirmedAt?: string;
   userConfirmedAmount?: number;
+  /** Estorno manual com competência explícita (modal / finelo_competence). */
+  directedManualRefundTotal?: number;
+  /** Pagamento manual com competência explícita (modal Pagar). */
+  directedManualPaymentTotal?: number;
+  /** Soma dos pagamentos de fatura nas linhas de extrato desta competência (antes do repasse XP N→N−1). */
+  paymentsOnExtracts?: number;
 }
 
 function parseDueFromReference(referenceMonth: string, dueDay: number): string {
@@ -84,6 +105,15 @@ function parseDueFromReference(referenceMonth: string, dueDay: number): string {
   return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/** Convenção Finelo no cartão importado: Despesa negativa = compra; Renda positiva = crédito. */
+function cardImportLedgerAmount(tx: Transaction): number {
+  const raw = round2(Number(tx.Valor || 0));
+  const tipo = String(tx.Tipo || '').trim();
+  if (tipo === 'Despesa') return raw <= 0 ? raw : -Math.abs(raw);
+  if (tipo === 'Renda') return raw >= 0 ? raw : Math.abs(raw);
+  return raw;
+}
+
 function transactionsForFile(accountId: string, fileName: string, transactions: Transaction[]): Transaction[] {
   const key = comparableImportOriginKey(fileName);
   return transactions.filter(
@@ -91,6 +121,7 @@ function transactionsForFile(accountId: string, fileName: string, transactions: 
       t.ID_Conta === accountId &&
       t.Origem &&
       t.Origem !== 'manual' &&
+      !parseDirectedCompetenceFromPayment(t) &&
       comparableImportOriginKey(String(t.Origem)) === key
   );
 }
@@ -111,7 +142,155 @@ function isoDateToBR(iso: string): string {
 
 /** Competência com pelo menos um CSV importado (há base para total da fatura). */
 export function competenceHasImportedStatement(card: CompetenceHistoryCard): boolean {
-  return card.files.length > 0;
+  return card.files.some((f) => f.fileName !== MANUAL_COMPETENCE_FILE_LABEL);
+}
+
+/**
+ * Recalcula o total da fatura: soma compras de todas as fontes − soma estornos.
+ * Não usa max(0, débitos−estornos) por arquivo — estorno manual em linha separada precisa abater o import.
+ */
+export function reconcileCardStatementTotalFromFiles(card: CompetenceHistoryCard): void {
+  let debits = 0;
+  let refunds = 0;
+  let legacyNet = 0;
+
+  card.files.forEach((f) => {
+    const fileRefunds = round2(f.totalRefunds ?? 0);
+    if (f.totalDebits != null && Number.isFinite(f.totalDebits)) {
+      debits = round2(debits + f.totalDebits);
+      refunds = round2(refunds + fileRefunds);
+      return;
+    }
+    legacyNet = round2(legacyNet + f.statementTotal);
+  });
+
+  const fromBreakdown = round2(debits - refunds);
+  card.statementTotal = round2(Math.max(0, fromBreakdown + legacyNet));
+}
+
+/**
+ * Competência criada só para receber pagamento do extrato do mês seguinte (sem CSV neste mês).
+ * Não deve aparecer como fatura R$ 0 no histórico.
+ */
+export function isPaymentOnlyGhostCompetenceCard(card: CompetenceHistoryCard): boolean {
+  if (competenceHasImportedStatement(card)) return false;
+  if ((card.directedManualRefundTotal ?? 0) > 0.005) return false;
+  const manual = card.files.find((f) => f.fileName === MANUAL_COMPETENCE_FILE_LABEL);
+  if (manual && ((manual.totalDebits ?? 0) > 0.005 || (manual.totalRefunds ?? 0) > 0.005)) return false;
+  return card.files.length === 0 && card.totalPayments > 0.005 && card.statementTotal < 0.005;
+}
+
+/** Extrato importado sem compras, pagamentos nem ajuste manual útil — evita cards 01/2026 R$ 0 PAGA. */
+export function isMeaninglessCompetenceHistoryCard(card: CompetenceHistoryCard): boolean {
+  if (isPaymentOnlyGhostCompetenceCard(card)) return true;
+  if ((card.directedManualRefundTotal ?? 0) > 0.005) return false;
+  if ((card.directedManualPaymentTotal ?? 0) > 0.005) return false;
+  const meaningful =
+    card.statementTotal > 0.005 ||
+    card.totalPayments > 0.005 ||
+    card.totalDebits > 0.005 ||
+    card.totalRefunds > 0.005 ||
+    card.openBalance > 0.005;
+  return !meaningful;
+}
+
+export function sumPaymentsOnExtractFiles(card: CompetenceHistoryCard): number {
+  return round2(
+    card.files.reduce((sum, f) => {
+      if (f.fileName === MANUAL_COMPETENCE_FILE_LABEL) return sum;
+      return sum + round2(f.totalPayments ?? 0);
+    }, 0)
+  );
+}
+
+function importLogBelongsToAccount(
+  log: ImportLog,
+  accountId: string,
+  transactions: Transaction[]
+): boolean {
+  const det = Array.isArray(log.imported_details) ? log.imported_details : [];
+  if (det.some((d: { ID_Conta?: string }) => d?.ID_Conta === accountId)) return true;
+  const key = comparableImportOriginKey(log.file_name);
+  if (!key) return false;
+  return transactions.some(
+    (t) =>
+      t.ID_Conta === accountId &&
+      t.Origem &&
+      String(t.Origem).trim().toLowerCase() !== 'manual' &&
+      comparableImportOriginKey(String(t.Origem)) === key
+  );
+}
+
+/** Um ciclo por arquivo importado (log) + linhas do modal de competências — evita colapsar meses em um só card. */
+export function buildImportHistoryCyclesForAccount(input: {
+  accountId: string;
+  account: Account;
+  accounts: Account[];
+  transactions: Transaction[];
+  importLogs: ImportLog[];
+  invoiceDueDayStr?: string;
+}): ImportHistoryRebuildCycle[] {
+  const { accountId, account, accounts, transactions, importLogs, invoiceDueDayStr = '' } = input;
+  const seen = new Set<string>();
+  const cycles: ImportHistoryRebuildCycle[] = [];
+  const dueDay = Number(account.dia_vencimento) || 10;
+
+  const add = (cycle: ImportHistoryRebuildCycle) => {
+    const ref = cycle.referenceMonth.trim();
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ref)) return;
+    const dedupe = `${ref}::${comparableImportOriginKey(cycle.fileName)}`;
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
+    const dueDate =
+      cycle.dueDate && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(cycle.dueDate)
+        ? cycle.dueDate
+        : parseDueFromReference(ref, dueDay);
+    cycles.push({ fileName: cycle.fileName, referenceMonth: ref, dueDate });
+  };
+
+  importLogs.forEach((log) => {
+    if (!importLogBelongsToAccount(log, accountId, transactions)) return;
+    if (transactionsForFile(accountId, log.file_name, transactions).length === 0) return;
+    const persisted = cardCycleMetaFromImportedLog(log, accountId);
+    const referenceMonth =
+      parseMMAAAAToIsoMonth(persisted.competenciaBR.trim()) ||
+      suggestReferenceMonthFromLog(log.file_name, log.imported_details as unknown[] | undefined);
+    if (!referenceMonth) return;
+    const dueDate =
+      parseBRDateToIso(persisted.vencimentoBR.trim()) ||
+      parseDueFromReference(referenceMonth, dueDay);
+    add({ fileName: log.file_name, referenceMonth, dueDate });
+  });
+
+  const cycleRows = buildInvoiceCycleRowsForAccount({
+    accounts,
+    transactions,
+    importLogs,
+    filterAccountId: accountId,
+  });
+  cycleRows
+    .filter((r) => parseMMAAAAToIsoMonth(r.competenciaBR.trim()) && r.txCount > 0)
+    .forEach((r) => add(invoiceCycleRowToRebuildCycle(r, accounts, invoiceDueDayStr)));
+
+  return cycles;
+}
+
+/** Agrega compras e estornos por arquivo para exibição/auditoria no histórico. */
+export function enrichCompetenceCardBreakdown(card: CompetenceHistoryCard): void {
+  let debits = 0;
+  let refunds = 0;
+  card.files.forEach((f) => {
+    const fileRefunds = round2(f.totalRefunds ?? 0);
+    const fileDebits = round2(
+      f.totalDebits != null && Number.isFinite(f.totalDebits)
+        ? f.totalDebits
+        : f.statementTotal
+    );
+    debits = round2(debits + fileDebits);
+    refunds = round2(refunds + fileRefunds);
+  });
+  card.totalDebits = debits;
+  card.totalRefunds = refunds;
 }
 
 /**
@@ -225,12 +404,14 @@ function toImportLines(txs: Transaction[]): Array<{
   description: string;
   amount: number;
   installmentTotal?: number;
+  fineloTipo?: string;
 }> {
   return txs.map((tx) => ({
     postedDate: new Date(tx.Data).toISOString().slice(0, 10),
     description: tx.Descricao_Original || tx.Nome_Fantasia || '',
-    amount: Number(tx.Valor || 0),
+    amount: cardImportLedgerAmount(tx),
     installmentTotal: tx.Total_Parcelas || undefined,
+    fineloTipo: tx.Tipo ? String(tx.Tipo) : undefined,
   }));
 }
 
@@ -369,16 +550,14 @@ export const creditCardRebuildFromImportHistoryService = {
       userPaymentConfirmations = [],
     } = input;
 
-    const cycleRows = buildInvoiceCycleRowsForAccount({
+    const cyclesForPreview = buildImportHistoryCyclesForAccount({
+      accountId,
+      account,
       accounts,
       transactions,
       importLogs,
-      filterAccountId: accountId,
+      invoiceDueDayStr,
     });
-
-    const cyclesForPreview = cycleRows
-      .filter((r) => parseMMAAAAToIsoMonth(r.competenciaBR.trim()))
-      .map((r) => invoiceCycleRowToRebuildCycle(r, accounts, invoiceDueDayStr));
 
     const previews = this.previewCycles(accountId, cyclesForPreview, transactions, rules).filter((p) =>
       /^\d{4}-(0[1-9]|1[0-2])$/.test(p.referenceMonth.trim())
@@ -405,6 +584,8 @@ export const creditCardRebuildFromImportHistoryService = {
         dueYear: dueParts ? Number(dueParts[1]) : 0,
         dueMonth: dueParts ? Number(dueParts[2]) : 0,
         files: [],
+        totalDebits: 0,
+        totalRefunds: 0,
         statementTotal: 0,
         totalPayments: 0,
         openBalanceBeforeCarry: 0,
@@ -423,6 +604,8 @@ export const creditCardRebuildFromImportHistoryService = {
       const fileLine: CompetenceHistoryFileLine = {
         fileName: p.fileName,
         transactionCount: p.transactionCount,
+        totalDebits: p.totals.totalDebits,
+        totalRefunds: p.totals.totalRefunds,
         statementTotal: p.totals.statementTotal,
         totalPayments: p.totals.totalPayments,
       };
@@ -441,12 +624,8 @@ export const creditCardRebuildFromImportHistoryService = {
         }
       }
 
-      const paymentForPrior = round2(p.totals.totalInvoicePayments);
-      const priorRef = previousReferenceMonth(ref);
-      if (priorRef && paymentForPrior > 0) {
-        const priorCard = ensureCompetenceCard(priorRef);
-        priorCard.totalPayments = round2(priorCard.totalPayments + paymentForPrior);
-      }
+      // Pagamento de fatura no CSV (ex. "Pagamentos Válidos") fica só no detalhe do arquivo
+      // (paymentsOnExtracts). Não abate card.totalPayments — alinhado ao comportamento em produção.
     });
 
     appendManualCompetenceTotals({
@@ -460,6 +639,11 @@ export const creditCardRebuildFromImportHistoryService = {
     });
 
     const cards = Array.from(byCompetence.values());
+    cards.forEach((card) => {
+      reconcileCardStatementTotalFromFiles(card);
+      enrichCompetenceCardBreakdown(card);
+      card.paymentsOnExtracts = sumPaymentsOnExtractFiles(card);
+    });
 
     const confirmByRef = new Map(
       userPaymentConfirmations.map((c) => [c.referenceMonth.trim(), c])
@@ -475,7 +659,7 @@ export const creditCardRebuildFromImportHistoryService = {
 
     applySequentialCreditCarryForward(cards);
 
-    return cards.sort((a, b) => {
+    return cards.filter((c) => !isPaymentOnlyGhostCompetenceCard(c)).sort((a, b) => {
       if (b.dueYear !== a.dueYear) return b.dueYear - a.dueYear;
       if (b.dueMonth !== a.dueMonth) return b.dueMonth - a.dueMonth;
       return b.referenceMonth.localeCompare(a.referenceMonth);

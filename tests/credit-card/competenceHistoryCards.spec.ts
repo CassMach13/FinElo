@@ -68,7 +68,7 @@ describe('competenceHistoryCardsForAccount', () => {
     expect(cards[0].competenceBR).toBe('01/2026');
   });
 
-  it('pagamento no CSV da competência seguinte abate a competência anterior', () => {
+  it('pagamento no CSV não abate card.totalPayments da competência anterior (igual produção)', () => {
     const transactions: Transaction[] = [
       {
         ID_Transacao: '1',
@@ -122,11 +122,13 @@ describe('competenceHistoryCardsForAccount', () => {
     const jan = cards.find((c) => c.referenceMonth === '2024-12');
     const fev = cards.find((c) => c.referenceMonth === '2025-01');
     expect(jan?.statementTotal).toBe(500);
-    expect(jan?.totalPayments).toBe(500);
-    expect(jan?.openBalance).toBe(0);
+    expect(jan?.totalPayments).toBe(0);
+    expect(jan?.openBalance).toBe(500);
+    expect(jan?.paymentsOnExtracts).toBe(0);
     expect(fev?.statementTotal).toBe(200);
     expect(fev?.totalPayments).toBe(0);
     expect(fev?.openBalance).toBe(200);
+    expect(fev?.paymentsOnExtracts).toBe(500);
   });
 
   it('aplica crédito de pagamento a mais da competência anterior no mês seguinte', () => {
@@ -178,6 +180,13 @@ describe('competenceHistoryCardsForAccount', () => {
           ],
         } as any,
       ],
+      userPaymentConfirmations: [
+        {
+          referenceMonth: '2025-02',
+          settledAmount: 160,
+          confirmedAt: '2025-03-06T12:00:00.000Z',
+        },
+      ],
     });
 
     const fev = cards.find((c) => c.referenceMonth === '2025-02');
@@ -203,6 +212,7 @@ describe('competenceHistoryCardsForAccount', () => {
         Origem: 'Fatura_Cartao_XP_Cassio_Dez_2025.csv',
         Data: '2025-12-05',
         Valor: 7356.47,
+        Tipo: 'Renda',
         Descricao_Original: 'Pagamentos Validos Normais',
       } as Transaction,
       {
@@ -211,6 +221,7 @@ describe('competenceHistoryCardsForAccount', () => {
         Origem: 'Fatura_Cartao_XP_Cassio_Dez_2025.csv',
         Data: '2025-12-10',
         Valor: -6052.63,
+        Tipo: 'Despesa',
         Descricao_Original: 'COMPRAS DEZ',
       } as Transaction,
     ];
@@ -234,13 +245,107 @@ describe('competenceHistoryCardsForAccount', () => {
     const nov = cards.find((c) => c.referenceMonth === '2025-10');
     const dez = cards.find((c) => c.referenceMonth === '2025-11');
 
-    expect(nov?.files.length).toBe(0);
-    expect(nov?.statementTotal).toBe(0);
-    expect(nov?.totalPayments).toBe(7356.47);
-    expect(nov?.creditCarriedForward).toBe(0);
+    expect(nov).toBeUndefined();
 
     expect(dez?.files.length).toBe(1);
-    expect(dez?.creditCarriedForward).toBeLessThan(1);
+    expect(dez?.statementTotal).toBe(6052.63);
+    expect(dez?.totalPayments).toBe(0);
+    expect(dez?.paymentsOnExtracts).toBe(7356.47);
+    expect(dez?.openBalance).toBe(6052.63);
+  });
+
+  it('compra manual Despesa negativa (Netflix) entra no total da competência, não como estorno', () => {
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'netflix-jan',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-01-10',
+        Data_Pagamento: '2026-02-10',
+        Valor: -39.99,
+        Nome_Fantasia: 'Netflix',
+        Descricao_Original: 'Netflix',
+      } as Transaction,
+      {
+        ID_Transacao: 'netflix-fev',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-02-10',
+        Data_Pagamento: '2026-03-10',
+        Valor: -39.99,
+        Nome_Fantasia: 'Netflix',
+        Descricao_Original: 'Netflix',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: [account],
+      transactions,
+      importLogs: [],
+    });
+
+    const jan = cards.find((c) => c.referenceMonth === '2026-01');
+    const fev = cards.find((c) => c.referenceMonth === '2026-02');
+
+    expect(jan?.statementTotal).toBe(39.99);
+    expect(jan?.openBalance).toBe(39.99);
+    expect(jan?.files.some((f) => f.fileName === 'Lançamentos manuais')).toBe(true);
+    expect(fev?.statementTotal).toBe(39.99);
+    expect(fev?.openBalance).toBe(39.99);
+  });
+
+  it('estorno manual Renda (sem finelo_competence) abate competência pelo mês da Data, não Data_Pagamento aleatória', () => {
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'compra-maio',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-05-10',
+        Data_Pagamento: '2026-06-10',
+        Valor: -50,
+        Nome_Fantasia: 'teste',
+      } as Transaction,
+      {
+        ID_Transacao: 'netflix-maio',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-05-10',
+        Data_Pagamento: '2026-06-10',
+        Valor: -39.99,
+        Nome_Fantasia: 'Netflix',
+      } as Transaction,
+      {
+        ID_Transacao: 'estorno-teste',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Tipo: 'Renda',
+        Data: '2026-05-21',
+        Data_Pagamento: '2026-05-21',
+        Valor: 39.99,
+        Nome_Fantasia: 'Teste',
+        Categoria: 'Estornos/Reembolsos',
+        Descricao_Original: 'Teste',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: [account],
+      transactions,
+      importLogs: [],
+    });
+
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+    expect(mai?.statementTotal).toBe(50);
+    expect(mai?.directedManualRefundTotal).toBe(39.99);
+    expect(mai?.openBalance).toBe(50);
   });
 });
 

@@ -16,6 +16,87 @@ export function buildDirectedPaymentDescription(referenceMonth: string): string 
   return `Pagamento de Fatura (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
 }
 
+/** Estorno/crédito manual com competência explícita na fatura. */
+export function buildDirectedRefundDescription(referenceMonth: string, label = 'Estorno'): string {
+  const ref = referenceMonth.trim();
+  const base = label.trim() || 'Estorno';
+  return `${base} (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
+}
+
+export type CardManualEntryKind = 'purchase' | 'refund' | 'invoice_payment';
+
+const DEFAULT_REFUND_HINTS = ['estorno', 'reembolso', 'devolucao', 'cancelamento', 'credito', 'ajuste credor'];
+
+const textBlob = (parts: Array<string | undefined | null>) =>
+  normalize(parts.filter(Boolean).join(' '));
+
+/** Pagamento explícito na descrição/nome (ignora categoria — evita falso positivo em "Pagamento Cartão"). */
+export function looksLikeStrictInvoicePaymentText(
+  parts: { nome?: string; descricao?: string },
+  paymentKeywords: string[] = []
+): boolean {
+  const blob = textBlob([parts.nome, parts.descricao]);
+  if (
+    blob.includes('pagamento de fatura') ||
+    (blob.includes('pagamento') && blob.includes('fatura'))
+  ) {
+    return true;
+  }
+  return paymentKeywords.some((k) => {
+    const kw = normalize(k);
+    return kw.length > 2 && blob.includes(kw);
+  });
+}
+
+export function looksLikeInvoicePaymentText(
+  parts: { categoria?: string; nome?: string; descricao?: string },
+  paymentKeywords: string[] = []
+): boolean {
+  const blob = textBlob([parts.categoria, parts.nome, parts.descricao]);
+  if (
+    blob.includes('pagamento de fatura') ||
+    (blob.includes('pagamento') && blob.includes('fatura'))
+  ) {
+    return true;
+  }
+  if (looksLikeStrictInvoicePaymentText(parts, paymentKeywords)) return true;
+  const cat = normalize(String(parts.categoria || ''));
+  return cat.includes('pagamento') && (cat.includes('fatura') || cat.includes('cartao') || cat.includes('credito'));
+}
+
+export function looksLikeCardRefundText(
+  parts: { categoria?: string; nome?: string; descricao?: string },
+  creditKeywords: string[] = DEFAULT_REFUND_HINTS
+): boolean {
+  const blob = textBlob([parts.categoria, parts.nome, parts.descricao]);
+  if (blob.includes(COMPETENCE_PAYMENT_OBS_PREFIX.toLowerCase())) {
+    if (looksLikeStrictInvoicePaymentText(parts)) return false;
+    return true;
+  }
+  return creditKeywords.some((k) => {
+    const kw = normalize(k);
+    return kw.length > 2 && blob.includes(kw);
+  });
+}
+
+export function inferCardManualEntryKind(
+  tipo: string,
+  parts: { categoria?: string; nome?: string; descricao?: string },
+  opts?: { paymentKeywords?: string[]; creditKeywords?: string[] }
+): CardManualEntryKind | null {
+  if (tipo === 'Despesa') return 'purchase';
+  if (tipo !== 'Renda') return null;
+  if (looksLikeInvoicePaymentText(parts, opts?.paymentKeywords)) return 'invoice_payment';
+  if (looksLikeCardRefundText(parts, opts?.creditKeywords)) return 'refund';
+  return null;
+}
+
+export function referenceMonthFromIsoDate(iso: string): string | null {
+  const m = /^(\d{4})-(\d{2})/.exec(String(iso || '').trim());
+  if (!m || !REF_MONTH_RE.test(`${m[1]}-${m[2]}`)) return null;
+  return `${m[1]}-${m[2]}`;
+}
+
 const DIRECTED_COMPETENCE_RE = new RegExp(
   `${COMPETENCE_PAYMENT_OBS_PREFIX}(\\d{4}-(?:0[1-9]|1[0-2]))`
 );
@@ -39,10 +120,43 @@ export function isDirectedCompetencePayment(tx: Transaction): boolean {
   return parseDirectedCompetenceFromPayment(tx) != null;
 }
 
+/** Estorno/crédito manual no cartão (Renda, não é pagamento de fatura). */
+export function isManualCardRefund(tx: Transaction, creditKeywords?: string[]): boolean {
+  if (String(tx.Tipo) !== 'Renda') return false;
+  if (isManualInvoicePayment(tx)) return false;
+  const directed = parseDirectedCompetenceFromPayment(tx);
+  if (directed) return true;
+  return looksLikeCardRefundText(
+    {
+      categoria: tx.Categoria,
+      nome: tx.Nome_Fantasia,
+      descricao: tx.Descricao_Original,
+    },
+    creditKeywords
+  );
+}
+
+/** Lançamento manual com competência escolhida via modal Pagar. */
+export function isDirectedManualInvoicePayment(tx: Transaction): boolean {
+  if (!isDirectedCompetencePayment(tx) || String(tx.Tipo) !== 'Renda') return false;
+  return looksLikeStrictInvoicePaymentText({
+    nome: tx.Nome_Fantasia,
+    descricao: tx.Descricao_Original,
+  });
+}
+
+/** Estorno/crédito manual com competência explícita (marcador finelo_competence, não é pagamento). */
+export function isDirectedManualRefund(tx: Transaction): boolean {
+  if (!isDirectedCompetencePayment(tx) || String(tx.Tipo) !== 'Renda') return false;
+  return !isDirectedManualInvoicePayment(tx);
+}
+
 /** Pagamento de fatura manual (Renda no cartão). */
 export function isManualInvoicePayment(tx: Transaction): boolean {
   if (String(tx.Tipo) !== 'Renda') return false;
-  if (isDirectedCompetencePayment(tx)) return true;
+  if (isDirectedCompetencePayment(tx)) {
+    return isDirectedManualInvoicePayment(tx);
+  }
   const cat = normalize(String(tx.Categoria || ''));
   const nome = normalize(String(tx.Nome_Fantasia || ''));
   const desc = normalize(String(tx.Descricao_Original || ''));

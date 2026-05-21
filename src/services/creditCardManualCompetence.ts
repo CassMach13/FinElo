@@ -8,9 +8,14 @@ import type {
   CompetenceHistoryCard,
   CompetenceHistoryFileLine,
 } from './creditCardRebuildFromImportHistoryService';
+import { reconcileCardStatementTotalFromFiles } from './creditCardRebuildFromImportHistoryService';
 import {
+  isDirectedManualInvoicePayment,
+  isDirectedManualRefund,
+  isManualCardRefund,
   isManualInvoicePayment,
   parseDirectedCompetenceFromPayment,
+  referenceMonthFromIsoDate,
 } from './creditCardDirectedPayment';
 
 export const MANUAL_COMPETENCE_FILE_LABEL = 'Lançamentos manuais';
@@ -41,8 +46,36 @@ export function referenceMonthFromPaymentDueDate(paymentDueIso: string): string 
   return `${y}-${String(mo).padStart(2, '0')}`;
 }
 
-/** Competência da compra: vencimento (Data_Pagamento) ou mês da Data de competência. */
-export function referenceMonthFromTransaction(t: Transaction, _account: Account): string {
+/** Data_Pagamento no dia de vencimento do cartão (ex.: dia 10) = vencimento da fatura. */
+export function paymentIsoLooksLikeCardDueDate(paymentIso: string, account: Account): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(paymentIso.trim());
+  if (!m) return false;
+  const dueDay = Number(account.dia_vencimento) || 10;
+  return Number(m[3]) === dueDay;
+}
+
+/**
+ * Competência do estorno manual: marcador finelo_competence → vencimento (dia do cartão) → mês da Data.
+ * Evita que Data_Pagamento = data do lançamento (ex. 21/05) caia no mês anterior (04/2026).
+ */
+export function inferManualRefundReferenceMonth(tx: Transaction, account: Account): string | null {
+  const directed = parseDirectedCompetenceFromPayment(tx);
+  if (directed) return directed;
+  if (!isManualCardRefund(tx)) return null;
+  const payIso = tx.Data_Pagamento ? toLocalDateIso(tx.Data_Pagamento) : '';
+  if (payIso && paymentIsoLooksLikeCardDueDate(payIso, account)) {
+    return referenceMonthFromPaymentDueDate(payIso);
+  }
+  return referenceMonthFromIsoDate(toLocalDateIso(tx.Data));
+}
+
+/** Compra: vencimento (Data_Pagamento). Estorno: regra em inferManualRefundReferenceMonth. */
+export function referenceMonthFromTransaction(t: Transaction, account: Account): string {
+  const directed = parseDirectedCompetenceFromPayment(t);
+  if (directed) return directed;
+  if (isManualCardRefund(t)) {
+    return inferManualRefundReferenceMonth(t, account) || '';
+  }
   const paymentIso = t.Data_Pagamento ? toLocalDateIso(t.Data_Pagamento) : '';
   if (paymentIso) {
     const fromDue = referenceMonthFromPaymentDueDate(paymentIso);
@@ -54,13 +87,45 @@ export function referenceMonthFromTransaction(t: Transaction, _account: Account)
   return '';
 }
 
+const normDesc = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+/**
+ * Convenção do ledger de cartão: negativo = compra/débito; positivo = crédito na fatura.
+ * Lançamento manual de compra (Despesa com Valor negativo) mantém o sinal — não vira estorno.
+ */
+export function manualTransactionLedgerAmount(tx: Transaction): number {
+  const raw = Number(tx.Valor || 0);
+  const tipo = String(tx.Tipo || '');
+  if (tipo === 'Renda') return Math.abs(raw);
+  if (tipo === 'Despesa') {
+    if (raw < 0) return raw;
+    if (raw > 0) return -Math.abs(raw);
+    return 0;
+  }
+  return raw;
+}
+
 export function manualTransactionsToLedgerLines(txs: Transaction[]): ImportLedgerLineInput[] {
-  return txs.map((tx) => ({
-    postedDate: toLocalDateIso(tx.Data),
-    description: tx.Descricao_Original || tx.Nome_Fantasia || '',
-    amount: Number(tx.Valor || 0),
-    installmentTotal: tx.Total_Parcelas || undefined,
-  }));
+  return txs.map((tx) => {
+    const amount = manualTransactionLedgerAmount(tx);
+    let description = tx.Descricao_Original || tx.Nome_Fantasia || '';
+    const isRefundLine =
+      (parseDirectedCompetenceFromPayment(tx) && isDirectedManualRefund(tx)) || isManualCardRefund(tx);
+    if (isRefundLine && !normDesc(description).includes('estorno')) {
+      description = `${description} estorno`.trim();
+    }
+    return {
+      postedDate: toLocalDateIso(tx.Data),
+      description,
+      amount,
+      installmentTotal: tx.Total_Parcelas || undefined,
+      fineloTipo: String(tx.Tipo || '').trim() || undefined,
+    };
+  });
 }
 
 /**
@@ -84,16 +149,34 @@ export function appendManualCompetenceTotals(params: {
   if (manualTx.length === 0) return;
 
   const directedPaymentsByRef = new Map<string, number>();
+  const directedRefundsByRef = new Map<string, number>();
   const byRef = new Map<string, Transaction[]>();
 
   manualTx.forEach((t) => {
     const directedRef = parseDirectedCompetenceFromPayment(t);
-    if (directedRef && isManualInvoicePayment(t)) {
+    if (directedRef && isDirectedManualInvoicePayment(t)) {
       directedPaymentsByRef.set(
         directedRef,
         round2((directedPaymentsByRef.get(directedRef) || 0) + Math.abs(Number(t.Valor || 0)))
       );
       return;
+    }
+    if (directedRef && !isDirectedManualInvoicePayment(t)) {
+      directedRefundsByRef.set(
+        directedRef,
+        round2((directedRefundsByRef.get(directedRef) || 0) + Math.abs(Number(t.Valor || 0)))
+      );
+      return;
+    }
+    if (isManualCardRefund(t)) {
+      const refundRef = inferManualRefundReferenceMonth(t, account);
+      if (refundRef && /^\d{4}-(0[1-9]|1[0-2])$/.test(refundRef)) {
+        directedRefundsByRef.set(
+          refundRef,
+          round2((directedRefundsByRef.get(refundRef) || 0) + Math.abs(Number(t.Valor || 0)))
+        );
+        return;
+      }
     }
     const ref = referenceMonthFromTransaction(t, account).trim();
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ref)) return;
@@ -103,42 +186,79 @@ export function appendManualCompetenceTotals(params: {
   });
 
   for (const [ref, txs] of byRef) {
-    const ledgerTxs = txs.filter(
-      (t) => !(parseDirectedCompetenceFromPayment(t) && isManualInvoicePayment(t))
-    );
+    const ledgerTxs = txs.filter((t) => !parseDirectedCompetenceFromPayment(t));
     const totals = computeImportLedgerTotals(manualTransactionsToLedgerLines(ledgerTxs), rules);
     const card = ensureCompetenceCard(ref);
+    const hasImportedFile = card.files.some((f) => f.fileName !== MANUAL_COMPETENCE_FILE_LABEL);
+
+    const manualDebits = round2(totals.totalDebits);
+    const manualRefunds = round2(totals.totalRefunds + totals.totalOtherCredits);
+    const manualPayments = round2(totals.totalInvoicePayments);
+
+    if (!hasImportedFile && manualDebits < 0.005 && manualRefunds > 0.005) {
+      continue;
+    }
 
     const existingManual = card.files.find((f) => f.fileName === MANUAL_COMPETENCE_FILE_LABEL);
+    const prevDebits =
+      existingManual?.totalDebits != null
+        ? existingManual.totalDebits
+        : existingManual?.statementTotal ?? 0;
+    const prevRefunds = existingManual?.totalRefunds ?? 0;
+    const prevPayments = existingManual?.totalPayments ?? 0;
+
     const manualLine: CompetenceHistoryFileLine = {
       fileName: MANUAL_COMPETENCE_FILE_LABEL,
       transactionCount: totals.lineCount,
-      statementTotal: totals.statementTotal,
-      totalPayments: totals.totalPayments,
+      totalDebits: manualDebits,
+      statementTotal: round2(Math.max(0, manualDebits - manualRefunds)),
+      totalRefunds: manualRefunds,
+      totalPayments: manualPayments,
     };
 
+    const prevNet = round2(prevDebits - prevRefunds);
+    const manualNet = round2(manualDebits - manualRefunds);
+    card.statementTotal = round2(Math.max(0, card.statementTotal - prevNet + manualNet));
+
     if (existingManual) {
-      card.statementTotal = round2(
-        card.statementTotal - existingManual.statementTotal + manualLine.statementTotal
-      );
       Object.assign(existingManual, manualLine);
     } else {
       card.files.push(manualLine);
-      card.statementTotal = round2(card.statementTotal + manualLine.statementTotal);
     }
+    reconcileCardStatementTotalFromFiles(card);
 
-    const paymentForPrior = round2(totals.totalInvoicePayments);
-    const priorRef = previousReferenceMonth(ref);
-    if (priorRef && paymentForPrior > 0) {
-      const priorCard = ensureCompetenceCard(priorRef);
-      priorCard.totalPayments = round2(priorCard.totalPayments + paymentForPrior);
-    }
   }
 
   for (const [ref, amount] of directedPaymentsByRef) {
     if (amount < 0.005) continue;
     const card = ensureCompetenceCard(ref);
+    card.directedManualPaymentTotal = round2((card.directedManualPaymentTotal ?? 0) + amount);
     card.totalPayments = round2(card.totalPayments + amount);
+  }
+
+  for (const [ref, amount] of directedRefundsByRef) {
+    if (amount < 0.005) continue;
+    const card = ensureCompetenceCard(ref);
+    card.directedManualRefundTotal = round2((card.directedManualRefundTotal ?? 0) + amount);
+    const existingManual = card.files.find((f) => f.fileName === MANUAL_COMPETENCE_FILE_LABEL);
+    if (existingManual) {
+      existingManual.totalRefunds = round2((existingManual.totalRefunds ?? 0) + amount);
+      existingManual.transactionCount = (existingManual.transactionCount || 0) + 1;
+      existingManual.totalDebits = existingManual.totalDebits ?? 0;
+      existingManual.statementTotal = round2(
+        Math.max(0, existingManual.totalDebits - (existingManual.totalRefunds ?? 0))
+      );
+    } else {
+      card.files.push({
+        fileName: MANUAL_COMPETENCE_FILE_LABEL,
+        transactionCount: 1,
+        totalDebits: 0,
+        statementTotal: 0,
+        totalRefunds: amount,
+        totalPayments: 0,
+      });
+    }
+    reconcileCardStatementTotalFromFiles(card);
   }
 }
 
