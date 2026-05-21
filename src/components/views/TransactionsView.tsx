@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
@@ -1394,6 +1394,9 @@ const TransactionsView: React.FC = () => {
   const [cardV2SnapshotByAccount, setCardV2SnapshotByAccount] = useState<Map<string, CreditCardMotorStatementSnap>>(
     new Map()
   );
+  /** Confirmações atualizadas no render; evita re-fetch do snapshot só porque o Map mudou de referência. */
+  const paymentConfirmationsRef = useRef(paymentConfirmationsByAccount);
+  paymentConfirmationsRef.current = paymentConfirmationsByAccount;
 
   /** Evita re-fetch do snapshot só porque `accounts` ganhou nova referência no Zustand com os mesmos cartões. */
   const creditCardAccountIdsKey = useMemo(
@@ -1486,25 +1489,6 @@ const TransactionsView: React.FC = () => {
       if (creditAccountIds.length === 0) {
         if (!cancelled) setCardV2SnapshotByAccount(new Map());
         return;
-      }
-
-      if (!cancelled) {
-        setCardV2SnapshotByAccount((prev) => {
-          let changed = false;
-          const next = new Map(prev);
-          for (const id of creditAccountIds) {
-            const cur = next.get(id);
-            if (cur?.fetchCompleted) {
-              next.set(id, {
-                currentOpenAmount: cur.currentOpenAmount,
-                hasData: cur.hasData,
-                fetchCompleted: false,
-              });
-              changed = true;
-            }
-          }
-          return changed ? next : prev;
-        });
       }
 
       type CardLink = { accountId: string; cardId: string };
@@ -1620,7 +1604,7 @@ const TransactionsView: React.FC = () => {
           importLogs: logsNow,
           accounts: allAccountsNow,
         } = useAppStore.getState();
-        const confs = paymentConfirmationsByAccount.get(accountId)?.map((c) => ({
+        const confs = paymentConfirmationsRef.current.get(accountId)?.map((c) => ({
           referenceMonth: c.referenceMonth,
           settledAmount: c.settledAmount,
           confirmedAt: c.confirmedAt,
@@ -1661,7 +1645,6 @@ const TransactionsView: React.FC = () => {
     creditCardAccountIdsKey,
     cardEngineEnabled,
     creditCardEngineRevision,
-    paymentConfirmationsByAccount,
   ]);
 
   const renderBalanceAccountCard = useCallback(
