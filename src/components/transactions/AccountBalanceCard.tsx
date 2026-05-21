@@ -127,7 +127,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       <div className="h-full w-[32%] rounded-full bg-slate-600/40 animate-pulse" />
                     </div>
                     <div className="h-8 rounded-lg bg-white/5 animate-pulse" />
-                    <p className="text-[9px] text-slate-500 text-center">Sincronizando limite e fatura…</p>
+                    <p className="text-[9px] text-slate-500 text-center">Carregando limite e fatura…</p>
                   </div>
                 ) : (
                   <>

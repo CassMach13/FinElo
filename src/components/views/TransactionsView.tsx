@@ -221,6 +221,7 @@ const TransactionsView: React.FC = () => {
   const [paymentConfirmationsByAccount, setPaymentConfirmationsByAccount] = useState<
     Map<string, CompetencePaymentConfirmation[]>
   >(new Map());
+  const [paymentConfirmationsReady, setPaymentConfirmationsReady] = useState(false);
 
   const isoTodayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -1352,6 +1353,7 @@ const TransactionsView: React.FC = () => {
   useEffect(() => {
     if (creditBalanceAccounts.length === 0) {
       setPaymentConfirmationsByAccount(new Map());
+      setPaymentConfirmationsReady(true);
       return;
     }
 
@@ -1364,6 +1366,7 @@ const TransactionsView: React.FC = () => {
     });
 
     let cancelled = false;
+    setPaymentConfirmationsReady(false);
 
     void (async () => {
       try {
@@ -1383,6 +1386,8 @@ const TransactionsView: React.FC = () => {
         if (!cancelled) setPaymentConfirmationsByAccount(map);
       } catch (e) {
         console.warn('[TransactionsView] Falha ao carregar confirmações de fatura:', e);
+      } finally {
+        if (!cancelled) setPaymentConfirmationsReady(true);
       }
     })();
 
@@ -1647,6 +1652,23 @@ const TransactionsView: React.FC = () => {
     creditCardEngineRevision,
   ]);
 
+  const creditCardPipelineReady = useMemo(() => {
+    if (!cardSnapshotPipelineEnabled || !user?.id) return true;
+    if (creditBalanceAccounts.length === 0) return true;
+    if (!paymentConfirmationsReady) return false;
+    return creditBalanceAccounts.every((acc) => {
+      const limite = acc.limite_credito || 0;
+      if (limite <= 0) return true;
+      return cardV2SnapshotByAccount.get(acc.id)?.fetchCompleted === true;
+    });
+  }, [
+    cardSnapshotPipelineEnabled,
+    user?.id,
+    creditBalanceAccounts,
+    paymentConfirmationsReady,
+    cardV2SnapshotByAccount,
+  ]);
+
   const renderBalanceAccountCard = useCallback(
     (account: Account) => {
       const bankConfig = NATIVE_BANK_CONFIGS.find((b) => b.id === account.bank_id);
@@ -1664,6 +1686,7 @@ const TransactionsView: React.FC = () => {
         cardV2Enabled,
         cardEngineEnabled,
         cardSnapshotPipelineEnabled,
+        creditCardMetricsReady: creditCardPipelineReady,
       });
       const isCredit = display.isCreditCard;
       return (
@@ -1696,6 +1719,7 @@ const TransactionsView: React.FC = () => {
       cardV2Enabled,
       cardEngineEnabled,
       cardSnapshotPipelineEnabled,
+      creditCardPipelineReady,
       openMotorInvoiceHistoryModal,
       handlePayInvoice,
     ]

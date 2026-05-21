@@ -29,6 +29,8 @@ export interface ComputeAccountCardMetricsOptions {
   cardV2Enabled: boolean;
   cardEngineEnabled: boolean;
   cardSnapshotPipelineEnabled: boolean;
+  /** false = aguardar snapshot + confirmações antes de exibir números no card. */
+  creditCardMetricsReady?: boolean;
 }
 
 export function computeAccountCardDisplay(
@@ -45,6 +47,7 @@ export function computeAccountCardDisplay(
     cardV2Enabled,
     cardEngineEnabled,
     cardSnapshotPipelineEnabled,
+    creditCardMetricsReady = true,
   } = options;
 
   const currentBalance = account.Saldo_Atual_Calculado ?? 0;
@@ -56,8 +59,6 @@ export function computeAccountCardDisplay(
   let diaVence = 0;
   let diasParaFechar = 0;
   let diasParaVencer = 0;
-  let ledgerFaturaReady = false;
-
   if (isCreditCard) {
     const toLocalDateStr = (date: Date | string): string => {
       if (!date) return '';
@@ -234,9 +235,6 @@ export function computeAccountCardDisplay(
     const manualOnAccount = allAccountT.some(
       (t) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
     );
-    const hasImportedLines = allAccountT.some(
-      (t) => String(t.Origem || 'manual').trim().toLowerCase() !== 'manual'
-    );
     /** CSV/import-only: mantém snapshot do motor sem alteração. */
     const useEngineSnapshotOnly = shouldUseCardSnapshot && !manualOnAccount;
 
@@ -245,7 +243,6 @@ export function computeAccountCardDisplay(
       const ledgerUsedRounded = roundCurrency(Math.max(totalUsedLimit, 0));
       faturaAtual = faturaOpenRounded;
       totalUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
-      ledgerFaturaReady = cardV2Snapshot!.fetchCompleted;
     } else {
       const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
         accountId: account.id,
@@ -259,9 +256,6 @@ export function computeAccountCardDisplay(
       const currentCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
       if (currentCompetence) {
         faturaAtual = Math.max(currentCompetence.openBalance, 0);
-        ledgerFaturaReady = true;
-      } else if (hasImportedLines && competenceCards.length > 0) {
-        ledgerFaturaReady = true;
       }
       const openFromAllCompetences = competenceCards.reduce(
         (sum, c) => sum + Math.max(c.openBalance, 0),
@@ -279,11 +273,7 @@ export function computeAccountCardDisplay(
   const barColor =
     limiteUsadoPct > 90 ? 'bg-red-500' : limiteUsadoPct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
   const awaitingMotorSnapshotUi =
-    isCreditCard &&
-    limite > 0 &&
-    cardSnapshotPipelineEnabled &&
-    !cardV2Snapshot?.fetchCompleted &&
-    !ledgerFaturaReady;
+    isCreditCard && limite > 0 && cardSnapshotPipelineEnabled && !creditCardMetricsReady;
 
   return {
     isCreditCard,
