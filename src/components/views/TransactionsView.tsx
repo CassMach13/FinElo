@@ -2890,8 +2890,9 @@ const TransactionsView: React.FC = () => {
           Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Mostramos{' '}
           <span className="text-gray-300 font-medium">compras</span>, <span className="text-gray-300 font-medium">estornos</span>{' '}
           e o <span className="text-gray-300 font-medium">total líquido</span>, por extrato importado e por lançamentos manuais.
-          Pagamentos do extrato aparecem no detalhe da fonte; para abater esta fatura use{' '}
-          <span className="text-gray-300 font-medium">Pagar fatura</span> ou confirme saldo residual.
+          Pagamentos do extrato no CSV da competência seguinte abatem automaticamente a fatura do mês
+          anterior; use <span className="text-gray-300 font-medium">Pagar fatura</span> para quitação
+          manual ou confirme saldo residual.
           Cada extrato CSV com competência configurada vira um card; use{' '}
           <span className="text-gray-300 font-medium">Ajustar competências por arquivo</span> se faltar algum mês.
         </p>
@@ -3008,7 +3009,7 @@ const TransactionsView: React.FC = () => {
                     <span className="tabular-nums text-gray-400">
                       {formatCurrency(card.paymentsOnExtracts ?? 0)}
                     </span>{' '}
-                    em linha de pagamento de fatura (informativo; não abate automaticamente o saldo acima).
+                    em linha de pagamento no extrato desta competência (no fechamento XP, abate a fatura do mês anterior).
                   </p>
                 ) : null}
                 <div className="flex justify-between items-baseline gap-2 flex-wrap">

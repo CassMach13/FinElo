@@ -624,8 +624,14 @@ export const creditCardRebuildFromImportHistoryService = {
         }
       }
 
-      // Pagamento de fatura no CSV (ex. "Pagamentos Válidos") fica só no detalhe do arquivo
-      // (paymentsOnExtracts). Não abate card.totalPayments — alinhado ao comportamento em produção.
+      // Pagamento de fatura no CSV (ex. "Pagamentos Válidos") abate a competência anterior (N → N−1).
+      const paymentForPrior = round2(p.totals.totalInvoicePayments);
+      const priorRef = previousReferenceMonth(ref);
+      if (priorRef && paymentForPrior > 0.005) {
+        const priorDue = parseDueFromReference(priorRef, dueDay);
+        const priorCard = ensureCompetenceCard(priorRef, priorDue || undefined);
+        priorCard.totalPayments = round2(priorCard.totalPayments + paymentForPrior);
+      }
     });
 
     appendManualCompetenceTotals({
