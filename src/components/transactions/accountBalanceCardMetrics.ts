@@ -1,4 +1,7 @@
-import { Account, Transaction } from '../../types';
+import type { ClassificationRules } from '../../domain/credit-card/classifiers';
+import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
+import { pickCurrentCompetenceCard } from '../../services/creditCardManualCompetence';
+import { Account, ImportLog, Transaction } from '../../types';
 import type { AccountCardDisplayData } from './AccountBalanceCard';
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
@@ -11,6 +14,9 @@ type CreditCardMotorStatementSnap = {
 
 export interface ComputeAccountCardMetricsOptions {
   transactions: Transaction[];
+  accounts: Account[];
+  importLogs: ImportLog[];
+  rules?: ClassificationRules;
   cardV2Snapshot?: CreditCardMotorStatementSnap;
   cardV2Enabled: boolean;
   cardEngineEnabled: boolean;
@@ -23,6 +29,9 @@ export function computeAccountCardDisplay(
 ): AccountCardDisplayData {
   const {
     transactions,
+    accounts,
+    importLogs,
+    rules,
     cardV2Snapshot,
     cardV2Enabled,
     cardEngineEnabled,
@@ -187,10 +196,6 @@ export function computeAccountCardDisplay(
       }
     }
 
-    const invoiceHistory = sortedCycles.slice(-8);
-    const mostRecent = invoiceHistory[invoiceHistory.length - 1];
-    faturaAtual = mostRecent ? Math.max(mostRecent.expenses, 0) : 0;
-
     const allT = transactions.filter((t) => t.ID_Conta === account.id);
     const totalIncome = allT.filter((t) => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
     const totalExpense = allT.filter((t) => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
@@ -216,11 +221,31 @@ export function computeAccountCardDisplay(
     const shouldUseCardSnapshot =
       (cardV2Enabled || cardEngineEnabled) && !!cardV2Snapshot && cardV2Snapshot.hasData;
 
-    if (shouldUseCardSnapshot) {
+    const manualOnAccount = allAccountT.some(
+      (t) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
+    );
+    /** CSV/import-only: mantém snapshot do motor sem alteração. */
+    const useEngineSnapshotOnly = shouldUseCardSnapshot && !manualOnAccount;
+
+    if (useEngineSnapshotOnly) {
       const faturaOpenRounded = roundCurrency(cardV2Snapshot!.currentOpenAmount);
       const ledgerUsedRounded = roundCurrency(Math.max(totalUsedLimit, 0));
       faturaAtual = faturaOpenRounded;
       totalUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
+    } else {
+      const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+        accountId: account.id,
+        account,
+        accounts: accounts.length > 0 ? accounts : [account],
+        transactions,
+        importLogs,
+        rules,
+      });
+      const currentCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
+      faturaAtual = currentCompetence ? Math.max(currentCompetence.statementTotal, 0) : 0;
+      if (shouldUseCardSnapshot && manualOnAccount) {
+        totalUsedLimit = roundCurrency(Math.max(totalUsedLimit, faturaAtual));
+      }
     }
   }
 

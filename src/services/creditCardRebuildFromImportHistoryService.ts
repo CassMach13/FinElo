@@ -12,6 +12,7 @@ import {
 } from './creditCardInvoiceCycleRows';
 import { creditCardEngineService } from './creditCardEngineService';
 import { parseCreditCardReferenceFromFileName } from './creditCardEngineService';
+import { appendManualCompetenceTotals } from './creditCardManualCompetence';
 
 export interface ImportHistoryRebuildCycle {
   /** Nome do arquivo como em import_logs.file_name */
@@ -439,6 +440,16 @@ export const creditCardRebuildFromImportHistoryService = {
         const priorCard = ensureCompetenceCard(priorRef);
         priorCard.totalPayments = round2(priorCard.totalPayments + paymentForPrior);
       }
+    });
+
+    appendManualCompetenceTotals({
+      accountId,
+      account,
+      transactions,
+      rules,
+      byCompetence,
+      ensureCompetenceCard,
+      previousReferenceMonth,
     });
 
     const cards = Array.from(byCompetence.values());

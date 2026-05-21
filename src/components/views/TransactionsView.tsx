@@ -1518,6 +1518,8 @@ const TransactionsView: React.FC = () => {
       const bankConfig = NATIVE_BANK_CONFIGS.find((b) => b.id === account.bank_id);
       const display = computeAccountCardDisplay(account, {
         transactions,
+        accounts,
+        importLogs,
         cardV2Snapshot: cardV2SnapshotByAccount.get(account.id),
         cardV2Enabled,
         cardEngineEnabled,
@@ -1547,6 +1549,8 @@ const TransactionsView: React.FC = () => {
     },
     [
       transactions,
+      accounts,
+      importLogs,
       cardV2SnapshotByAccount,
       cardV2Enabled,
       cardEngineEnabled,
@@ -2712,11 +2716,11 @@ const TransactionsView: React.FC = () => {
         className="max-w-lg"
       >
         <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Compras e estornos
-          vêm do CSV daquele mês; <span className="text-gray-300 font-medium">pagamentos de fatura</span> no extrato quitam a
-          competência <span className="text-gray-300 font-medium">anterior</span> (como no padrão XP). Vários arquivos no
-          mesmo mês (titulares diferentes) são somados em um card. Se um mês foi pago a mais, o crédito
-          reduz automaticamente o saldo em aberto dos meses seguintes (com detalhe no card).
+          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Inclui{' '}
+          <span className="text-gray-300 font-medium">extratos importados</span> e{' '}
+          <span className="text-gray-300 font-medium">lançamentos manuais</span> (competência pela data de pagamento /
+          vencimento). <span className="text-gray-300 font-medium">Pagamentos de fatura</span> quitam a competência{' '}
+          <span className="text-gray-300 font-medium">anterior</span> (padrão XP). Vários arquivos no mesmo mês são somados.
         </p>
         {motorInvoiceHistoryAccount && cardEngineEnabled ? (
           <div className="mb-4">
@@ -2739,8 +2743,8 @@ const TransactionsView: React.FC = () => {
           </div>
         ) : motorInvoiceCompetenceCards.length === 0 ? (
           <div className="py-8 text-center text-gray-400 text-sm">
-            Nenhum extrato com competência definida. Use «Ajustar competências por arquivo» ou reconstrua pelo histórico
-            em Configurações.
+            Nenhuma fatura encontrada para este cartão. Importe um extrato, lance compras manualmente (com data de
+            pagamento/vencimento) ou ajuste competências por arquivo.
           </div>
         ) : (
           <div className="relative">
