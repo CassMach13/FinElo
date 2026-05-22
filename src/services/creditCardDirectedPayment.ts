@@ -4,6 +4,18 @@ import { Transaction } from '../types';
 /** Marcador em `Observacoes` para abater pagamento manual em competência escolhida. */
 export const COMPETENCE_PAYMENT_OBS_PREFIX = 'finelo_competence:';
 
+/** Conta bancária de onde saiu o dinheiro do pagamento (par conciliado). */
+export const FUNDING_ACCOUNT_OBS_PREFIX = 'finelo_funding_account:';
+
+export function buildFundingAccountObservacao(sourceAccountId: string): string {
+  return `${FUNDING_ACCOUNT_OBS_PREFIX}${sourceAccountId.trim()}`;
+}
+
+export function parseFundingAccountFromPayment(tx: Pick<Transaction, 'Observacoes'>): string | null {
+  const m = new RegExp(`${FUNDING_ACCOUNT_OBS_PREFIX}([a-f0-9-]{36})`, 'i').exec(String(tx.Observacoes || ''));
+  return m?.[1] || null;
+}
+
 const REF_MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 export function buildCompetencePaymentObservacao(referenceMonth: string): string {
@@ -14,6 +26,16 @@ export function buildCompetencePaymentObservacao(referenceMonth: string): string
 export function buildDirectedPaymentDescription(referenceMonth: string): string {
   const ref = referenceMonth.trim();
   return `Pagamento de Fatura (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
+}
+
+/** Lançamento de saída na conta corrente/poupança que pagou a fatura. */
+export function buildFundingPaymentDescription(
+  referenceMonth: string,
+  cardAccountName: string
+): string {
+  const ref = referenceMonth.trim();
+  const card = cardAccountName.trim() || 'Cartão';
+  return `Pagamento Fatura ${card} (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
 }
 
 /** Estorno/crédito manual com competência explícita na fatura. */

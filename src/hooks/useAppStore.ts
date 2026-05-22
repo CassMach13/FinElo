@@ -1617,6 +1617,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       Origem: (tx as any).Origem || 'manual',
       ID_Conta: tx.ID_Conta,
       linked_asset_id: tx.linked_asset_id,
+      ...(tx.Observacoes ? { Observacoes: tx.Observacoes } : {}),
     }));
 
     const { data, error } = await supabase

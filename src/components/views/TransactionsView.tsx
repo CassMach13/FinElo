@@ -31,6 +31,8 @@ import {
 import { MANUAL_COMPETENCE_FILE_LABEL } from '../../services/creditCardManualCompetence';
 import {
   buildDirectedPaymentDescription,
+  buildFundingAccountObservacao,
+  buildFundingPaymentDescription,
 } from '../../services/creditCardDirectedPayment';
 import PayCreditCardInvoiceModal from '../modals/PayCreditCardInvoiceModal';
 import {
@@ -422,31 +424,56 @@ const TransactionsView: React.FC = () => {
       paymentDate,
       amount,
       category,
+      sourceAccountId,
     }: {
       referenceMonth: string;
       paymentDate: string;
       amount: number;
       category: string;
+      sourceAccountId: string;
     }) => {
       const account = payInvoiceModal.account;
       if (!account || !user) return;
+
+      const sourceAccount = accounts.find((a) => a.id === sourceAccountId);
+      if (!sourceAccount || sourceAccount.Tipo_Conta === 'Cartão de Crédito') {
+        await appAlert('Selecione uma conta bancária válida para o pagamento.', 'Pagamento', 'warning');
+        return;
+      }
 
       const selectedCard = payInvoiceModal.competenceCards.find(
         (c) => c.referenceMonth === referenceMonth
       );
 
+      const fundingObs = buildFundingAccountObservacao(sourceAccountId);
+
       try {
-        await addTransaction({
-          Data: paymentDate,
-          Data_Pagamento: paymentDate,
-          ID_Conta: account.id,
-          Nome_Fantasia: 'Pagamento de Fatura',
-          Categoria: category,
-          Tipo: 'Renda',
-          Valor: amount,
-          Fonte: 'Manual',
-          Descricao_Original: buildDirectedPaymentDescription(referenceMonth),
-        });
+        await addTransaction([
+          {
+            Data: paymentDate,
+            Data_Pagamento: paymentDate,
+            ID_Conta: account.id,
+            Nome_Fantasia: 'Pagamento de Fatura',
+            Categoria: category,
+            Tipo: 'Renda',
+            Valor: amount,
+            Fonte: 'Manual',
+            Descricao_Original: buildDirectedPaymentDescription(referenceMonth),
+            Observacoes: fundingObs,
+          },
+          {
+            Data: paymentDate,
+            Data_Pagamento: paymentDate,
+            ID_Conta: sourceAccountId,
+            Nome_Fantasia: `Pagamento Fatura — ${account.Nome_Conta}`,
+            Categoria: category,
+            Tipo: 'Despesa',
+            Valor: -Math.abs(amount),
+            Fonte: 'Manual',
+            Descricao_Original: buildFundingPaymentDescription(referenceMonth, account.Nome_Conta),
+            Observacoes: fundingObs,
+          },
+        ]);
       } catch (error) {
         console.error('[TransactionsView] Registrar pagamento manual:', error);
         await appAlert(
@@ -458,7 +485,10 @@ const TransactionsView: React.FC = () => {
       }
 
       try {
-        await updateUserPreferences({ creditCardPaymentCategory: category });
+        await updateUserPreferences({
+          creditCardPaymentCategory: category,
+          creditCardPaymentSourceAccountId: sourceAccountId,
+        });
       } catch (prefErr) {
         console.warn('[TransactionsView] Não foi possível salvar categoria preferida de pagamento:', prefErr);
       }
@@ -480,7 +510,7 @@ const TransactionsView: React.FC = () => {
             await payStatement(target.id, {
               paymentDate,
               amount,
-              paymentAccountId: account.linked_payment_account_id || undefined,
+              paymentAccountId: sourceAccountId,
               notes: `Pagamento direcionado à competência ${referenceMonth}`,
             });
           }
@@ -497,6 +527,7 @@ const TransactionsView: React.FC = () => {
       payInvoiceModal.account,
       payInvoiceModal.competenceCards,
       user,
+      accounts,
       addTransaction,
       updateUserPreferences,
       getCardStatements,
@@ -1651,6 +1682,17 @@ const TransactionsView: React.FC = () => {
     cardEngineEnabled,
     creditCardEngineRevision,
   ]);
+
+  const creditCardFundingAccounts = useMemo(
+    () =>
+      accounts.filter(
+        (a) =>
+          !a.is_archived &&
+          a.Tipo_Conta !== 'Cartão de Crédito' &&
+          a.Tipo_Conta !== 'Cartão Alimentação'
+      ),
+    [accounts]
+  );
 
   const creditCardPipelineReady = useMemo(() => {
     if (!cardSnapshotPipelineEnabled || !user?.id) return true;
@@ -3140,9 +3182,15 @@ const TransactionsView: React.FC = () => {
         account={payInvoiceModal.account}
         competenceCards={payInvoiceModal.competenceCards}
         categories={categories}
+        fundingAccounts={creditCardFundingAccounts}
         savedPaymentCategory={
           typeof user?.user_metadata?.creditCardPaymentCategory === 'string'
             ? user.user_metadata.creditCardPaymentCategory
+            : null
+        }
+        savedSourceAccountId={
+          typeof user?.user_metadata?.creditCardPaymentSourceAccountId === 'string'
+            ? user.user_metadata.creditCardPaymentSourceAccountId
             : null
         }
         lastCreatedCategory={lastCreatedCategory}

@@ -18,7 +18,10 @@ export interface PayCreditCardInvoiceModalProps {
   account: Account | null;
   competenceCards: CompetenceHistoryCard[];
   categories: Category[];
+  /** Contas de onde pode sair o pagamento (corrente, poupança, etc.). */
+  fundingAccounts: Account[];
   savedPaymentCategory?: string | null;
+  savedSourceAccountId?: string | null;
   lastCreatedCategory?: string | null;
   initialAmount?: number;
   onClose: () => void;
@@ -28,6 +31,7 @@ export interface PayCreditCardInvoiceModalProps {
     paymentDate: string;
     amount: number;
     category: string;
+    sourceAccountId: string;
   }) => Promise<void>;
 }
 
@@ -43,7 +47,9 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   account,
   competenceCards,
   categories,
+  fundingAccounts,
   savedPaymentCategory,
+  savedSourceAccountId,
   lastCreatedCategory,
   initialAmount = 0,
   onClose,
@@ -57,8 +63,19 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amountDraft, setAmountDraft] = useState('');
   const [category, setCategory] = useState('');
+  const [sourceAccountId, setSourceAccountId] = useState('');
   const [categoryError, setCategoryError] = useState('');
+  const [sourceAccountError, setSourceAccountError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const pickDefaultSourceAccountId = useMemo(() => {
+    const ids = new Set(fundingAccounts.map((a) => a.id));
+    if (savedSourceAccountId && ids.has(savedSourceAccountId)) return savedSourceAccountId;
+    const linked = (account as Account & { linked_payment_account_id?: string | null })
+      ?.linked_payment_account_id;
+    if (linked && ids.has(linked)) return linked;
+    return fundingAccounts[0]?.id || '';
+  }, [fundingAccounts, savedSourceAccountId, account]);
 
   useEffect(() => {
     if (!isOpen || !account) return;
@@ -74,8 +91,19 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
           : 0;
     setAmountDraft(suggested > 0 ? suggested.toFixed(2) : '');
     setCategory(pickDefaultCreditCardPaymentCategory(categories, savedPaymentCategory));
+    setSourceAccountId(pickDefaultSourceAccountId);
     setCategoryError('');
-  }, [isOpen, account, competenceCards, openCards, initialAmount, categories, savedPaymentCategory]);
+    setSourceAccountError('');
+  }, [
+    isOpen,
+    account,
+    competenceCards,
+    openCards,
+    initialAmount,
+    categories,
+    savedPaymentCategory,
+    pickDefaultSourceAccountId,
+  ]);
 
   useEffect(() => {
     if (lastCreatedCategory) {
@@ -101,12 +129,22 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
       setCategoryError('Escolha a categoria do pagamento.');
       return;
     }
+    if (!sourceAccountId.trim()) {
+      setSourceAccountError('Escolha a conta de onde sairá o pagamento.');
+      return;
+    }
     const amount = Number(amountDraft.replace(',', '.'));
     if (Number.isNaN(amount) || amount <= 0) return;
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ referenceMonth, paymentDate, amount, category: category.trim() });
+      await onSubmit({
+        referenceMonth,
+        paymentDate,
+        amount,
+        category: category.trim(),
+        sourceAccountId: sourceAccountId.trim(),
+      });
       onClose();
     } catch {
       /* onSubmit exibe alerta; mantém o modal aberto */
@@ -131,7 +169,7 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
           <Button
             type="submit"
             form="pay-credit-card-invoice-form"
-            disabled={isSubmitting || openCards.length === 0 || !referenceMonth}
+            disabled={isSubmitting || openCards.length === 0 || !referenceMonth || fundingAccounts.length === 0}
           >
             {isSubmitting ? 'Registrando…' : 'Registrar pagamento'}
           </Button>
@@ -150,6 +188,10 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
         {openCards.length === 0 ? (
           <p className="text-sm text-amber-200/90 py-4 text-center">
             Nenhuma fatura com saldo em aberto. Confira o histórico ou importe o extrato.
+          </p>
+        ) : fundingAccounts.length === 0 ? (
+          <p className="text-sm text-amber-200/90 py-4 text-center">
+            Cadastre uma conta corrente ou poupança para registrar de onde saiu o pagamento da fatura.
           </p>
         ) : (
           <>
@@ -188,6 +230,31 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
                 })}
               </div>
             </div>
+
+            <Select
+              label="Conta de origem do pagamento"
+              name="sourceAccountId"
+              value={sourceAccountId}
+              onChange={(e) => {
+                setSourceAccountId(e.target.value);
+                setSourceAccountError('');
+              }}
+              error={sourceAccountError}
+              disabled={isSubmitting}
+            >
+              <option value="" disabled>
+                Selecione a conta que pagou a fatura…
+              </option>
+              {fundingAccounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.Nome_Conta} ({acc.Tipo_Conta})
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-gray-500 -mt-2">
+              Será lançada uma <span className="text-gray-400">saída</span> nesta conta e o{' '}
+              <span className="text-gray-400">abatimento</span> na fatura do cartão, para conciliação correta.
+            </p>
 
             <div className="flex items-end gap-2">
               <div className="flex-grow min-w-0">

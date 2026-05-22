@@ -63,6 +63,12 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [competenceCards, setCompetenceCards] = useState<CompetenceHistoryCard[]>([]);
   const [competenceLoading, setCompetenceLoading] = useState(false);
   const [refundReferenceMonth, setRefundReferenceMonth] = useState('');
+  const [payCardTargetId, setPayCardTargetId] = useState('');
+
+  const creditCardAccounts = useMemo(
+    () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
+    [accounts]
+  );
 
   const [transaction, setTransaction] = useState({
     Data: getTodayString(),
@@ -89,6 +95,27 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   );
 
   const isCreditCardAccount = selectedAccount?.Tipo_Conta === 'Cartão de Crédito';
+
+  const openPayInvoiceFlow = useCallback(
+    (account: Account, suggestedAmount?: number) => {
+      if (!onPayCreditCardInvoice) return;
+      const parsed = suggestedAmount ?? parseFloat(transaction.Valor);
+      onPayCreditCardInvoice(account, Number.isFinite(parsed) ? parsed : 0);
+      onClose();
+    },
+    [onPayCreditCardInvoice, onClose, transaction.Valor]
+  );
+
+  useEffect(() => {
+    if (initialTransaction || creditCardAccounts.length === 0) return;
+    if (isCreditCardAccount && selectedAccount) {
+      setPayCardTargetId(selectedAccount.id);
+      return;
+    }
+    setPayCardTargetId((prev) =>
+      prev && creditCardAccounts.some((c) => c.id === prev) ? prev : creditCardAccounts[0].id
+    );
+  }, [initialTransaction, creditCardAccounts, isCreditCardAccount, selectedAccount?.id]);
 
   const syncCardEntryKind = useCallback(
     (tipo: string, patch?: { categoria?: string; nome?: string; descricao?: string }) => {
@@ -316,8 +343,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         'Voltar e ajustar'
       );
       if (goPay && onPayCreditCardInvoice) {
-        onPayCreditCardInvoice(selectedAccount, Number.isFinite(amount) ? amount : 0);
-        onClose();
+        openPayInvoiceFlow(selectedAccount, Number.isFinite(amount) ? amount : 0);
       }
       return;
     }
@@ -397,6 +423,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       if (acc?.Tipo_Conta === 'Cartão de Crédito' && !initialTransaction) {
         setCardEntryKind('');
         setRefundReferenceMonth('');
+        setPayCardTargetId(value);
       } else if (acc?.Tipo_Conta !== 'Cartão de Crédito') {
         setCardEntryKind('');
         setRefundReferenceMonth('');
@@ -418,6 +445,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   };
 
   const handleCardKindChange = (kind: CardManualEntryKind) => {
+    if (kind === 'invoice_payment' && selectedAccount && onPayCreditCardInvoice) {
+      const amount = parseFloat(transaction.Valor);
+      openPayInvoiceFlow(selectedAccount, Number.isFinite(amount) ? amount : 0);
+      return;
+    }
     setCardEntryKind(kind);
     if (kind === 'refund') {
       setTransaction((prev) => ({ ...prev, Tipo: 'Renda' }));
@@ -462,6 +494,45 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       }
     >
       <form id="new-transaction-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        {!initialTransaction && onPayCreditCardInvoice && creditCardAccounts.length > 0 && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-3">
+            <p className="text-xs text-emerald-100/95 leading-relaxed">
+              Quer <strong className="text-white">pagar a fatura</strong> do cartão? Use o fluxo dedicado — você
+              escolhe a competência e a conta de origem do pagamento.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+              {creditCardAccounts.length > 1 && (
+                <div className="flex-grow">
+                  <Select
+                    label="Cartão"
+                    name="payCardTargetId"
+                    value={payCardTargetId}
+                    onChange={(e) => setPayCardTargetId(e.target.value)}
+                  >
+                    {creditCardAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.Nome_Conta}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                className="sm:shrink-0 h-[42px] mb-px"
+                onClick={() => {
+                  const card =
+                    creditCardAccounts.find((c) => c.id === payCardTargetId) ?? creditCardAccounts[0];
+                  if (card) openPayInvoiceFlow(card);
+                }}
+              >
+                Pagar fatura do cartão
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Data de Competência"
@@ -550,11 +621,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     className="w-full sm:w-auto"
                     onClick={() => {
                       const amount = parseFloat(transaction.Valor);
-                      onPayCreditCardInvoice(
+                      openPayInvoiceFlow(
                         selectedAccount,
                         Number.isFinite(amount) ? amount : 0
                       );
-                      onClose();
                     }}
                   >
                     Ir para Pagar fatura
