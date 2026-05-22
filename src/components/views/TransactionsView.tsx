@@ -31,7 +31,6 @@ import {
 import { MANUAL_COMPETENCE_FILE_LABEL } from '../../services/creditCardManualCompetence';
 import {
   buildDirectedPaymentDescription,
-  buildFundingAccountObservacao,
   buildFundingPaymentDescription,
 } from '../../services/creditCardDirectedPayment';
 import PayCreditCardInvoiceModal from '../modals/PayCreditCardInvoiceModal';
@@ -445,8 +444,6 @@ const TransactionsView: React.FC = () => {
         (c) => c.referenceMonth === referenceMonth
       );
 
-      const fundingObs = buildFundingAccountObservacao(sourceAccountId);
-
       try {
         await addTransaction([
           {
@@ -458,8 +455,7 @@ const TransactionsView: React.FC = () => {
             Tipo: 'Renda',
             Valor: amount,
             Fonte: 'Manual',
-            Descricao_Original: buildDirectedPaymentDescription(referenceMonth),
-            Observacoes: fundingObs,
+            Descricao_Original: buildDirectedPaymentDescription(referenceMonth, sourceAccountId),
           },
           {
             Data: paymentDate,
@@ -470,8 +466,11 @@ const TransactionsView: React.FC = () => {
             Tipo: 'Despesa',
             Valor: -Math.abs(amount),
             Fonte: 'Manual',
-            Descricao_Original: buildFundingPaymentDescription(referenceMonth, account.Nome_Conta),
-            Observacoes: fundingObs,
+            Descricao_Original: buildFundingPaymentDescription(
+              referenceMonth,
+              account.Nome_Conta,
+              sourceAccountId
+            ),
           },
         ]);
       } catch (error) {

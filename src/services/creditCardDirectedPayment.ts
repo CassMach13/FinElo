@@ -11,9 +11,14 @@ export function buildFundingAccountObservacao(sourceAccountId: string): string {
   return `${FUNDING_ACCOUNT_OBS_PREFIX}${sourceAccountId.trim()}`;
 }
 
-export function parseFundingAccountFromPayment(tx: Pick<Transaction, 'Observacoes'>): string | null {
-  const m = new RegExp(`${FUNDING_ACCOUNT_OBS_PREFIX}([a-f0-9-]{36})`, 'i').exec(String(tx.Observacoes || ''));
-  return m?.[1] || null;
+export function parseFundingAccountFromPayment(
+  tx: Pick<Transaction, 'Observacoes' | 'Descricao_Original'>
+): string | null {
+  for (const raw of [tx.Observacoes, tx.Descricao_Original]) {
+    const m = new RegExp(`${FUNDING_ACCOUNT_OBS_PREFIX}([a-f0-9-]{36})`, 'i').exec(String(raw || ''));
+    if (m?.[1]) return m[1];
+  }
+  return null;
 }
 
 const REF_MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
@@ -22,20 +27,28 @@ export function buildCompetencePaymentObservacao(referenceMonth: string): string
   return `${COMPETENCE_PAYMENT_OBS_PREFIX}${referenceMonth.trim()}`;
 }
 
-/** Descrição persistida no banco (coluna sem `Observacoes` dedicada). */
-export function buildDirectedPaymentDescription(referenceMonth: string): string {
+/** Descrição persistida no banco (marcadores em `Descricao_Original`, sem coluna `Observacoes`). */
+export function buildDirectedPaymentDescription(
+  referenceMonth: string,
+  sourceAccountId?: string
+): string {
   const ref = referenceMonth.trim();
-  return `Pagamento de Fatura (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
+  const funding =
+    sourceAccountId?.trim() ? ` ${buildFundingAccountObservacao(sourceAccountId)}` : '';
+  return `Pagamento de Fatura (${ref}) ${buildCompetencePaymentObservacao(ref)}${funding}`;
 }
 
 /** Lançamento de saída na conta corrente/poupança que pagou a fatura. */
 export function buildFundingPaymentDescription(
   referenceMonth: string,
-  cardAccountName: string
+  cardAccountName: string,
+  sourceAccountId?: string
 ): string {
   const ref = referenceMonth.trim();
   const card = cardAccountName.trim() || 'Cartão';
-  return `Pagamento Fatura ${card} (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
+  const funding =
+    sourceAccountId?.trim() ? ` ${buildFundingAccountObservacao(sourceAccountId)}` : '';
+  return `Pagamento Fatura ${card} (${ref}) ${buildCompetencePaymentObservacao(ref)}${funding}`;
 }
 
 /** Estorno/crédito manual com competência explícita na fatura. */
