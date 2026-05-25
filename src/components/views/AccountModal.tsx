@@ -32,9 +32,14 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
     });
 
     const isCartaoCredito = formState.Tipo_Conta === 'Cartão de Crédito';
+    const isDinheiroEspecie = formState.Tipo_Conta === 'Dinheiro em Espécie';
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        if (name === 'Tipo_Conta' && value === 'Dinheiro em Espécie') {
+            setFormState(prev => ({ ...prev, Tipo_Conta: value, bank_id: '' }));
+            return;
+        }
         setFormState(prev => ({ ...prev, [name]: value }));
     };
 
@@ -60,7 +65,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
-                bank_id: formState.bank_id,
+                bank_id: isDinheiroEspecie ? undefined : formState.bank_id || undefined,
                 Saldo_Inicial: saldo,
                 Data_Saldo_Inicial: dataSaldoAjustada,
                 ...creditCardFields,
@@ -73,7 +78,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
             finalAccountData = {
                 Nome_Conta: formState.Nome_Conta,
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
-                bank_id: formState.bank_id,
+                bank_id: isDinheiroEspecie ? undefined : formState.bank_id || undefined,
                 Saldo_Inicial: saldo,
                 Data_Saldo_Inicial: new Date(),
                 ...creditCardFields,
@@ -109,9 +114,11 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                         <option value="Investimento">Investimento</option>
                         <option value="Cartão de Crédito">Cartão de Crédito</option>
                         <option value="Cartão Alimentação">Cartão Alimentação</option>
+                        <option value="Dinheiro em Espécie">Dinheiro em Espécie</option>
                         <option value="Outro">Outro</option>
                     </Select>
 
+                    {!isDinheiroEspecie ? (
                     <Select label="Banco/Instituição" name="bank_id" value={formState.bank_id} onChange={handleChange}>
                         <option value="">Nenhum / Outro</option>
                         {NATIVE_BANK_CONFIGS
@@ -122,6 +129,15 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
                             ))
                         }
                     </Select>
+                    ) : (
+                    <div className="flex flex-col justify-end pb-1">
+                        <span className="text-xs font-medium text-gray-400 mb-1.5">Banco/Instituição</span>
+                        <div className="h-[42px] flex items-center gap-2 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-100/90 text-sm">
+                            <span className="text-lg leading-none" aria-hidden>💵</span>
+                            <span>Sem vínculo bancário</span>
+                        </div>
+                    </div>
+                    )}
                 </div>
 
                 {/* Campos exclusivos de Cartão de Crédito */}

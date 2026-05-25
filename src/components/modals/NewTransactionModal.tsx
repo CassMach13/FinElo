@@ -96,6 +96,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
   const isCreditCardAccount = selectedAccount?.Tipo_Conta === 'Cartão de Crédito';
 
+  /** Só compras no cartão de crédito têm vencimento separado da data da compra. */
+  const showSeparatePaymentDate =
+    isCreditCardAccount && cardEntryKind !== 'refund';
+
   const openPayInvoiceFlow = useCallback(
     (account: Account, suggestedAmount?: number) => {
       if (!onPayCreditCardInvoice) return;
@@ -372,8 +376,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       currentTxDate.setMonth(baseDate.getMonth() + i);
 
       let currentPaymentDate: Date | undefined = undefined;
-      if (transaction.Data_Pagamento) {
-        const basePayDate = new Date(transaction.Data_Pagamento);
+      const paymentDateSource = showSeparatePaymentDate
+        ? transaction.Data_Pagamento || transaction.Data
+        : transaction.Data;
+      if (paymentDateSource) {
+        const basePayDate = new Date(paymentDateSource);
         currentPaymentDate = new Date(basePayDate);
         currentPaymentDate.setMonth(basePayDate.getMonth() + i);
       }
@@ -429,8 +436,18 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         setRefundReferenceMonth('');
       }
     }
+    if (name === 'cardEntryKind' && value === 'refund') {
+      setTransaction((prev) => ({ ...prev, Data_Pagamento: prev.Data }));
+    }
     setTransaction((prev) => {
       const next = { ...prev, [name]: value };
+      const acc = accounts.find((a) => a.id === (name === 'ID_Conta' ? value : next.ID_Conta));
+      const isCard = acc?.Tipo_Conta === 'Cartão de Crédito';
+      const kind = name === 'cardEntryKind' ? (value as CardManualEntryKind | '') : cardEntryKind;
+      const needsSeparatePay = isCard && kind !== 'refund';
+      if (!needsSeparatePay && (name === 'Data' || name === 'ID_Conta' || name === 'cardEntryKind')) {
+        next.Data_Pagamento = next.Data;
+      }
       if (name === 'Tipo' || name === 'Categoria' || name === 'Nome_Fantasia') {
         queueMicrotask(() =>
           syncCardEntryKind(String(next.Tipo), {
@@ -452,7 +469,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     }
     setCardEntryKind(kind);
     if (kind === 'refund') {
-      setTransaction((prev) => ({ ...prev, Tipo: 'Renda' }));
+      setTransaction((prev) => ({ ...prev, Tipo: 'Renda', Data_Pagamento: prev.Data }));
       setIsRecurrent(false);
     }
     if (kind === 'purchase') {
@@ -533,26 +550,38 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className={showSeparatePaymentDate ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : ''}>
           <Input
-            label="Data de Competência"
+            label="Data da Compra"
             name="Data"
             type="date"
             value={transaction.Data}
             onChange={handleChange}
             error={errors.Data}
-            title="Data da compra, estorno ou fato gerador"
+            title={
+              isCreditCardAccount
+                ? 'Data em que a compra ou estorno ocorreu'
+                : 'Data em que a compra ou pagamento ocorreu'
+            }
           />
-          <Input
-            label="Data do Pagamento"
-            name="Data_Pagamento"
-            type="date"
-            value={transaction.Data_Pagamento}
-            onChange={handleChange}
-            placeholder="Opcional"
-            disabled={isCreditCardAccount && cardEntryKind === 'refund'}
-          />
+          {showSeparatePaymentDate && (
+            <Input
+              label="Data do Pagamento"
+              name="Data_Pagamento"
+              type="date"
+              value={transaction.Data_Pagamento}
+              onChange={handleChange}
+              placeholder="Vencimento na fatura"
+              title="Quando a compra entra na fatura (vencimento)"
+            />
+          )}
         </div>
+        {!showSeparatePaymentDate && selectedAccount && (
+          <p className="text-[11px] text-gray-500 -mt-2">
+            Para {selectedAccount.Tipo_Conta === 'Cartão de Crédito' ? 'estornos' : 'débito, alimentação ou dinheiro'},
+            a data da compra é a mesma do pagamento.
+          </p>
+        )}
 
         <div className="flex items-end gap-2">
           <div className="flex-grow">
@@ -588,9 +617,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         {isCreditCardAccount && selectedAccount && (
           <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-3 space-y-3">
             <p className="text-xs text-cyan-100/90 leading-relaxed">
-              Conta de <strong className="text-white">cartão de crédito</strong>: escolha o tipo abaixo. Compras usam
-              vencimento em <strong className="text-white">Data do Pagamento</strong>; estornos exigem a{' '}
-              <strong className="text-white">competência da fatura</strong>; pagamentos devem usar{' '}
+              Conta de <strong className="text-white">cartão de crédito</strong>: escolha o tipo abaixo. Compras usam{' '}
+              <strong className="text-white">Data da Compra</strong> e{' '}
+              <strong className="text-white">Data do Pagamento</strong> (vencimento na fatura); estornos usam só a data
+              da compra e a competência da fatura; pagamentos devem usar{' '}
               <strong className="text-white">Pagar fatura</strong>.
             </p>
             <Select

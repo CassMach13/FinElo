@@ -50,7 +50,7 @@ import NewTransactionModal from '../modals/NewTransactionModal';
 import MappingRuleModal from '../modals/MappingRuleModal';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
-import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
+import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
 import { mergeMotorSnapshotWithManualLedger } from '../../services/creditCardManualMotorSync';
@@ -1712,7 +1712,7 @@ const TransactionsView: React.FC = () => {
 
   const renderBalanceAccountCard = useCallback(
     (account: Account) => {
-      const bankConfig = NATIVE_BANK_CONFIGS.find((b) => b.id === account.bank_id);
+      const bankConfig = resolveAccountBankConfig(account);
       const paymentConfs = paymentConfirmationsByAccount.get(account.id)?.map((c) => ({
         referenceMonth: c.referenceMonth,
         settledAmount: c.settledAmount,

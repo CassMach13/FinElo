@@ -36,6 +36,34 @@ export interface NativeBankConfig {
   typeColIndex?: number;      // NEW: Index for Type column (C/D or similar)
 }
 
+/** Conta física (sem banco vinculado) — só exibição nos cards. */
+export const CASH_ACCOUNT_CONFIG: NativeBankConfig = {
+  id: 'dinheiro-especie',
+  name: 'Dinheiro em Espécie',
+  description: 'Controle de dinheiro físico',
+  sourceType: 'Conta',
+  isSupported: false,
+  brandColor: '#059669',
+  brandColorSecondary: '#10b981',
+  logoText: '💵',
+  logoUrl: '/bank-logos/cash.svg',
+  delimiter: ';',
+  skipLines: 0,
+  hasHeader: true,
+  dateColIndex: 0,
+  descColIndices: [1],
+  valueColIndex: 2,
+  invertValues: false,
+};
+
+export function resolveAccountBankConfig(
+  account: { Tipo_Conta?: string; bank_id?: string | null }
+): NativeBankConfig | undefined {
+  if (account.Tipo_Conta === 'Dinheiro em Espécie') return CASH_ACCOUNT_CONFIG;
+  if (!account.bank_id) return undefined;
+  return NATIVE_BANK_CONFIGS.find((b) => b.id === account.bank_id);
+}
+
 export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
   {
     id: 'banco-inter',

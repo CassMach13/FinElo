@@ -99,6 +99,14 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                 className="w-full h-full object-contain"
               />
             </div>
+          ) : account.Tipo_Conta === 'Dinheiro em Espécie' ? (
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-emerald-500/15 p-1.5 flex items-center justify-center border border-emerald-500/25 shadow-inner">
+              <img
+                src="/bank-logos/cash.svg"
+                alt="Dinheiro em espécie"
+                className="w-full h-full object-contain"
+              />
+            </div>
           ) : (
             <div className="w-11 h-11 shrink-0 rounded-xl bg-white/8 flex items-center justify-center text-lg border border-white/10">
               {isCreditCard ? '💳' : '🏦'}
