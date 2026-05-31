@@ -1840,8 +1840,11 @@ const TransactionsView: React.FC = () => {
 
     return sortableItems
       .filter(t => {
-        // Adicionando +1 dia ao final para incluir o dia inteiro
-        const transactionDate = new Date(t.Data).setHours(0, 0, 0, 0);
+        const filterDateSource =
+          transactionFilters.dateField === 'Pagamento'
+            ? (t.Data_Pagamento || t.Data)
+            : t.Data;
+        const transactionDate = new Date(filterDateSource).setHours(0, 0, 0, 0);
         const startDate = transactionFilters.startDate ? new Date(transactionFilters.startDate).getTime() : null;
         const endDate = transactionFilters.endDate ? new Date(new Date(transactionFilters.endDate).setDate(new Date(transactionFilters.endDate).getDate() + 1)).getTime() : null;
 
@@ -1930,6 +1933,7 @@ const TransactionsView: React.FC = () => {
       text: '',
       startDate: '',
       endDate: '',
+      dateField: 'Data',
       category: [],
       type: '',
       accountId: [],
@@ -2070,6 +2074,10 @@ const TransactionsView: React.FC = () => {
         <Card title="Filtros" className="!overflow-visible z-40 relative">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
             <Input label="Buscar por descrição ou valor" name="text" value={transactionFilters.text} onChange={handleFilterChange} placeholder="Ex: Shopee, iFood, 50,00… (nome ou descrição do banco)" className="xl:col-span-2" />
+            <Select label="Filtrar datas por" name="dateField" value={transactionFilters.dateField} onChange={handleFilterChange}>
+              <option value="Data">Data (lançamento)</option>
+              <option value="Pagamento">Pagamento</option>
+            </Select>
             <Input label="Data de Início" type="date" name="startDate" value={transactionFilters.startDate} onChange={handleFilterChange} />
             <Input label="Data de Fim" type="date" name="endDate" value={transactionFilters.endDate} onChange={handleFilterChange} />
             <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -170,6 +170,7 @@ interface AppState {
     text: string;
     startDate: string;
     endDate: string;
+    dateField: 'Data' | 'Pagamento';
     category: string[];
     type: string;
     accountId: string[];
@@ -358,6 +359,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     text: '',
     startDate: '',
     endDate: '',
+    dateField: 'Data',
     category: [],
     type: '',
     accountId: [],
