@@ -9,13 +9,26 @@ interface ModalProps {
   footer?: ReactNode; // Rodapé opcional para ações
   className?: string; // Permite passar classes customizadas (ex: max-w-4xl)
   hideCloseButton?: boolean;
+  /** Camada acima de outros modais (ex.: z-[60]). */
+  overlayClassName?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, className = 'max-w-md', hideCloseButton = false }) => {
+const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  className = 'max-w-md',
+  hideCloseButton = false,
+  overlayClassName = 'z-50',
+}) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div
+      className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 sm:p-4 ${overlayClassName}`}
+    >
       {/* O container do modal agora é um flex container vertical com altura máxima */}
       <div className={`bg-secondary rounded-lg shadow-xl w-full ${className} mx-auto flex flex-col max-h-[90vh]`}>
 

@@ -16,9 +16,16 @@ import { creditCardEngineService } from './creditCardEngineService';
 import { parseCreditCardReferenceFromFileName } from './creditCardEngineService';
 import {
   appendManualCompetenceTotals,
+  inferManualRefundReferenceMonth,
   MANUAL_COMPETENCE_FILE_LABEL,
+  referenceMonthFromTransaction,
 } from './creditCardManualCompetence';
-import { parseDirectedCompetenceFromPayment } from './creditCardDirectedPayment';
+import {
+  isDirectedManualInvoicePayment,
+  isManualCardRefund,
+  isManualInvoicePayment,
+  parseDirectedCompetenceFromPayment,
+} from './creditCardDirectedPayment';
 
 export interface ImportHistoryRebuildCycle {
   /** Nome do arquivo como em import_logs.file_name */
@@ -114,7 +121,11 @@ function cardImportLedgerAmount(tx: Transaction): number {
   return raw;
 }
 
-function transactionsForFile(accountId: string, fileName: string, transactions: Transaction[]): Transaction[] {
+export function transactionsForFile(
+  accountId: string,
+  fileName: string,
+  transactions: Transaction[]
+): Transaction[] {
   const key = comparableImportOriginKey(fileName);
   return transactions.filter(
     (t) =>
@@ -124,6 +135,89 @@ function transactionsForFile(accountId: string, fileName: string, transactions: 
       !parseDirectedCompetenceFromPayment(t) &&
       comparableImportOriginKey(String(t.Origem)) === key
   );
+}
+
+export type CompetenceLedgerRole = 'compra' | 'estorno' | 'pagamento' | 'outro';
+
+const normLedgerDesc = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+/** Rótulo para auditoria no histórico de faturas. */
+export function classifyCompetenceLedgerRole(tx: Transaction): CompetenceLedgerRole {
+  if (parseDirectedCompetenceFromPayment(tx) && isDirectedManualInvoicePayment(tx)) {
+    return 'pagamento';
+  }
+  if (isManualInvoicePayment(tx)) return 'pagamento';
+  const desc = normLedgerDesc(tx.Descricao_Original || tx.Nome_Fantasia || '');
+  const amt = Number(tx.Valor || 0);
+  if (desc.includes('pagamento') && amt > 0) return 'pagamento';
+  if (amt > 0 || isManualCardRefund(tx)) return 'estorno';
+  if (amt < 0) return 'compra';
+  return 'outro';
+}
+
+/**
+ * Lançamentos que compõem uma competência (por arquivo importado + manuais daquele mês).
+ * Usado no modal Histórico para auditar o que entrou na fatura.
+ */
+export function listTransactionsForCompetenceCard(input: {
+  card: CompetenceHistoryCard;
+  accountId: string;
+  account: Account;
+  transactions: Transaction[];
+}): Transaction[] {
+  const { card, accountId, account, transactions } = input;
+  const ref = card.referenceMonth.trim();
+  const seen = new Set<string>();
+  const result: Transaction[] = [];
+
+  const push = (tx: Transaction) => {
+    const id = tx.ID_Transacao;
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    result.push(tx);
+  };
+
+  card.files.forEach((f) => {
+    if (f.fileName === MANUAL_COMPETENCE_FILE_LABEL) {
+      transactions
+        .filter(
+          (t) =>
+            t.ID_Conta === accountId && String(t.Origem || '').trim().toLowerCase() === 'manual'
+        )
+        .forEach((t) => {
+          if (parseDirectedCompetenceFromPayment(t)) return;
+          if (isManualCardRefund(t)) {
+            const refundRef = inferManualRefundReferenceMonth(t, account);
+            if (refundRef === ref) push(t);
+            return;
+          }
+          if (referenceMonthFromTransaction(t, account).trim() === ref) push(t);
+        });
+      return;
+    }
+    transactionsForFile(accountId, f.fileName, transactions).forEach(push);
+  });
+
+  transactions
+    .filter(
+      (t) =>
+        t.ID_Conta === accountId && String(t.Origem || '').trim().toLowerCase() === 'manual'
+    )
+    .forEach((t) => {
+      const directed = parseDirectedCompetenceFromPayment(t);
+      if (directed === ref) push(t);
+    });
+
+  return result.sort((a, b) => {
+    const da = new Date(a.Data).getTime();
+    const db = new Date(b.Data).getTime();
+    if (db !== da) return db - da;
+    return String(a.Nome_Fantasia || '').localeCompare(String(b.Nome_Fantasia || ''));
+  });
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

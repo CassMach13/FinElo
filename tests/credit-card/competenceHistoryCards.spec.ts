@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { computeImportLedgerTotals } from '../../src/domain/credit-card/importLedgerTotals';
-import { creditCardRebuildFromImportHistoryService } from '../../src/services/creditCardRebuildFromImportHistoryService';
+import {
+  creditCardRebuildFromImportHistoryService,
+  listTransactionsForCompetenceCard,
+} from '../../src/services/creditCardRebuildFromImportHistoryService';
 import type { Account, Transaction } from '../../src/types';
 
 const account: Account = {
@@ -395,6 +398,74 @@ describe('competenceHistoryCardsForAccount', () => {
     expect(mai?.statementTotal).toBe(50);
     expect(mai?.directedManualRefundTotal).toBe(39.99);
     expect(mai?.openBalance).toBe(50);
+  });
+
+  it('listTransactionsForCompetenceCard retorna lançamentos do arquivo e manuais da competência', () => {
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'imp-1',
+        ID_Conta: 'acc-xp',
+        Origem: 'Fatura_XP_Jan_2026.csv',
+        Data: '2026-01-08',
+        Valor: -120,
+        Nome_Fantasia: 'Mercado',
+        Descricao_Original: 'Mercado',
+        Tipo: 'Despesa',
+      } as Transaction,
+      {
+        ID_Transacao: 'man-1',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Data: '2026-01-12',
+        Data_Pagamento: '2026-02-10',
+        Valor: -45,
+        Nome_Fantasia: 'Farmácia',
+        Descricao_Original: 'Farmácia',
+        Tipo: 'Despesa',
+      } as Transaction,
+      {
+        ID_Transacao: 'out-1',
+        ID_Conta: 'acc-xp',
+        Origem: 'Fatura_XP_Fev_2026.csv',
+        Data: '2026-02-03',
+        Valor: -90,
+        Descricao_Original: 'Outra fatura',
+        Tipo: 'Despesa',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: [account],
+      transactions,
+      importLogs: [
+        {
+          id: 'l1',
+          file_name: 'Fatura_XP_Jan_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-01', Card_Due_Date: '2026-02-10' },
+          ],
+        } as any,
+        {
+          id: 'l2',
+          file_name: 'Fatura_XP_Fev_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-02', Card_Due_Date: '2026-03-10' },
+          ],
+        } as any,
+      ],
+    });
+
+    const jan = cards.find((c) => c.referenceMonth === '2026-01');
+    expect(jan).toBeDefined();
+    const ledger = listTransactionsForCompetenceCard({
+      card: jan!,
+      accountId: account.id,
+      account,
+      transactions,
+    });
+    expect(ledger.map((t) => t.ID_Transacao).sort()).toEqual(['imp-1', 'man-1'].sort());
   });
 });
 

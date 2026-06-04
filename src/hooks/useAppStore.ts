@@ -23,6 +23,7 @@ import {
   ManualStatementTotalsPayload,
 } from '../types';
 import { User } from '@supabase/supabase-js';
+import { getDefaultTransactionFilters } from '../utils/transactionPeriodFilters';
 import { isCardV2Enabled, isCardV2ShadowEnabled, isCreditCardEngineEnabled } from '../services/featureFlagService';
 import { creditCardStatementService, CreditCardShadowDashboardRow, getCreditCardShadowDashboard, CardClassifierRules, CardClassifierOverrides } from '../services/creditCardStatementService';
 import { creditCardEngineService, parseCreditCardReferenceFromFileName } from '../services/creditCardEngineService';
@@ -174,6 +175,8 @@ interface AppState {
     category: string[];
     type: string;
     accountId: string[];
+    viewScope: 'operation' | 'commitments' | 'all';
+    periodPreset: 'current_month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
   };
 
   // Assets (Patrimônio)
@@ -355,15 +358,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   adminMetrics: null,
   assets: [],
-  transactionFilters: {
-    text: '',
-    startDate: '',
-    endDate: '',
-    dateField: 'Data',
-    category: [],
-    type: '',
-    accountId: [],
-  },
+  transactionFilters: getDefaultTransactionFilters(),
   currentView: 'dashboard',
   setCurrentView: (view) => set({ currentView: view }),
 

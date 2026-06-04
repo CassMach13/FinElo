@@ -22,11 +22,14 @@ import { isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featu
 import { creditCardEngineService } from '../../services/creditCardEngineService';
 import { supabase } from '../../supabaseClient';
 
-import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
+import { formatCurrency, formatCurrencySigned, getCurrencyColorClass } from '../../utils/formatters';
 import {
+  classifyCompetenceLedgerRole,
   creditCardRebuildFromImportHistoryService,
+  listTransactionsForCompetenceCard,
   type CompetenceHistoryCard,
   type CompetenceHistoryFileLine,
+  type CompetenceLedgerRole,
 } from '../../services/creditCardRebuildFromImportHistoryService';
 import { MANUAL_COMPETENCE_FILE_LABEL } from '../../services/creditCardManualCompetence';
 import {
@@ -54,6 +57,22 @@ import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/pa
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
 import { mergeMotorSnapshotWithManualLedger } from '../../services/creditCardManualMotorSync';
+import {
+  buildTransactionFiltersCollapsedSummary,
+  formatPeriodLabel,
+  getDefaultTransactionFilters,
+  getTransactionFilterDate,
+  isCommitmentTransaction,
+  loadPersistedTransactionFilters,
+  loadTransactionFiltersPanelExpanded,
+  resolveTransactionFilters,
+  savePersistedTransactionFilters,
+  saveTransactionFiltersPanelExpanded,
+  shouldApplyDateFilter,
+  type TransactionFiltersState,
+  type TransactionPeriodPreset,
+  type TransactionViewScope,
+} from '../../utils/transactionPeriodFilters';
 
 const DEFAULT_CARD_PAYMENT_KEYWORDS = [
   'pagamentos válidos normais',
@@ -192,6 +211,11 @@ const TransactionsView: React.FC = () => {
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Transaction; direction: 'ascending' | 'descending' }>({ key: 'Data', direction: 'descending' });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filtersPanelExpanded, setFiltersPanelExpanded] = useState(() =>
+    loadTransactionFiltersPanelExpanded()
+  );
+  const filtersHydratedRef = useRef(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -227,6 +251,8 @@ const TransactionsView: React.FC = () => {
   const isoTodayStr = () => new Date().toISOString().slice(0, 10);
 
   const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
+  const [competenceLedgerModalCard, setCompetenceLedgerModalCard] =
+    useState<CompetenceHistoryCard | null>(null);
 
   const loadImportHistoryCompetenceCards = useCallback(
     async (account: Account) => {
@@ -351,6 +377,88 @@ const TransactionsView: React.FC = () => {
       }
     },
     [user?.id, motorInvoiceHistoryAccount, loadImportHistoryCompetenceCards]
+  );
+
+  const competenceLedgerByRef = useMemo(() => {
+    if (!motorInvoiceHistoryAccount) return new Map<string, Transaction[]>();
+    const map = new Map<string, Transaction[]>();
+    motorInvoiceCompetenceCards.forEach((card) => {
+      map.set(
+        card.referenceMonth,
+        listTransactionsForCompetenceCard({
+          card,
+          accountId: motorInvoiceHistoryAccount.id,
+          account: motorInvoiceHistoryAccount,
+          transactions,
+        })
+      );
+    });
+    return map;
+  }, [motorInvoiceHistoryAccount, motorInvoiceCompetenceCards, transactions]);
+
+  const competenceLedgerRoleLabel: Record<CompetenceLedgerRole, string> = {
+    compra: 'Compra',
+    estorno: 'Estorno',
+    pagamento: 'Pagamento',
+    outro: 'Outro',
+  };
+
+  const competenceLedgerRoleClass: Record<CompetenceLedgerRole, string> = {
+    compra: 'text-rose-300/90 bg-rose-500/10 border-rose-500/25',
+    estorno: 'text-emerald-300/90 bg-emerald-500/10 border-emerald-500/25',
+    pagamento: 'text-sky-300/90 bg-sky-500/10 border-sky-500/25',
+    outro: 'text-gray-400 bg-white/5 border-white/10',
+  };
+
+  const renderCompetenceLedgerEntries = useCallback(
+    (ledger: Transaction[]) => (
+      <ul className="space-y-2.5">
+        {ledger.map((tx) => {
+          const role = classifyCompetenceLedgerRole(tx);
+          const dateIso =
+            typeof tx.Data === 'string'
+              ? tx.Data.split('T')[0]
+              : new Date(tx.Data).toISOString().slice(0, 10);
+          const dateBr = dateIso
+            ? `${dateIso.slice(8, 10)}/${dateIso.slice(5, 7)}/${dateIso.slice(0, 4)}`
+            : '—';
+          const origin =
+            String(tx.Origem || '').toLowerCase() === 'manual'
+              ? 'Lançamento manual'
+              : String(tx.Origem || '');
+          return (
+            <li
+              key={tx.ID_Transacao}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <span className="text-xs text-gray-400 tabular-nums font-medium">{dateBr}</span>
+                <span
+                  className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase shrink-0 ${competenceLedgerRoleClass[role]}`}
+                >
+                  {competenceLedgerRoleLabel[role]}
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-white leading-snug break-words">
+                {tx.Nome_Fantasia || tx.Descricao_Original || '—'}
+              </p>
+              <p
+                className={`text-lg font-black tabular-nums mt-1 ${getCurrencyColorClass(Number(tx.Valor || 0))}`}
+              >
+                {formatCurrencySigned(Number(tx.Valor || 0), { showPlusForPositive: true })}
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1 break-all leading-snug">
+                {origin}
+                {tx.Parcela_Atual && tx.Total_Parcelas
+                  ? ` · parcela ${tx.Parcela_Atual}/${tx.Total_Parcelas}`
+                  : ''}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    ),
+    [competenceLedgerRoleClass, competenceLedgerRoleLabel]
   );
 
   const formatHistoryFileAudit = useCallback((f: CompetenceHistoryFileLine): string => {
@@ -1816,6 +1924,68 @@ const TransactionsView: React.FC = () => {
     e.target.value = '';
   };
 
+  const applyTransactionFilters = useCallback(
+    (patch: Partial<TransactionFiltersState>) => {
+      const next = resolveTransactionFilters({ ...transactionFilters, ...patch });
+      setTransactionFilters(next);
+      savePersistedTransactionFilters(next);
+      setCurrentPage(1);
+    },
+    [transactionFilters, setTransactionFilters]
+  );
+
+  useEffect(() => {
+    if (filtersHydratedRef.current) return;
+    filtersHydratedRef.current = true;
+    const persisted = loadPersistedTransactionFilters();
+    const resolved = resolveTransactionFilters(persisted ?? undefined);
+    setTransactionFilters(resolved);
+    savePersistedTransactionFilters(resolved);
+  }, [setTransactionFilters]);
+
+  const handlePeriodPreset = useCallback(
+    (preset: TransactionPeriodPreset) => {
+      if (preset === 'all') {
+        applyTransactionFilters({ viewScope: 'all', periodPreset: 'all', startDate: '', endDate: '' });
+        return;
+      }
+      applyTransactionFilters({
+        viewScope: transactionFilters.viewScope === 'all' ? 'operation' : transactionFilters.viewScope,
+        periodPreset: preset,
+      });
+    },
+    [applyTransactionFilters, transactionFilters.viewScope]
+  );
+
+  const handleViewScope = useCallback(
+    (scope: TransactionViewScope) => {
+      if (scope === 'all') {
+        applyTransactionFilters({ viewScope: 'all', periodPreset: 'all', startDate: '', endDate: '' });
+        return;
+      }
+      const preset =
+        transactionFilters.periodPreset === 'all' ? 'current_month' : transactionFilters.periodPreset;
+      applyTransactionFilters({ viewScope: scope, periodPreset: preset });
+    },
+    [applyTransactionFilters, transactionFilters.periodPreset]
+  );
+
+  const periodSummary = useMemo(() => formatPeriodLabel(transactionFilters), [transactionFilters]);
+  const filtersCollapsedSummary = useMemo(
+    () => buildTransactionFiltersCollapsedSummary(transactionFilters),
+    [transactionFilters]
+  );
+  const historyViewActive =
+    transactionFilters.viewScope === 'all' || transactionFilters.periodPreset === 'all';
+
+  const toggleFiltersPanel = useCallback(() => {
+    setFiltersPanelExpanded((prev) => {
+      const next = !prev;
+      saveTransactionFiltersPanelExpanded(next);
+      return next;
+    });
+  }, []);
+
   const filteredTransactions = useMemo(() => {
     let sortableItems = [...transactions];
 
@@ -1838,35 +2008,55 @@ const TransactionsView: React.FC = () => {
       return sortConfig.direction === 'ascending' ? comparison : -comparison;
     });
 
-    return sortableItems
-      .filter(t => {
-        const filterDateSource =
-          transactionFilters.dateField === 'Pagamento'
-            ? (t.Data_Pagamento || t.Data)
-            : t.Data;
-        const transactionDate = new Date(filterDateSource).setHours(0, 0, 0, 0);
-        const startDate = transactionFilters.startDate ? new Date(transactionFilters.startDate).getTime() : null;
-        const endDate = transactionFilters.endDate ? new Date(new Date(transactionFilters.endDate).setDate(new Date(transactionFilters.endDate).getDate() + 1)).getTime() : null;
+    const applyDateFilter = shouldApplyDateFilter(transactionFilters);
+    const startDate = transactionFilters.startDate
+      ? new Date(transactionFilters.startDate).getTime()
+      : null;
+    const endDate = transactionFilters.endDate
+      ? new Date(
+          new Date(transactionFilters.endDate).setDate(
+            new Date(transactionFilters.endDate).getDate() + 1
+          )
+        ).getTime()
+      : null;
 
-        const searchQuery = transactionFilters.text.trim().toLowerCase();
-        const matchesText =
-          searchQuery === '' ||
-          (t.Nome_Fantasia || '').toLowerCase().includes(searchQuery) ||
-          (t.Descricao_Original || '').toLowerCase().includes(searchQuery) ||
-          t.Valor.toString().includes(transactionFilters.text) ||
-          t.Valor.toFixed(2).includes(transactionFilters.text) ||
-          t.Valor.toString().replace('.', ',').includes(transactionFilters.text) ||
-          t.Valor.toFixed(2).replace('.', ',').includes(transactionFilters.text);
+    return sortableItems.filter((t) => {
+      if (transactionFilters.viewScope === 'commitments' && !isCommitmentTransaction(t)) {
+        return false;
+      }
 
-        return (
-          matchesText &&
-          (!startDate || transactionDate >= startDate) &&
-          (!endDate || transactionDate < endDate) &&
-          (transactionFilters.category.length === 0 || transactionFilters.category.includes(t.Categoria)) &&
-          (transactionFilters.accountId.length === 0 || (t.ID_Conta && transactionFilters.accountId.includes(t.ID_Conta))) && // Filtro de Conta
-          (transactionFilters.type === '' || t.Tipo === transactionFilters.type)
-        );
-      });
+      const transactionDate = getTransactionFilterDate(t, transactionFilters.dateField).setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const searchQuery = transactionFilters.text.trim().toLowerCase();
+      const matchesText =
+        searchQuery === '' ||
+        (t.Nome_Fantasia || '').toLowerCase().includes(searchQuery) ||
+        (t.Descricao_Original || '').toLowerCase().includes(searchQuery) ||
+        t.Valor.toString().includes(transactionFilters.text) ||
+        t.Valor.toFixed(2).includes(transactionFilters.text) ||
+        t.Valor.toString().replace('.', ',').includes(transactionFilters.text) ||
+        t.Valor.toFixed(2).replace('.', ',').includes(transactionFilters.text);
+
+      const matchesDate =
+        !applyDateFilter ||
+        ((!startDate || transactionDate >= startDate) &&
+          (!endDate || transactionDate < endDate));
+
+      return (
+        matchesText &&
+        matchesDate &&
+        (transactionFilters.category.length === 0 ||
+          transactionFilters.category.includes(t.Categoria)) &&
+        (transactionFilters.accountId.length === 0 ||
+          (t.ID_Conta && transactionFilters.accountId.includes(t.ID_Conta))) &&
+        (transactionFilters.type === '' || t.Tipo === transactionFilters.type)
+      );
+    });
   }, [transactions, transactionFilters, sortConfig]);
 
   const paginatedTransactions = useMemo(() => {
@@ -1882,13 +2072,19 @@ const TransactionsView: React.FC = () => {
   }, [filteredTransactions.length, itemsPerPage]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setTransactionFilters({ ...transactionFilters, [e.target.name]: e.target.value });
-    setCurrentPage(1); // Reseta para a primeira página ao mudar o filtro
+    const { name, value } = e.target;
+    const patch: Partial<TransactionFiltersState> = { [name]: value } as Partial<TransactionFiltersState>;
+    if (name === 'startDate' || name === 'endDate') {
+      patch.periodPreset = 'custom';
+      if (transactionFilters.viewScope === 'all') {
+        patch.viewScope = 'operation';
+      }
+    }
+    applyTransactionFilters(patch);
   };
 
   const handleCategoryFilterChange = (selectedCategories: string[]) => {
-    setTransactionFilters({ ...transactionFilters, category: selectedCategories });
-    setCurrentPage(1);
+    applyTransactionFilters({ category: selectedCategories });
   };
 
   const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1897,8 +2093,7 @@ const TransactionsView: React.FC = () => {
   };
 
   const handleAccountFilterChange = (selectedAccounts: string[]) => {
-    setTransactionFilters({ ...transactionFilters, accountId: selectedAccounts });
-    setCurrentPage(1);
+    applyTransactionFilters({ accountId: selectedAccounts });
   };
 
   const handleSaveCategory = async (categoryData: Omit<Category, 'id'>) => {
@@ -1929,16 +2124,10 @@ const TransactionsView: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setTransactionFilters({
-      text: '',
-      startDate: '',
-      endDate: '',
-      dateField: 'Data',
-      category: [],
-      type: '',
-      accountId: [],
-    });
-    setCurrentPage(1); // Reseta também ao limpar os filtros
+    const defaults = getDefaultTransactionFilters();
+    setTransactionFilters(defaults);
+    savePersistedTransactionFilters(defaults);
+    setCurrentPage(1);
   };
 
   const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
@@ -2071,42 +2260,194 @@ const TransactionsView: React.FC = () => {
       )}
 
       <div id="transactions-filters">
-        <Card title="Filtros" className="!overflow-visible z-40 relative">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-            <Input label="Buscar por descrição ou valor" name="text" value={transactionFilters.text} onChange={handleFilterChange} placeholder="Ex: Shopee, iFood, 50,00… (nome ou descrição do banco)" className="xl:col-span-2" />
-            <Select label="Filtrar datas por" name="dateField" value={transactionFilters.dateField} onChange={handleFilterChange}>
-              <option value="Data">Data (lançamento)</option>
-              <option value="Pagamento">Pagamento</option>
-            </Select>
-            <Input label="Data de Início" type="date" name="startDate" value={transactionFilters.startDate} onChange={handleFilterChange} />
-            <Input label="Data de Fim" type="date" name="endDate" value={transactionFilters.endDate} onChange={handleFilterChange} />
-            <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <MultiSelect
-                label="Conta"
-                options={accounts.map(a => ({ label: a.is_archived ? `${a.Nome_Conta} (Arquivada)` : a.Nome_Conta, value: a.id }))}
-                value={transactionFilters.accountId}
-                onChange={handleAccountFilterChange}
-                placeholder="Todas"
-              />
-              <MultiSelect
-                label="Categoria"
-                options={[
-                  { label: 'Sem Categoria (-)', value: '-' },
-                  ...categories.map(c => ({ label: c.Nome_Categoria, value: c.Nome_Categoria }))
-                ]}
-                value={transactionFilters.category}
-                onChange={handleCategoryFilterChange}
-                placeholder="Todas"
-              />
+        <Card className="!overflow-visible z-40 relative !p-4 sm:!p-5">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between gap-3 text-left rounded-xl hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors -mx-1 px-1 py-0.5"
+            onClick={toggleFiltersPanel}
+            aria-expanded={filtersPanelExpanded}
+            aria-controls="transactions-filters-body"
+          >
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-white tracking-tight">Filtros</h2>
+              {!filtersPanelExpanded ? (
+                <p className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">
+                  {filtersCollapsedSummary}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-500 mt-0.5 lg:hidden">Toque para recolher</p>
+              )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:col-span-2">
-              <Select label="Tipo" name="type" value={transactionFilters.type} onChange={handleFilterChange}>
-                <option value="">Todos</option>
-                <option value="Renda">Entrada</option>
-                <option value="Despesa">Saída</option>
-              </Select>
-              <div className="flex items-end">
-                <Button variant="secondary" onClick={clearFilters} className="w-full">Limpar Filtros</Button>
+            <span className="shrink-0 flex flex-col items-center gap-0.5 text-slate-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-5 w-5 transition-transform duration-200 ${filtersPanelExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span className="text-[9px] font-bold uppercase tracking-wide">
+                {filtersPanelExpanded ? 'Recolher' : 'Expandir'}
+              </span>
+            </span>
+          </button>
+
+          <div
+            id="transactions-filters-body"
+            className={`space-y-4 ${filtersPanelExpanded ? 'mt-4 block' : 'hidden'}`}
+          >
+            <div className="flex flex-col gap-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Visualização</p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ['operation', 'Operação do mês'],
+                    ['commitments', 'Compromissos'],
+                    ['all', 'Histórico completo'],
+                  ] as const
+                ).map(([scope, label]) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => handleViewScope(scope)}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                      transactionFilters.viewScope === scope
+                        ? 'bg-accent text-slate-900'
+                        : 'bg-slate-800 text-slate-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Período</p>
+                <span className="text-xs text-slate-400 tabular-nums">{periodSummary}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ['current_month', 'Este mês'],
+                    ['previous_month', 'Mês anterior'],
+                    ['last_30_days', 'Últimos 30 dias'],
+                    ['all', 'Tudo'],
+                  ] as const
+                ).map(([preset, label]) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    disabled={historyViewActive && preset !== 'all'}
+                    onClick={() => handlePeriodPreset(preset)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${
+                      (preset === 'all' && historyViewActive) ||
+                      (transactionFilters.periodPreset === preset && !historyViewActive)
+                        ? 'bg-accent/20 text-accent border-accent/40'
+                        : 'bg-slate-800/80 text-slate-400 border-white/5 hover:border-white/15 hover:text-slate-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="w-full sm:max-w-xs">
+                <Select
+                  label="Datas por"
+                  name="dateField"
+                  value={transactionFilters.dateField}
+                  onChange={handleFilterChange}
+                >
+                  <option value="Data">Compra / lançamento</option>
+                  <option value="Pagamento">Pagamento</option>
+                </Select>
+              </div>
+              <p className="text-xs text-slate-500 pb-1 sm:pb-2">
+                {transactionFilters.dateField === 'Data'
+                  ? 'Padrão para acompanhar gastos do mês (ex.: cartão no ciclo aberto).'
+                  : 'Útil para conferir o que saiu da conta no período.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="lg:hidden text-xs font-semibold text-accent hover:text-accent/80"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+            >
+              {showAdvancedFilters ? 'Ocultar filtros avançados' : 'Mais filtros (busca, conta, categoria…)'}
+            </button>
+
+            <div className={`${showAdvancedFilters ? 'block' : 'hidden'} lg:block`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
+                <Input
+                  label="Buscar por descrição ou valor"
+                  name="text"
+                  value={transactionFilters.text}
+                  onChange={handleFilterChange}
+                  placeholder="Ex: Shopee, iFood, 50,00…"
+                  className="xl:col-span-2"
+                />
+                <Input
+                  label="Data de Início"
+                  type="date"
+                  name="startDate"
+                  value={transactionFilters.startDate}
+                  onChange={handleFilterChange}
+                  disabled={historyViewActive}
+                />
+                <Input
+                  label="Data de Fim"
+                  type="date"
+                  name="endDate"
+                  value={transactionFilters.endDate}
+                  onChange={handleFilterChange}
+                  disabled={historyViewActive}
+                />
+                <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <MultiSelect
+                    label="Conta"
+                    options={accounts.map((a) => ({
+                      label: a.is_archived ? `${a.Nome_Conta} (Arquivada)` : a.Nome_Conta,
+                      value: a.id,
+                    }))}
+                    value={transactionFilters.accountId}
+                    onChange={handleAccountFilterChange}
+                    placeholder="Todas"
+                  />
+                  <MultiSelect
+                    label="Categoria"
+                    options={[
+                      { label: 'Sem Categoria (-)', value: '-' },
+                      ...categories.map((c) => ({
+                        label: c.Nome_Categoria,
+                        value: c.Nome_Categoria,
+                      })),
+                    ]}
+                    value={transactionFilters.category}
+                    onChange={handleCategoryFilterChange}
+                    placeholder="Todas"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:col-span-2">
+                  <Select label="Tipo" name="type" value={transactionFilters.type} onChange={handleFilterChange}>
+                    <option value="">Todos</option>
+                    <option value="Renda">Entrada</option>
+                    <option value="Despesa">Saída</option>
+                  </Select>
+                  <div className="flex items-end">
+                    <Button variant="secondary" onClick={clearFilters} className="w-full">
+                      Restaurar padrão
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2940,17 +3281,15 @@ const TransactionsView: React.FC = () => {
           setMotorInvoiceError(null);
         }}
         title={`Histórico de faturas${motorInvoiceHistoryAccount ? ` — ${motorInvoiceHistoryAccount.Nome_Conta}` : ''}`}
-        className="max-w-lg"
+        className="max-w-2xl"
       >
         <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Mostramos{' '}
-          <span className="text-gray-300 font-medium">compras</span>, <span className="text-gray-300 font-medium">estornos</span>{' '}
-          e o <span className="text-gray-300 font-medium">total líquido</span>, por extrato importado e por lançamentos manuais.
-          Pagamentos do extrato no CSV da competência seguinte abatem automaticamente a fatura do mês
-          anterior; use <span className="text-gray-300 font-medium">Pagar fatura</span> para quitação
-          manual ou confirme saldo residual.
-          Cada extrato CSV com competência configurada vira um card; use{' '}
-          <span className="text-gray-300 font-medium">Ajustar competências por arquivo</span> se faltar algum mês.
+          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Expanda{' '}
+          <span className="text-gray-300 font-medium">Ver lançamentos</span> para auditar linha a linha o que compõe
+          aquela fatura (importação e manuais). Os totais mostram compras, estornos e pagamentos; pagamentos no CSV do
+          mês seguinte abatem a competência anterior. Use <span className="text-gray-300 font-medium">Pagar fatura</span>{' '}
+          para quitação manual ou <span className="text-gray-300 font-medium">Ajustar competências por arquivo</span> se
+          faltar algum mês.
         </p>
         {motorInvoiceHistoryAccount && showAdjustCompetenceByFile ? (
           <div className="mb-4">
@@ -3013,6 +3352,56 @@ const TransactionsView: React.FC = () => {
                     {competenceCardStatusLabel(card)}
                   </span>
                 </div>
+                {(() => {
+                  const ledger = competenceLedgerByRef.get(card.referenceMonth) ?? [];
+                  if (ledger.length === 0) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setCompetenceLedgerModalCard(card)}
+                      className="w-full rounded-xl border-2 border-teal-400/50 bg-gradient-to-br from-teal-500/25 via-teal-500/10 to-slate-900/50 shadow-lg shadow-teal-950/30 text-left hover:bg-teal-500/15 active:scale-[0.99] transition-all"
+                    >
+                      <span className="flex items-center gap-3 px-3.5 py-3.5">
+                        <span
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 border border-teal-300/35"
+                          aria-hidden
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 text-teal-200"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                            />
+                          </svg>
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                            Auditoria da fatura
+                          </span>
+                          <span className="block text-sm font-bold text-white leading-snug mt-0.5">
+                            Ver lançamentos desta fatura
+                          </span>
+                          <span className="block text-[10px] text-teal-100/75 mt-0.5 leading-snug">
+                            Abre em tela cheia para conferir no celular
+                          </span>
+                        </span>
+                        <span className="flex flex-col items-end shrink-0 gap-1">
+                          <span className="rounded-full bg-teal-300 px-3 py-1 text-sm font-black text-slate-900 tabular-nums shadow-sm">
+                            {ledger.length}
+                          </span>
+                          <span className="text-[10px] font-bold text-teal-200/90">Abrir →</span>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })()}
                 {(card.totalRefunds > 0.005 ||
                   card.totalDebits > card.statementTotal + 0.005 ||
                   (card.directedManualRefundTotal ?? 0) > 0.005) && (
@@ -3176,6 +3565,53 @@ const TransactionsView: React.FC = () => {
             </ul>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={competenceLedgerModalCard !== null}
+        onClose={() => setCompetenceLedgerModalCard(null)}
+        overlayClassName="z-[60] p-2 sm:p-4"
+        className="max-w-full sm:max-w-xl max-h-[96vh]"
+        title={
+          competenceLedgerModalCard
+            ? `Lançamentos — ${competenceLedgerModalCard.competenceBR}`
+            : 'Lançamentos da fatura'
+        }
+        footer={
+          <Button type="button" variant="secondary" className="w-full" onClick={() => setCompetenceLedgerModalCard(null)}>
+            Voltar ao histórico
+          </Button>
+        }
+      >
+        {competenceLedgerModalCard && motorInvoiceHistoryAccount ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 space-y-1.5 text-xs">
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Cartão</span>
+                <span className="text-gray-200 font-medium text-right">{motorInvoiceHistoryAccount.Nome_Conta}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Vencimento</span>
+                <span className="text-gray-200 tabular-nums">{competenceLedgerModalCard.vencimentoBR}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Total da fatura</span>
+                <span className="text-rose-300 font-bold tabular-nums">
+                  {formatCurrency(competenceLedgerModalCard.statementTotal)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Itens listados</span>
+                <span className="text-teal-200 font-bold tabular-nums">
+                  {(competenceLedgerByRef.get(competenceLedgerModalCard.referenceMonth) ?? []).length}
+                </span>
+              </div>
+            </div>
+            {renderCompetenceLedgerEntries(
+              competenceLedgerByRef.get(competenceLedgerModalCard.referenceMonth) ?? []
+            )}
+          </div>
+        ) : null}
       </Modal>
 
       {payInvoiceModal.open && payInvoiceModal.loading && payInvoiceModal.account && (
