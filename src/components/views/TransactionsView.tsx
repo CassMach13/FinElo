@@ -28,7 +28,6 @@ import {
   creditCardRebuildFromImportHistoryService,
   listTransactionsForCompetenceCard,
   type CompetenceHistoryCard,
-  type CompetenceHistoryFileLine,
   type CompetenceLedgerRole,
 } from '../../services/creditCardRebuildFromImportHistoryService';
 import { MANUAL_COMPETENCE_FILE_LABEL } from '../../services/creditCardManualCompetence';
@@ -253,6 +252,8 @@ const TransactionsView: React.FC = () => {
   const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
   const [competenceLedgerModalCard, setCompetenceLedgerModalCard] =
     useState<CompetenceHistoryCard | null>(null);
+  const [competenceBreakdownModalCard, setCompetenceBreakdownModalCard] =
+    useState<CompetenceHistoryCard | null>(null);
 
   const loadImportHistoryCompetenceCards = useCallback(
     async (account: Account) => {
@@ -336,7 +337,13 @@ const TransactionsView: React.FC = () => {
           confirmedAt: new Date().toISOString(),
         });
         setCompetenceConfirmRevision((v) => v + 1);
-        setMotorInvoiceCompetenceCards(await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
+        const cards = await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount);
+        setMotorInvoiceCompetenceCards(cards);
+        setCompetenceBreakdownModalCard((prev) =>
+          prev?.referenceMonth === card.referenceMonth
+            ? cards.find((c) => c.referenceMonth === card.referenceMonth) ?? prev
+            : prev
+        );
       } catch {
         await appAlert(
           'Não foi possível salvar a confirmação. Verifique sua conexão e se a migração do banco foi aplicada.',
@@ -367,7 +374,13 @@ const TransactionsView: React.FC = () => {
           card.referenceMonth
         );
         setCompetenceConfirmRevision((v) => v + 1);
-        setMotorInvoiceCompetenceCards(await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount));
+        const cards = await loadImportHistoryCompetenceCards(motorInvoiceHistoryAccount);
+        setMotorInvoiceCompetenceCards(cards);
+        setCompetenceBreakdownModalCard((prev) =>
+          prev?.referenceMonth === card.referenceMonth
+            ? cards.find((c) => c.referenceMonth === card.referenceMonth) ?? prev
+            : prev
+        );
       } catch {
         await appAlert(
           'Não foi possível desfazer a confirmação. Verifique sua conexão e se a migração do banco foi aplicada.',
@@ -461,19 +474,212 @@ const TransactionsView: React.FC = () => {
     [competenceLedgerRoleClass, competenceLedgerRoleLabel]
   );
 
-  const formatHistoryFileAudit = useCallback((f: CompetenceHistoryFileLine): string => {
-    const refunds = f.totalRefunds ?? 0;
-    const debits =
-      f.totalDebits != null && Number.isFinite(f.totalDebits)
-        ? f.totalDebits
-        : Math.max(0, f.statementTotal);
-    const parts = [`${f.transactionCount} lanç.`];
-    if (debits > 0.005) parts.push(`compras ${formatCurrency(debits)}`);
-    if (refunds > 0.005) parts.push(`estornos ${formatCurrency(refunds)}`);
-    parts.push(`líquido ${formatCurrency(f.statementTotal)}`);
-    if (f.totalPayments > 0.005) parts.push(`pag. ${formatCurrency(f.totalPayments)}`);
-    return parts.join(' · ');
+  const competenceCardHasExtendedBreakdown = useCallback((card: CompetenceHistoryCard): boolean => {
+    return (
+      card.totalPayments > 0.005 ||
+      card.openBalance > 0.005 ||
+      card.priorCreditApplied > 0.005 ||
+      card.creditCarriedForward > 0.005 ||
+      (card.directedManualRefundTotal ?? 0) > 0.005 ||
+      card.userConfirmedPaid === true ||
+      card.files.length > 0 ||
+      (card.paymentsOnExtracts ?? 0) > 0.005 ||
+      (card.files.length === 0 && card.totalPayments > 0.005)
+    );
   }, []);
+
+  const renderCompetenceBreakdownDetails = useCallback(
+    (card: CompetenceHistoryCard) => (
+      <div className="space-y-5 text-sm">
+        <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-300">Pagamentos e saldo</h3>
+          <div className="flex justify-between gap-3 items-baseline">
+            <span className="text-slate-400">Pagamentos registrados</span>
+            <span className="text-emerald-300 font-bold tabular-nums">{formatCurrency(card.totalPayments)}</span>
+          </div>
+          {(card.paymentsOnExtracts ?? 0) > 0.005 ? (
+            <p className="text-slate-300 leading-relaxed text-[13px]">
+              No extrato desta competência:{' '}
+              <span className="tabular-nums font-semibold text-slate-100">
+                {formatCurrency(card.paymentsOnExtracts ?? 0)}
+              </span>{' '}
+              em linhas de pagamento de fatura. No fechamento XP, esse valor costuma abater a fatura do mês
+              anterior.
+            </p>
+          ) : null}
+          <div className="flex justify-between gap-3 items-baseline border-t border-white/10 pt-3">
+            <span className="text-slate-400">Saldo em aberto</span>
+            <span
+              className={`font-bold tabular-nums ${
+                card.openBalance <= 0.005 ? 'text-slate-400' : 'text-amber-300'
+              }`}
+            >
+              {formatCurrency(card.openBalance)}
+            </span>
+          </div>
+        </section>
+
+        {(card.priorCreditApplied > 0.005 ||
+          card.creditCarriedForward > 0.005 ||
+          (card.directedManualRefundTotal ?? 0) > 0.005) && (
+          <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-300">Ajustes automáticos</h3>
+            {card.priorCreditApplied > 0.005 ? (
+              <p className="text-slate-300 leading-relaxed text-[13px]">
+                Abatimento com crédito da competência anterior:{' '}
+                <span className="tabular-nums font-semibold text-violet-200">
+                  {formatCurrency(card.priorCreditApplied)}
+                </span>
+                {card.openBalanceBeforeCarry > card.openBalance + 0.005 ? (
+                  <>
+                    {' '}
+                    (saldo antes do abatimento:{' '}
+                    <span className="tabular-nums text-slate-200">
+                      {formatCurrency(card.openBalanceBeforeCarry)}
+                    </span>
+                    )
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            {card.creditCarriedForward > 0.005 ? (
+              <p className="text-slate-300 leading-relaxed text-[13px]">
+                Crédito remanescente para competências seguintes:{' '}
+                <span className="tabular-nums font-semibold text-emerald-200">
+                  {formatCurrency(card.creditCarriedForward)}
+                </span>
+              </p>
+            ) : null}
+            {(card.directedManualRefundTotal ?? 0) > 0.005 ? (
+              <p className="text-violet-200/95 leading-relaxed text-[13px] rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
+                <span className="font-semibold text-violet-100">Estorno manual</span> de{' '}
+                <span className="tabular-nums font-semibold text-violet-50">
+                  {formatCurrency(card.directedManualRefundTotal ?? 0)}
+                </span>{' '}
+                nesta competência — já descontado do total da fatura (não consta no extrato importado).
+              </p>
+            ) : null}
+          </section>
+        )}
+
+        {card.openBalance > 0.005 && !card.userConfirmedPaid ? (
+          <section className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3.5 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-amber-200">Confirmação</h3>
+            <p className="text-amber-50/95 leading-relaxed text-[13px]">
+              O fechamento automático pode não refletir o banco neste valor residual (
+              <span className="tabular-nums font-semibold">{formatCurrency(card.openBalance)}</span>
+              ). Esse saldo já foi quitado na fatura (ajuste, crédito ou arredondamento)?
+            </p>
+            <Button
+              type="button"
+              className="text-xs py-1.5 px-3 h-auto w-full sm:w-auto"
+              onClick={() => void handleConfirmCompetenceResidualPaid(card)}
+            >
+              Sim, está pago
+            </Button>
+          </section>
+        ) : null}
+
+        {card.userConfirmedPaid && (card.userConfirmedAmount ?? 0) > 0.005 ? (
+          <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
+            <p className="text-emerald-100 leading-relaxed text-[13px]">
+              Você confirmou que{' '}
+              <span className="tabular-nums font-semibold text-emerald-50">
+                {formatCurrency(card.userConfirmedAmount ?? 0)}
+              </span>{' '}
+              já estava quitado no banco
+              {card.userConfirmedAt
+                ? ` (${new Date(card.userConfirmedAt).toLocaleDateString('pt-BR')})`
+                : ''}
+              .{' '}
+              <button
+                type="button"
+                className="underline text-emerald-300 hover:text-emerald-200 font-medium"
+                onClick={() => void handleUndoCompetenceResidualPaid(card)}
+              >
+                Desfazer
+              </button>
+            </p>
+          </section>
+        ) : null}
+
+        {card.files.length === 0 && card.totalPayments > 0.005 ? (
+          <p className="text-slate-300 leading-relaxed text-[13px] px-1">
+            Pagamento vindo do extrato do mês seguinte (competência anterior). Sem CSV neste mês, não há total de
+            fatura para calcular crédito — o valor não é repassado automaticamente.
+          </p>
+        ) : null}
+
+        {card.files.length > 0 ? (
+          <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-300">
+              {card.files.length === 1 ? 'Fonte da fatura' : `${card.files.length} fontes nesta competência`}
+            </h3>
+            <ul className="space-y-3">
+              {card.files.map((f) => {
+                const refunds = f.totalRefunds ?? 0;
+                const debits =
+                  f.totalDebits != null && Number.isFinite(f.totalDebits)
+                    ? f.totalDebits
+                    : Math.max(0, f.statementTotal);
+                return (
+                  <li
+                    key={f.fileName}
+                    className="rounded-lg border border-white/10 bg-black/25 px-3 py-2.5 space-y-2"
+                  >
+                    <p
+                      className={`break-all font-semibold text-[13px] ${
+                        f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? 'text-violet-200' : 'text-slate-100'
+                      }`}
+                    >
+                      {f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? 'Lançamentos manuais' : f.fileName}
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
+                      <span className="text-slate-400">Lançamentos</span>
+                      <span className="text-slate-100 tabular-nums text-right">{f.transactionCount}</span>
+                      {debits > 0.005 ? (
+                        <>
+                          <span className="text-slate-400">Compras</span>
+                          <span className="text-slate-100 tabular-nums text-right">{formatCurrency(debits)}</span>
+                        </>
+                      ) : null}
+                      {refunds > 0.005 ? (
+                        <>
+                          <span className="text-slate-400">Estornos</span>
+                          <span className="text-emerald-300 tabular-nums text-right">
+                            − {formatCurrency(refunds)}
+                          </span>
+                        </>
+                      ) : null}
+                      <span className="text-slate-400">Líquido</span>
+                      <span className="text-rose-300 tabular-nums font-medium text-right">
+                        {formatCurrency(f.statementTotal)}
+                      </span>
+                      {f.totalPayments > 0.005 ? (
+                        <>
+                          <span className="text-slate-400">Pagamentos</span>
+                          <span className="text-emerald-300 tabular-nums text-right">
+                            {formatCurrency(f.totalPayments)}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
+
+        <p className="text-[13px] text-slate-400 leading-relaxed px-1 border-t border-white/10 pt-4">
+          <span className="text-slate-300 font-medium">Como lemos os números:</span> o total da fatura é compras menos
+          estornos; os pagamentos abatem o saldo em aberto. No extrato XP, pagamentos do mês seguinte podem quitar a
+          competência anterior.
+        </p>
+      </div>
+    ),
+    [handleConfirmCompetenceResidualPaid, handleUndoCompetenceResidualPaid]
+  );
 
   const competenceCardStatusLabel = useCallback((card: CompetenceHistoryCard): string => {
     if (card.openBalance <= 0.005) return 'Paga';
@@ -3402,164 +3608,56 @@ const TransactionsView: React.FC = () => {
                     </button>
                   );
                 })()}
-                {(card.totalRefunds > 0.005 ||
-                  card.totalDebits > card.statementTotal + 0.005 ||
-                  (card.directedManualRefundTotal ?? 0) > 0.005) && (
-                  <div className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1">
-                    <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">
+                {(card.totalDebits > 0.005 ||
+                  card.totalRefunds > 0.005 ||
+                  card.statementTotal > 0.005 ||
+                  competenceCardHasExtendedBreakdown(card)) && (
+                  <div className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1.5">
+                    <p className="text-[9px] text-slate-400 uppercase font-semibold tracking-wide">
                       Composição da fatura
                     </p>
                     {card.totalDebits > 0.005 ? (
                       <div className="flex justify-between items-baseline gap-2 text-[11px]">
-                        <span className="text-gray-400">Compras e encargos</span>
-                        <span className="text-gray-200 tabular-nums font-medium">
+                        <span className="text-slate-300">Compras e encargos</span>
+                        <span className="text-white tabular-nums font-medium">
                           {formatCurrency(card.totalDebits)}
                         </span>
                       </div>
                     ) : null}
                     {card.totalRefunds > 0.005 ? (
                       <div className="flex justify-between items-baseline gap-2 text-[11px]">
-                        <span className="text-gray-400">Estornos e créditos</span>
-                        <span className="text-emerald-300/95 tabular-nums font-medium">
+                        <span className="text-slate-300">Estornos e créditos</span>
+                        <span className="text-emerald-300 tabular-nums font-medium">
                           − {formatCurrency(card.totalRefunds)}
                         </span>
                       </div>
                     ) : null}
+                    {competenceCardHasExtendedBreakdown(card) ? (
+                      <button
+                        type="button"
+                        onClick={() => setCompetenceBreakdownModalCard(card)}
+                        className="w-full mt-1.5 pt-1.5 border-t border-white/10 text-left text-[11px] font-medium text-slate-300 hover:text-teal-200 transition-colors"
+                      >
+                        Pagamentos, saldo e fontes →
+                      </button>
+                    ) : null}
                   </div>
                 )}
-                {(card.directedManualRefundTotal ?? 0) > 0.005 ? (
-                  <p className="text-[10px] text-violet-200/90 leading-snug rounded-lg border border-violet-500/25 bg-violet-500/10 px-2.5 py-2">
-                    <span className="font-semibold text-violet-100">Estorno manual</span> de{' '}
-                    <span className="tabular-nums font-semibold text-violet-50">
-                      {formatCurrency(card.directedManualRefundTotal ?? 0)}
-                    </span>{' '}
-                    nesta competência — já descontado do total da fatura (não consta no extrato importado).
-                  </p>
-                ) : null}
                 <div className="flex justify-between items-baseline gap-2 flex-wrap">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Total da fatura</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Total da fatura</span>
                   <span className="text-base font-black text-rose-300 tabular-nums">
                     {formatCurrency(card.statementTotal)}
                   </span>
                 </div>
-                <div className="flex justify-between items-baseline gap-2 flex-wrap border-t border-white/5 pt-1.5 mt-0.5">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Pagamentos</span>
-                  <span className="text-sm font-bold text-emerald-400/90 tabular-nums">
-                    {formatCurrency(card.totalPayments)}
-                  </span>
-                </div>
-                {(card.paymentsOnExtracts ?? 0) > 0.005 ? (
-                  <p className="text-[10px] text-gray-500 leading-snug -mt-0.5">
-                    No extrato:{' '}
-                    <span className="tabular-nums text-gray-400">
-                      {formatCurrency(card.paymentsOnExtracts ?? 0)}
-                    </span>{' '}
-                    em linha de pagamento no extrato desta competência (no fechamento XP, abate a fatura do mês anterior).
-                  </p>
-                ) : null}
-                <div className="flex justify-between items-baseline gap-2 flex-wrap">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Saldo em aberto</span>
-                  <span
-                    className={`text-sm font-bold tabular-nums ${
-                      card.openBalance <= 0.005 ? 'text-gray-400' : 'text-amber-300'
-                    }`}
-                  >
-                    {formatCurrency(card.openBalance)}
-                  </span>
-                </div>
                 {card.openBalance > 0.005 && !card.userConfirmedPaid ? (
-                  <div className="mt-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2 space-y-2">
-                    <p className="text-[10px] text-amber-100/95 leading-snug">
-                      O fechamento automático pode não refletir o banco neste valor residual (
-                      <span className="tabular-nums font-semibold">{formatCurrency(card.openBalance)}</span>
-                      ). Esse saldo já foi quitado na fatura (ajuste, crédito ou arredondamento)?
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        className="text-[10px] py-1 px-2 h-auto"
-                        onClick={() => handleConfirmCompetenceResidualPaid(card)}
-                      >
-                        Sim, está pago
-                      </Button>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCompetenceBreakdownModalCard(card)}
+                    className="text-[10px] text-amber-200/90 hover:text-amber-100 text-left leading-snug underline-offset-2 hover:underline"
+                  >
+                    Saldo em aberto {formatCurrency(card.openBalance)} — toque para revisar ou confirmar pagamento
+                  </button>
                 ) : null}
-                {card.userConfirmedPaid && (card.userConfirmedAmount ?? 0) > 0.005 ? (
-                  <p className="text-[10px] text-emerald-200/90 leading-snug">
-                    Você confirmou que{' '}
-                    <span className="tabular-nums font-semibold text-emerald-100">
-                      {formatCurrency(card.userConfirmedAmount ?? 0)}
-                    </span>{' '}
-                    já estava quitado no banco
-                    {card.userConfirmedAt
-                      ? ` (${new Date(card.userConfirmedAt).toLocaleDateString('pt-BR')})`
-                      : ''}
-                    .{' '}
-                    <button
-                      type="button"
-                      className="underline text-emerald-300/90 hover:text-emerald-200"
-                      onClick={() => handleUndoCompetenceResidualPaid(card)}
-                    >
-                      Desfazer
-                    </button>
-                  </p>
-                ) : null}
-                {card.priorCreditApplied > 0.005 ? (
-                  <p className="text-[10px] text-violet-200/85 leading-snug">
-                    Abatimento automático com crédito da competência anterior:{' '}
-                    <span className="tabular-nums font-semibold text-violet-100">
-                      {formatCurrency(card.priorCreditApplied)}
-                    </span>
-                    {card.openBalanceBeforeCarry > card.openBalance + 0.005 ? (
-                      <>
-                        {' '}
-                        (saldo antes do abatimento:{' '}
-                        <span className="tabular-nums">{formatCurrency(card.openBalanceBeforeCarry)}</span>)
-                      </>
-                    ) : null}
-                  </p>
-                ) : null}
-                {card.creditCarriedForward > 0.005 ? (
-                  <p className="text-[10px] text-emerald-200/80 leading-snug">
-                    Crédito remanescente para competências seguintes:{' '}
-                    <span className="tabular-nums font-semibold text-emerald-100">
-                      {formatCurrency(card.creditCarriedForward)}
-                    </span>
-                  </p>
-                ) : null}
-                {card.files.length === 0 && card.totalPayments > 0.005 ? (
-                  <p className="text-[10px] text-gray-500 leading-snug">
-                    Pagamento vindo do extrato do mês seguinte (competência anterior). Sem CSV neste mês, não há
-                    total de fatura para calcular crédito — o valor não é repassado automaticamente.
-                  </p>
-                ) : null}
-                {card.files.length > 0 ? (
-                  <details className="mt-1 text-[10px] text-gray-500" open={card.files.length <= 2}>
-                    <summary className="cursor-pointer hover:text-gray-400">
-                      {card.files.length === 1 ? 'Detalhe da fonte' : `${card.files.length} fontes nesta competência`}
-                    </summary>
-                    <ul className="mt-1.5 space-y-1.5 pl-1 border-l border-white/10">
-                      {card.files.map((f) => (
-                        <li key={f.fileName} className="pl-2">
-                          <span
-                            className={`break-all font-medium ${
-                              f.fileName === MANUAL_COMPETENCE_FILE_LABEL
-                                ? 'text-violet-300/90'
-                                : 'text-gray-400'
-                            }`}
-                          >
-                            {f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? 'Lançamentos manuais' : f.fileName}
-                          </span>
-                          <p className="text-gray-600 leading-snug mt-0.5">{formatHistoryFileAudit(f)}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
-                <p className="text-[9px] text-gray-600 leading-snug">
-                  Total = compras − estornos; pagamentos abatem saldo (extrato pode quitarem competência anterior).
-                </p>
               </li>
             ))}
             </ul>
@@ -3612,6 +3710,30 @@ const TransactionsView: React.FC = () => {
             )}
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={competenceBreakdownModalCard !== null}
+        onClose={() => setCompetenceBreakdownModalCard(null)}
+        overlayClassName="z-[60] p-2 sm:p-4"
+        className="max-w-full sm:max-w-lg max-h-[96vh]"
+        title={
+          competenceBreakdownModalCard
+            ? `Detalhes — ${competenceBreakdownModalCard.competenceBR}`
+            : 'Detalhes da fatura'
+        }
+        footer={
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={() => setCompetenceBreakdownModalCard(null)}
+          >
+            Voltar ao histórico
+          </Button>
+        }
+      >
+        {competenceBreakdownModalCard ? renderCompetenceBreakdownDetails(competenceBreakdownModalCard) : null}
       </Modal>
 
       {payInvoiceModal.open && payInvoiceModal.loading && payInvoiceModal.account && (
