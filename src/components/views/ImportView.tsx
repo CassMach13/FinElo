@@ -13,6 +13,7 @@ import Input from './../ui/Input';
 import Select from './../ui/Select';
 import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
+import { isOpenFinanceEnabled } from '../../services/featureFlagService';
 import { getBelvoWidgetToken, savePluggyConnection, loadPluggyConnections, deletePluggyConnection } from '../../services/openFinanceService';
 import OpenFinanceReviewModal from '../modals/OpenFinanceReviewModal';
 import { PluggyConnection, ImportConfig, Account, CardImportCycleInput } from '../../types';
@@ -93,6 +94,7 @@ const ImportView: React.FC = () => {
 
   const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
   const hasUnlimitedAccess = unlimitedSync || isAdmin;
+  const openFinanceEnabled = isOpenFinanceEnabled(user);
 
   const [selectedConfigSource, setSelectedConfigSource] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -181,15 +183,15 @@ const ImportView: React.FC = () => {
   const [consentInstitution, setConsentInstitution] = useState('ofmockbank_br_retail');
 
 
-  // Load existing connections on mount
+  // Load existing connections on mount (somente com Open Finance habilitado)
   React.useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !openFinanceEnabled) return;
     setIsLoadingConnections(true);
     loadPluggyConnections(user.id)
       .then(setPluggyConnections)
       .catch(console.error)
       .finally(() => setIsLoadingConnections(false));
-  }, [user?.id]);
+  }, [user?.id, openFinanceEnabled]);
 
   const handlePluggySuccess = async (itemData: any) => {
     try {
@@ -865,6 +867,8 @@ const ImportView: React.FC = () => {
                     </div>
                   </div>
 
+                  {openFinanceEnabled ? (
+                  <>
                   {/* ─── OPEN FINANCE (BELVO) ─────────────────────────────────────────── */}
                   <div className="border border-indigo-500/30 bg-gradient-to-r from-indigo-900/40 to-slate-900/40 rounded-xl p-5 mt-4 relative overflow-hidden group">
                     <div className="absolute inset-0 bg-indigo-500/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
@@ -962,6 +966,8 @@ const ImportView: React.FC = () => {
 
                   {/* Belvo Widget Mount Point */}
                   <div id="belvo"></div>
+                  </>
+                  ) : null}
 
                   <div className="border-t border-slate-700/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
 
@@ -1596,7 +1602,7 @@ const ImportView: React.FC = () => {
 
       {/* Open Finance Review Modal */}
       {
-        reviewConnection && (
+        openFinanceEnabled && reviewConnection && (
           <OpenFinanceReviewModal
             isOpen={!!reviewConnection}
             onClose={() => setReviewConnection(null)}
@@ -1609,7 +1615,7 @@ const ImportView: React.FC = () => {
         )
       }
       {/* Modal de Consentimento Open Finance */}
-      {showConsentModal && (
+      {openFinanceEnabled && showConsentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center gap-3 mb-4">

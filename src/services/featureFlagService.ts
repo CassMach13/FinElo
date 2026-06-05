@@ -61,3 +61,12 @@ export const isCreditCardEngineEnabled = (user: UserWithMetadata): boolean => {
   return user?.user_metadata?.credit_card_engine_enabled === true;
 };
 
+/**
+ * Open Finance (Belvo/Pluggy) na importação.
+ * Desligado por padrão até haver provedor pay-as-you-go — reative com VITE_OPEN_FINANCE_ENABLED=true.
+ */
+export const isOpenFinanceEnabled = (user?: UserWithMetadata): boolean => {
+  if (import.meta.env.VITE_OPEN_FINANCE_ENABLED === 'true') return true;
+  return user?.user_metadata?.open_finance_enabled === true;
+};
+
