@@ -371,9 +371,16 @@ interface Props {
   onClose: () => void;
   /** Se definido, apenas importações desta conta de cartão. */
   filterAccountId?: string | null;
+  /** Camada do overlay (acima do histórico de faturas quando aberto em sequência). */
+  overlayClassName?: string;
 }
 
-const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filterAccountId }) => {
+const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  filterAccountId,
+  overlayClassName = 'z-[70]',
+}) => {
   const accounts = useAppStore((s) => s.accounts);
   const transactions = useAppStore((s) => s.transactions);
   const importLogs = useAppStore((s) => s.importLogs);
@@ -706,6 +713,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({ isOpen, onClose, filter
       isOpen={isOpen}
       onClose={() => !busy && onClose()}
       title={modalTitle}
+      overlayClassName={overlayClassName}
       className="max-w-5xl"
       footer={
         <div className="flex flex-wrap justify-end gap-2">

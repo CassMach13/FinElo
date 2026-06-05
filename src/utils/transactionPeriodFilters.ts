@@ -51,10 +51,19 @@ export function saveTransactionFiltersPanelExpanded(expanded: boolean): void {
   }
 }
 
-const VIEW_SCOPE_LABELS: Record<TransactionViewScope, string> = {
-  operation: 'Operação do mês',
-  commitments: 'Compromissos',
+export const VIEW_SCOPE_LABELS: Record<TransactionViewScope, string> = {
+  operation: 'Tudo do período',
+  commitments: 'Parcelas e recorrências',
   all: 'Histórico completo',
+};
+
+/** Texto de ajuda exibido abaixo dos chips de visualização. */
+export const VIEW_SCOPE_HINTS: Record<TransactionViewScope, string> = {
+  operation:
+    'Todos os lançamentos do período escolhido — compras à vista, pagamentos e parcelas.',
+  commitments:
+    'Somente parcelamentos e recorrências (ex.: financiamento 3/36 ou compra em várias vezes).',
+  all: 'Todas as transações, sem limite de período.',
 };
 
 /** Uma linha para o cabeçalho do painel de filtros colapsado. */

@@ -64,7 +64,7 @@ describe('transactionPeriodFilters', () => {
       text: 'ifood',
       accountId: ['a1', 'a2'],
     });
-    expect(summary).toContain('Operação do mês');
+    expect(summary).toContain('Tudo do período');
     expect(summary).toContain('Busca');
     expect(summary).toContain('2 contas');
   });

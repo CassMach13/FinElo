@@ -23,6 +23,7 @@ import { creditCardEngineService } from '../../services/creditCardEngineService'
 import { supabase } from '../../supabaseClient';
 
 import { formatCurrency, formatCurrencySigned, getCurrencyColorClass } from '../../utils/formatters';
+import CompetenceInvoiceBarChart from '../charts/CompetenceInvoiceBarChart';
 import {
   classifyCompetenceLedgerRole,
   creditCardRebuildFromImportHistoryService,
@@ -58,6 +59,8 @@ import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMet
 import { mergeMotorSnapshotWithManualLedger } from '../../services/creditCardManualMotorSync';
 import {
   buildTransactionFiltersCollapsedSummary,
+  VIEW_SCOPE_HINTS,
+  VIEW_SCOPE_LABELS,
   formatPeriodLabel,
   getDefaultTransactionFilters,
   getTransactionFilterDate,
@@ -254,6 +257,7 @@ const TransactionsView: React.FC = () => {
     useState<CompetenceHistoryCard | null>(null);
   const [competenceBreakdownModalCard, setCompetenceBreakdownModalCard] =
     useState<CompetenceHistoryCard | null>(null);
+  const [selectedCompetenceRef, setSelectedCompetenceRef] = useState<string | null>(null);
 
   const loadImportHistoryCompetenceCards = useCallback(
     async (account: Account) => {
@@ -313,6 +317,20 @@ const TransactionsView: React.FC = () => {
     transactions,
     loadImportHistoryCompetenceCards,
   ]);
+
+  useEffect(() => {
+    if (!motorInvoiceHistoryOpen || motorInvoiceCompetenceCards.length === 0) return;
+    setSelectedCompetenceRef((prev) => {
+      if (prev && motorInvoiceCompetenceCards.some((c) => c.referenceMonth === prev)) return prev;
+      return motorInvoiceCompetenceCards[0]?.referenceMonth ?? null;
+    });
+  }, [motorInvoiceHistoryOpen, motorInvoiceCompetenceCards]);
+
+  const selectedCompetenceCard = useMemo(
+    () =>
+      motorInvoiceCompetenceCards.find((c) => c.referenceMonth === selectedCompetenceRef) ?? null,
+    [motorInvoiceCompetenceCards, selectedCompetenceRef]
+  );
 
   const handleConfirmCompetenceResidualPaid = useCallback(
     async (card: CompetenceHistoryCard) => {
@@ -688,6 +706,125 @@ const TransactionsView: React.FC = () => {
     if (!Number.isNaN(due.getTime()) && due < new Date()) return 'Vencida';
     return 'Aberta';
   }, []);
+
+  const renderCompetenceHistoryCardPanel = useCallback(
+    (card: CompetenceHistoryCard) => {
+      const ledger = competenceLedgerByRef.get(card.referenceMonth) ?? [];
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">
+                Competência
+              </span>
+              <span className="text-lg font-black text-white leading-tight tabular-nums">
+                {card.competenceBR}
+              </span>
+              <span className="text-[11px] text-slate-400 tabular-nums">Venc.: {card.vencimentoBR}</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 shrink-0">
+              {competenceCardStatusLabel(card)}
+            </span>
+          </div>
+          {ledger.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setCompetenceLedgerModalCard(card)}
+              className="w-full rounded-xl border-2 border-teal-400/50 bg-gradient-to-br from-teal-500/25 via-teal-500/10 to-slate-900/50 shadow-lg shadow-teal-950/30 text-left hover:bg-teal-500/15 active:scale-[0.99] transition-all"
+            >
+              <span className="flex items-center gap-3 px-3.5 py-3.5">
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 border border-teal-300/35"
+                  aria-hidden
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-teal-200"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                    />
+                  </svg>
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                    Auditoria da fatura
+                  </span>
+                  <span className="block text-sm font-bold text-white leading-snug mt-0.5">
+                    Ver lançamentos desta fatura
+                  </span>
+                  <span className="block text-[10px] text-teal-100/75 mt-0.5 leading-snug">
+                    Abre em tela cheia para conferir no celular
+                  </span>
+                </span>
+                <span className="flex flex-col items-end shrink-0 gap-1">
+                  <span className="rounded-full bg-teal-300 px-3 py-1 text-sm font-black text-slate-900 tabular-nums shadow-sm">
+                    {ledger.length}
+                  </span>
+                  <span className="text-[10px] font-bold text-teal-200/90">Abrir →</span>
+                </span>
+              </span>
+            </button>
+          ) : null}
+          {(card.totalDebits > 0.005 ||
+            card.totalRefunds > 0.005 ||
+            card.statementTotal > 0.005 ||
+            competenceCardHasExtendedBreakdown(card)) && (
+            <div className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1.5">
+              <p className="text-[9px] text-slate-400 uppercase font-semibold tracking-wide">
+                Composição da fatura
+              </p>
+              {card.totalDebits > 0.005 ? (
+                <div className="flex justify-between items-baseline gap-2 text-[11px]">
+                  <span className="text-slate-300">Compras e encargos</span>
+                  <span className="text-white tabular-nums font-medium">{formatCurrency(card.totalDebits)}</span>
+                </div>
+              ) : null}
+              {card.totalRefunds > 0.005 ? (
+                <div className="flex justify-between items-baseline gap-2 text-[11px]">
+                  <span className="text-slate-300">Estornos e créditos</span>
+                  <span className="text-emerald-300 tabular-nums font-medium">
+                    − {formatCurrency(card.totalRefunds)}
+                  </span>
+                </div>
+              ) : null}
+              {competenceCardHasExtendedBreakdown(card) ? (
+                <button
+                  type="button"
+                  onClick={() => setCompetenceBreakdownModalCard(card)}
+                  className="w-full mt-1.5 pt-1.5 border-t border-white/10 text-left text-[11px] font-medium text-slate-300 hover:text-teal-200 transition-colors"
+                >
+                  Pagamentos, saldo e fontes →
+                </button>
+              ) : null}
+            </div>
+          )}
+          <div className="flex justify-between items-baseline gap-2 flex-wrap">
+            <span className="text-[10px] text-slate-400 uppercase font-semibold">Total da fatura</span>
+            <span className="text-xl font-black text-rose-300 tabular-nums">
+              {formatCurrency(card.statementTotal)}
+            </span>
+          </div>
+          {card.openBalance > 0.005 && !card.userConfirmedPaid ? (
+            <button
+              type="button"
+              onClick={() => setCompetenceBreakdownModalCard(card)}
+              className="text-[10px] text-amber-200/90 hover:text-amber-100 text-left leading-snug underline-offset-2 hover:underline"
+            >
+              Saldo em aberto {formatCurrency(card.openBalance)} — toque para revisar ou confirmar pagamento
+            </button>
+          ) : null}
+        </div>
+      );
+    },
+    [competenceLedgerByRef, competenceCardHasExtendedBreakdown, competenceCardStatusLabel]
+  );
 
   const closePayInvoiceModal = useCallback(() => {
     setPayInvoiceModal({
@@ -2507,34 +2644,31 @@ const TransactionsView: React.FC = () => {
             className={`space-y-4 ${filtersPanelExpanded ? 'mt-4 block' : 'hidden'}`}
           >
             <div className="flex flex-col gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Visualização</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Visualização</p>
               <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    ['operation', 'Operação do mês'],
-                    ['commitments', 'Compromissos'],
-                    ['all', 'Histórico completo'],
-                  ] as const
-                ).map(([scope, label]) => (
+                {(['operation', 'commitments', 'all'] as const).map((scope) => (
                   <button
                     key={scope}
                     type="button"
                     onClick={() => handleViewScope(scope)}
-                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors border ${
                       transactionFilters.viewScope === scope
-                        ? 'bg-accent text-slate-900'
-                        : 'bg-slate-800 text-slate-400 hover:text-white border border-white/5'
+                        ? 'bg-accent text-slate-900 border-accent shadow-sm'
+                        : 'bg-slate-700/90 text-slate-100 border-white/10 hover:bg-slate-600 hover:text-white'
                     }`}
                   >
-                    {label}
+                    {VIEW_SCOPE_LABELS[scope]}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {VIEW_SCOPE_HINTS[transactionFilters.viewScope]}
+              </p>
             </div>
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Período</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Período</p>
                 <span className="text-xs text-slate-400 tabular-nums">{periodSummary}</span>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -2551,11 +2685,11 @@ const TransactionsView: React.FC = () => {
                     type="button"
                     disabled={historyViewActive && preset !== 'all'}
                     onClick={() => handlePeriodPreset(preset)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border disabled:opacity-40 disabled:cursor-not-allowed ${
                       (preset === 'all' && historyViewActive) ||
                       (transactionFilters.periodPreset === preset && !historyViewActive)
-                        ? 'bg-accent/20 text-accent border-accent/40'
-                        : 'bg-slate-800/80 text-slate-400 border-white/5 hover:border-white/15 hover:text-slate-200'
+                        ? 'bg-accent/25 text-accent border-accent/50 shadow-sm'
+                        : 'bg-slate-700/90 text-slate-100 border-white/10 hover:border-white/20 hover:bg-slate-600'
                     }`}
                   >
                     {label}
@@ -3485,17 +3619,16 @@ const TransactionsView: React.FC = () => {
           setMotorInvoiceHistoryAccount(null);
           setMotorInvoiceCompetenceCards([]);
           setMotorInvoiceError(null);
+          setSelectedCompetenceRef(null);
         }}
         title={`Histórico de faturas${motorInvoiceHistoryAccount ? ` — ${motorInvoiceHistoryAccount.Nome_Conta}` : ''}`}
+        overlayClassName="z-[55]"
         className="max-w-2xl"
       >
         <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-          Cada card é uma <span className="text-gray-300 font-medium">competência</span> (mês da fatura). Expanda{' '}
-          <span className="text-gray-300 font-medium">Ver lançamentos</span> para auditar linha a linha o que compõe
-          aquela fatura (importação e manuais). Os totais mostram compras, estornos e pagamentos; pagamentos no CSV do
-          mês seguinte abatem a competência anterior. Use <span className="text-gray-300 font-medium">Pagar fatura</span>{' '}
-          para quitação manual ou <span className="text-gray-300 font-medium">Ajustar competências por arquivo</span> se
-          faltar algum mês.
+          Toque em um mês no gráfico para ver a fatura. Use{' '}
+          <span className="text-gray-300 font-medium">Auditoria da fatura</span> para conferir lançamentos linha a linha
+          ou <span className="text-gray-300 font-medium">Pagamentos, saldo e fontes</span> para o fechamento completo.
         </p>
         {motorInvoiceHistoryAccount && showAdjustCompetenceByFile ? (
           <div className="mb-4">
@@ -3540,127 +3673,18 @@ const TransactionsView: React.FC = () => {
                 <span className="text-xs text-gray-300">Atualizando histórico…</span>
               </div>
             ) : null}
-            <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-            {motorInvoiceCompetenceCards.map((card) => (
-              <li
-                key={card.referenceMonth}
-                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 flex flex-col gap-1"
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Competência</span>
-                    <span className="text-sm font-bold text-white leading-tight tabular-nums">
-                      {card.competenceBR}
-                    </span>
-                    <span className="text-[10px] text-gray-500 tabular-nums">Venc.: {card.vencimentoBR}</span>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 shrink-0">
-                    {competenceCardStatusLabel(card)}
-                  </span>
+            <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
+              <CompetenceInvoiceBarChart
+                cards={motorInvoiceCompetenceCards}
+                selectedReferenceMonth={selectedCompetenceRef}
+                onSelect={setSelectedCompetenceRef}
+              />
+              {selectedCompetenceCard ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                  {renderCompetenceHistoryCardPanel(selectedCompetenceCard)}
                 </div>
-                {(() => {
-                  const ledger = competenceLedgerByRef.get(card.referenceMonth) ?? [];
-                  if (ledger.length === 0) return null;
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setCompetenceLedgerModalCard(card)}
-                      className="w-full rounded-xl border-2 border-teal-400/50 bg-gradient-to-br from-teal-500/25 via-teal-500/10 to-slate-900/50 shadow-lg shadow-teal-950/30 text-left hover:bg-teal-500/15 active:scale-[0.99] transition-all"
-                    >
-                      <span className="flex items-center gap-3 px-3.5 py-3.5">
-                        <span
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 border border-teal-300/35"
-                          aria-hidden
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 text-teal-200"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                            />
-                          </svg>
-                        </span>
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
-                            Auditoria da fatura
-                          </span>
-                          <span className="block text-sm font-bold text-white leading-snug mt-0.5">
-                            Ver lançamentos desta fatura
-                          </span>
-                          <span className="block text-[10px] text-teal-100/75 mt-0.5 leading-snug">
-                            Abre em tela cheia para conferir no celular
-                          </span>
-                        </span>
-                        <span className="flex flex-col items-end shrink-0 gap-1">
-                          <span className="rounded-full bg-teal-300 px-3 py-1 text-sm font-black text-slate-900 tabular-nums shadow-sm">
-                            {ledger.length}
-                          </span>
-                          <span className="text-[10px] font-bold text-teal-200/90">Abrir →</span>
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })()}
-                {(card.totalDebits > 0.005 ||
-                  card.totalRefunds > 0.005 ||
-                  card.statementTotal > 0.005 ||
-                  competenceCardHasExtendedBreakdown(card)) && (
-                  <div className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1.5">
-                    <p className="text-[9px] text-slate-400 uppercase font-semibold tracking-wide">
-                      Composição da fatura
-                    </p>
-                    {card.totalDebits > 0.005 ? (
-                      <div className="flex justify-between items-baseline gap-2 text-[11px]">
-                        <span className="text-slate-300">Compras e encargos</span>
-                        <span className="text-white tabular-nums font-medium">
-                          {formatCurrency(card.totalDebits)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {card.totalRefunds > 0.005 ? (
-                      <div className="flex justify-between items-baseline gap-2 text-[11px]">
-                        <span className="text-slate-300">Estornos e créditos</span>
-                        <span className="text-emerald-300 tabular-nums font-medium">
-                          − {formatCurrency(card.totalRefunds)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {competenceCardHasExtendedBreakdown(card) ? (
-                      <button
-                        type="button"
-                        onClick={() => setCompetenceBreakdownModalCard(card)}
-                        className="w-full mt-1.5 pt-1.5 border-t border-white/10 text-left text-[11px] font-medium text-slate-300 hover:text-teal-200 transition-colors"
-                      >
-                        Pagamentos, saldo e fontes →
-                      </button>
-                    ) : null}
-                  </div>
-                )}
-                <div className="flex justify-between items-baseline gap-2 flex-wrap">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Total da fatura</span>
-                  <span className="text-base font-black text-rose-300 tabular-nums">
-                    {formatCurrency(card.statementTotal)}
-                  </span>
-                </div>
-                {card.openBalance > 0.005 && !card.userConfirmedPaid ? (
-                  <button
-                    type="button"
-                    onClick={() => setCompetenceBreakdownModalCard(card)}
-                    className="text-[10px] text-amber-200/90 hover:text-amber-100 text-left leading-snug underline-offset-2 hover:underline"
-                  >
-                    Saldo em aberto {formatCurrency(card.openBalance)} — toque para revisar ou confirmar pagamento
-                  </button>
-                ) : null}
-              </li>
-            ))}
-            </ul>
+              ) : null}
+            </div>
           </div>
         )}
       </Modal>
