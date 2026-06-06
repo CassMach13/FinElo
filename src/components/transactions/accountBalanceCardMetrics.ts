@@ -1,6 +1,9 @@
 import type { ClassificationRules } from '../../domain/credit-card/classifiers';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
-import { pickCurrentCompetenceCard } from '../../services/creditCardManualCompetence';
+import {
+  competenceFaturaAtualDisplayAmount,
+  pickFaturaAtualCompetenceCard,
+} from '../../services/creditCardManualCompetence';
 import { Account, ImportLog, Transaction } from '../../types';
 import type { AccountCardDisplayData } from './AccountBalanceCard';
 
@@ -229,41 +232,40 @@ export function computeAccountCardDisplay(
       );
     }
 
-    const shouldUseCardSnapshot =
-      (cardV2Enabled || cardEngineEnabled) && !!cardV2Snapshot && cardV2Snapshot.hasData;
+    const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: accounts.length > 0 ? accounts : [account],
+      transactions,
+      importLogs,
+      rules,
+      userPaymentConfirmations,
+    });
 
-    const manualOnAccount = allAccountT.some(
-      (t) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
-    );
-    /** CSV/import-only: mantém snapshot do motor sem alteração. */
-    const useEngineSnapshotOnly = shouldUseCardSnapshot && !manualOnAccount;
+    const useCompetenceLedger = competenceCards.length > 0;
 
-    if (useEngineSnapshotOnly) {
-      const faturaOpenRounded = roundCurrency(cardV2Snapshot!.currentOpenAmount);
-      const ledgerUsedRounded = roundCurrency(Math.max(totalUsedLimit, 0));
-      faturaAtual = faturaOpenRounded;
-      totalUsedLimit = roundCurrency(Math.max(ledgerUsedRounded, faturaOpenRounded));
-    } else {
-      const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
-        accountId: account.id,
-        account,
-        accounts: accounts.length > 0 ? accounts : [account],
-        transactions,
-        importLogs,
-        rules,
-        userPaymentConfirmations,
-      });
-      const currentCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
-      if (currentCompetence) {
-        faturaAtual = Math.max(currentCompetence.openBalance, 0);
+    if (useCompetenceLedger) {
+      const faturaCompetence = pickFaturaAtualCompetenceCard(competenceCards, todayStr);
+      if (faturaCompetence) {
+        faturaAtual = competenceFaturaAtualDisplayAmount(faturaCompetence);
       }
       const openFromAllCompetences = competenceCards.reduce(
         (sum, c) => sum + Math.max(c.openBalance, 0),
         0
       );
-      totalUsedLimit = roundCurrency(
-        Math.max(totalUsedLimit, faturaAtual, openFromAllCompetences)
-      );
+      /** Limite usado = soma dos saldos em aberto por competência (abril paga não entra). */
+      totalUsedLimit = roundCurrency(openFromAllCompetences);
+    } else {
+      const shouldUseCardSnapshot =
+        (cardV2Enabled || cardEngineEnabled) && !!cardV2Snapshot && cardV2Snapshot.hasData;
+
+      if (shouldUseCardSnapshot) {
+        const faturaOpenRounded = roundCurrency(cardV2Snapshot!.currentOpenAmount);
+        faturaAtual = faturaOpenRounded;
+        totalUsedLimit = roundCurrency(Math.max(totalUsedLimit, faturaOpenRounded));
+      } else {
+        totalUsedLimit = roundCurrency(Math.max(totalUsedLimit, 0));
+      }
     }
   }
 

@@ -7,7 +7,8 @@ import {
   type CompetenceHistoryCard,
 } from './creditCardRebuildFromImportHistoryService';
 import {
-  pickCurrentCompetenceCard,
+  competenceFaturaAtualDisplayAmount,
+  pickFaturaAtualCompetenceCard,
   referenceMonthFromTransaction,
 } from './creditCardManualCompetence';
 import {
@@ -181,7 +182,7 @@ export function scheduleManualCreditCardSync(opts: {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Evita snapshot parcial do motor menor que o ledger (import + manual). CSV-only não altera. */
+/** Alinha snapshot do motor com o ledger de competências (import + manual). */
 export function mergeMotorSnapshotWithManualLedger(params: {
   accountId: string;
   account: Account;
@@ -197,13 +198,6 @@ export function mergeMotorSnapshotWithManualLedger(params: {
   snapshot: { currentOpenAmount: number; hasData: boolean };
   todayIso?: string;
 }): { currentOpenAmount: number; hasData: boolean } {
-  const hasManual = params.transactions.some(
-    (t) =>
-      t.ID_Conta === params.accountId &&
-      String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
-  );
-  if (!hasManual) return params.snapshot;
-
   const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
     accountId: params.accountId,
     account: params.account,
@@ -213,17 +207,19 @@ export function mergeMotorSnapshotWithManualLedger(params: {
     rules: params.rules,
     userPaymentConfirmations: params.userPaymentConfirmations,
   });
+  if (cards.length === 0) return params.snapshot;
+
   const today = params.todayIso || new Date().toISOString().slice(0, 10);
-  const current = pickCurrentCompetenceCard(cards, today);
+  const current = pickFaturaAtualCompetenceCard(cards, today);
   if (!current) return params.snapshot;
 
-  const ledgerFatura = Math.max(current.openBalance, 0);
-  const merged =
-    ledgerFatura > 0.005
-      ? Math.max(params.snapshot.currentOpenAmount, ledgerFatura)
-      : Math.min(params.snapshot.currentOpenAmount, ledgerFatura);
+  const ledgerFatura = competenceFaturaAtualDisplayAmount(current);
+  const openFromAll = round2(
+    cards.reduce((sum, c) => sum + Math.max(c.openBalance, 0), 0)
+  );
+
   return {
-    currentOpenAmount: round2(merged),
-    hasData: params.snapshot.hasData || ledgerFatura > 0.005,
+    currentOpenAmount: round2(ledgerFatura),
+    hasData: params.snapshot.hasData || openFromAll > 0.005 || ledgerFatura > 0.005,
   };
 }

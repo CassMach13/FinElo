@@ -22,8 +22,11 @@ import {
 } from './creditCardManualCompetence';
 import {
   isDirectedManualInvoicePayment,
+  isImportedInvoicePayment,
   isManualCardRefund,
   isManualInvoicePayment,
+  ledgerClassificationTextFromTransaction,
+  looksLikeInvoicePaymentText,
   parseDirectedCompetenceFromPayment,
 } from './creditCardDirectedPayment';
 
@@ -151,8 +154,16 @@ export function classifyCompetenceLedgerRole(tx: Transaction): CompetenceLedgerR
     return 'pagamento';
   }
   if (isManualInvoicePayment(tx)) return 'pagamento';
-  const desc = normLedgerDesc(tx.Descricao_Original || tx.Nome_Fantasia || '');
+  if (isImportedInvoicePayment(tx)) return 'pagamento';
+  const desc = normLedgerDesc(ledgerClassificationTextFromTransaction(tx));
   const amt = Number(tx.Valor || 0);
+  if (looksLikeInvoicePaymentText({
+    categoria: tx.Categoria,
+    nome: tx.Nome_Fantasia,
+    descricao: tx.Descricao_Original,
+  }) && amt > 0) {
+    return 'pagamento';
+  }
   if (desc.includes('pagamento') && amt > 0) return 'pagamento';
   if (amt > 0 || isManualCardRefund(tx)) return 'estorno';
   if (amt < 0) return 'compra';
@@ -388,6 +399,12 @@ export function enrichCompetenceCardBreakdown(card: CompetenceHistoryCard): void
 }
 
 /**
+ * Excedente abaixo deste valor não vira crédito no mês seguinte (arredondamento extrato × pagamento).
+ * Ex.: pagamento R$ 6.402,97 vs total R$ 6.402,03 → R$ 0,94 não deve abater a fatura de maio.
+ */
+export const MICRO_SURPLUS_CARRY_MAX = 1;
+
+/**
  * Quando um mês foi pago a mais, o excedente reduz o saldo em aberto dos meses seguintes (ordem cronológica).
  * Só gera crédito se a competência tiver extrato importado — pagamento redirecionado sem arquivo não vira crédito.
  */
@@ -401,7 +418,11 @@ export function applySequentialCreditCarryForward(cards: CompetenceHistoryCard[]
     const grossDeficit = round2(Math.max(0, card.statementTotal - card.totalPayments));
     const rawSurplus = round2(Math.max(0, card.totalPayments - card.statementTotal));
     const grossSurplus =
-      competenceHasImportedStatement(card) && card.statementTotal > 0.005 ? rawSurplus : 0;
+      competenceHasImportedStatement(card) &&
+      card.statementTotal > 0.005 &&
+      rawSurplus >= MICRO_SURPLUS_CARRY_MAX
+        ? rawSurplus
+        : 0;
 
     card.openBalanceBeforeCarry = grossDeficit;
     card.priorCreditApplied = round2(Math.min(availableCredit, grossDeficit));
@@ -502,7 +523,7 @@ function toImportLines(txs: Transaction[]): Array<{
 }> {
   return txs.map((tx) => ({
     postedDate: new Date(tx.Data).toISOString().slice(0, 10),
-    description: tx.Descricao_Original || tx.Nome_Fantasia || '',
+    description: ledgerClassificationTextFromTransaction(tx),
     amount: cardImportLedgerAmount(tx),
     installmentTotal: tx.Total_Parcelas || undefined,
     fineloTipo: tx.Tipo ? String(tx.Tipo) : undefined,

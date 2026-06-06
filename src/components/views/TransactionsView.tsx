@@ -252,6 +252,16 @@ const TransactionsView: React.FC = () => {
 
   const isoTodayStr = () => new Date().toISOString().slice(0, 10);
 
+  const currentPaymentKeywords = useMemo(
+    () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
+    [user?.user_metadata?.cardPaymentKeywords]
+  );
+
+  const currentCreditKeywords = useMemo(
+    () => parseKeywordList(user?.user_metadata?.cardCreditKeywords, DEFAULT_CARD_CREDIT_KEYWORDS),
+    [user?.user_metadata?.cardCreditKeywords]
+  );
+
   const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
   const [competenceLedgerModalCard, setCompetenceLedgerModalCard] =
     useState<CompetenceHistoryCard | null>(null);
@@ -272,9 +282,13 @@ const TransactionsView: React.FC = () => {
         transactions,
         importLogs,
         userPaymentConfirmations,
+        rules: {
+          paymentKeywords: currentPaymentKeywords,
+          refundKeywords: currentCreditKeywords,
+        },
       });
     },
-    [accounts, transactions, importLogs, competenceConfirmRevision]
+    [accounts, transactions, importLogs, competenceConfirmRevision, currentPaymentKeywords, currentCreditKeywords]
   );
 
   const openMotorInvoiceHistoryModal = useCallback((account: Account) => {
@@ -1896,16 +1910,6 @@ const TransactionsView: React.FC = () => {
     [accounts]
   );
 
-  const currentPaymentKeywords = useMemo(
-    () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
-    [user?.user_metadata?.cardPaymentKeywords]
-  );
-
-  const currentCreditKeywords = useMemo(
-    () => parseKeywordList(user?.user_metadata?.cardCreditKeywords, DEFAULT_CARD_CREDIT_KEYWORDS),
-    [user?.user_metadata?.cardCreditKeywords]
-  );
-
   const parseInputKeywords = useCallback((input: string, fallback: string[]) => {
     const values = input
       .split(/\r?\n|,/g)
@@ -2103,6 +2107,10 @@ const TransactionsView: React.FC = () => {
               transactions: txsNow,
               importLogs: logsNow,
               userPaymentConfirmations: confs,
+              rules: {
+                paymentKeywords: currentPaymentKeywords,
+                refundKeywords: currentCreditKeywords,
+              },
               snapshot: { currentOpenAmount: faturaOpenRounded, hasData: true },
             })
           : { currentOpenAmount: faturaOpenRounded, hasData: true };
@@ -2173,6 +2181,10 @@ const TransactionsView: React.FC = () => {
         transactions,
         accounts,
         importLogs,
+        rules: {
+          paymentKeywords: currentPaymentKeywords,
+          refundKeywords: currentCreditKeywords,
+        },
         userPaymentConfirmations: paymentConfs,
         cardV2Snapshot: cardV2SnapshotByAccount.get(account.id),
         cardV2Enabled,
@@ -2206,6 +2218,8 @@ const TransactionsView: React.FC = () => {
       transactions,
       accounts,
       importLogs,
+      currentPaymentKeywords,
+      currentCreditKeywords,
       paymentConfirmationsByAccount,
       cardV2SnapshotByAccount,
       cardV2Enabled,

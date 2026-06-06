@@ -293,6 +293,123 @@ describe('competenceHistoryCardsForAccount', () => {
     expect(fev?.openBalance).toBe(39.99);
   });
 
+  it('micro-excedente de pagamento (< R$ 1) em abril não abate a fatura de maio', () => {
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: [account],
+      transactions: [
+        {
+          ID_Transacao: 'abr',
+          ID_Conta: 'acc-xp',
+          Origem: 'Fatura_XP_Abr_2026.csv',
+          Data: '2026-04-05',
+          Valor: -6402.97,
+          Tipo: 'Despesa',
+          Descricao_Original: 'Compras abr',
+        } as Transaction,
+        {
+          ID_Transacao: 'pgto',
+          ID_Conta: 'acc-xp',
+          Origem: 'Fatura_XP_Mai_2026.csv',
+          Data: '2026-05-12',
+          Valor: 6403.91,
+          Tipo: 'Renda',
+          Descricao_Original: 'Pagamento de fatura',
+          Nome_Fantasia: 'Pagamento de fatura',
+          Categoria: 'Pagamento Cartão de Crédito',
+        } as Transaction,
+        {
+          ID_Transacao: 'mai',
+          ID_Conta: 'acc-xp',
+          Origem: 'Fatura_XP_Mai_2026.csv',
+          Data: '2026-05-05',
+          Valor: -6260.26,
+          Tipo: 'Despesa',
+          Descricao_Original: 'Compras mai',
+        } as Transaction,
+      ],
+      importLogs: [
+        {
+          id: 'l-abr',
+          file_name: 'Fatura_XP_Abr_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-04', Card_Due_Date: '2026-05-10' },
+          ],
+        } as any,
+        {
+          id: 'l-mai',
+          file_name: 'Fatura_XP_Mai_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-05', Card_Due_Date: '2026-06-10' },
+          ],
+        } as any,
+      ],
+    });
+
+    const abr = cards.find((c) => c.referenceMonth === '2026-04');
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+
+    expect(abr?.openBalance).toBe(0);
+    expect(abr?.creditCarriedForward).toBe(0);
+    expect(mai?.statementTotal).toBe(6260.26);
+    expect(mai?.priorCreditApplied).toBe(0);
+    expect(mai?.openBalance).toBe(6260.26);
+  });
+
+  it('pagamento no CSV com regra de mapeamento (nome/categoria) abate fatura anterior', () => {
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: '1',
+        ID_Conta: 'acc-xp',
+        Origem: 'Fatura_XP_Mai_2026.csv',
+        Data: '2026-05-05',
+        Valor: -19066.2,
+        Descricao_Original: 'CREDITO OUTROS LANCAMENTOS',
+        Tipo: 'Despesa',
+      } as Transaction,
+      {
+        ID_Transacao: '2',
+        ID_Conta: 'acc-xp',
+        Origem: 'Fatura_XP_Jun_2026.csv',
+        Data: '2026-05-12',
+        Valor: 6402.97,
+        Tipo: 'Renda',
+        Descricao_Original: 'LANCAMENTO XP 12345',
+        Nome_Fantasia: 'Pagamento de fatura',
+        Categoria: 'Pagamento Cartão de Crédito',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: [account],
+      transactions,
+      importLogs: [
+        {
+          id: 'l-mai',
+          file_name: 'Fatura_XP_Mai_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-05', Card_Due_Date: '2026-06-10' },
+          ],
+        } as any,
+        {
+          id: 'l-jun',
+          file_name: 'Fatura_XP_Jun_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-06', Card_Due_Date: '2026-07-10' },
+          ],
+        } as any,
+      ],
+    });
+
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+    expect(mai?.statementTotal).toBe(19066.2);
+    expect(mai?.totalPayments).toBe(6402.97);
+    expect(mai?.openBalance).toBe(12663.23);
+  });
+
   it('pagamento no CSV de arquivo com competência 01/2025 abate fatura 12/2024', () => {
     const transactions: Transaction[] = [
       {
@@ -348,6 +465,53 @@ describe('competenceHistoryCardsForAccount', () => {
     expect(dez?.statementTotal).toBe(5836.38);
     expect(dez?.totalPayments).toBe(5836.38);
     expect(dez?.openBalance).toBe(0);
+  });
+
+  it('pagamento manual de fatura sem finelo_competence abate totalPayments da competência do vencimento', () => {
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'compras-maio',
+        ID_Conta: 'acc-xp',
+        Origem: 'Fatura_XP_Mai_2026.csv',
+        Data: '2026-05-05',
+        Valor: -19066.2,
+        Descricao_Original: 'Compras maio',
+        Tipo: 'Despesa',
+      } as Transaction,
+      {
+        ID_Transacao: 'pgto-manual',
+        ID_Conta: 'acc-xp',
+        Origem: 'manual',
+        Tipo: 'Renda',
+        Data: '2026-05-12',
+        Data_Pagamento: '2026-06-10',
+        Valor: 6402.97,
+        Nome_Fantasia: 'Pagamento de fatura',
+        Categoria: 'Pagamento Cartão de Crédito',
+        Descricao_Original: 'Pagamento de fatura',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: [account],
+      transactions,
+      importLogs: [
+        {
+          id: 'l-mai',
+          file_name: 'Fatura_XP_Mai_2026.csv',
+          imported_details: [
+            { ID_Conta: 'acc-xp', Card_Reference_Label: '2026-05', Card_Due_Date: '2026-06-10' },
+          ],
+        } as any,
+      ],
+    });
+
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+    expect(mai?.statementTotal).toBe(19066.2);
+    expect(mai?.totalPayments).toBe(6402.97);
+    expect(mai?.openBalance).toBe(12663.23);
   });
 
   it('estorno manual Renda (sem finelo_competence) abate competência pelo mês da Data, não Data_Pagamento aleatória', () => {

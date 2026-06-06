@@ -83,6 +83,30 @@ export function looksLikeStrictInvoicePaymentText(
   });
 }
 
+/** Texto usado para classificar compras/pagamentos no ledger (inclui regra de mapeamento). */
+export function ledgerClassificationTextFromTransaction(
+  tx: Pick<Transaction, 'Nome_Fantasia' | 'Descricao_Original' | 'Categoria'>
+): string {
+  return [tx.Nome_Fantasia, tx.Descricao_Original, tx.Categoria]
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Pagamento de fatura vindo de CSV/OFX (regra pode ter renomeado só Nome/Categoria). */
+export function isImportedInvoicePayment(
+  tx: Pick<Transaction, 'Nome_Fantasia' | 'Descricao_Original' | 'Categoria' | 'Tipo' | 'Origem'>,
+  paymentKeywords?: string[]
+): boolean {
+  if (String(tx.Tipo) !== 'Renda') return false;
+  const origin = String(tx.Origem || 'manual').trim().toLowerCase();
+  if (origin === 'manual') return false;
+  return looksLikeInvoicePaymentText(
+    { categoria: tx.Categoria, nome: tx.Nome_Fantasia, descricao: tx.Descricao_Original },
+    paymentKeywords
+  );
+}
+
 export function looksLikeInvoicePaymentText(
   parts: { categoria?: string; nome?: string; descricao?: string },
   paymentKeywords: string[] = []

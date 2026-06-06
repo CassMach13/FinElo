@@ -113,6 +113,9 @@ export function manualTransactionsToLedgerLines(txs: Transaction[]): ImportLedge
   return txs.map((tx) => {
     const amount = manualTransactionLedgerAmount(tx);
     let description = tx.Descricao_Original || tx.Nome_Fantasia || '';
+    if (isManualInvoicePayment(tx)) {
+      description = [tx.Nome_Fantasia, tx.Descricao_Original, tx.Categoria].filter(Boolean).join(' ');
+    }
     const isRefundLine =
       (parseDirectedCompetenceFromPayment(tx) && isDirectedManualRefund(tx)) || isManualCardRefund(tx);
     if (isRefundLine && !normDesc(description).includes('estorno')) {
@@ -159,6 +162,16 @@ export function appendManualCompetenceTotals(params: {
         directedRef,
         round2((directedPaymentsByRef.get(directedRef) || 0) + Math.abs(Number(t.Valor || 0)))
       );
+      return;
+    }
+    if (isManualInvoicePayment(t)) {
+      const ref = (directedRef || referenceMonthFromTransaction(t, account)).trim();
+      if (/^\d{4}-(0[1-9]|1[0-2])$/.test(ref)) {
+        directedPaymentsByRef.set(
+          ref,
+          round2((directedPaymentsByRef.get(ref) || 0) + Math.abs(Number(t.Valor || 0)))
+        );
+      }
       return;
     }
     if (directedRef && !isDirectedManualInvoicePayment(t)) {
@@ -264,6 +277,49 @@ export function appendManualCompetenceTotals(params: {
 
 const hasOpenBalance = (c: CompetenceHistoryCard) =>
   c.openBalance > 0.005 || c.statementTotal - c.totalPayments > 0.005;
+
+/** Saldo em aberto real (após pagamentos e crédito repassado de outros meses). */
+export function competenceAmountDue(card: CompetenceHistoryCard): number {
+  return round2(Math.max(card.openBalance, 0));
+}
+
+/**
+ * Valor da fatura vigente no card — total deste ciclo antes de crédito vindo de outra competência.
+ * Corresponde ao que o banco cobra no vencimento (ex.: R$ 6.260,26 em 10/06).
+ */
+export function competenceFaturaAtualDisplayAmount(card: CompetenceHistoryCard): number {
+  const beforeCarry = round2(
+    card.openBalanceBeforeCarry ?? Math.max(0, card.statementTotal - card.totalPayments)
+  );
+  if (beforeCarry > 0.005) return beforeCarry;
+  return competenceAmountDue(card);
+}
+
+/**
+ * Competência exibida no card como «Fatura Atual».
+ * Prioriza o ciclo vigente (próximo vencimento) com saldo real; ignora resíduos contábeis
+ * de meses já quitados (openBalance ≈ 0, mas statement − pagamentos > 0 por arredondamento).
+ */
+export function pickFaturaAtualCompetenceCard(
+  cards: CompetenceHistoryCard[],
+  todayIso: string
+): CompetenceHistoryCard | undefined {
+  const hasRealOpenBalance = (c: CompetenceHistoryCard) =>
+    c.openBalance > 0.005 ||
+    (c.openBalanceBeforeCarry ?? Math.max(0, c.statementTotal - c.totalPayments)) > 0.005;
+
+  const upcomingOpen = cards
+    .filter((c) => c.dueDate && c.dueDate >= todayIso && hasRealOpenBalance(c))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  if (upcomingOpen.length > 0) return upcomingOpen[0];
+
+  const overdueOpen = cards
+    .filter((c) => c.dueDate && c.dueDate < todayIso && hasRealOpenBalance(c))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  if (overdueOpen.length > 0) return overdueOpen[0];
+
+  return undefined;
+}
 
 /**
  * Fatura vigente: prioriza a mais antiga vencida em aberto; senão a próxima a vencer com saldo;
