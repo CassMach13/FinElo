@@ -1,11 +1,18 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Transaction, Account, Category, Asset } from '../../types';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Transaction, Account, Category, Asset, MappingRule } from '../../types';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import { formatCurrency } from '../../utils/formatters';
-import { appConfirm } from '../../hooks/useDialogStore';
+import { appAlert, appConfirm } from '../../hooks/useDialogStore';
+import { useAppStore } from '../../hooks/useAppStore';
+import MappingRuleModal from './MappingRuleModal';
+import {
+  clearTransactionDraft,
+  loadTransactionDraft,
+  saveTransactionDraft,
+} from '../../utils/transactionDraftStorage';
 import type { CompetenceHistoryCard } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
   buildDirectedRefundDescription,
@@ -52,6 +59,9 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   cardPaymentKeywords = [],
   cardCreditKeywords = [],
 }) => {
+  const { addMappingRule } = useAppStore();
+  const editTransactionId = initialTransaction?.ID_Transacao ?? null;
+
   const getTodayString = () => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -64,6 +74,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [competenceLoading, setCompetenceLoading] = useState(false);
   const [refundReferenceMonth, setRefundReferenceMonth] = useState('');
   const [payCardTargetId, setPayCardTargetId] = useState('');
+  const [mappingRuleModalOpen, setMappingRuleModalOpen] = useState(false);
+  const draftPersistSkipRef = useRef(false);
 
   const creditCardAccounts = useMemo(
     () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
@@ -161,68 +173,161 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   }, [lastCreatedCategory]);
 
   useEffect(() => {
-    if (initialTransaction) {
-      const dataIso = initialTransaction.Data
-        ? typeof initialTransaction.Data === 'string'
-          ? initialTransaction.Data.split('T')[0]
-          : initialTransaction.Data.toISOString().split('T')[0]
-        : getTodayString();
-      const directedRef = parseDirectedCompetenceFromPayment(initialTransaction);
-      const editAccount = accounts.find((a) => a.id === initialTransaction.ID_Conta);
-      const isCard = editAccount?.Tipo_Conta === 'Cartão de Crédito';
-      const inferredKind = isCard
-        ? inferCardManualEntryKind(
-            String(initialTransaction.Tipo || ''),
-            {
-              categoria: initialTransaction.Categoria,
-              nome: initialTransaction.Nome_Fantasia,
-              descricao: initialTransaction.Descricao_Original,
-            },
-            { paymentKeywords: cardPaymentKeywords, creditKeywords: cardCreditKeywords }
-          )
-        : null;
-      setTransaction({
-        Data: dataIso,
-        Data_Pagamento: initialTransaction.Data_Pagamento
-          ? typeof initialTransaction.Data_Pagamento === 'string'
-            ? initialTransaction.Data_Pagamento.split('T')[0]
-            : initialTransaction.Data_Pagamento.toISOString().split('T')[0]
-          : '',
-        ID_Conta: initialTransaction.ID_Conta || '',
-        Nome_Fantasia: initialTransaction.Nome_Fantasia || '',
-        Categoria: initialTransaction.Categoria || '',
-        Valor: Math.abs(initialTransaction.Valor).toFixed(2),
-        Tipo: initialTransaction.Tipo as 'Renda' | 'Despesa',
-        Descricao_Original: initialTransaction.Descricao_Original || '',
-        linked_asset_id: initialTransaction.linked_asset_id || '',
-      });
-      setCardEntryKind(
-        inferredKind || (initialTransaction.Tipo === 'Despesa' && isCard ? 'purchase' : '')
-      );
-      setRefundReferenceMonth(
-        directedRef ||
-          (isCard && inferredKind === 'refund' && editAccount
-            ? inferManualRefundReferenceMonth(initialTransaction, editAccount) || ''
-            : '')
-      );
-      setIsRecurrent(false);
-    } else {
-      setTransaction({
-        Data: getTodayString(),
-        Data_Pagamento: '',
-        ID_Conta: '',
-        Nome_Fantasia: '',
-        Categoria: '',
-        Valor: '',
-        Tipo: '' as 'Renda' | 'Despesa',
-        Descricao_Original: 'Lançamento Manual',
-        linked_asset_id: '',
-      });
-      setCardEntryKind('');
-      setRefundReferenceMonth('');
-      setIsRecurrent(false);
+    if (!editTransactionId || !initialTransaction) return;
+    draftPersistSkipRef.current = true;
+    const dataIso = initialTransaction.Data
+      ? typeof initialTransaction.Data === 'string'
+        ? initialTransaction.Data.split('T')[0]
+        : initialTransaction.Data.toISOString().split('T')[0]
+      : getTodayString();
+    const directedRef = parseDirectedCompetenceFromPayment(initialTransaction);
+    const editAccount = accounts.find((a) => a.id === initialTransaction.ID_Conta);
+    const isCard = editAccount?.Tipo_Conta === 'Cartão de Crédito';
+    const inferredKind = isCard
+      ? inferCardManualEntryKind(
+          String(initialTransaction.Tipo || ''),
+          {
+            categoria: initialTransaction.Categoria,
+            nome: initialTransaction.Nome_Fantasia,
+            descricao: initialTransaction.Descricao_Original,
+          },
+          { paymentKeywords: cardPaymentKeywords, creditKeywords: cardCreditKeywords }
+        )
+      : null;
+    setTransaction({
+      Data: dataIso,
+      Data_Pagamento: initialTransaction.Data_Pagamento
+        ? typeof initialTransaction.Data_Pagamento === 'string'
+          ? initialTransaction.Data_Pagamento.split('T')[0]
+          : initialTransaction.Data_Pagamento.toISOString().split('T')[0]
+        : '',
+      ID_Conta: initialTransaction.ID_Conta || '',
+      Nome_Fantasia: initialTransaction.Nome_Fantasia || '',
+      Categoria: initialTransaction.Categoria || '',
+      Valor: Math.abs(initialTransaction.Valor).toFixed(2),
+      Tipo: initialTransaction.Tipo as 'Renda' | 'Despesa',
+      Descricao_Original: initialTransaction.Descricao_Original || '',
+      linked_asset_id: initialTransaction.linked_asset_id || '',
+    });
+    setCardEntryKind(
+      inferredKind || (initialTransaction.Tipo === 'Despesa' && isCard ? 'purchase' : '')
+    );
+    setRefundReferenceMonth(
+      directedRef ||
+        (isCard && inferredKind === 'refund' && editAccount
+          ? inferManualRefundReferenceMonth(initialTransaction, editAccount) || ''
+          : '')
+    );
+    setIsRecurrent(false);
+  }, [editTransactionId, initialTransaction, accounts, cardPaymentKeywords, cardCreditKeywords]);
+
+  useEffect(() => {
+    if (editTransactionId) return;
+
+    const draft = loadTransactionDraft();
+    if (draft) {
+      draftPersistSkipRef.current = false;
+      setTransaction(draft.transaction);
+      setCardEntryKind(draft.cardEntryKind);
+      setRefundReferenceMonth(draft.refundReferenceMonth);
+      setIsRecurrent(draft.isRecurrent);
+      setRecurrenceType(draft.recurrenceType);
+      setRecurrenceCount(draft.recurrenceCount);
+      return;
     }
-  }, [initialTransaction, accounts, cardPaymentKeywords, cardCreditKeywords]);
+
+    draftPersistSkipRef.current = false;
+    setTransaction({
+      Data: getTodayString(),
+      Data_Pagamento: '',
+      ID_Conta: '',
+      Nome_Fantasia: '',
+      Categoria: '',
+      Valor: '',
+      Tipo: '' as 'Renda' | 'Despesa',
+      Descricao_Original: 'Lançamento Manual',
+      linked_asset_id: '',
+    });
+    setCardEntryKind('');
+    setRefundReferenceMonth('');
+    setIsRecurrent(false);
+  }, [editTransactionId]);
+
+  const persistDraft = useCallback(() => {
+    if (editTransactionId || draftPersistSkipRef.current) return;
+    const hasContent =
+      transaction.Nome_Fantasia.trim() ||
+      transaction.Valor.trim() ||
+      transaction.ID_Conta ||
+      transaction.Categoria ||
+      transaction.Tipo;
+    if (!hasContent) return;
+    saveTransactionDraft({
+      transaction,
+      cardEntryKind,
+      refundReferenceMonth,
+      isRecurrent,
+      recurrenceType,
+      recurrenceCount,
+    });
+  }, [
+    editTransactionId,
+    transaction,
+    cardEntryKind,
+    refundReferenceMonth,
+    isRecurrent,
+    recurrenceType,
+    recurrenceCount,
+  ]);
+
+  useEffect(() => {
+    persistDraft();
+  }, [persistDraft]);
+
+  useEffect(() => {
+    if (editTransactionId) return;
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') persistDraft();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [editTransactionId, persistDraft]);
+
+  const transactionForRule = useMemo(
+    (): Transaction =>
+      ({
+        ID_Transacao: 'draft',
+        Origem: 'manual',
+        Data: transaction.Data,
+        Data_Pagamento: transaction.Data_Pagamento || undefined,
+        Nome_Fantasia: transaction.Nome_Fantasia,
+        Descricao_Original: transaction.Nome_Fantasia.trim() || transaction.Descricao_Original,
+        Categoria: transaction.Categoria,
+        Tipo: transaction.Tipo || 'Despesa',
+        Valor: parseFloat(transaction.Valor) || 0,
+        linked_asset_id: transaction.linked_asset_id || undefined,
+      }) as Transaction,
+    [transaction]
+  );
+
+  const handleSaveMappingRule = useCallback(
+    (ruleData: Omit<MappingRule, 'id'>) => {
+      addMappingRule(ruleData);
+      setTransaction((prev) => ({
+        ...prev,
+        Nome_Fantasia: ruleData.Nome_Fantasia_Sugerido,
+        Categoria: ruleData.Categoria_Sugerida,
+        linked_asset_id: ruleData.linked_asset_id || prev.linked_asset_id,
+      }));
+      setMappingRuleModalOpen(false);
+      void appAlert(
+        'Regra salva. Em importações, descrições parecidas serão preenchidas automaticamente.',
+        'Regra criada',
+        'success'
+      );
+    },
+    [addMappingRule]
+  );
 
   useEffect(() => {
     if (!isCreditCardAccount) {
@@ -418,6 +523,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
     try {
       await onSave(transactionsToSave);
+      if (!editTransactionId) {
+        clearTransactionDraft();
+        draftPersistSkipRef.current = true;
+      }
     } finally {
       setIsSaving(false);
     }
@@ -491,9 +600,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     (isCreditCardAccount && cardEntryKind === 'invoice_payment' && !initialTransaction);
 
   return (
+    <>
     <Modal
       isOpen={true}
       onClose={onClose}
+      overlayClassName="z-[55]"
       title={initialTransaction ? 'Editar Lançamento' : 'Adicionar Lançamento'}
       footer={
         <div className="flex justify-end gap-2">
@@ -692,16 +803,35 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           </div>
         )}
 
-        <Input
-          label="Descrição"
-          name="Nome_Fantasia"
-          value={transaction.Nome_Fantasia}
-          onChange={handleChange}
-          error={errors.Nome_Fantasia}
-          placeholder={
-            cardEntryKind === 'refund' ? 'Ex: Estorno compra loja X' : 'Ex: Mercado, Aluguel...'
-          }
-        />
+        <div className="space-y-1">
+          <div className="flex items-end gap-2">
+            <div className="flex-grow min-w-0">
+              <Input
+                label="Descrição"
+                name="Nome_Fantasia"
+                value={transaction.Nome_Fantasia}
+                onChange={handleChange}
+                error={errors.Nome_Fantasia}
+                placeholder={
+                  cardEntryKind === 'refund' ? 'Ex: Estorno compra loja X' : 'Ex: Mercado, Aluguel...'
+                }
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="mb-px h-[42px] shrink-0 px-3 text-xs font-bold"
+              title="Criar regra para preencher importações com texto parecido"
+              onClick={() => setMappingRuleModalOpen(true)}
+            >
+              + Regra
+            </Button>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-snug">
+            Use <span className="text-slate-300 font-medium">+ Regra</span> para mapear esta descrição em
+            futuras importações (ex.: todo &quot;UBER&quot; vira &quot;Uber Viagem&quot;).
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
@@ -871,6 +1001,19 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         )}
       </form>
     </Modal>
+
+    {mappingRuleModalOpen ? (
+      <MappingRuleModal
+        rule={null}
+        transaction={transactionForRule}
+        categories={categories}
+        assets={assets}
+        overlayClassName="z-[70]"
+        onClose={() => setMappingRuleModalOpen(false)}
+        onSave={handleSaveMappingRule}
+      />
+    ) : null}
+    </>
   );
 };
 

@@ -12,9 +12,18 @@ interface MappingRuleModalProps {
     assets: Asset[];
     onClose: () => void;
     onSave: (rule: Omit<MappingRule, 'id'>) => void;
+    overlayClassName?: string;
 }
 
-const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, transaction, categories, assets, onClose, onSave }) => {
+const MappingRuleModal: React.FC<MappingRuleModalProps> = ({
+    rule,
+    transaction,
+    categories,
+    assets,
+    onClose,
+    onSave,
+    overlayClassName = 'z-50',
+}) => {
     const [text, setText] = useState(rule?.Texto_Contido_Descricao || transaction?.Descricao_Original || '');
     const [suggestedName, setSuggestedName] = useState(rule?.Nome_Fantasia_Sugerido || transaction?.Nome_Fantasia || '');
     const [suggestedCategory, setSuggestedCategory] = useState(rule?.Categoria_Sugerida || '');
@@ -67,6 +76,7 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({ rule, transaction, 
         <Modal
             isOpen={true}
             onClose={onClose}
+            overlayClassName={overlayClassName}
             title={rule ? 'Editar Regra de Mapeamento' : 'Nova Regra de Mapeamento'}
             footer={
                 <div className="flex justify-end gap-2">
