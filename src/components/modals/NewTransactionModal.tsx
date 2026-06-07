@@ -313,20 +313,38 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const handleSaveMappingRule = useCallback(
     (ruleData: Omit<MappingRule, 'id'>) => {
       addMappingRule(ruleData);
+      const matchedCategory = categories.find(
+        (c) => c.Nome_Categoria === ruleData.Categoria_Sugerida
+      );
+      const inferredTipo =
+        matchedCategory?.Tipo === 'Renda'
+          ? 'Renda'
+          : matchedCategory?.Tipo === 'Despesa'
+            ? 'Despesa'
+            : null;
+
       setTransaction((prev) => ({
         ...prev,
         Nome_Fantasia: ruleData.Nome_Fantasia_Sugerido,
         Categoria: ruleData.Categoria_Sugerida,
+        Tipo: inferredTipo || prev.Tipo || 'Despesa',
         linked_asset_id: ruleData.linked_asset_id || prev.linked_asset_id,
       }));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.Nome_Fantasia;
+        delete next.Categoria;
+        if (inferredTipo) delete next.Tipo;
+        return next;
+      });
       setMappingRuleModalOpen(false);
       void appAlert(
-        'Regra salva. Em importações, descrições parecidas serão preenchidas automaticamente.',
+        'Regra salva e lançamento preenchido com a mesma categoria.',
         'Regra criada',
         'success'
       );
     },
-    [addMappingRule]
+    [addMappingRule, categories]
   );
 
   useEffect(() => {
@@ -717,11 +735,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           <Button
             type="button"
             onClick={onOpenCreateAccount}
-            className="mb-px h-[42px]"
+            className="mb-px h-[42px] shrink-0 px-3 text-xs font-bold"
             variant="secondary"
-            title="Criar Nova Conta"
+            title="Criar nova conta"
           >
-            +
+            + Conta
           </Button>
         </div>
 
@@ -881,11 +899,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             <Button
               type="button"
               onClick={onOpenCreateCategory}
-              className="mb-px h-[42px]"
+              className="mb-px h-[42px] shrink-0 px-3 text-xs font-bold"
               variant="secondary"
-              title="Criar Nova Categoria"
+              title="Criar nova categoria"
             >
-              +
+              + Categoria
             </Button>
           </div>
         </div>

@@ -37,9 +37,11 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({
             setSuggestedCategory(rule.Categoria_Sugerida);
             setLinkedAssetId(rule.linked_asset_id || '');
         } else if (transaction) {
-            setText(transaction.Descricao_Original);
-            setSuggestedName(transaction.Nome_Fantasia);
-            setSuggestedCategory('');
+            setText(
+                (transaction.Nome_Fantasia || transaction.Descricao_Original || '').trim()
+            );
+            setSuggestedName(transaction.Nome_Fantasia || '');
+            setSuggestedCategory(transaction.Categoria || '');
             setLinkedAssetId(transaction.linked_asset_id || '');
         } else {
             setText('');
