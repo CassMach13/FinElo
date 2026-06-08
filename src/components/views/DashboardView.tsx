@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
 import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 
@@ -18,18 +18,51 @@ import MonthlyEvolutionChart from './../charts/MonthlyEvolutionChart';
 import { TrendingUpIcon, TrendingDownIcon, CalendarIcon, WalletIcon } from './../ui/icons';
 import Rule503020Widget from '../widgets/Rule503020Widget';
 import { investmentService } from '../../services/investmentService';
+import {
+  computeDashboardPeriodMetrics,
+  computeInvestmentSummary,
+  computeOperationalSummary,
+  filterTransactionsByRange,
+  toInvestmentData,
+  toOperationalChartData,
+  buildCategorySets,
+} from '../../utils/dashboardMetrics';
+import {
+  ComparePreset,
+  DashboardViewMode,
+  defaultComparePreset,
+  comparePeriodLabelMode,
+  formatCompactPeriodLabel,
+  formatDashboardPeriodLabel,
+  getCompareDateRange,
+  getDashboardDateRange,
+  shiftAnchorBack,
+  shiftAnchorForward,
+} from '../../utils/dashboardPeriod';
+import {
+  buildCompactComparisonDeltaLabel,
+  buildComparisonDeltaLabel,
+  computePeriodDelta,
+  formatComparisonValue,
+} from '../../utils/periodComparison';
+import { computeBudgetStatus } from '../../utils/dashboardBudget';
+import {
+  computeAccountsTotalAsOf,
+  computeAssetsTotals,
+  computeNetWorthSnapshot,
+} from '../../utils/dashboardNetWorth';
+import type { SummaryCardComparison } from '../ui/SummaryCard';
 
 import NewTransactionModal from '../modals/NewTransactionModal';
 import AccountModal from './AccountModal';
 import CategoryModal from '../modals/CategoryModal';
-
-type ViewMode = 'monthly' | 'quarterly' | 'semiannual' | 'yearly' | 'custom';
 
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
   const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
+  const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
 
   // Modal States
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
@@ -53,9 +86,9 @@ const DashboardView: React.FC = () => {
   };
 
   // 1. Persistence: Initialize from localStorage
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+  const [viewMode, setViewMode] = useState<DashboardViewMode>(() => {
     const saved = localStorage.getItem('dashboardViewMode');
-    return (saved as ViewMode) || 'monthly';
+    return (saved as DashboardViewMode) || 'monthly';
   });
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -64,57 +97,90 @@ const DashboardView: React.FC = () => {
     end: new Date().toISOString().split('T')[0]
   });
 
+  const [compareEnabled, setCompareEnabled] = useState(() => {
+    return localStorage.getItem('dashboardCompareEnabled') === 'true';
+  });
+  const [comparePreset, setComparePreset] = useState<ComparePreset>(() => {
+    const saved = localStorage.getItem('dashboardComparePreset');
+    return (saved as ComparePreset) || 'previous';
+  });
+  const [compareSelectedDate, setCompareSelectedDate] = useState(() => {
+    const saved = localStorage.getItem('dashboardCompareAnchor');
+    return saved ? new Date(saved) : shiftAnchorBack(new Date(), 'monthly');
+  });
+  const [compareCustomDateRange, setCompareCustomDateRange] = useState({
+    start: new Date().toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0],
+  });
+
   // 2. Persistence: Save to localStorage on change
-  const handleViewModeChange = (mode: ViewMode) => {
+  const handleViewModeChange = (mode: DashboardViewMode) => {
     setViewMode(mode);
     localStorage.setItem('dashboardViewMode', mode);
+    if (compareEnabled) {
+      setComparePreset(defaultComparePreset(mode));
+      setCompareSelectedDate(shiftAnchorBack(selectedDate, mode));
+    }
+  };
+
+  const handleToggleCompare = () => {
+    setCompareEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem('dashboardCompareEnabled', String(next));
+      if (next) {
+        const preset = defaultComparePreset(viewMode);
+        setComparePreset(preset);
+        localStorage.setItem('dashboardComparePreset', preset);
+        const anchor = shiftAnchorBack(selectedDate, viewMode);
+        setCompareSelectedDate(anchor);
+        localStorage.setItem('dashboardCompareAnchor', anchor.toISOString());
+      }
+      return next;
+    });
+  };
+
+  const handleComparePresetChange = (preset: ComparePreset) => {
+    setComparePreset(preset);
+    localStorage.setItem('dashboardComparePreset', preset);
+    if (preset === 'previous') {
+      const anchor = shiftAnchorBack(selectedDate, viewMode);
+      setCompareSelectedDate(anchor);
+      localStorage.setItem('dashboardCompareAnchor', anchor.toISOString());
+    } else if (preset === 'year_over_year') {
+      const anchor = new Date(selectedDate);
+      anchor.setFullYear(anchor.getFullYear() - 1);
+      setCompareSelectedDate(anchor);
+      localStorage.setItem('dashboardCompareAnchor', anchor.toISOString());
+    }
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-  // Helper to get start/end dates based on mode
-  const dateRange = useMemo(() => {
-    if (viewMode === 'custom') {
-      const start = new Date(customDateRange.start);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(customDateRange.end);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    }
+  const dateRange = useMemo(
+    () => getDashboardDateRange({ viewMode, selectedDate, customDateRange }),
+    [viewMode, selectedDate, customDateRange]
+  );
 
-    const start = new Date(selectedDate);
-    const end = new Date(selectedDate);
-    start.setDate(1); // Always start at beginning of period
-    end.setDate(1);
+  const compareDateRange = useMemo(() => {
+    if (!compareEnabled) return null;
+    return getCompareDateRange(
+      dateRange,
+      viewMode,
+      comparePreset,
+      compareSelectedDate,
+      compareCustomDateRange
+    );
+  }, [
+    compareEnabled,
+    dateRange,
+    viewMode,
+    comparePreset,
+    compareSelectedDate,
+    compareCustomDateRange,
+  ]);
 
-    if (viewMode === 'monthly') {
-      end.setMonth(start.getMonth() + 1);
-      end.setDate(0); // Last day of current month
-    } else if (viewMode === 'quarterly') {
-      const quarter = Math.floor(start.getMonth() / 3);
-      start.setMonth(quarter * 3);
-      end.setMonth(start.getMonth() + 3);
-      end.setDate(0);
-    } else if (viewMode === 'semiannual') {
-      const semester = Math.floor(start.getMonth() / 6);
-      start.setMonth(semester * 6);
-      end.setMonth(start.getMonth() + 6);
-      end.setDate(0);
-    } else if (viewMode === 'yearly') {
-      start.setMonth(0);
-      end.setMonth(11);
-      end.setDate(31);
-    }
-
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-
-    return { start, end };
-  }, [viewMode, selectedDate, customDateRange]);
-
-  // Fetch Manual Investments Total for the period (using latest available up to end date)
   useEffect(() => {
     if (!user) return;
     const fetchInvestments = async () => {
@@ -129,43 +195,77 @@ const DashboardView: React.FC = () => {
     fetchInvestments();
   }, [user, dateRange.end]);
 
-  // Navigation
+  useEffect(() => {
+    if (!user || !compareDateRange) {
+      setCompareManualInvestmentsTotal(0);
+      return;
+    }
+    const fetchCompareInvestments = async () => {
+      try {
+        const data = await investmentService.getLatestInvestments(compareDateRange.end);
+        const total = data.reduce((sum, inv) => sum + Number(inv.balance), 0);
+        setCompareManualInvestmentsTotal(total);
+      } catch (error) {
+        console.error('Error fetching compare investments', error);
+      }
+    };
+    fetchCompareInvestments();
+  }, [user, compareDateRange]);
+
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'custom') return;
 
-    setSelectedDate(prev => {
-      const newDate = new Date(prev);
-      const offset = direction === 'next' ? 1 : -1;
+    setSelectedDate((prev) => {
+      const newDate =
+        direction === 'next'
+          ? shiftAnchorForward(prev, viewMode)
+          : shiftAnchorBack(prev, viewMode);
 
-      if (viewMode === 'monthly') newDate.setMonth(prev.getMonth() + offset);
-      else if (viewMode === 'quarterly') newDate.setMonth(prev.getMonth() + (offset * 3));
-      else if (viewMode === 'semiannual') newDate.setMonth(prev.getMonth() + (offset * 6));
-      else if (viewMode === 'yearly') newDate.setFullYear(prev.getFullYear() + offset);
+      if (compareEnabled && comparePreset === 'previous') {
+        setCompareSelectedDate(shiftAnchorBack(newDate, viewMode));
+      } else if (compareEnabled && comparePreset === 'year_over_year') {
+        const yoy = new Date(newDate);
+        yoy.setFullYear(yoy.getFullYear() - 1);
+        setCompareSelectedDate(yoy);
+      }
 
       return newDate;
     });
   };
 
-  // Label
-  const dateLabel = useMemo(() => {
-    if (viewMode === 'custom') return 'Período Personalizado';
+  const handleCompareNavigate = (direction: 'prev' | 'next') => {
+    if (viewMode === 'custom') return;
+    if (comparePreset !== 'custom') return;
 
-    if (viewMode === 'monthly') return dateRange.start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    if (viewMode === 'yearly') return dateRange.start.getFullYear().toString();
+    setCompareSelectedDate((prev) =>
+      direction === 'next' ? shiftAnchorForward(prev, viewMode) : shiftAnchorBack(prev, viewMode)
+    );
+  };
 
-    const startStr = dateRange.start.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-    const endStr = dateRange.end.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-    return `${startStr} - ${endStr}`;
-  }, [viewMode, dateRange]);
+  const dateLabel = useMemo(
+    () => formatDashboardPeriodLabel(viewMode, dateRange),
+    [viewMode, dateRange]
+  );
 
-  // 1. Identify 'Ambos' categories and 'Investment' categories
-  const ambosCategories = useMemo(() =>
-    new Set(allCategories.filter(c => c.Tipo === 'Ambos').map(c => c.Nome_Categoria))
-    , [allCategories]);
+  const compareDateLabel = useMemo(() => {
+    if (!compareDateRange) return '';
+    const labelMode = comparePeriodLabelMode(viewMode, comparePreset);
+    return formatDashboardPeriodLabel(labelMode ?? 'custom', compareDateRange);
+  }, [compareDateRange, comparePreset, viewMode]);
 
-  const investmentCategories = useMemo(() =>
-    new Set(allCategories.filter(c => c.is_investment).map(c => c.Nome_Categoria))
-    , [allCategories]);
+  const dateLabelShort = useMemo(
+    () => formatCompactPeriodLabel(dateRange),
+    [dateRange]
+  );
+
+  const compareDateLabelShort = useMemo(
+    () => (compareDateRange ? formatCompactPeriodLabel(compareDateRange) : ''),
+    [compareDateRange]
+  );
+
+  const categorySets = useMemo(() => buildCategorySets(allCategories), [allCategories]);
+  const ambosCategories = categorySets.ambos;
+  const investmentCategories = categorySets.investment;
 
   const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
 
@@ -175,110 +275,133 @@ const DashboardView: React.FC = () => {
     return transactions.filter(t => !ambosCategories.has(t.Categoria) && !investmentCategories.has(t.Categoria));
   }, [transactions, ambosCategories, investmentCategories]);
 
-  // 3. Filtered Data by Date (includes 'Ambos' - for list/budget/export?)
-  const filteredTransactions = useMemo(() => {
-    const start = dateRange.start.getTime();
-    const end = dateRange.end.getTime();
+  const filteredTransactions = useMemo(
+    () => filterTransactionsByRange(transactions, dateRange),
+    [transactions, dateRange]
+  );
 
-    return transactions.filter(t => {
-      // Use Payment Date if available, otherwise Purchase Date
-      const effectiveDate = t.Data_Pagamento ? new Date(t.Data_Pagamento) : new Date(t.Data);
-      const tDate = effectiveDate.getTime();
-      return tDate >= start && tDate <= end;
-    });
-  }, [transactions, dateRange]);
+  const chartData = useMemo(
+    () => toOperationalChartData(filteredTransactions, categorySets),
+    [filteredTransactions, categorySets]
+  );
 
-  // 4. Chart Data (Time-filtered, No Ambos, No Investments) -> OPERATIONAL FLOW
-  const chartData = useMemo(() => {
-    return filteredTransactions.filter(t => !ambosCategories.has(t.Categoria) && !investmentCategories.has(t.Categoria));
-  }, [filteredTransactions, ambosCategories, investmentCategories]);
+  const investmentData = useMemo(
+    () => toInvestmentData(filteredTransactions, categorySets),
+    [filteredTransactions, categorySets]
+  );
 
-  // 5. Investment Data (Time-filtered) -> INVESTMENT FLOW
-  const investmentData = useMemo(() => {
-    return filteredTransactions.filter(t => investmentCategories.has(t.Categoria));
-  }, [filteredTransactions, investmentCategories]);
+  const compareMetrics = useMemo(() => {
+    if (!compareDateRange) return null;
+    return computeDashboardPeriodMetrics(transactions, allCategories, compareDateRange);
+  }, [compareDateRange, transactions, allCategories]);
 
-  // 6. Net Worth / Equity Calculations
-  // Bens Brutos (Soma de todos os valores de mercado)
-  const grossAssetsTotal = useMemo(() => assets.reduce((sum, a) => sum + a.value, 0), [assets]);
-  
-  // Dívidas de Financiamento (Soma de todos os saldos devedores)
-  const assetsDebtsTotal = useMemo(() => assets.reduce((sum, a) => sum + (a.remaining_balance || 0), 0), [assets]);
+  const compareFilteredTransactions = useMemo(
+    () => (compareDateRange ? filterTransactionsByRange(transactions, compareDateRange) : []),
+    [transactions, compareDateRange]
+  );
 
-  // Patrimônio em Bens (Líquido: Valor - Dívida)
-  const assetsNetTotal = useMemo(() => grossAssetsTotal - assetsDebtsTotal, [grossAssetsTotal, assetsDebtsTotal]);
+  const compareChartData = useMemo(
+    () => toOperationalChartData(compareFilteredTransactions, categorySets),
+    [compareFilteredTransactions, categorySets]
+  );
 
-  const accountsTotal = useMemo(() => {
-    // We'll use the calculated balances which factor in transactions
-    const calculatedAccounts = getAccountsWithCalculatedBalance();
-    return calculatedAccounts.reduce((sum, acc) => sum + (acc.Saldo_Atual_Calculado || 0), 0);
-  }, [getAccountsWithCalculatedBalance, accounts, transactions]); // Adicionado accounts e transactions como dependência
+  const netWorthSnapshot = useMemo(() => {
+    const { gross, debts, net } = computeAssetsTotals(assets);
+    const accountsTotalValue = compareEnabled
+      ? computeAccountsTotalAsOf(accounts, transactions, dateRange.end)
+      : getAccountsWithCalculatedBalance().reduce(
+          (sum, acc) => sum + (acc.Saldo_Atual_Calculado || 0),
+          0
+        );
 
-  const totalNetWorth = useMemo(() => accountsTotal + manualInvestmentsTotal + assetsNetTotal, [accountsTotal, manualInvestmentsTotal, assetsNetTotal]);
+    return {
+      total: accountsTotalValue + manualInvestmentsTotal + net,
+      accounts: accountsTotalValue,
+      investments: manualInvestmentsTotal,
+      assetsNet: net,
+      assetsGross: gross,
+      assetsDebts: debts,
+    };
+  }, [
+    compareEnabled,
+    accounts,
+    transactions,
+    assets,
+    manualInvestmentsTotal,
+    dateRange.end,
+    getAccountsWithCalculatedBalance,
+  ]);
 
-  // Cálculos de Resumo (KPIs Operacionais)
-  const summary = useMemo(() => {
-    const income = chartData.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
-    const expense = chartData.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-    const balance = income - expense;
-    const savingsRate = income > 0 ? ((income - expense) / income) * 100 : 0;
-    return { income, expense, balance, savingsRate };
-  }, [chartData]);
+  const compareNetWorthSnapshot = useMemo(() => {
+    if (!compareDateRange) return null;
+    return computeNetWorthSnapshot(
+      accounts,
+      transactions,
+      assets,
+      compareManualInvestmentsTotal,
+      compareDateRange.end
+    );
+  }, [accounts, transactions, assets, compareManualInvestmentsTotal, compareDateRange]);
 
-  // Cálculos de Investimento
-  const investmentSummary = useMemo(() => {
-    // Renda em categoria de investimento = Retirada/Resgate
-    // Despesa em categoria de investimento = Aporte
-    const withdrawn = investmentData.filter(t => t.Tipo === 'Renda').reduce((acc, t) => acc + t.Valor, 0);
-    const invested = investmentData.filter(t => t.Tipo === 'Despesa').reduce((acc, t) => acc + Math.abs(t.Valor), 0);
-    const netFlow = invested - withdrawn; // Positivo = Aportou mais que retirou (Acumulou)
-    return { invested, withdrawn, netFlow };
-  }, [investmentData]);
+  const {
+    total: totalNetWorth,
+    accounts: accountsTotal,
+    investments: manualInvestmentsDisplay,
+    assetsNet: assetsNetTotal,
+    assetsGross: grossAssetsTotal,
+    assetsDebts: assetsDebtsTotal,
+  } = netWorthSnapshot;
 
-  // Orçamentos
-  const budgetStatus = useMemo(() => {
-    // 3. Calculate months in period for budget multiplier
-    let monthsInPeriod = 1;
-    if (viewMode === 'quarterly') monthsInPeriod = 3;
-    else if (viewMode === 'semiannual') monthsInPeriod = 6;
-    else if (viewMode === 'yearly') monthsInPeriod = 12;
-    else if (viewMode === 'custom') {
-      const diffTime = Math.abs(dateRange.end.getTime() - dateRange.start.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      monthsInPeriod = Math.max(1, Math.round(diffDays / 30)); // Approximate months
-    }
+  const summary = useMemo(() => computeOperationalSummary(chartData), [chartData]);
+  const investmentSummary = useMemo(
+    () => computeInvestmentSummary(investmentData),
+    [investmentData]
+  );
 
-    const currentYear = dateRange.start.getFullYear();
-    const relevantBudgets = budgets.filter(b => b.ano === currentYear);
+  const buildCardComparison = useCallback(
+    (
+      current: number,
+      previous: number,
+      direction: 'higher_better' | 'lower_better',
+      options?: { asNegativeExpense?: boolean; usePercentagePoints?: boolean }
+    ): SummaryCardComparison | undefined => {
+      if (!compareEnabled || !compareMetrics) return undefined;
+      const delta = computePeriodDelta(current, previous);
+      const { label, tone } = buildCompactComparisonDeltaLabel(delta, direction, {
+        usePercentagePoints: options?.usePercentagePoints,
+        current,
+        previous,
+      });
+      return {
+        periodLabel: compareDateLabelShort,
+        value: formatComparisonValue(previous, options?.asNegativeExpense),
+        deltaLabel: label,
+        deltaTone: tone,
+      };
+    },
+    [compareEnabled, compareMetrics, compareDateLabelShort]
+  );
 
-    return relevantBudgets.map(budget => {
-      const spent = filteredTransactions
-        .filter(t => t.Categoria === budget.Categoria && t.Tipo === 'Despesa')
-        .reduce((acc, t) => acc + Math.abs(t.Valor), 0);
+  const budgetStatus = useMemo(
+    () => computeBudgetStatus(budgets, filteredTransactions, viewMode, dateRange),
+    [budgets, filteredTransactions, viewMode, dateRange]
+  );
 
-      // 4. Apply multiplier
-      const adjustedLimit = budget.Valor_Limite_Mensal * monthsInPeriod;
+  const compareBudgetStatus = useMemo(() => {
+    if (!compareDateRange) return null;
+    return computeBudgetStatus(
+      budgets,
+      compareFilteredTransactions,
+      viewMode,
+      compareDateRange,
+      compareDateRange.end
+    );
+  }, [budgets, compareFilteredTransactions, viewMode, compareDateRange]);
 
-      // Calculate elapsed pacing (how far along the dateRange we are TODAY)
-      const now = new Date();
-      let pacingRatio = 1.0;
-
-      if (now >= dateRange.start && now <= dateRange.end) {
-        // We are currently INSIDE the selected period
-        const totalDurationMs = dateRange.end.getTime() - dateRange.start.getTime();
-        const elapsedDurationMs = now.getTime() - dateRange.start.getTime();
-        pacingRatio = Math.max(0, Math.min(1, elapsedDurationMs / totalDurationMs));
-      } else if (now < dateRange.start) {
-        // Period is entirely in the future (expected pacing is 0, nothing should be spent yet)
-        pacingRatio = 0.0;
-      } else {
-        // Period is entirely in the past (expected pacing is 100%, compare against full budget)
-        pacingRatio = 1.0;
-      }
-
-      return { ...budget, spent, adjustedLimit, pacingRatio };
-    }).sort((a, b) => (b.spent / b.adjustedLimit) - (a.spent / a.adjustedLimit));
-  }, [budgets, filteredTransactions, viewMode, dateRange]);
+  const compareBudgetMap = useMemo(() => {
+    if (!compareBudgetStatus) return new Map<string, number>();
+    return new Map(compareBudgetStatus.map((item) => [item.Categoria, item.spent]));
+  }, [compareBudgetStatus]);
 
   // Últimas Transações
   const recentTransactions = useMemo(() => {
@@ -383,8 +506,20 @@ const DashboardView: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <div className="hidden sm:block text-right mr-4">
-            <div className="text-xs text-gray-500 uppercase font-bold tracking-wider">Período Selecionado</div>
-            <div className="text-sm font-medium text-white">{dateLabel}</div>
+            <div className="text-xs text-gray-500 uppercase font-bold tracking-wider">
+              {compareEnabled ? 'Comparando períodos' : 'Período selecionado'}
+            </div>
+            <div className="text-sm font-medium text-white">
+              {compareEnabled ? (
+                <>
+                  <span className="text-accent">{dateLabelShort}</span>
+                  <span className="text-gray-500 mx-1.5">vs</span>
+                  <span>{compareDateLabelShort}</span>
+                </>
+              ) : (
+                dateLabel
+              )}
+            </div>
           </div>
           <TourButton currentView="dashboard" />
         </div>
@@ -504,37 +639,100 @@ const DashboardView: React.FC = () => {
       )}
 
       {/* Filters Bar */}
-      <div id="dashboard-header" className="flex flex-col sm:flex-row justify-between items-center bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-white/5 shadow-lg gap-4 print:hidden">
-        {viewMode === 'custom' ? (
-          <div className="flex items-center gap-2 p-2 w-full sm:w-auto">
-            <Input type="date" value={customDateRange.start} onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
-            <span className="text-gray-400">até</span>
-            <Input type="date" value={customDateRange.end} onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
+      <div id="dashboard-header" className="bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-white/5 shadow-lg print:hidden space-y-2">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          {viewMode === 'custom' ? (
+            <div className="flex items-center gap-2 p-2 w-full sm:w-auto">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 shrink-0">Principal</span>
+              <Input type="date" value={customDateRange.start} onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
+              <span className="text-gray-400">até</span>
+              <Input type="date" value={customDateRange.end} onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
+              <button onClick={() => handleNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <span className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{dateLabel}</span>
+              <button onClick={() => handleNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto p-1">
+            <div className="w-full sm:w-40">
+              <Select value={viewMode} onChange={(e) => handleViewModeChange(e.target.value as DashboardViewMode)} className="w-full bg-black/20 border-white/10 text-sm">
+                <option value="monthly">Mensal</option>
+                <option value="quarterly">Trimestral</option>
+                <option value="semiannual">Semestral</option>
+                <option value="yearly">Anual</option>
+                <option value="custom">Personalizado</option>
+              </Select>
+            </div>
+            <Button
+              variant={compareEnabled ? 'primary' : 'secondary'}
+              onClick={handleToggleCompare}
+              className={`w-full sm:w-auto text-sm ${compareEnabled ? '' : 'border-white/10 hover:bg-white/10'}`}
+            >
+              {compareEnabled ? 'Comparando' : 'Comparar'}
+            </Button>
+            <Button variant="secondary" onClick={handlePrint} className="w-full sm:w-auto text-sm border-white/10 hover:bg-white/10">Exportar PDF</Button>
           </div>
-        ) : (
-          <div className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
-            <button onClick={() => handleNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <span className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{dateLabel}</span>
-            <button onClick={() => handleNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
+        </div>
+
+        {compareEnabled && (
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 px-2 pb-1 border-t border-white/5 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Comparar com</span>
+              <button
+                type="button"
+                onClick={() => handleComparePresetChange('previous')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comparePreset === 'previous' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-black/20 text-gray-400 hover:text-white border border-white/5'}`}
+              >
+                Período anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => handleComparePresetChange('year_over_year')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comparePreset === 'year_over_year' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-black/20 text-gray-400 hover:text-white border border-white/5'}`}
+              >
+                Mesmo período, ano anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => handleComparePresetChange('custom')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comparePreset === 'custom' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-black/20 text-gray-400 hover:text-white border border-white/5'}`}
+              >
+                Escolher período
+              </button>
+            </div>
+
+            {comparePreset === 'custom' && (
+              viewMode === 'custom' ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input type="date" value={compareCustomDateRange.start} onChange={(e) => setCompareCustomDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
+                  <span className="text-gray-400">até</span>
+                  <Input type="date" value={compareCustomDateRange.end} onChange={(e) => setCompareCustomDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
+                  <button onClick={() => handleCompareNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <span className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{compareDateLabel}</span>
+                  <button onClick={() => handleCompareNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              )
+            )}
+
+            {comparePreset !== 'custom' && (
+              <span className="text-xs text-gray-500 lg:ml-auto">{compareDateLabel}</span>
+            )}
           </div>
         )}
-
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto p-1">
-          <div className="w-full sm:w-40">
-            <Select value={viewMode} onChange={(e) => handleViewModeChange(e.target.value as ViewMode)} className="w-full bg-black/20 border-white/10 text-sm">
-              <option value="monthly">Mensal</option>
-              <option value="quarterly">Trimestral</option>
-              <option value="semiannual">Semestral</option>
-              <option value="yearly">Anual</option>
-              <option value="custom">Personalizado</option>
-            </Select>
-          </div>
-          <Button variant="secondary" onClick={handlePrint} className="w-full sm:w-auto text-sm border-white/10 hover:bg-white/10">Exportar PDF</Button>
-        </div>
       </div>
 
       {/* KPIs Cards */}
@@ -545,6 +743,11 @@ const DashboardView: React.FC = () => {
           icon={<TrendingUpIcon />}
           variant={summary.income === 0 ? 'default' : 'accent'}
           tooltip="Soma dos ganhos (salários, vendas), excluindo resgates de investimentos."
+          compare={buildCardComparison(
+            summary.income,
+            compareMetrics?.operational.income ?? 0,
+            'higher_better'
+          )}
         />
         <SummaryCard
           title="Saídas (Operacional)"
@@ -552,6 +755,12 @@ const DashboardView: React.FC = () => {
           icon={<TrendingDownIcon />}
           variant={summary.expense === 0 ? 'default' : 'danger'}
           tooltip="Soma dos gastos, excluindo dinheiro enviado para investimentos."
+          compare={buildCardComparison(
+            summary.expense,
+            compareMetrics?.operational.expense ?? 0,
+            'lower_better',
+            { asNegativeExpense: true }
+          )}
         />
         <SummaryCard
           title="Resultado Operacional"
@@ -560,6 +769,11 @@ const DashboardView: React.FC = () => {
           variant={summary.balance === 0 ? 'default' : (summary.balance > 0 ? 'accent' : 'danger')}
           subValue={`${summary.savingsRate.toFixed(1)}% de Economia`}
           tooltip="Lucro ou Prejuízo das operações do mês. Não inclui saldo anterior nem investimentos."
+          compare={buildCardComparison(
+            summary.balance,
+            compareMetrics?.operational.balance ?? 0,
+            'higher_better'
+          )}
         />
         <SummaryCard
           title="Economia"
@@ -568,6 +782,12 @@ const DashboardView: React.FC = () => {
           variant={summary.savingsRate === 0 ? 'default' : (summary.savingsRate > 0 ? 'accent' : savingsInfo.color)}
           subValue={savingsInfo.label}
           tooltip={`Taxa de Poupança: ${savingsInfo.desc}`}
+          compare={buildCardComparison(
+            summary.savingsRate,
+            compareMetrics?.operational.savingsRate ?? 0,
+            'higher_better',
+            { usePercentagePoints: true }
+          )}
         />
         <SummaryCard
           title="Investimentos (Mês)"
@@ -576,19 +796,43 @@ const DashboardView: React.FC = () => {
           variant={investmentSummary.netFlow === 0 ? 'default' : (investmentSummary.netFlow > 0 ? 'accent' : 'danger')}
           subValue={`Aportes: ${formatCurrency(investmentSummary.invested)} • Resgates: ${formatCurrency(investmentSummary.withdrawn)}`}
           tooltip="Dinheiro efetivamente guardado (Aportes - Resgates/Retiradas)."
+          compare={buildCardComparison(
+            investmentSummary.netFlow,
+            compareMetrics?.investment.netFlow ?? 0,
+            'higher_better'
+          )}
         />
         <NetWorthSummaryCard
           total={totalNetWorth}
           accounts={accountsTotal}
-          investments={manualInvestmentsTotal}
+          investments={manualInvestmentsDisplay}
           assetsNet={assetsNetTotal}
           assetsGross={grossAssetsTotal}
           assetsDebts={assetsDebtsTotal}
+          asOfLabel={compareEnabled ? dateLabel : undefined}
+          primaryPeriodLabel={compareEnabled ? dateLabelShort : undefined}
+          compare={
+            compareEnabled && compareNetWorthSnapshot
+              ? (() => {
+                  const delta = computePeriodDelta(
+                    totalNetWorth,
+                    compareNetWorthSnapshot.total
+                  );
+                  const { label, tone } = buildComparisonDeltaLabel(delta, 'higher_better');
+                  return {
+                    periodLabel: compareDateLabelShort,
+                    breakdown: compareNetWorthSnapshot,
+                    deltaLabel: label,
+                    deltaTone: tone,
+                  };
+                })()
+              : undefined
+          }
         />
       </div>
 
-      {/* Charts Row 1 */}
-      <div id="dashboard-charts-main" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Charts Row 1 — Evolução Financeira */}
+      <div id="dashboard-charts-main" className="grid grid-cols-1 gap-6">
         <Card
           title={
             viewMode === 'yearly' ? `Evolução Anual (${selectedDate.getFullYear()})` :
@@ -597,13 +841,20 @@ const DashboardView: React.FC = () => {
                   viewMode === 'semiannual' ? `Evolução Semestral` :
                     "Evolução Financeira"
           }
-          className="lg:col-span-2 relative overflow-hidden"
+          className="relative overflow-hidden"
         >
           <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
             <MonthlyEvolutionChart
               data={transactionsWithoutAmbosAndInvestments}
               viewMode={viewMode}
               selectedDate={selectedDate}
+              compareEnabled={compareEnabled}
+              compareData={compareEnabled ? transactionsWithoutAmbosAndInvestments : undefined}
+              primaryPeriodData={compareEnabled ? chartData : undefined}
+              comparePeriodData={compareEnabled ? compareChartData : undefined}
+              compareSelectedDate={compareSelectedDate}
+              primaryLabel={dateLabelShort}
+              compareLabel={compareDateLabelShort}
             />
           </div>
           {!isPremium && (
@@ -617,8 +868,17 @@ const DashboardView: React.FC = () => {
             </div>
           )}
         </Card>
+      </div>
+
+      {/* Receita vs. Despesa — linha dedicada */}
+      <div id="dashboard-charts-income-expense" className="grid grid-cols-1 gap-6">
         <Card title="Receita vs. Despesa">
-          <IncomeExpenseChart data={chartData} />
+          <IncomeExpenseChart
+            data={chartData}
+            compareData={compareEnabled ? compareChartData : undefined}
+            primaryLabel={dateLabelShort}
+            compareLabel={compareDateLabelShort}
+          />
         </Card>
       </div>
 
@@ -626,7 +886,12 @@ const DashboardView: React.FC = () => {
       <div id="dashboard-charts-secondary" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Despesas por Categoria" className="lg:col-span-2 relative overflow-hidden">
           <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
-            <CategorySpendChart data={chartData} />
+            <CategorySpendChart
+              data={chartData}
+              compareData={compareEnabled ? compareChartData : undefined}
+              primaryLabel={dateLabelShort}
+              compareLabel={compareDateLabelShort}
+            />
           </div>
           {!isPremium && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
@@ -661,11 +926,18 @@ const DashboardView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Budget Alerts & Financial Health */}
-      <div id="dashboard-budgets" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Budget Alerts & Financial Health — uma linha por card */}
+      <div id="dashboard-budgets" className="grid grid-cols-1 gap-6">
         <Card title="Monitoramento de Orçamento">
           {budgetStatus.length > 0 ? (
             <div className="space-y-4">
+              {compareEnabled && (
+                <p className="text-[10px] text-gray-500 pb-2 border-b border-slate-700/50">
+                  <span className="text-accent font-semibold">{dateLabelShort}</span>
+                  <span className="mx-1.5">vs</span>
+                  <span className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
+                </p>
+              )}
               <div className="flex flex-wrap gap-4 mb-4 text-[10px] text-gray-400 border-b border-slate-700/50 pb-3">
                 <div className="flex items-center gap-1.5" title="Gastos dentro do ritmo esperado para a data atual.">
                   <div className="w-2 h-2 rounded-full bg-accent"></div>
@@ -681,25 +953,101 @@ const DashboardView: React.FC = () => {
                 </div>
               </div>
 
-              {budgetStatus.map(item => (
-                <div key={item.id} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
-                  <span className="font-semibold col-span-1 text-light">{item.Categoria}</span>
-                  <div className="col-span-2">
-                    <ProgressBar value={item.spent} max={item.adjustedLimit} expectedPacing={item.pacingRatio} />
-                  </div>
-                  <div className="col-span-1 text-right flex flex-col justify-center">
-                    <div className="text-sm">
-                      <span className={item.spent > item.adjustedLimit ? 'text-danger font-bold' : 'text-gray-300'}>
-                        {formatCurrency(item.spent)}
-                      </span>
-                      <span className="text-gray-500 hidden sm:inline"> / {formatCurrency(item.adjustedLimit)}</span>
+              {budgetStatus.map(item => {
+                const compareSpent = compareBudgetMap.get(item.Categoria) || 0;
+                const spentDelta = compareEnabled
+                  ? buildCompactComparisonDeltaLabel(
+                      computePeriodDelta(item.spent, compareSpent),
+                      'lower_better'
+                    )
+                  : null;
+
+                const consumedPct =
+                  item.adjustedLimit > 0 ? ((item.spent / item.adjustedLimit) * 100).toFixed(1) : '0.0';
+
+                return (
+                  <div key={item.id}>
+                    <div
+                      className={`grid gap-3 items-center ${
+                        compareEnabled
+                          ? 'grid-cols-1 md:grid-cols-[minmax(0,120px)_minmax(0,1fr)_minmax(0,200px)_minmax(0,160px)]'
+                          : 'grid-cols-1 sm:grid-cols-4'
+                      }`}
+                    >
+                      <span className="font-semibold text-light">{item.Categoria}</span>
+                      <div className={compareEnabled ? '' : 'col-span-2'}>
+                        <ProgressBar
+                          value={item.spent}
+                          max={item.adjustedLimit}
+                          expectedPacing={item.pacingRatio}
+                        />
+                      </div>
+                      {compareEnabled ? (
+                        <>
+                          <div className="rounded-lg px-3 py-2.5 text-right bg-accent/[0.06] border border-accent/20 min-w-0">
+                            <p className="text-[9px] font-bold uppercase text-accent truncate mb-1">
+                              {dateLabelShort}
+                            </p>
+                            <p className="text-sm leading-tight tabular-nums">
+                              <span
+                                className={
+                                  item.spent > item.adjustedLimit ? 'text-danger font-bold' : 'text-gray-200'
+                                }
+                              >
+                                {formatCurrency(item.spent)}
+                              </span>
+                              <span className="text-gray-500 text-xs">
+                                {' '}
+                                / {formatCurrency(item.adjustedLimit)}
+                              </span>
+                            </p>
+                            <p className="text-[10px] text-gray-400">{consumedPct}% consumido</p>
+                            {spentDelta && (
+                              <p
+                                className={`text-[10px] font-semibold mt-1 ${
+                                  spentDelta.tone === 'positive'
+                                    ? 'text-accent'
+                                    : spentDelta.tone === 'negative'
+                                      ? 'text-danger'
+                                      : 'text-gray-500'
+                                }`}
+                              >
+                                {spentDelta.label}
+                              </p>
+                            )}
+                          </div>
+                          <div className="rounded-lg px-3 py-2.5 text-right bg-black/25 border border-white/8 min-w-0">
+                            <p className="text-[9px] font-bold uppercase text-slate-400 truncate mb-1">
+                              {compareDateLabelShort}
+                            </p>
+                            <p className="text-sm text-slate-300 font-semibold tabular-nums">
+                              {formatCurrency(compareSpent)}
+                            </p>
+                            <p className="text-[10px] text-gray-500">gasto no período</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="col-span-1 text-right flex flex-col justify-center gap-0.5">
+                          <div className="text-sm leading-tight">
+                            <span
+                              className={
+                                item.spent > item.adjustedLimit ? 'text-danger font-bold' : 'text-gray-300'
+                              }
+                            >
+                              {formatCurrency(item.spent)}
+                            </span>
+                            <span className="text-gray-500 hidden sm:inline">
+                              {' '}
+                              / {formatCurrency(item.adjustedLimit)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400">{consumedPct}% consumido</div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-400 font-medium sm:mt-0.5">
-                      {item.adjustedLimit > 0 ? ((item.spent / item.adjustedLimit) * 100).toFixed(1) : '0.0'}% consumido
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-gray-400 py-4">Nenhum orçamento configurado. Vá para Configurações para adicionar.</p>
@@ -708,10 +1056,17 @@ const DashboardView: React.FC = () => {
 
         {/* 50-30-20 Rule Widget */}
         <Card title="Método 50-30-20 (Saúde Financeira)" className="relative overflow-hidden">
-          <div className="mb-4">
+          <div className="mb-4 space-y-2">
             <p className="text-sm text-gray-400">
               Analisa como sua renda líquida está distribuída entre Necessidades, Estilo de Vida e Investimentos.
             </p>
+            {compareEnabled && (
+              <p className="text-[10px] text-gray-500">
+                <span className="text-accent font-semibold">{dateLabelShort}</span>
+                <span className="mx-1.5">vs</span>
+                <span className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
+              </p>
+            )}
           </div>
           <div className={!isPremium ? "blur-md opacity-40 pointer-events-none select-none" : ""}>
             <Rule503020Widget
@@ -719,6 +1074,18 @@ const DashboardView: React.FC = () => {
               operationalExpenses={chartData}
               savings={investmentSummary.netFlow}
               categories={allCategories}
+              primaryLabel={dateLabelShort}
+              compareLabel={compareDateLabelShort}
+              compare={
+                compareEnabled && compareMetrics
+                  ? {
+                      label: compareDateLabelShort,
+                      income: compareMetrics.operational.income,
+                      operationalExpenses: compareChartData,
+                      savings: compareMetrics.investment.netFlow,
+                    }
+                  : undefined
+              }
             />
           </div>
           {!isPremium && (

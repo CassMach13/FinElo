@@ -2,6 +2,13 @@ import React from 'react';
 import Card from './Card';
 import { InformationCircleIcon } from './icons';
 
+export interface SummaryCardComparison {
+    periodLabel: string;
+    value: string;
+    deltaLabel: string;
+    deltaTone?: 'positive' | 'negative' | 'neutral';
+}
+
 interface SummaryCardProps {
     title: string;
     value: string;
@@ -10,9 +17,19 @@ interface SummaryCardProps {
     variant?: 'default' | 'accent' | 'danger' | 'success' | 'warning';
     className?: string;
     tooltip?: string;
+    compare?: SummaryCardComparison;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, subValue, icon, variant = 'default', className = '', tooltip }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({
+    title,
+    value,
+    subValue,
+    icon,
+    variant = 'default',
+    className = '',
+    tooltip,
+    compare,
+}) => {
     const getVariantColor = () => {
         switch (variant) {
             case 'accent': return 'text-accent';
@@ -21,6 +38,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, subValue, icon,
             case 'warning': return 'text-yellow-500';
             default: return 'text-light';
         }
+    };
+
+    const getDeltaToneColor = () => {
+        if (!compare?.deltaTone || compare.deltaTone === 'neutral') return 'text-gray-500';
+        if (compare.deltaTone === 'positive') return 'text-accent';
+        return 'text-danger';
     };
 
     return (
@@ -63,7 +86,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, subValue, icon,
                 `}>
                     {value}
                 </div>
-                <div className="min-h-[1.25rem] h-auto flex items-center pb-1"> {/* Reserve space for subValue to maintain height consistency */}
+                <div className="min-h-[1.25rem] h-auto flex items-center pb-1">
                     {subValue ? (
                         <div className="text-[10px] font-medium text-gray-500 mt-1 whitespace-normal">
                             {subValue}
@@ -72,6 +95,17 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, subValue, icon,
                         <div className="text-[10px] invisible mt-1">spacer</div>
                     )}
                 </div>
+                {compare && (
+                    <div className="mt-2 pt-2 border-t border-white/10 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[10px]">
+                        <span className="text-gray-500">
+                            vs <span className="font-semibold text-gray-400">{compare.periodLabel}</span>:{' '}
+                            <span className="text-gray-300">{compare.value}</span>
+                        </span>
+                        <span className={`font-semibold ${getDeltaToneColor()}`}>
+                            {compare.deltaLabel}
+                        </span>
+                    </div>
+                )}
             </div>
         </Card>
     );

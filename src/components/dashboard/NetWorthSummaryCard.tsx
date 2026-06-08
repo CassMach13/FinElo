@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import Card from '../ui/Card';
 import { InformationCircleIcon, ArrowsUpDownIcon } from '../ui/icons';
 import { formatCurrency } from '../../utils/formatters';
+import PeriodCompareColumns from '../ui/PeriodCompareColumns';
 
 export interface NetWorthBreakdown {
   total: number;
@@ -24,8 +25,18 @@ interface Segment {
   detail?: string;
 }
 
+export interface NetWorthCardComparison {
+  periodLabel: string;
+  breakdown: NetWorthBreakdown;
+  deltaLabel: string;
+  deltaTone?: 'positive' | 'negative' | 'neutral';
+}
+
 interface NetWorthSummaryCardProps extends NetWorthBreakdown {
   className?: string;
+  compare?: NetWorthCardComparison;
+  asOfLabel?: string;
+  primaryPeriodLabel?: string;
 }
 
 const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
@@ -36,6 +47,9 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
   assetsGross,
   assetsDebts,
   className = '',
+  compare,
+  asOfLabel,
+  primaryPeriodLabel,
 }) => {
   const segments: Segment[] = useMemo(() => {
     const list: Segment[] = [
@@ -83,6 +97,12 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
   const barTotal = positiveParts.reduce((a, b) => a + b, 0) || 1;
 
   const variantClass = total === 0 ? 'text-light' : total > 0 ? 'text-accent' : 'text-danger';
+  const deltaToneClass =
+    compare?.deltaTone === 'positive'
+      ? 'text-accent'
+      : compare?.deltaTone === 'negative'
+        ? 'text-danger'
+        : 'text-gray-500';
 
   return (
     <Card
@@ -107,10 +127,42 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
         </div>
       </div>
 
-      <p className={`text-2xl sm:text-3xl font-bold tracking-tight mt-3 ${variantClass}`}>
-        {formatCurrency(total)}
-      </p>
-      <p className="text-[10px] text-slate-400 mt-1">Patrimônio consolidado (ativos − financiamentos dos bens)</p>
+      {compare && primaryPeriodLabel ? (
+        <div className="mt-3">
+          <PeriodCompareColumns
+            primaryLabel={primaryPeriodLabel}
+            compareLabel={compare.periodLabel}
+            minHeight="min-h-[96px]"
+            primary={
+              <p className={`text-2xl font-bold tracking-tight tabular-nums ${variantClass}`}>
+                {formatCurrency(total)}
+              </p>
+            }
+            compare={
+              <p className="text-2xl font-bold tracking-tight tabular-nums text-slate-200">
+                {formatCurrency(compare.breakdown.total)}
+              </p>
+            }
+            footer={
+              <p className={`text-[10px] font-semibold text-center ${deltaToneClass}`}>
+                {compare.deltaLabel}
+              </p>
+            }
+          />
+          <p className="text-[10px] text-slate-500 mt-2 text-center">
+            Posição no fim de cada período (contas + investimentos + bens)
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className={`text-2xl sm:text-3xl font-bold tracking-tight mt-3 ${variantClass}`}>
+            {formatCurrency(total)}
+          </p>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Patrimônio consolidado (ativos − financiamentos dos bens)
+          </p>
+        </>
+      )}
 
       {barTotal > 0 && total > 0 ? (
         <div
