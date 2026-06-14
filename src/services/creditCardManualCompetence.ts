@@ -284,38 +284,40 @@ export function competenceAmountDue(card: CompetenceHistoryCard): number {
 }
 
 /**
- * Valor da fatura vigente no card — total deste ciclo antes de crédito vindo de outra competência.
- * Corresponde ao que o banco cobra no vencimento (ex.: R$ 6.260,26 em 10/06).
+ * Valor da fatura vigente no card — alinhado ao «Total da fatura» do histórico.
  */
 export function competenceFaturaAtualDisplayAmount(card: CompetenceHistoryCard): number {
-  const beforeCarry = round2(
-    card.openBalanceBeforeCarry ?? Math.max(0, card.statementTotal - card.totalPayments)
-  );
-  if (beforeCarry > 0.005) return beforeCarry;
+  if (card.statementTotal > 0.005) return round2(card.statementTotal);
   return competenceAmountDue(card);
+}
+
+/** Resíduos pequenos (< 5% do maior saldo em aberto) não representam a fatura vigente. */
+function isSignificantOpenBalance(card: CompetenceHistoryCard, maxOpen: number): boolean {
+  if (card.openBalance <= 0.005) return false;
+  if (maxOpen < 1) return true;
+  return card.openBalance >= maxOpen * 0.05;
 }
 
 /**
  * Competência exibida no card como «Fatura Atual».
- * Prioriza o ciclo vigente (próximo vencimento) com saldo real; ignora resíduos contábeis
- * de meses já quitados (openBalance ≈ 0, mas statement − pagamentos > 0 por arredondamento).
+ * Prioriza o ciclo vigente (competência mais recente com saldo relevante).
  */
 export function pickFaturaAtualCompetenceCard(
   cards: CompetenceHistoryCard[],
   todayIso: string
 ): CompetenceHistoryCard | undefined {
-  const hasRealOpenBalance = (c: CompetenceHistoryCard) =>
-    c.openBalance > 0.005 ||
-    (c.openBalanceBeforeCarry ?? Math.max(0, c.statementTotal - c.totalPayments)) > 0.005;
+  const maxOpen = cards.reduce((max, c) => Math.max(max, c.openBalance), 0);
 
   const upcomingOpen = cards
-    .filter((c) => c.dueDate && c.dueDate >= todayIso && hasRealOpenBalance(c))
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    .filter(
+      (c) => c.dueDate && c.dueDate >= todayIso && isSignificantOpenBalance(c, maxOpen)
+    )
+    .sort((a, b) => b.referenceMonth.localeCompare(a.referenceMonth));
   if (upcomingOpen.length > 0) return upcomingOpen[0];
 
   const overdueOpen = cards
-    .filter((c) => c.dueDate && c.dueDate < todayIso && hasRealOpenBalance(c))
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    .filter((c) => c.dueDate && c.dueDate < todayIso && isSignificantOpenBalance(c, maxOpen))
+    .sort((a, b) => b.referenceMonth.localeCompare(a.referenceMonth));
   if (overdueOpen.length > 0) return overdueOpen[0];
 
   return undefined;

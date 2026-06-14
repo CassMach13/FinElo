@@ -56,6 +56,84 @@ describe('pickFaturaAtualCompetenceCard', () => {
     expect(competenceFaturaAtualDisplayAmount(picked!)).toBeCloseTo(6260.26, 2);
     expect(competenceAmountDue(cards[0])).toBe(0);
   });
+
+  it('ignora abril com resíduo beforeCarry quando maio já está em aberto (antes do vencimento de abril)', () => {
+    const cards: CompetenceHistoryCard[] = [
+      {
+        referenceMonth: '2026-04',
+        competenceBR: '04/2026',
+        dueDate: '2026-05-10',
+        vencimentoBR: '10/05/2026',
+        dueYear: 2026,
+        dueMonth: 5,
+        files: [],
+        statementTotal: 6402.97,
+        totalPayments: 6342.45,
+        openBalance: 0,
+        openBalanceBeforeCarry: 60.52,
+        totalDebits: 0,
+        totalRefunds: 0,
+      },
+      {
+        referenceMonth: '2026-05',
+        competenceBR: '05/2026',
+        dueDate: '2026-06-10',
+        vencimentoBR: '10/06/2026',
+        dueYear: 2026,
+        dueMonth: 6,
+        files: [],
+        statementTotal: 6260.26,
+        totalPayments: 0,
+        openBalance: 6260.26,
+        openBalanceBeforeCarry: 6260.26,
+        totalDebits: 0,
+        totalRefunds: 0,
+      },
+    ];
+
+    const picked = pickFaturaAtualCompetenceCard(cards, '2026-05-08');
+    expect(picked?.referenceMonth).toBe('2026-05');
+    expect(competenceFaturaAtualDisplayAmount(picked!)).toBeCloseTo(6260.26, 2);
+  });
+
+  it('ignora resíduo de abril com openBalance 60,52 quando maio tem saldo dominante', () => {
+    const cards: CompetenceHistoryCard[] = [
+      {
+        referenceMonth: '2026-04',
+        competenceBR: '04/2026',
+        dueDate: '2026-05-10',
+        vencimentoBR: '10/05/2026',
+        dueYear: 2026,
+        dueMonth: 5,
+        files: [],
+        statementTotal: 6402.97,
+        totalPayments: 6342.45,
+        openBalance: 60.52,
+        openBalanceBeforeCarry: 60.52,
+        totalDebits: 0,
+        totalRefunds: 0,
+      },
+      {
+        referenceMonth: '2026-05',
+        competenceBR: '05/2026',
+        dueDate: '2026-06-10',
+        vencimentoBR: '10/06/2026',
+        dueYear: 2026,
+        dueMonth: 6,
+        files: [],
+        statementTotal: 6260.26,
+        totalPayments: 0,
+        openBalance: 6260.26,
+        openBalanceBeforeCarry: 6260.26,
+        totalDebits: 0,
+        totalRefunds: 0,
+      },
+    ];
+
+    const picked = pickFaturaAtualCompetenceCard(cards, '2026-05-14');
+    expect(picked?.referenceMonth).toBe('2026-05');
+    expect(competenceFaturaAtualDisplayAmount(picked!)).toBeCloseTo(6260.26, 2);
+  });
 });
 
 describe('computeAccountCardDisplay', () => {
