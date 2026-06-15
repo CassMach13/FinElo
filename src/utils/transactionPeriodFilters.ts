@@ -19,6 +19,8 @@ export interface TransactionFiltersState {
   category: string[];
   type: string;
   accountId: string[];
+  /** user_id do responsável; vazio = todos (plano família). */
+  ownerUserId: string;
   viewScope: TransactionViewScope;
   periodPreset: TransactionPeriodPreset;
 }
@@ -83,6 +85,7 @@ export function buildTransactionFiltersCollapsedSummary(
     parts.push(filters.category.length === 1 ? '1 categoria' : `${filters.category.length} categorias`);
   }
   if (filters.type) parts.push(filters.type === 'Renda' ? 'Entradas' : 'Saídas');
+  if (filters.ownerUserId) parts.push('1 pessoa');
   return parts.join(' · ');
 }
 
@@ -122,6 +125,7 @@ export function getDefaultTransactionFilters(): TransactionFiltersState {
     category: [],
     type: '',
     accountId: [],
+    ownerUserId: '',
     viewScope: 'operation',
     periodPreset: 'current_month',
   };
@@ -134,6 +138,7 @@ export function resolveTransactionFilters(
   const merged: TransactionFiltersState = {
     ...getDefaultTransactionFilters(),
     ...partial,
+    ownerUserId: partial?.ownerUserId ?? getDefaultTransactionFilters().ownerUserId,
   };
 
   if (merged.viewScope === 'all' || merged.periodPreset === 'all') {
@@ -198,6 +203,63 @@ export function shouldApplyDateFilter(filters: TransactionFiltersState): boolean
     filters.viewScope !== 'all' &&
     filters.periodPreset !== 'all' &&
     Boolean(filters.startDate || filters.endDate)
+  );
+}
+
+export function matchesTransactionFilters(
+  transaction: Transaction,
+  filters: TransactionFiltersState,
+  options?: {
+    getTransactionOwnerId?: (tx: Transaction) => string | undefined;
+    skipOwnerFilter?: boolean;
+  }
+): boolean {
+  if (filters.viewScope === 'commitments' && !isCommitmentTransaction(transaction)) {
+    return false;
+  }
+
+  const applyDateFilter = shouldApplyDateFilter(filters);
+  const startDate = filters.startDate ? new Date(filters.startDate).getTime() : null;
+  const endDate = filters.endDate
+    ? new Date(
+        new Date(filters.endDate).setDate(new Date(filters.endDate).getDate() + 1)
+      ).getTime()
+    : null;
+
+  const transactionDate = getTransactionFilterDate(transaction, filters.dateField).setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  const searchQuery = filters.text.trim().toLowerCase();
+  const matchesText =
+    searchQuery === '' ||
+    (transaction.Nome_Fantasia || '').toLowerCase().includes(searchQuery) ||
+    (transaction.Descricao_Original || '').toLowerCase().includes(searchQuery) ||
+    transaction.Valor.toString().includes(filters.text) ||
+    transaction.Valor.toFixed(2).includes(filters.text) ||
+    transaction.Valor.toString().replace('.', ',').includes(filters.text) ||
+    transaction.Valor.toFixed(2).replace('.', ',').includes(filters.text);
+
+  const matchesDate =
+    !applyDateFilter ||
+    ((!startDate || transactionDate >= startDate) && (!endDate || transactionDate < endDate));
+
+  const matchesOwner =
+    options?.skipOwnerFilter ||
+    !filters.ownerUserId ||
+    options?.getTransactionOwnerId?.(transaction) === filters.ownerUserId;
+
+  return (
+    matchesText &&
+    matchesDate &&
+    matchesOwner &&
+    (filters.category.length === 0 || filters.category.includes(transaction.Categoria)) &&
+    (filters.accountId.length === 0 ||
+      (transaction.ID_Conta && filters.accountId.includes(transaction.ID_Conta))) &&
+    (filters.type === '' || transaction.Tipo === filters.type)
   );
 }
 

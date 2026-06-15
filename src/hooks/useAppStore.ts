@@ -175,6 +175,7 @@ interface AppState {
     category: string[];
     type: string;
     accountId: string[];
+    ownerUserId: string;
     viewScope: 'operation' | 'commitments' | 'all';
     periodPreset: 'current_month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
   };

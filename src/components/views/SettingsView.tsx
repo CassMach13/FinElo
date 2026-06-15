@@ -20,9 +20,16 @@ import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 import { buildImportLogAlerts, isImportedDetailRowsIncomplete, type ImportLogAlertContext } from '../../utils/importLogHealth';
+import {
+  FAMILY_MEMBER_NICKNAMES_METADATA_KEY,
+  getOtherFamilyMemberEmail,
+  normalizeFamilyMemberEmail,
+  parseFamilyMemberNicknames,
+  setFamilyMemberNickname,
+} from '../../utils/familyMemberNicknames';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -31,6 +38,35 @@ const SettingsView: React.FC = () => {
     const [isInviteModalOpen, setInviteModalOpen] = useState(false);
     const [familyMembers, setFamilyMembers] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [nicknameDrafts, setNicknameDrafts] = useState<Record<string, string>>({});
+    const [savingNicknameEmail, setSavingNicknameEmail] = useState<string | null>(null);
+
+    const memberNicknames = useMemo(
+        () => parseFamilyMemberNicknames(user?.user_metadata),
+        [user?.user_metadata]
+    );
+
+    useEffect(() => {
+        setNicknameDrafts(memberNicknames);
+    }, [memberNicknames]);
+
+    const handleSaveMemberNickname = async (email: string) => {
+        const key = normalizeFamilyMemberEmail(email);
+        if (!key) return;
+        const draft = (nicknameDrafts[key] || '').trim();
+        const current = memberNicknames[key] || '';
+        if (draft === current) return;
+
+        setSavingNicknameEmail(key);
+        try {
+            const nextNicknames = setFamilyMemberNickname(memberNicknames, email, draft);
+            await updateUserPreferences({
+                [FAMILY_MEMBER_NICKNAMES_METADATA_KEY]: nextNicknames,
+            } as Record<string, unknown>);
+        } finally {
+            setSavingNicknameEmail(null);
+        }
+    };
 
 
     // Fetch members on load (or when tab is active) - Simplified logic
@@ -947,9 +983,19 @@ const SettingsView: React.FC = () => {
                                         const isReceivedInvite = member.member_email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
                                         const displayName = isReceivedInvite ? `Responsável: ${member.owner_email}` : member.member_email;
                                         const isPendingReceived = isReceivedInvite && member.status === 'pending';
+                                        const otherEmail =
+                                            member.status === 'accepted'
+                                                ? getOtherFamilyMemberEmail({
+                                                      member,
+                                                      currentUserId: user?.id,
+                                                      currentUserEmail: user?.email,
+                                                  })
+                                                : null;
+                                        const nicknameKey = otherEmail ? normalizeFamilyMemberEmail(otherEmail) : '';
 
                                         return (
-                                            <li key={member.id} className="flex justify-between items-center bg-slate-800 p-3 rounded gap-3">
+                                            <li key={member.id} className="bg-slate-800 p-3 rounded gap-3 space-y-3">
+                                                <div className="flex justify-between items-center gap-3">
                                                 <span className="text-sm font-medium text-white min-w-0 truncate">{displayName}</span>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${member.status === 'accepted' ? 'text-green-400 bg-green-900/30' :
@@ -989,6 +1035,36 @@ const SettingsView: React.FC = () => {
                                                         {isReceivedInvite ? 'Sair' : 'Remover'}
                                                     </button>
                                                 </div>
+                                                </div>
+                                                {otherEmail && nicknameKey ? (
+                                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-1 border-t border-white/5">
+                                                        <div className="flex-1 min-w-0">
+                                                            <Input
+                                                                label="Apelido na auditoria"
+                                                                name={`nickname-${member.id}`}
+                                                                value={nicknameDrafts[nicknameKey] || ''}
+                                                                onChange={(e) =>
+                                                                    setNicknameDrafts((prev) => ({
+                                                                        ...prev,
+                                                                        [nicknameKey]: e.target.value,
+                                                                    }))
+                                                                }
+                                                                placeholder="Ex: Alcione, Markus…"
+                                                            />
+                                                        </div>
+                                                        <Button
+                                                            variant="secondary"
+                                                            className="sm:mb-0.5 shrink-0"
+                                                            disabled={savingNicknameEmail === nicknameKey}
+                                                            onClick={() => void handleSaveMemberNickname(otherEmail)}
+                                                        >
+                                                            {savingNicknameEmail === nicknameKey ? 'Salvando…' : 'Salvar apelido'}
+                                                        </Button>
+                                                        <p className="text-[10px] text-slate-500 sm:col-span-2">
+                                                            Usado nos chips e agrupamentos em Transações (só para você).
+                                                        </p>
+                                                    </div>
+                                                ) : null}
                                             </li>
                                         );
                                     })}

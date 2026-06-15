@@ -22,6 +22,8 @@ interface AccountBalanceCardProps {
   account: Account;
   bankConfig?: NativeBankConfig;
   display: AccountCardDisplayData;
+  /** Nome do responsável quando a conta pertence a outro membro do plano família. */
+  ownerLabel?: string;
   onEdit: () => void;
   onOpenHistory?: () => void;
   onPayInvoice?: () => void;
@@ -31,6 +33,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
   account,
   bankConfig,
   display,
+  ownerLabel,
   onEdit,
   onOpenHistory,
   onPayInvoice,
@@ -122,6 +125,14 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block truncate">
               {account.Tipo_Conta}
             </span>
+            {ownerLabel ? (
+              <span
+                className="text-[10px] text-slate-400 font-semibold normal-case tracking-normal block truncate mt-0.5"
+                title={`Conta de ${ownerLabel}`}
+              >
+                de {ownerLabel}
+              </span>
+            ) : null}
           </div>
         </div>
 

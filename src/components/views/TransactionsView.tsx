@@ -56,6 +56,23 @@ import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
+import FamilyOwnerBadge from '../ui/FamilyOwnerBadge';
+import FamilyOwnerAuditPanel from '../ui/FamilyOwnerAuditPanel';
+import TransactionOwnerGroupHeader from '../ui/TransactionOwnerGroupHeader';
+import { useFamilyOwnerContext } from '../../hooks/useFamilyOwnerContext';
+import { buildFamilyOwnerPeriodTotals } from '../../utils/familyOwnerSummary';
+import { parseFamilyMemberNicknames } from '../../utils/familyMemberNicknames';
+import {
+  buildGroupedTransactionListItems,
+  countTransactionsByOwner,
+  flattenGroupedTransactionListItems,
+} from '../../utils/familyOwnerGrouping';
+import {
+  loadFamilyGroupByOwner,
+  loadFamilyOwnerColumnVisible,
+  saveFamilyGroupByOwner,
+  saveFamilyOwnerColumnVisible,
+} from '../../utils/familyOwnerPreferences';
 import { mergeMotorSnapshotWithManualLedger } from '../../services/creditCardManualMotorSync';
 import {
   buildTransactionFiltersCollapsedSummary,
@@ -63,14 +80,12 @@ import {
   VIEW_SCOPE_LABELS,
   formatPeriodLabel,
   getDefaultTransactionFilters,
-  getTransactionFilterDate,
-  isCommitmentTransaction,
   loadPersistedTransactionFilters,
   loadTransactionFiltersPanelExpanded,
   resolveTransactionFilters,
   savePersistedTransactionFilters,
   saveTransactionFiltersPanelExpanded,
-  shouldApplyDateFilter,
+  matchesTransactionFilters,
   type TransactionFiltersState,
   type TransactionPeriodPreset,
   type TransactionViewScope,
@@ -217,6 +232,8 @@ const TransactionsView: React.FC = () => {
   const [filtersPanelExpanded, setFiltersPanelExpanded] = useState(() =>
     loadTransactionFiltersPanelExpanded()
   );
+  const [showOwnerColumn, setShowOwnerColumn] = useState(() => loadFamilyOwnerColumnVisible());
+  const [groupByOwner, setGroupByOwner] = useState(() => loadFamilyGroupByOwner());
   const filtersHydratedRef = useRef(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -260,6 +277,11 @@ const TransactionsView: React.FC = () => {
   const currentCreditKeywords = useMemo(
     () => parseKeywordList(user?.user_metadata?.cardCreditKeywords, DEFAULT_CARD_CREDIT_KEYWORDS),
     [user?.user_metadata?.cardCreditKeywords]
+  );
+
+  const memberNicknames = useMemo(
+    () => parseFamilyMemberNicknames(user?.user_metadata),
+    [user?.user_metadata]
   );
 
   const [creditInvoiceCyclesAccountId, setCreditInvoiceCyclesAccountId] = useState<string | null>(null);
@@ -2152,6 +2174,14 @@ const TransactionsView: React.FC = () => {
     [accounts]
   );
 
+  const familyOwnerContext = useFamilyOwnerContext(
+    user?.id,
+    user?.email,
+    accounts,
+    transactions,
+    memberNicknames
+  );
+
   const creditCardPipelineReady = useMemo(() => {
     if (!cardSnapshotPipelineEnabled || !user?.id) return true;
     if (creditBalanceAccounts.length === 0) return true;
@@ -2193,12 +2223,21 @@ const TransactionsView: React.FC = () => {
         creditCardMetricsReady: creditCardPipelineReady,
       });
       const isCredit = display.isCreditCard;
+      const accountOwnerId = familyOwnerContext.getAccountOwnerId(account);
+      const accountOwnerProfile = familyOwnerContext.getProfile(accountOwnerId);
+      const ownerLabel =
+        familyOwnerContext.showAttribution &&
+        accountOwnerProfile &&
+        !accountOwnerProfile.isSelf
+          ? accountOwnerProfile.label
+          : undefined;
       return (
         <AccountBalanceCard
           key={account.id}
           account={account}
           bankConfig={bankConfig}
           display={display}
+          ownerLabel={ownerLabel}
           onEdit={() => {
             setEditingAccount(account);
             setAccountModalOpen(true);
@@ -2228,6 +2267,7 @@ const TransactionsView: React.FC = () => {
       creditCardPipelineReady,
       openMotorInvoiceHistoryModal,
       handlePayInvoice,
+      familyOwnerContext,
     ]
   );
 
@@ -2238,18 +2278,27 @@ const TransactionsView: React.FC = () => {
   }, [accounts]);
 
   const processDataForExport = (dataToExport: Transaction[]) => {
-    return dataToExport.map(t => ({
-      'Data': new Date(t.Data).toLocaleDateString('pt-BR'),
-      'Descrição Personalizada (Usuário)': t.Nome_Fantasia || '',
-      'Descrição Original (Banco)': t.Descricao_Original || '',
-      'Categoria': t.Categoria || '',
-      'Tipo': t.Tipo || '',
-      'Valor': t.Valor,
-      'Conta': accountsMap.get(t.ID_Conta) || 'N/A',
-      'Parcelas': t.Parcela_Atual ? `${t.Parcela_Atual}/${t.Total_Parcelas || 1}` : '',
-      'Tags': t.Tags ? t.Tags.join(', ') : '',
-      'Observações': t.Observacoes || ''
-    }));
+    return dataToExport.map((t) => {
+      const row: Record<string, string | number> = {
+        Data: new Date(t.Data).toLocaleDateString('pt-BR'),
+        'Descrição Personalizada (Usuário)': t.Nome_Fantasia || '',
+        'Descrição Original (Banco)': t.Descricao_Original || '',
+        Categoria: t.Categoria || '',
+        Tipo: t.Tipo || '',
+        Valor: t.Valor,
+        Conta: accountsMap.get(t.ID_Conta) || 'N/A',
+        Parcelas: t.Parcela_Atual ? `${t.Parcela_Atual}/${t.Total_Parcelas || 1}` : '',
+        Tags: t.Tags ? t.Tags.join(', ') : '',
+        Observações: t.Observacoes || '',
+      };
+      if (familyOwnerContext.showAttribution) {
+        const profile = familyOwnerContext.getProfile(
+          familyOwnerContext.getTransactionOwnerId(t)
+        );
+        row.Responsável = profile?.label || '';
+      }
+      return row;
+    });
   };
 
   const handleExportCSV = () => {
@@ -2327,6 +2376,23 @@ const TransactionsView: React.FC = () => {
     [applyTransactionFilters, transactionFilters.periodPreset]
   );
 
+  const handleOwnerFilter = useCallback(
+    (ownerUserId: string) => {
+      applyTransactionFilters({ ownerUserId });
+    },
+    [applyTransactionFilters]
+  );
+
+  const handleToggleOwnerColumn = useCallback((visible: boolean) => {
+    setShowOwnerColumn(visible);
+    saveFamilyOwnerColumnVisible(visible);
+  }, []);
+
+  const handleToggleGroupByOwner = useCallback((enabled: boolean) => {
+    setGroupByOwner(enabled);
+    saveFamilyGroupByOwner(enabled);
+  }, []);
+
   const periodSummary = useMemo(() => formatPeriodLabel(transactionFilters), [transactionFilters]);
   const filtersCollapsedSummary = useMemo(
     () => buildTransactionFiltersCollapsedSummary(transactionFilters),
@@ -2342,6 +2408,21 @@ const TransactionsView: React.FC = () => {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!transactionFilters.ownerUserId) return;
+    if (
+      !familyOwnerContext.showAttribution ||
+      !familyOwnerContext.owners.some((o) => o.userId === transactionFilters.ownerUserId)
+    ) {
+      applyTransactionFilters({ ownerUserId: '' });
+    }
+  }, [
+    familyOwnerContext.showAttribution,
+    familyOwnerContext.owners,
+    transactionFilters.ownerUserId,
+    applyTransactionFilters,
+  ]);
 
   const filteredTransactions = useMemo(() => {
     let sortableItems = [...transactions];
@@ -2365,62 +2446,61 @@ const TransactionsView: React.FC = () => {
       return sortConfig.direction === 'ascending' ? comparison : -comparison;
     });
 
-    const applyDateFilter = shouldApplyDateFilter(transactionFilters);
-    const startDate = transactionFilters.startDate
-      ? new Date(transactionFilters.startDate).getTime()
-      : null;
-    const endDate = transactionFilters.endDate
-      ? new Date(
-          new Date(transactionFilters.endDate).setDate(
-            new Date(transactionFilters.endDate).getDate() + 1
-          )
-        ).getTime()
-      : null;
+    return sortableItems.filter((t) =>
+      matchesTransactionFilters(t, transactionFilters, {
+        getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+      })
+    );
+  }, [transactions, transactionFilters, sortConfig, familyOwnerContext]);
 
-    return sortableItems.filter((t) => {
-      if (transactionFilters.viewScope === 'commitments' && !isCommitmentTransaction(t)) {
-        return false;
-      }
+  const transactionsForFamilySummary = useMemo(
+    () =>
+      transactions.filter((t) =>
+        matchesTransactionFilters(t, transactionFilters, {
+          getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+          skipOwnerFilter: true,
+        })
+      ),
+    [transactions, transactionFilters, familyOwnerContext]
+  );
 
-      const transactionDate = getTransactionFilterDate(t, transactionFilters.dateField).setHours(
-        0,
-        0,
-        0,
-        0
-      );
+  const familyPeriodTotals = useMemo(
+    () =>
+      familyOwnerContext.showAttribution
+        ? buildFamilyOwnerPeriodTotals(transactionsForFamilySummary, familyOwnerContext)
+        : [],
+    [transactionsForFamilySummary, familyOwnerContext]
+  );
 
-      const searchQuery = transactionFilters.text.trim().toLowerCase();
-      const matchesText =
-        searchQuery === '' ||
-        (t.Nome_Fantasia || '').toLowerCase().includes(searchQuery) ||
-        (t.Descricao_Original || '').toLowerCase().includes(searchQuery) ||
-        t.Valor.toString().includes(transactionFilters.text) ||
-        t.Valor.toFixed(2).includes(transactionFilters.text) ||
-        t.Valor.toString().replace('.', ',').includes(transactionFilters.text) ||
-        t.Valor.toFixed(2).replace('.', ',').includes(transactionFilters.text);
-
-      const matchesDate =
-        !applyDateFilter ||
-        ((!startDate || transactionDate >= startDate) &&
-          (!endDate || transactionDate < endDate));
-
-      return (
-        matchesText &&
-        matchesDate &&
-        (transactionFilters.category.length === 0 ||
-          transactionFilters.category.includes(t.Categoria)) &&
-        (transactionFilters.accountId.length === 0 ||
-          (t.ID_Conta && transactionFilters.accountId.includes(t.ID_Conta))) &&
-        (transactionFilters.type === '' || t.Tipo === transactionFilters.type)
-      );
-    });
-  }, [transactions, transactionFilters, sortConfig]);
+  const showOwnerColumnInTable = familyOwnerContext.showAttribution && showOwnerColumn;
+  const desktopTableColumnCount = showOwnerColumnInTable ? 10 : 9;
 
   const paginatedTransactions = useMemo(() => {
     if (itemsPerPage === -1) return filteredTransactions; // -1 para "Todos"
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  const ownerTransactionCounts = useMemo(
+    () => countTransactionsByOwner(filteredTransactions, familyOwnerContext.getTransactionOwnerId),
+    [filteredTransactions, familyOwnerContext]
+  );
+
+  const transactionListItems = useMemo(() => {
+    if (!groupByOwner || !familyOwnerContext.showAttribution) {
+      return flattenGroupedTransactionListItems(paginatedTransactions);
+    }
+    return buildGroupedTransactionListItems(
+      paginatedTransactions,
+      ownerTransactionCounts,
+      familyOwnerContext
+    );
+  }, [
+    groupByOwner,
+    familyOwnerContext,
+    paginatedTransactions,
+    ownerTransactionCounts,
+  ]);
 
   const totalPages = useMemo(() => {
     if (itemsPerPage === -1) return 1;
@@ -2680,6 +2760,41 @@ const TransactionsView: React.FC = () => {
               </p>
             </div>
 
+            {familyOwnerContext.showAttribution ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  Responsável
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOwnerFilter('')}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors border ${
+                      transactionFilters.ownerUserId === ''
+                        ? 'bg-accent text-slate-900 border-accent shadow-sm'
+                        : 'bg-slate-700/90 text-slate-100 border-white/10 hover:bg-slate-600 hover:text-white'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {familyOwnerContext.owners.map((owner) => (
+                    <button
+                      key={owner.userId}
+                      type="button"
+                      onClick={() => handleOwnerFilter(owner.userId)}
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors border ${
+                        transactionFilters.ownerUserId === owner.userId
+                          ? 'bg-accent text-slate-900 border-accent shadow-sm'
+                          : 'bg-slate-700/90 text-slate-100 border-white/10 hover:bg-slate-600 hover:text-white'
+                      }`}
+                    >
+                      {owner.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Período</p>
@@ -2844,6 +2959,21 @@ const TransactionsView: React.FC = () => {
           </section>
         )}
       </div>
+
+      {familyOwnerContext.showAttribution ? (
+        <FamilyOwnerAuditPanel
+          owners={familyOwnerContext.owners}
+          periodTotals={familyPeriodTotals}
+          periodLabel={periodSummary}
+          activeOwnerUserId={transactionFilters.ownerUserId}
+          showOwnerColumn={showOwnerColumn}
+          groupByOwner={groupByOwner}
+          onOwnerFilter={handleOwnerFilter}
+          onToggleOwnerColumn={handleToggleOwnerColumn}
+          onToggleGroupByOwner={handleToggleGroupByOwner}
+        />
+      ) : null}
+
       <PaginationControls
         itemsPerPage={itemsPerPage}
         setItemsPerPage={setItemsPerPage}
@@ -2882,7 +3012,19 @@ const TransactionsView: React.FC = () => {
           </div>
         </div>
 
-        {paginatedTransactions.map(t => (
+        {transactionListItems.map((item, itemIndex) => {
+          if (item.type === 'header') {
+            return (
+              <TransactionOwnerGroupHeader
+                key={`group-mobile-${item.profile.userId}-${itemIndex}`}
+                profile={item.profile}
+                count={item.count}
+              />
+            );
+          }
+
+          const t = item.transaction;
+          return (
           <SwipeableItem
             key={t.ID_Transacao}
             className="rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b]" // The background beneath the swipe uses a neutral dark slate color to blend since both sides have different actions
@@ -2930,9 +3072,17 @@ const TransactionsView: React.FC = () => {
                   <span className="font-semibold text-white truncate text-base leading-tight">
                     {t.Nome_Fantasia || t.Descricao || "Sem Nome"}
                   </span>
-                  <span className="text-xs text-gray-400 truncate flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+                  <span className="text-xs text-gray-400 truncate flex items-center gap-1 flex-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
                     {t.Categoria}
+                    {familyOwnerContext.showAttribution ? (() => {
+                      const profile = familyOwnerContext.getProfile(
+                        familyOwnerContext.getTransactionOwnerId(t)
+                      );
+                      return profile ? (
+                        <FamilyOwnerBadge profile={profile} compact className="ml-1" />
+                      ) : null;
+                    })() : null}
                   </span>
                   <span className="text-xs text-gray-500 truncate flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
@@ -2961,7 +3111,8 @@ const TransactionsView: React.FC = () => {
               </div>
             </div>
           </SwipeableItem>
-        ))}
+          );
+        })}
         {isLoading && (
           <div className="flex flex-col gap-3">
             <SkeletonCard />
@@ -2985,6 +3136,9 @@ const TransactionsView: React.FC = () => {
                 { key: 'Data_Pagamento', label: 'Pagamento', width: 'w-24' },
                 { key: 'ID_Conta', label: 'Conta', width: 'w-28' },
                 { key: 'Nome_Fantasia', label: 'Descrição', width: 'w-auto' },
+                ...(showOwnerColumnInTable
+                  ? [{ key: 'owner', label: 'Resp.', align: 'center' as const, width: 'w-20' }]
+                  : []),
                 { key: 'Parcelas', label: 'Parc.', align: 'center', width: 'w-16' },
                 { key: 'Categoria', label: 'Categoria', width: 'w-28' },
                 { key: 'linked_asset_id', label: 'Vínculo', width: 'w-28' },
@@ -2992,7 +3146,7 @@ const TransactionsView: React.FC = () => {
                 { key: 'Acoes', label: 'Ações', align: 'right', width: 'w-20' },
               ].map(({ key, label, align, width }) => (
                 <th key={key} scope="col" className={`px-2 py-3 text-${align || 'left'} text-xs font-medium text-gray-300 uppercase tracking-wider ${width}`}>
-                  {key !== 'Acoes' && key !== 'Parcelas' && key !== 'ID_Conta' ? <button className={`w-full h-full flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'}`} onClick={() => requestSort(key as keyof Transaction)}>
+                  {key !== 'Acoes' && key !== 'Parcelas' && key !== 'ID_Conta' && key !== 'owner' ? <button className={`w-full h-full flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'}`} onClick={() => requestSort(key as keyof Transaction)}>
                     {label}{getSortIndicator(key)}
                   </button> : <span className={`flex ${align === 'right' ? 'justify-end' : (align === 'center' ? 'justify-center' : 'justify-start')}`}>{label}</span>}
                 </th>
@@ -3000,12 +3154,38 @@ const TransactionsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-primary relative">
-              {paginatedTransactions.map(t => (
+              {transactionListItems.map((item, itemIndex) => {
+                if (item.type === 'header') {
+                  return (
+                    <tr key={`group-desktop-${item.profile.userId}-${itemIndex}`} className="bg-slate-800/70">
+                      <td colSpan={desktopTableColumnCount} className="px-3 py-2">
+                        <TransactionOwnerGroupHeader
+                          profile={item.profile}
+                          count={item.count}
+                          variant="table"
+                        />
+                      </td>
+                    </tr>
+                  );
+                }
+
+                const t = item.transaction;
+                return (
                 <tr key={t.ID_Transacao} className="hover:bg-primary">
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
                   <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} />
+                  {showOwnerColumnInTable ? (
+                    <td className="px-2 py-4 w-20 text-center align-middle">
+                      {(() => {
+                        const profile = familyOwnerContext.getProfile(
+                          familyOwnerContext.getTransactionOwnerId(t)
+                        );
+                        return profile ? <FamilyOwnerBadge profile={profile} compact /> : null;
+                      })()}
+                    </td>
+                  ) : null}
                   <EditableCell key={`${t.ID_Transacao}-Parcela_Atual-${t.Parcela_Atual}`} transaction={t} field="Parcela_Atual" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="installments" className="w-16 text-center text-xs" />
                   <EditableCell 
                     key={`${t.ID_Transacao}-Categoria-${t.Categoria}`} 
@@ -3074,7 +3254,8 @@ const TransactionsView: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {isLoading && (
