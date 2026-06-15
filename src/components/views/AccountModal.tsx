@@ -12,9 +12,10 @@ interface AccountModalProps {
     account: Account | null;
     onClose: () => void;
     onSave: (account: Omit<Account, 'id' | 'user_id'>) => void;
+    overlayClassName?: string;
 }
 
-const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave }) => {
+const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, overlayClassName }) => {
     const { transactions } = useAppStore();
     const [balanceMode, setBalanceMode] = useState<'current' | 'initial'>('current');
 
@@ -98,6 +99,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave })
             isOpen={true}
             onClose={onClose}
             title={account ? 'Editar Conta' : 'Nova Conta'}
+            overlayClassName={overlayClassName}
             footer={
                 <div className="flex justify-end gap-2">
                     <Button variant="secondary" onClick={onClose}>Cancelar</Button>

@@ -3604,6 +3604,7 @@ const TransactionsView: React.FC = () => {
       {isAccountModalOpen && (
         <AccountModal
           account={editingAccount}
+          overlayClassName={isNewTransactionModalOpen ? 'z-[60]' : undefined}
           onClose={() => {
             setAccountModalOpen(false);
             setEditingAccount(null);
@@ -3615,6 +3616,7 @@ const TransactionsView: React.FC = () => {
       {isCategoryModalOpen && (
         <CategoryModal
           category={null}
+          overlayClassName={isNewTransactionModalOpen ? 'z-[60]' : undefined}
           onClose={() => setCategoryModalOpen(false)}
           onSave={handleSaveCategory}
         />

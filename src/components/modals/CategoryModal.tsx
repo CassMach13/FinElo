@@ -9,9 +9,10 @@ interface CategoryModalProps {
     category: Category | null;
     onClose: () => void;
     onSave: (category: Omit<Category, 'id'>) => void;
+    overlayClassName?: string;
 }
 
-const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave }) => {
+const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave, overlayClassName }) => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [name, setName] = useState(category?.Nome_Categoria || '');
     const [type, setType] = useState<'Renda' | 'Despesa' | 'Ambos' | ''>(category?.Tipo || '');
@@ -58,6 +59,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave
             isOpen={true}
             onClose={onClose}
             title={category ? 'Editar Categoria' : 'Nova Categoria'}
+            overlayClassName={overlayClassName}
             footer={
                 <div className="flex justify-end gap-2">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
