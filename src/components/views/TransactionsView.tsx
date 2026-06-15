@@ -2987,7 +2987,7 @@ const TransactionsView: React.FC = () => {
 
         {/* Mobile Sort Controls */}
         <div className="flex justify-between items-center bg-secondary p-3 rounded-lg border border-slate-700/50 mb-4 gap-2">
-          <span className="text-sm text-gray-400 font-medium whitespace-nowrap">Ordenar por:</span>
+          <span className="text-sm text-slate-200 font-medium whitespace-nowrap">Ordenar por:</span>
           <div className="flex items-center gap-2 w-full justify-end">
             <select
               value={sortConfig.key}
@@ -3003,7 +3003,7 @@ const TransactionsView: React.FC = () => {
             </select>
             <button
               onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}
-              className="p-1.5 bg-primary/50 border border-slate-700 rounded text-gray-400 hover:text-white"
+              className="p-1.5 bg-primary/50 border border-slate-700 rounded text-slate-200 hover:text-white"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transform transition-transform ${sortConfig.direction === 'descending' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
@@ -3072,7 +3072,7 @@ const TransactionsView: React.FC = () => {
                   <span className="font-semibold text-white truncate text-base leading-tight">
                     {t.Nome_Fantasia || t.Descricao || "Sem Nome"}
                   </span>
-                  <span className="text-xs text-gray-400 truncate flex items-center gap-1 flex-wrap">
+                  <span className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
                     {t.Categoria}
                     {familyOwnerContext.showAttribution ? (() => {
@@ -3084,7 +3084,7 @@ const TransactionsView: React.FC = () => {
                       ) : null;
                     })() : null}
                   </span>
-                  <span className="text-xs text-gray-500 truncate flex items-center gap-1">
+                  <span className="text-xs text-slate-200 truncate flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                     {accountsMap.get(t.ID_Conta) || 'Conta Desconhecida'}
                   </span>
@@ -3095,10 +3095,10 @@ const TransactionsView: React.FC = () => {
                     {formatCurrency(t.Valor)}
                   </span>
                   <div className="flex flex-col items-end gap-0.5 mt-1">
-                    <span className="text-[9px] text-gray-500 uppercase font-medium tracking-wide">
+                    <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
                       Compra: {t.Data ? t.Data.split('T')[0].split('-').reverse().join('/') : '-'}
                     </span>
-                    <span className="text-[9px] text-gray-500 uppercase font-medium tracking-wide">
+                    <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
                       Pgto: {t.Data_Pagamento ? t.Data_Pagamento.split('T')[0].split('-').reverse().join('/') : '-'}
                     </span>
                   </div>
@@ -3122,7 +3122,7 @@ const TransactionsView: React.FC = () => {
         )}
         {!isLoading && paginatedTransactions.length === 0 && (
           <div className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
-            <p className="text-gray-400">Nenhuma transação encontrada.</p>
+            <p className="text-slate-300">Nenhuma transação encontrada.</p>
           </div>
         )}
       </div>
@@ -3274,26 +3274,26 @@ const TransactionsView: React.FC = () => {
 
       <div className="bg-slate-800 p-4 rounded-lg shadow-inner mb-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm border border-slate-700">
         <div className="flex items-center gap-2">
-          <span className="text-gray-400 uppercase tracking-wider font-semibold text-xs">Calculadora da Página</span>
-          <span className="text-gray-600">|</span>
-          <span className="text-gray-500 text-xs">Somando {paginatedTransactions.length} itens visíveis</span>
+          <span className="text-slate-200 uppercase tracking-wider font-semibold text-xs">Calculadora da Página</span>
+          <span className="text-slate-500">|</span>
+          <span className="text-slate-300 text-xs">Somando {paginatedTransactions.length} itens visíveis</span>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className="text-[10px] text-gray-500 uppercase">Entradas</p>
+            <p className="text-[10px] text-slate-300 uppercase">Entradas</p>
             <p className="text-accent font-bold">
               {formatCurrency(paginatedTransactions.reduce((acc, t) => acc + (t.Valor > 0 ? t.Valor : 0), 0))}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-gray-500 uppercase">Saídas</p>
+            <p className="text-[10px] text-slate-300 uppercase">Saídas</p>
             <p className="text-danger font-bold">
               {formatCurrency(Math.abs(paginatedTransactions.reduce((acc, t) => acc + (t.Valor < 0 ? t.Valor : 0), 0)))}
             </p>
           </div>
           <div className="h-8 w-px bg-slate-600 mx-2"></div>
           <div className="text-right">
-            <p className="text-[10px] text-gray-500 uppercase">Líquido (Sobra)</p>
+            <p className="text-[10px] text-slate-300 uppercase">Líquido (Sobra)</p>
             <p className={`font-bold text-lg ${getValueColor(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}`}>
               {formatCurrency(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}
             </p>
@@ -4232,7 +4232,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   totalRecords,
 }) => {
   return (
-    <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-400 px-4 py-3 bg-secondary rounded-lg gap-4">
+    <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-slate-200 px-4 py-3 bg-secondary rounded-lg gap-4">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <span>Mostrar</span>
         <select
