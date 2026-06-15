@@ -17,6 +17,7 @@ import { parseCreditCardReferenceFromFileName } from './creditCardEngineService'
 import {
   appendManualCompetenceTotals,
   inferManualRefundReferenceMonth,
+  isManualCardPositiveCredit,
   MANUAL_COMPETENCE_FILE_LABEL,
   referenceMonthFromTransaction,
 } from './creditCardManualCompetence';
@@ -201,7 +202,7 @@ export function listTransactionsForCompetenceCard(input: {
         )
         .forEach((t) => {
           if (parseDirectedCompetenceFromPayment(t)) return;
-          if (isManualCardRefund(t)) {
+          if (isManualCardRefund(t) || isManualCardPositiveCredit(t)) {
             const refundRef = inferManualRefundReferenceMonth(t, account);
             if (refundRef === ref) push(t);
             return;

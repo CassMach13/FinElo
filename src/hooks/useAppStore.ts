@@ -37,7 +37,10 @@ import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
-import { referenceMonthFromTransaction } from '../services/creditCardManualCompetence';
+import {
+  prepareManualPurchaseCompetenceOnPaymentDateEdit,
+  referenceMonthFromTransaction,
+} from '../services/creditCardManualCompetence';
 
 const parseClassifierKeywords = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -1921,9 +1924,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const oldTransaction = get().transactions.find(t => t.ID_Transacao === ID_Transacao);
     const oldAssetId = oldTransaction?.linked_asset_id;
 
+    let payload = fieldsToUpdate;
+    if (oldTransaction && fieldsToUpdate.Data_Pagamento !== undefined) {
+      const account = get().accounts.find(
+        (a) => a.id === (fieldsToUpdate.ID_Conta as string | undefined) || oldTransaction.ID_Conta
+      );
+      if (account) {
+        payload = prepareManualPurchaseCompetenceOnPaymentDateEdit(oldTransaction, fieldsToUpdate, account);
+      }
+    }
+
     const { data, error } = await supabase
       .from('transactions')
-      .update(fieldsToUpdate)
+      .update(payload)
       .eq('ID_Transacao', ID_Transacao)
       .select();
 

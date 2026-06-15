@@ -60,7 +60,7 @@ export function buildDirectedRefundDescription(referenceMonth: string, label = '
 
 export type CardManualEntryKind = 'purchase' | 'refund' | 'invoice_payment';
 
-const DEFAULT_REFUND_HINTS = ['estorno', 'reembolso', 'devolucao', 'cancelamento', 'credito', 'ajuste credor'];
+const DEFAULT_REFUND_HINTS = ['estorno', 'reembolso', 'devolucao', 'cancelamento', 'credito', 'ajuste credor', 'cashback'];
 
 const textBlob = (parts: Array<string | undefined | null>) =>
   normalize(parts.filter(Boolean).join(' '));
@@ -159,6 +159,28 @@ export function referenceMonthFromIsoDate(iso: string): string | null {
 const DIRECTED_COMPETENCE_RE = new RegExp(
   `${COMPETENCE_PAYMENT_OBS_PREFIX}(\\d{4}-(?:0[1-9]|1[0-2]))`
 );
+
+export function stripCompetenceMarker(text: string | undefined | null): string {
+  return String(text || '')
+    .replace(DIRECTED_COMPETENCE_RE, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Persiste `finelo_competence:AAAA-MM` em Observacoes ou Descricao_Original. */
+export function upsertCompetenceMarkerInTransaction(
+  tx: Pick<Transaction, 'Observacoes' | 'Descricao_Original'>,
+  referenceMonth: string
+): Pick<Transaction, 'Observacoes' | 'Descricao_Original'> {
+  const ref = referenceMonth.trim();
+  if (!REF_MONTH_RE.test(ref)) return {};
+  const marker = buildCompetencePaymentObservacao(ref);
+  const hasObservacoes = tx.Observacoes != null && String(tx.Observacoes).trim().length > 0;
+  const field: 'Observacoes' | 'Descricao_Original' = hasObservacoes ? 'Observacoes' : 'Descricao_Original';
+  const current = hasObservacoes ? tx.Observacoes! : tx.Descricao_Original || '';
+  const cleaned = stripCompetenceMarker(current);
+  return { [field]: cleaned ? `${cleaned} ${marker}` : marker };
+}
 
 export function parseDirectedCompetenceFromPayment(tx: Transaction): string | null {
   for (const raw of [tx.Observacoes, tx.Descricao_Original]) {

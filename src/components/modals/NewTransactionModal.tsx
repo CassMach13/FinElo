@@ -22,7 +22,7 @@ import {
   parseDirectedCompetenceFromPayment,
   referenceMonthFromIsoDate,
 } from '../../services/creditCardDirectedPayment';
-import { inferManualRefundReferenceMonth } from '../../services/creditCardManualCompetence';
+import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso } from '../../services/creditCardManualCompetence';
 
 interface NewTransactionModalProps {
   onClose: () => void;
@@ -176,11 +176,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     if (!editTransactionId || !initialTransaction) return;
     draftPersistSkipRef.current = true;
     const dataIso = initialTransaction.Data
-      ? typeof initialTransaction.Data === 'string'
-        ? initialTransaction.Data.split('T')[0]
-        : initialTransaction.Data.toISOString().split('T')[0]
+      ? toLocalDateIso(initialTransaction.Data)
       : getTodayString();
-    const directedRef = parseDirectedCompetenceFromPayment(initialTransaction);
     const editAccount = accounts.find((a) => a.id === initialTransaction.ID_Conta);
     const isCard = editAccount?.Tipo_Conta === 'Cartão de Crédito';
     const inferredKind = isCard
@@ -197,9 +194,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     setTransaction({
       Data: dataIso,
       Data_Pagamento: initialTransaction.Data_Pagamento
-        ? typeof initialTransaction.Data_Pagamento === 'string'
-          ? initialTransaction.Data_Pagamento.split('T')[0]
-          : initialTransaction.Data_Pagamento.toISOString().split('T')[0]
+        ? toLocalDateIso(initialTransaction.Data_Pagamento)
         : '',
       ID_Conta: initialTransaction.ID_Conta || '',
       Nome_Fantasia: initialTransaction.Nome_Fantasia || '',
@@ -213,10 +208,9 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       inferredKind || (initialTransaction.Tipo === 'Despesa' && isCard ? 'purchase' : '')
     );
     setRefundReferenceMonth(
-      directedRef ||
-        (isCard && inferredKind === 'refund' && editAccount
-          ? inferManualRefundReferenceMonth(initialTransaction, editAccount) || ''
-          : '')
+      isCard && inferredKind === 'refund' && editAccount
+        ? resolveRefundCompetenceMonthForEdit(initialTransaction, editAccount)
+        : parseDirectedCompetenceFromPayment(initialTransaction) || ''
     );
     setIsRecurrent(false);
   }, [editTransactionId, initialTransaction, accounts, cardPaymentKeywords, cardCreditKeywords]);
@@ -366,27 +360,30 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     void loadCompetenceCards(selectedAccount)
       .then((cards) => {
         if (cancelled) return;
-        setCompetenceCards(cards);
-        if (!refundReferenceMonth) {
-          const draft: Transaction = {
-            ID_Transacao: 'draft',
-            ID_Conta: selectedAccount.id,
-            Origem: 'manual',
-            Data: transaction.Data,
-            Data_Pagamento: transaction.Data_Pagamento || undefined,
-            Tipo: 'Renda',
-            Categoria: transaction.Categoria,
-            Nome_Fantasia: transaction.Nome_Fantasia,
-            Descricao_Original: transaction.Descricao_Original,
-            Valor: parseFloat(transaction.Valor) || 0,
-          } as Transaction;
-          const inferred = inferManualRefundReferenceMonth(draft, selectedAccount);
-          const match =
-            inferred && cards.some((c) => c.referenceMonth === inferred) ? inferred : null;
-          const fromDate = referenceMonthFromIsoDate(transaction.Data);
-          const fromData =
-            fromDate && cards.some((c) => c.referenceMonth === fromDate) ? fromDate : null;
-          setRefundReferenceMonth(match || fromData || cards[0]?.referenceMonth || '');
+        const merged = ensureRefundCompetenceCardOptions(cards, selectedAccount, transaction.Data);
+        setCompetenceCards(merged);
+        const draft: Transaction = {
+          ID_Transacao: 'draft',
+          ID_Conta: selectedAccount.id,
+          Origem: 'manual',
+          Data: transaction.Data,
+          Data_Pagamento: transaction.Data_Pagamento || undefined,
+          Tipo: 'Renda',
+          Categoria: transaction.Categoria,
+          Nome_Fantasia: transaction.Nome_Fantasia,
+          Descricao_Original: transaction.Descricao_Original,
+          Valor: parseFloat(transaction.Valor) || 0,
+        } as Transaction;
+        const inferred = inferManualRefundReferenceMonth(draft, selectedAccount);
+        const pick =
+          inferred && merged.some((c) => c.referenceMonth === inferred) ? inferred : null;
+        if (editTransactionId) {
+          if (pick) setRefundReferenceMonth(pick);
+        } else if (!refundReferenceMonth) {
+          const fromData = referenceMonthFromIsoDate(toLocalDateIso(transaction.Data));
+          const fromDataPick =
+            fromData && merged.some((c) => c.referenceMonth === fromData) ? fromData : null;
+          setRefundReferenceMonth(pick || fromDataPick || merged[0]?.referenceMonth || '');
         }
       })
       .finally(() => {
@@ -395,7 +392,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isCreditCardAccount, cardEntryKind, selectedAccount, loadCompetenceCards, transaction.Data]);
+  }, [isCreditCardAccount, cardEntryKind, selectedAccount, loadCompetenceCards, transaction.Data, editTransactionId]);
 
   const showPaymentGuide =
     isCreditCardAccount &&

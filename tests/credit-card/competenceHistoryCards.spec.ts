@@ -564,6 +564,135 @@ describe('competenceHistoryCardsForAccount', () => {
     expect(mai?.openBalance).toBe(50);
   });
 
+  it('cashback manual em maio com vencimento 25/05 compete em 05/2026, não 04/2026', () => {
+    const itauAccount: Account = {
+      id: 'acc-itau',
+      Nome_Conta: 'Cartão Itaú',
+      Tipo_Conta: 'Cartão de Crédito',
+      dia_vencimento: 25,
+    } as Account;
+
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'cashback-mai',
+        ID_Conta: 'acc-itau',
+        Origem: 'manual',
+        Tipo: 'Renda',
+        Data: '2026-05-25 00:00:00+00',
+        Data_Pagamento: '2026-05-25 00:00:00+00',
+        Valor: 29,
+        Nome_Fantasia: 'Cashback',
+        Descricao_Original: 'Cashback',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: itauAccount.id,
+      account: itauAccount,
+      accounts: [itauAccount],
+      transactions,
+      importLogs: [],
+    });
+
+    const abr = cards.find((c) => c.referenceMonth === '2026-04');
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+    expect(abr).toBeUndefined();
+    expect(mai?.directedManualRefundTotal).toBe(29);
+    expect(
+      listTransactionsForCompetenceCard({
+        card: mai!,
+        accountId: itauAccount.id,
+        account: itauAccount,
+        transactions,
+      }).map((t) => t.ID_Transacao)
+    ).toEqual(['cashback-mai']);
+  });
+
+  it('compra manual no mesmo mês do vencimento compete nesse mês (sem marcador)', () => {
+    const itauAccount: Account = {
+      id: 'acc-itau',
+      Nome_Conta: 'Cartão Itaú',
+      Tipo_Conta: 'Cartão de Crédito',
+      dia_vencimento: 25,
+    } as Account;
+
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'spotify-mai',
+        ID_Conta: 'acc-itau',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-05-04',
+        Data_Pagamento: '2026-05-25',
+        Valor: -23.9,
+        Nome_Fantasia: 'SpotyFy',
+        Descricao_Original: 'SpotyFy',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: itauAccount.id,
+      account: itauAccount,
+      accounts: [itauAccount],
+      transactions,
+      importLogs: [],
+    });
+
+    const abr = cards.find((c) => c.referenceMonth === '2026-04');
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+    expect(abr).toBeUndefined();
+    expect(mai?.statementTotal).toBe(23.9);
+  });
+
+  it('compra manual abril com Data_Pagamento em maio entra na competência 05/2026 com finelo_competence', () => {
+    const itauAccount: Account = {
+      id: 'acc-itau',
+      Nome_Conta: 'Cartão Itaú',
+      Tipo_Conta: 'Cartão de Crédito',
+      dia_vencimento: 25,
+    } as Account;
+
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'paris-1',
+        ID_Conta: 'acc-itau',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-04-18',
+        Data_Pagamento: '2026-05-25',
+        Valor: -437.83,
+        Nome_Fantasia: 'Brandy - compra San Sebastián',
+        Descricao_Original: 'Brandy - compra San Sebastián finelo_competence:2026-05',
+      } as Transaction,
+      {
+        ID_Transacao: 'paris-2',
+        ID_Conta: 'acc-itau',
+        Origem: 'manual',
+        Tipo: 'Despesa',
+        Data: '2026-04-19',
+        Data_Pagamento: '2026-05-25',
+        Valor: -158.36,
+        Nome_Fantasia: 'Musee Claude Monet - França',
+        Descricao_Original: 'Musee Claude Monet - França finelo_competence:2026-05',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: itauAccount.id,
+      account: itauAccount,
+      accounts: [itauAccount],
+      transactions,
+      importLogs: [],
+    });
+
+    const abr = cards.find((c) => c.referenceMonth === '2026-04');
+    const mai = cards.find((c) => c.referenceMonth === '2026-05');
+
+    expect(abr).toBeUndefined();
+    expect(mai?.statementTotal).toBe(596.19);
+    expect(mai?.files.some((f) => f.fileName === 'Lançamentos manuais')).toBe(true);
+  });
+
   it('listTransactionsForCompetenceCard retorna lançamentos do arquivo e manuais da competência', () => {
     const transactions: Transaction[] = [
       {

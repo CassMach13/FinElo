@@ -16,7 +16,111 @@ import {
   isManualInvoicePayment,
   parseDirectedCompetenceFromPayment,
   referenceMonthFromIsoDate,
+  stripCompetenceMarker,
+  upsertCompetenceMarkerInTransaction,
 } from './creditCardDirectedPayment';
+
+export function parseDueFromReferenceMonth(referenceMonth: string, dueDay: number): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(referenceMonth.trim());
+  if (!m) return '';
+  let y = Number(m[1]);
+  let mo = Number(m[2]);
+  if (mo === 12) {
+    mo = 1;
+    y += 1;
+  } else {
+    mo += 1;
+  }
+  const last = new Date(y, mo, 0).getDate();
+  const d = Math.min(Math.max(1, dueDay), last);
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function competenceMonthToBR(referenceMonth: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(referenceMonth.trim());
+  if (!m) return referenceMonth;
+  return `${m[2]}/${m[1]}`;
+}
+
+function isoDateToBR(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/** Garante opção da competência do mês da data (ex. maio) no seletor de estorno. */
+export function ensureRefundCompetenceCardOptions(
+  cards: CompetenceHistoryCard[],
+  account: Account,
+  dataIso: string
+): CompetenceHistoryCard[] {
+  const dataMonth = referenceMonthFromIsoDate(toLocalDateIso(dataIso));
+  if (!dataMonth || !/^\d{4}-(0[1-9]|1[0-2])$/.test(dataMonth)) return cards;
+  if (cards.some((c) => c.referenceMonth === dataMonth)) return cards;
+
+  const dueDay = Number(account.dia_vencimento) || 10;
+  const dueDate = parseDueFromReferenceMonth(dataMonth, dueDay);
+  const dueParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dueDate.trim());
+
+  const placeholder: CompetenceHistoryCard = {
+    referenceMonth: dataMonth,
+    competenceBR: competenceMonthToBR(dataMonth),
+    dueDate,
+    vencimentoBR: isoDateToBR(dueDate),
+    dueYear: dueParts ? Number(dueParts[1]) : 0,
+    dueMonth: dueParts ? Number(dueParts[2]) : 0,
+    files: [],
+    totalDebits: 0,
+    totalRefunds: 0,
+    statementTotal: 0,
+    totalPayments: 0,
+    openBalanceBeforeCarry: 0,
+    priorCreditApplied: 0,
+    openBalance: 0,
+    creditCarriedForward: 0,
+  };
+
+  return [...cards, placeholder].sort((a, b) => b.referenceMonth.localeCompare(a.referenceMonth));
+}
+
+/**
+ * Reinfere competência do estorno na edição, ignorando marcador finelo incorreto
+ * (ex. 04/2026 gravado quando a data do lançamento é maio).
+ */
+export function resolveRefundCompetenceMonthForEdit(tx: Transaction, account: Account): string {
+  const stripped: Transaction = {
+    ...tx,
+    Observacoes: stripCompetenceMarker(tx.Observacoes),
+    Descricao_Original: stripCompetenceMarker(tx.Descricao_Original),
+  };
+  return inferManualRefundReferenceMonth(stripped, account) || '';
+}
+
+/**
+ * Na aba Transações, ao editar Data_Pagamento o usuário indica a fatura desejada.
+ * Compra e vencimento no mesmo mês → competência desse mês; compra anterior → mês do vencimento.
+ */
+export function inferUserTargetCompetenceOnPaymentEdit(
+  paymentIso: string,
+  purchaseIso: string,
+  account: Account
+): string | null {
+  const paymentMonth = referenceMonthFromIsoDate(paymentIso);
+  const purchaseMonth = referenceMonthFromIsoDate(purchaseIso);
+  if (!paymentMonth) return null;
+  if (purchaseMonth === paymentMonth) return paymentMonth;
+
+  if (paymentIsoLooksLikeCardDueDate(paymentIso, account)) {
+    const fromDue = referenceMonthFromPaymentDueDate(paymentIso);
+    if (fromDue && paymentMonth !== fromDue && purchaseMonth && purchaseMonth < fromDue) {
+      return paymentMonth;
+    }
+    if (fromDue) return fromDue;
+  }
+
+  if (purchaseMonth && purchaseMonth < paymentMonth) return paymentMonth;
+  return paymentMonth;
+}
 
 export const MANUAL_COMPETENCE_FILE_LABEL = 'Lançamentos manuais';
 
@@ -24,7 +128,12 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function toLocalDateIso(date: Date | string | undefined): string {
   if (!date) return '';
-  if (typeof date === 'string') return date.split('T')[0];
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed);
+    if (m) return m[1];
+    return trimmed.split('T')[0];
+  }
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
@@ -54,6 +163,36 @@ export function paymentIsoLooksLikeCardDueDate(paymentIso: string, account: Acco
   return Number(m[3]) === dueDay;
 }
 
+/** Competência a partir de Data + Data_Pagamento no dia de vencimento do cartão. */
+export function competenceMonthFromManualPaymentDate(
+  dataIso: string,
+  paymentIso: string,
+  account: Account,
+  opts?: { treatAsRefund?: boolean }
+): string | null {
+  const normalizedData = toLocalDateIso(dataIso);
+  const normalizedPay = toLocalDateIso(paymentIso);
+  const dataMonth = referenceMonthFromIsoDate(normalizedData);
+  const paymentMonth = referenceMonthFromIsoDate(normalizedPay);
+
+  if (paymentIsoLooksLikeCardDueDate(normalizedPay, account)) {
+    // Estorno/cashback: vencimento no mês M → fatura M (intenção na aba Transações).
+    if (opts?.treatAsRefund && paymentMonth) return paymentMonth;
+    if (dataMonth && paymentMonth && dataMonth === paymentMonth) return dataMonth;
+    const fromDue = referenceMonthFromPaymentDueDate(normalizedPay);
+    if (fromDue) return fromDue;
+  }
+  return paymentMonth || dataMonth;
+}
+
+/** Crédito manual positivo no cartão (cashback, estorno) — não é pagamento de fatura. */
+export function isManualCardPositiveCredit(tx: Transaction): boolean {
+  if (String(tx.Origem || 'manual').trim().toLowerCase() !== 'manual') return false;
+  if (String(tx.Tipo) !== 'Renda') return false;
+  if (isManualInvoicePayment(tx)) return false;
+  return Number(tx.Valor || 0) > 0.005;
+}
+
 /**
  * Competência do estorno manual: marcador finelo_competence → vencimento (dia do cartão) → mês da Data.
  * Evita que Data_Pagamento = data do lançamento (ex. 21/05) caia no mês anterior (04/2026).
@@ -61,25 +200,65 @@ export function paymentIsoLooksLikeCardDueDate(paymentIso: string, account: Acco
 export function inferManualRefundReferenceMonth(tx: Transaction, account: Account): string | null {
   const directed = parseDirectedCompetenceFromPayment(tx);
   if (directed) return directed;
-  if (!isManualCardRefund(tx)) return null;
+  if (!isManualCardRefund(tx) && !isManualCardPositiveCredit(tx)) return null;
+  const dataIso = toLocalDateIso(tx.Data);
   const payIso = tx.Data_Pagamento ? toLocalDateIso(tx.Data_Pagamento) : '';
-  if (payIso && paymentIsoLooksLikeCardDueDate(payIso, account)) {
-    return referenceMonthFromPaymentDueDate(payIso);
+  if (payIso) {
+    const fromPayment = competenceMonthFromManualPaymentDate(dataIso, payIso, account, {
+      treatAsRefund: true,
+    });
+    if (fromPayment) return fromPayment;
   }
-  return referenceMonthFromIsoDate(toLocalDateIso(tx.Data));
+  return referenceMonthFromIsoDate(dataIso);
+}
+
+/**
+ * Ao editar Data_Pagamento de lançamento manual no cartão, grava finelo_competence quando a
+ * fatura desejada (mês da data) diverge do cálculo automático (vencimento − 1 mês).
+ */
+export function prepareManualPurchaseCompetenceOnPaymentDateEdit(
+  oldTx: Transaction,
+  fields: Partial<Transaction>,
+  account: Account
+): Partial<Transaction> {
+  if (fields.Data_Pagamento === undefined) return fields;
+  if (String(oldTx.Origem || 'manual').trim().toLowerCase() !== 'manual') return fields;
+  const isPurchase = String(oldTx.Tipo) === 'Despesa';
+  const isRefund = isManualCardRefund(oldTx);
+  if (!isPurchase && !isRefund) return fields;
+  if (account.Tipo_Conta !== 'Cartão de Crédito') return fields;
+
+  const newPay = toLocalDateIso(fields.Data_Pagamento as string | Date);
+  const oldPay = oldTx.Data_Pagamento ? toLocalDateIso(oldTx.Data_Pagamento) : '';
+  if (!newPay || newPay === oldPay) return fields;
+
+  const directed = inferUserTargetCompetenceOnPaymentEdit(newPay, toLocalDateIso(oldTx.Data), account);
+  if (!directed) return fields;
+
+  const withoutMarker: Transaction = {
+    ...oldTx,
+    ...fields,
+    Observacoes: stripCompetenceMarker(oldTx.Observacoes),
+    Descricao_Original: stripCompetenceMarker(oldTx.Descricao_Original),
+  };
+  const autoCompetence = referenceMonthFromTransaction(withoutMarker, account);
+  if (autoCompetence === directed) return fields;
+
+  return { ...fields, ...upsertCompetenceMarkerInTransaction(oldTx, directed) };
 }
 
 /** Compra: vencimento (Data_Pagamento). Estorno: regra em inferManualRefundReferenceMonth. */
 export function referenceMonthFromTransaction(t: Transaction, account: Account): string {
   const directed = parseDirectedCompetenceFromPayment(t);
   if (directed) return directed;
-  if (isManualCardRefund(t)) {
+  if (isManualCardRefund(t) || isManualCardPositiveCredit(t)) {
     return inferManualRefundReferenceMonth(t, account) || '';
   }
   const paymentIso = t.Data_Pagamento ? toLocalDateIso(t.Data_Pagamento) : '';
   if (paymentIso) {
-    const fromDue = referenceMonthFromPaymentDueDate(paymentIso);
-    if (fromDue) return fromDue;
+    const dataIso = toLocalDateIso(t.Data);
+    const fromPayment = competenceMonthFromManualPaymentDate(dataIso, paymentIso, account);
+    if (fromPayment) return fromPayment;
   }
   const dataIso = toLocalDateIso(t.Data);
   const parts = dataIso.split('-');
@@ -174,6 +353,12 @@ export function appendManualCompetenceTotals(params: {
       }
       return;
     }
+    if (directedRef && String(t.Tipo) === 'Despesa') {
+      const list = byRef.get(directedRef) || [];
+      list.push(t);
+      byRef.set(directedRef, list);
+      return;
+    }
     if (directedRef && !isDirectedManualInvoicePayment(t)) {
       directedRefundsByRef.set(
         directedRef,
@@ -181,7 +366,7 @@ export function appendManualCompetenceTotals(params: {
       );
       return;
     }
-    if (isManualCardRefund(t)) {
+    if (isManualCardRefund(t) || isManualCardPositiveCredit(t)) {
       const refundRef = inferManualRefundReferenceMonth(t, account);
       if (refundRef && /^\d{4}-(0[1-9]|1[0-2])$/.test(refundRef)) {
         directedRefundsByRef.set(
@@ -199,7 +384,9 @@ export function appendManualCompetenceTotals(params: {
   });
 
   for (const [ref, txs] of byRef) {
-    const ledgerTxs = txs.filter((t) => !parseDirectedCompetenceFromPayment(t));
+    const ledgerTxs = txs.filter(
+      (t) => !parseDirectedCompetenceFromPayment(t) || String(t.Tipo) === 'Despesa'
+    );
     const totals = computeImportLedgerTotals(manualTransactionsToLedgerLines(ledgerTxs), rules);
     const card = ensureCompetenceCard(ref);
     const hasImportedFile = card.files.some((f) => f.fileName !== MANUAL_COMPETENCE_FILE_LABEL);
