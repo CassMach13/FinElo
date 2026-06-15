@@ -851,7 +851,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
           <Select
             label="Tipo"
             name="Tipo"
@@ -866,46 +866,47 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             <option value="Despesa">Despesa (Saída)</option>
             <option value="Renda">Renda (Entrada)</option>
           </Select>
-          <div className="flex items-end gap-2">
-            <div className="flex-grow">
-              <Select
-                label="Categoria"
-                name="Categoria"
-                value={transaction.Categoria}
-                onChange={(e) => {
-                  if (e.target.value === 'ADD_NEW_CATEGORY') {
-                    onOpenCreateCategory();
-                  } else {
-                    handleChange(e);
-                  }
-                }}
-                error={errors.Categoria}
-              >
-                <option value="">Selecione...</option>
-                {categories
-                  .filter((c) => (transaction.Tipo ? c.Tipo === 'Ambos' || c.Tipo === transaction.Tipo : true))
-                  .filter((c) => c.Nome_Categoria !== '' && c.Nome_Categoria !== '-')
-                  .sort((a, b) => a.Nome_Categoria.localeCompare(b.Nome_Categoria))
-                  .map((c) => (
-                    <option key={c.id} value={c.Nome_Categoria}>
-                      {c.Nome_Categoria}
-                    </option>
-                  ))}
-                <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">
-                  + Adicionar Categoria
-                </option>
-              </Select>
-            </div>
-            <Button
-              type="button"
-              onClick={onOpenCreateCategory}
-              className="mb-px h-[42px] shrink-0 px-3 text-xs font-bold"
-              variant="secondary"
-              title="Criar nova categoria"
+        </div>
+
+        <div className="flex items-end gap-2">
+          <div className="flex-grow min-w-0">
+            <Select
+              label="Categoria"
+              name="Categoria"
+              value={transaction.Categoria}
+              onChange={(e) => {
+                if (e.target.value === 'ADD_NEW_CATEGORY') {
+                  onOpenCreateCategory();
+                } else {
+                  handleChange(e);
+                }
+              }}
+              error={errors.Categoria}
             >
-              + Categoria
-            </Button>
+              <option value="">Selecione...</option>
+              {categories
+                .filter((c) => (transaction.Tipo ? c.Tipo === 'Ambos' || c.Tipo === transaction.Tipo : true))
+                .filter((c) => c.Nome_Categoria !== '' && c.Nome_Categoria !== '-')
+                .sort((a, b) => a.Nome_Categoria.localeCompare(b.Nome_Categoria))
+                .map((c) => (
+                  <option key={c.id} value={c.Nome_Categoria}>
+                    {c.Nome_Categoria}
+                  </option>
+                ))}
+              <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">
+                + Adicionar Categoria
+              </option>
+            </Select>
           </div>
+          <Button
+            type="button"
+            onClick={onOpenCreateCategory}
+            className="mb-px h-[42px] shrink-0 px-3 text-xs font-bold"
+            variant="secondary"
+            title="Criar nova categoria"
+          >
+            + Categoria
+          </Button>
         </div>
 
         <div className="space-y-1">

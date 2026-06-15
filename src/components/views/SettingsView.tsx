@@ -939,17 +939,19 @@ const SettingsView: React.FC = () => {
                                 <div className="text-center text-gray-400 py-4">
                                     <p>Nenhum membro adicionado ainda.</p>
                                     <p className="text-sm mt-1">Convide alguém para ver e editar suas finanças em conjunto.</p>
+                                    <p className="text-xs mt-2 text-gray-500">O convidado precisa aceitar o vínculo (banner no Dashboard ou botão aqui). Com status Aceito, ambos veem as transações um do outro.</p>
                                 </div>
                             ) : (
                                 <ul className="space-y-2">
                                     {familyMembers.map(member => {
                                         const isReceivedInvite = member.member_email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
                                         const displayName = isReceivedInvite ? `Responsável: ${member.owner_email}` : member.member_email;
+                                        const isPendingReceived = isReceivedInvite && member.status === 'pending';
 
                                         return (
-                                            <li key={member.id} className="flex justify-between items-center bg-slate-800 p-3 rounded">
-                                                <span className="text-sm font-medium text-white">{displayName}</span>
-                                                <div className="flex items-center gap-2">
+                                            <li key={member.id} className="flex justify-between items-center bg-slate-800 p-3 rounded gap-3">
+                                                <span className="text-sm font-medium text-white min-w-0 truncate">{displayName}</span>
+                                                <div className="flex items-center gap-2 shrink-0">
                                                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${member.status === 'accepted' ? 'text-green-400 bg-green-900/30' :
                                                         member.status === 'declined' ? 'text-danger bg-red-900/30' :
                                                             'text-yellow-400 bg-yellow-900/30'
@@ -958,6 +960,17 @@ const SettingsView: React.FC = () => {
                                                             member.status === 'declined' ? 'Recusado' :
                                                                 'Pendente'}
                                                     </span>
+                                                    {isPendingReceived && (
+                                                        <Button
+                                                            className="!py-1 !px-2 text-[10px]"
+                                                            onClick={async () => {
+                                                                await useAppStore.getState().respondToInvite(member.id, 'accepted');
+                                                                await fetchFamilyMembers();
+                                                            }}
+                                                        >
+                                                            Aceitar
+                                                        </Button>
+                                                    )}
                                                     <button
                                                         onClick={async () => {
                                                             const msg = isReceivedInvite

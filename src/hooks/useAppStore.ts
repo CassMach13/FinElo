@@ -3028,18 +3028,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   respondToInvite: async (inviteId, status) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const invite = get().pendingInvites.find((i) => i.id === inviteId);
+
     const { error } = await supabase
       .from('family_members')
       .update({ status })
       .eq('id', inviteId);
-    
+
     if (error) {
       console.error('Erro ao responder convite:', error);
       throw error;
     }
 
-    set((state) => ({ 
-      pendingInvites: state.pendingInvites.filter(i => i.id !== inviteId) 
+    if (status === 'accepted' && invite?.owner_email) {
+      const ownerEmail = invite.owner_email.toLowerCase().trim();
+      const memberEmail = user.email?.toLowerCase().trim();
+      if (ownerEmail && memberEmail && ownerEmail !== memberEmail) {
+        const { error: reciprocalError } = await supabase.from('family_members').upsert(
+          {
+            owner_id: user.id,
+            owner_email: memberEmail,
+            member_email: ownerEmail,
+            status: 'accepted',
+          },
+          { onConflict: 'owner_id,member_email', ignoreDuplicates: false }
+        );
+        if (reciprocalError) {
+          console.warn('[Family] Vínculo recíproco não criado (RLS/slots):', reciprocalError.message);
+        }
+      }
+    }
+
+    set((state) => ({
+      pendingInvites: state.pendingInvites.filter((i) => i.id !== inviteId),
     }));
 
     if (status === 'accepted') {
