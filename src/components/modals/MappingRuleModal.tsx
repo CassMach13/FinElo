@@ -41,7 +41,7 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({
                 (transaction.Nome_Fantasia || transaction.Descricao_Original || '').trim()
             );
             setSuggestedName(transaction.Nome_Fantasia || '');
-            setSuggestedCategory(transaction.Categoria || '');
+            setSuggestedCategory('');
             setLinkedAssetId(transaction.linked_asset_id || '');
         } else {
             setText('');
@@ -117,7 +117,7 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({
                         onChange={(e) => setSuggestedCategory(e.target.value)}
                         error={errors.suggestedCategory}
                     >
-                        <option value="" disabled>Selecione...</option>
+                        <option value="" disabled>Selecione</option>
                         {sortedCategories.map(c => (
                             <option key={c.id} value={c.Nome_Categoria}>{c.Nome_Categoria}</option>
                         ))}
