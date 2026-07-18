@@ -27,9 +27,17 @@ MARCA/
 .DS_Store
 Thumbs.db
 
-# Arquivos de credenciais (NUNCA commitar)
+# Env / secrets (NUNCA commitar)
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
 *_api_keys.txt
 *_keys.txt
 *.secrets
+*credentials*.json
+firebase-credentials.json
+service-account*.json
 
 .vercel
