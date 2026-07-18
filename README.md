@@ -23,6 +23,22 @@ Planilhas complexas e extratos espalhados em vários bancos dificultam enxergar 
 
 > Algumas integrações (Belvo, Pluggy, Stripe, Supabase) dependem de chaves de ambiente. Sem elas, partes do fluxo podem ficar indisponíveis em desenvolvimento local.
 
+## Prints do produto
+
+### Landing
+
+![Landing page da FinElo](docs/prints/finelo-landing.jpg)
+
+### App
+
+| Dashboard | Importar extrato |
+| --- | --- |
+| ![Dashboard principal](docs/prints/finelo-dashboard.jpg) | ![Importação de extratos](docs/prints/finelo-importar.jpg) |
+
+| Patrimônio | Clareza 50-30-20 |
+| --- | --- |
+| ![Patrimônio total](docs/prints/finelo-patrimonio.jpg) | ![Método 50-30-20](docs/prints/finelo-clareza.jpg) |
+
 ## Stack
 
 | Camada | Tecnologia |
@@ -62,6 +78,7 @@ Variáveis principais estão documentadas em [`.env.example`](.env.example). Em 
 src/           # UI, domínio, serviços e hooks
 api/           # funções serverless (tokens, sync, Stripe webhook)
 public/        # assets estáticos / landing
+docs/prints/   # capturas para o README
 supabase/      # funções e artefatos relacionados ao Supabase
 ```
 
