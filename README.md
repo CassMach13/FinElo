@@ -75,11 +75,16 @@ Variáveis principais estão documentadas em [`.env.example`](.env.example). Em 
 ## Estrutura (visão geral)
 
 ```text
-src/           # UI, domínio, serviços e hooks
-api/           # funções serverless (tokens, sync, Stripe webhook)
-public/        # assets estáticos / landing
-docs/prints/   # capturas para o README
-supabase/      # funções e artefatos relacionados ao Supabase
+src/                 # UI, domínio, serviços e hooks
+api/                 # funções serverless (tokens, sync, Stripe webhook)
+public/              # assets estáticos / landing
+docs/prints/         # capturas do README
+docs/negocio/        # planos, análises e materiais de negócio
+docs/seguranca/      # documentação de segurança
+docs/assets/         # mídia de apresentação
+scripts/debug/       # utilitários locais de investigação
+scripts/fixtures/    # amostras de extrato / estruturas
+supabase/            # funções e artefatos relacionados ao Supabase
 ```
 
 ## Segurança

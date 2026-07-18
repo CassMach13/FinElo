@@ -6,6 +6,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*_output.txt
+*_errors.txt
+tsc_*.txt
+ts_errors.txt
+sim_result.txt
+error_log.txt
+~$*
 
 node_modules
 dist
@@ -39,5 +46,8 @@ Thumbs.db
 *credentials*.json
 firebase-credentials.json
 service-account*.json
+
+# Diagnósticos com dados de cliente (não versionar)
+scripts/sql/diagnose_marcelo_*.sql
 
 .vercel

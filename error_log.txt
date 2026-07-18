@@ -1,9 +1,0 @@
-src/components/views/HelpView.tsx(207,57): error TS2339: Property 'admin_response' does not exist on type 'SupportTicket'.
-src/components/views/HelpView.tsx(210,95): error TS2339: Property 'admin_response' does not exist on type 'SupportTicket'.
-src/components/views/ImportView.tsx(25,36): error TS2339: Property 'created_at' does not exist on type 'ImportLog'.
-src/hooks/useAppStore.ts(3,103): error TS2305: Module '"../types"' has no exported member 'Subscription'.
-src/hooks/useAppStore.ts(882,3): error TS1117: An object literal cannot have multiple properties with the same name.
-src/hooks/useAppStore.ts(895,3): error TS1117: An object literal cannot have multiple properties with the same name.
-src/hooks/useAppStore.ts(905,3): error TS1117: An object literal cannot have multiple properties with the same name.
-src/hooks/useAppStore.ts(923,3): error TS1117: An object literal cannot have multiple properties with the same name.
-src/hooks/useAppStore.ts(970,3): error TS1117: An object literal cannot have multiple properties with the same name.
