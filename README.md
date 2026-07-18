@@ -79,8 +79,8 @@ src/                 # UI, domínio, serviços e hooks
 api/                 # funções serverless (tokens, sync, Stripe webhook)
 public/              # assets estáticos / landing
 docs/prints/         # capturas do README
-docs/negocio/        # planos, análises e materiais de negócio
-docs/seguranca/      # documentação de segurança
+docs/negocio/        # planos, análises, CRM, parcerias
+docs/seguranca/      # documentação e auditoria de segurança
 docs/assets/         # mídia de apresentação
 scripts/debug/       # utilitários locais de investigação
 scripts/fixtures/    # amostras de extrato / estruturas
