@@ -934,6 +934,51 @@ const DashboardView: React.FC = () => {
             <p className="text-center text-gray-400 py-4">Nenhum orçamento configurado. Vá para Configurações para adicionar.</p>
           )}
         </Card>
+
+        <Card title="Método 50-30-20 (Saúde Financeira)" className="relative overflow-hidden">
+          <div className="mb-4 space-y-2">
+            <p className="text-sm text-gray-400">
+              Analisa como sua renda líquida está distribuída entre Necessidades, Estilo de Vida e Investimentos.
+            </p>
+            {compareEnabled && (
+              <p className="text-[10px] text-gray-500">
+                <span className="text-accent font-semibold">{dateLabelShort}</span>
+                <span className="mx-1.5">vs</span>
+                <span className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
+              </p>
+            )}
+          </div>
+          <div className={!isPremium ? "blur-md opacity-40 pointer-events-none select-none" : ""}>
+            <Rule503020Widget
+              income={summary.income}
+              operationalExpenses={chartData}
+              savings={investmentSummary.netFlow}
+              categories={allCategories}
+              primaryLabel={dateLabelShort}
+              compareLabel={compareDateLabelShort}
+              compare={
+                compareEnabled && compareMetrics
+                  ? {
+                      label: compareDateLabelShort,
+                      income: compareMetrics.operational.income,
+                      operationalExpenses: compareChartData,
+                      savings: compareMetrics.investment.netFlow,
+                    }
+                  : undefined
+              }
+            />
+          </div>
+          {!isPremium && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center mt-8 no-print">
+              <div className="bg-slate-900/90 backdrop-blur-sm border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
+                <svg className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <h3 className="text-lg font-bold text-white mb-2">Diagnóstico Inteligente</h3>
+                <p className="text-sm text-gray-300 mb-4">Descubra sua nota de saúde financeira e se está gastando demais em estilo de vida com o plano Premium.</p>
+                <button onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-colors shadow-[0_0_15px_rgba(234,179,8,0.3)] text-sm">Seja Premium Mantenha o Foco</button>
+              </div>
+            </div>
+          )}
+        </Card>
         </div>
 
         <NetWorthSummaryCard
@@ -1056,55 +1101,6 @@ const DashboardView: React.FC = () => {
             </div>
           ) : (
             <p className="text-gray-400 text-center py-4">Sem transações no período.</p>
-          )}
-        </Card>
-      </div>
-
-      {/* Saúde Financeira */}
-      <div id="dashboard-financial-health" className="grid grid-cols-1 gap-6">
-        {/* 50-30-20 Rule Widget */}
-        <Card title="Método 50-30-20 (Saúde Financeira)" className="relative overflow-hidden">
-          <div className="mb-4 space-y-2">
-            <p className="text-sm text-gray-400">
-              Analisa como sua renda líquida está distribuída entre Necessidades, Estilo de Vida e Investimentos.
-            </p>
-            {compareEnabled && (
-              <p className="text-[10px] text-gray-500">
-                <span className="text-accent font-semibold">{dateLabelShort}</span>
-                <span className="mx-1.5">vs</span>
-                <span className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
-              </p>
-            )}
-          </div>
-          <div className={!isPremium ? "blur-md opacity-40 pointer-events-none select-none" : ""}>
-            <Rule503020Widget
-              income={summary.income}
-              operationalExpenses={chartData}
-              savings={investmentSummary.netFlow}
-              categories={allCategories}
-              primaryLabel={dateLabelShort}
-              compareLabel={compareDateLabelShort}
-              compare={
-                compareEnabled && compareMetrics
-                  ? {
-                      label: compareDateLabelShort,
-                      income: compareMetrics.operational.income,
-                      operationalExpenses: compareChartData,
-                      savings: compareMetrics.investment.netFlow,
-                    }
-                  : undefined
-              }
-            />
-          </div>
-          {!isPremium && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center mt-8 no-print">
-              <div className="bg-slate-900/90 backdrop-blur-sm border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
-                <svg className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                <h3 className="text-lg font-bold text-white mb-2">Diagnóstico Inteligente</h3>
-                <p className="text-sm text-gray-300 mb-4">Descubra sua nota de saúde financeira e se está gastando demais em estilo de vida com o plano Premium.</p>
-                <button onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-colors shadow-[0_0_15px_rgba(234,179,8,0.3)] text-sm">Seja Premium Mantenha o Foco</button>
-              </div>
-            </div>
           )}
         </Card>
       </div>
