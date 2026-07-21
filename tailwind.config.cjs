@@ -17,6 +17,10 @@ module.exports = {
         'dark-text': '#e2e8f0',
         danger: '#f56565',
       },
+      fontFamily: {
+        // Landing + futuro app: Plus Jakarta Sans (scoped na landing via font-landing)
+        landing: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
     },
   },
   plugins: [],
