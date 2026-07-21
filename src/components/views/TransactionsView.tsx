@@ -194,6 +194,9 @@ const isDebugTargetTx = (origin?: string | null, amount?: number | null) => {
   return normalizedOrigin.includes(DEBUG_TARGET_ORIGIN) && Math.abs(normalizedAmount - DEBUG_TARGET_AMOUNT) < 0.001;
 };
 
+const isManualTransaction = (transaction: Pick<Transaction, 'Origem'>) =>
+  String(transaction.Origem || 'manual').trim().toLowerCase() === 'manual';
+
 const TransactionsView: React.FC = () => {
   const {
     transactions,
@@ -205,6 +208,7 @@ const TransactionsView: React.FC = () => {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    deleteManualTransactions,
     deleteTransactionsByOrigin,
     addMappingRule,
     transactionFilters,
@@ -227,6 +231,8 @@ const TransactionsView: React.FC = () => {
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedManualIds, setSelectedManualIds] = useState<Set<string>>(() => new Set());
   const [sortConfig, setSortConfig] = useState<{ key: keyof Transaction; direction: 'ascending' | 'descending' }>({ key: 'Data', direction: 'descending' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filtersPanelExpanded, setFiltersPanelExpanded] = useState(() =>
@@ -2473,7 +2479,6 @@ const TransactionsView: React.FC = () => {
   );
 
   const showOwnerColumnInTable = familyOwnerContext.showAttribution && showOwnerColumn;
-  const desktopTableColumnCount = showOwnerColumnInTable ? 10 : 9;
 
   const paginatedTransactions = useMemo(() => {
     if (itemsPerPage === -1) return filteredTransactions; // -1 para "Todos"
@@ -2507,6 +2512,83 @@ const TransactionsView: React.FC = () => {
     const total = Math.ceil(filteredTransactions.length / itemsPerPage);
     return total > 0 ? total : 1; // Garante que seja no mínimo 1
   }, [filteredTransactions.length, itemsPerPage]);
+
+  const manualFilteredTransactions = useMemo(
+    () => filteredTransactions.filter(isManualTransaction),
+    [filteredTransactions]
+  );
+
+  const manualPaginatedTransactions = useMemo(
+    () => paginatedTransactions.filter(isManualTransaction),
+    [paginatedTransactions]
+  );
+
+  const selectedManualCount = selectedManualIds.size;
+
+  const allManualPageSelected =
+    manualPaginatedTransactions.length > 0 &&
+    manualPaginatedTransactions.every((t) => selectedManualIds.has(t.ID_Transacao));
+
+  const allManualFilteredSelected =
+    manualFilteredTransactions.length > 0 &&
+    manualFilteredTransactions.every((t) => selectedManualIds.has(t.ID_Transacao));
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedManualIds(new Set());
+  }, []);
+
+  const toggleManualSelection = useCallback((transactionId: string) => {
+    setSelectedManualIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(transactionId)) next.delete(transactionId);
+      else next.add(transactionId);
+      return next;
+    });
+  }, []);
+
+  const selectManualOnPage = useCallback(() => {
+    setSelectedManualIds((prev) => {
+      const next = new Set(prev);
+      for (const t of manualPaginatedTransactions) next.add(t.ID_Transacao);
+      return next;
+    });
+  }, [manualPaginatedTransactions]);
+
+  const deselectManualOnPage = useCallback(() => {
+    setSelectedManualIds((prev) => {
+      const next = new Set(prev);
+      for (const t of manualPaginatedTransactions) next.delete(t.ID_Transacao);
+      return next;
+    });
+  }, [manualPaginatedTransactions]);
+
+  const selectAllManualFiltered = useCallback(() => {
+    setSelectedManualIds(new Set(manualFilteredTransactions.map((t) => t.ID_Transacao)));
+  }, [manualFilteredTransactions]);
+
+  const clearManualSelection = useCallback(() => {
+    setSelectedManualIds(new Set());
+  }, []);
+
+  const handleBulkDeleteManual = useCallback(async () => {
+    const count = selectedManualIds.size;
+    if (count === 0) return;
+
+    const confirmed = await appConfirm(
+      `Excluir ${count} lançamento${count > 1 ? 's' : ''} manual${count > 1 ? 'is' : ''}? Esta ação não pode ser desfeita.`,
+      'Excluir lançamentos',
+      'Excluir',
+      'danger'
+    );
+    if (!confirmed) return;
+
+    const deleted = await deleteManualTransactions([...selectedManualIds]);
+    if (deleted > 0) exitSelectionMode();
+  }, [selectedManualIds, deleteManualTransactions, exitSelectionMode]);
+
+  const desktopTableColumnCount =
+    (showOwnerColumnInTable ? 10 : 9) + (selectionMode ? 1 : 0);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -2655,7 +2737,7 @@ const TransactionsView: React.FC = () => {
           <h1 className="text-3xl font-bold text-light">Transações</h1>
           <TourButton currentView="transactions" />
         </div>
-        <div id="transactions-actions" className="flex gap-2 w-full sm:w-auto">
+        <div id="transactions-actions" className="flex flex-wrap gap-2 w-full sm:w-auto">
           <div className="w-40">
             <Select value="" onChange={handleExportChange}>
               <option value="" disabled>Exportar...</option>
@@ -2984,6 +3066,69 @@ const TransactionsView: React.FC = () => {
       />
 
       <div id="transactions-cards" className="block lg:hidden space-y-3 mb-6">
+        <div className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-secondary/80 px-3 py-2.5">
+          {!selectionMode ? (
+            <button
+              type="button"
+              onClick={() => setSelectionMode(true)}
+              className="self-end text-xs font-semibold text-accent hover:text-sky-300"
+            >
+              Exclusão por seleção
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-300">
+                  <span className="font-semibold text-white">{selectedManualCount}</span> selecionado
+                  {selectedManualCount !== 1 ? 's' : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={exitSelectionMode}
+                  className="text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={selectManualOnPage}
+                  disabled={manualPaginatedTransactions.length === 0 || allManualPageSelected}
+                  className="text-[11px] font-semibold text-accent hover:text-sky-300 disabled:opacity-40"
+                >
+                  Página
+                </button>
+                {manualFilteredTransactions.length > manualPaginatedTransactions.length ? (
+                  <button
+                    type="button"
+                    onClick={selectAllManualFiltered}
+                    disabled={allManualFilteredSelected}
+                    className="text-[11px] font-semibold text-accent hover:text-sky-300 disabled:opacity-40"
+                  >
+                    Todos ({manualFilteredTransactions.length})
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={clearManualSelection}
+                  disabled={selectedManualCount === 0}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-white disabled:opacity-40"
+                >
+                  Limpar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedManualCount === 0}
+                  onClick={() => void handleBulkDeleteManual()}
+                  className="text-[11px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-40"
+                >
+                  Excluir selecionados
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Mobile Sort Controls */}
         <div className="flex justify-between items-center bg-secondary p-3 rounded-lg border border-slate-700/50 mb-4 gap-2">
@@ -3024,10 +3169,93 @@ const TransactionsView: React.FC = () => {
           }
 
           const t = item.transaction;
+          const manual = isManualTransaction(t);
+          const isSelected = selectedManualIds.has(t.ID_Transacao);
+
+          const mobileCardBody = (
+            <div
+              className={`bg-secondary p-4 flex flex-col gap-3 relative overflow-hidden h-full ${
+                selectionMode && manual && isSelected ? 'ring-2 ring-accent ring-inset' : ''
+              }`}
+            >
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
+
+              <div className="flex justify-between items-start pl-2 pr-2 gap-3">
+                {selectionMode && manual ? (
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleManualSelection(t.ID_Transacao)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-slate-500 text-accent focus:ring-accent"
+                    aria-label={`Selecionar ${t.Nome_Fantasia || t.Descricao_Original || 'lançamento'}`}
+                  />
+                ) : null}
+
+                <div className="flex flex-1 justify-between items-start min-w-0">
+                  <div className="flex flex-col gap-1 overflow-hidden pr-2 min-w-0">
+                    <span className="font-semibold text-white truncate text-base leading-tight">
+                      {t.Nome_Fantasia || t.Descricao || 'Sem Nome'}
+                    </span>
+                    <span className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+                      {t.Categoria}
+                      {familyOwnerContext.showAttribution ? (() => {
+                        const profile = familyOwnerContext.getProfile(
+                          familyOwnerContext.getTransactionOwnerId(t)
+                        );
+                        return profile ? (
+                          <FamilyOwnerBadge profile={profile} compact className="ml-1" />
+                        ) : null;
+                      })() : null}
+                    </span>
+                    <span className="text-xs text-slate-200 truncate flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                      {accountsMap.get(t.ID_Conta) || 'Conta Desconhecida'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-end z-10 shrink-0">
+                    <span className={`font-bold text-lg leading-none ${getValueColor(t.Valor)}`}>
+                      {formatCurrency(t.Valor)}
+                    </span>
+                    <div className="flex flex-col items-end gap-0.5 mt-1">
+                      <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
+                        Compra: {t.Data ? t.Data.split('T')[0].split('-').reverse().join('/') : '-'}
+                      </span>
+                      <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
+                        Pgto: {t.Data_Pagamento ? t.Data_Pagamento.split('T')[0].split('-').reverse().join('/') : '-'}
+                      </span>
+                    </div>
+                    {t.Total_Parcelas && t.Total_Parcelas > 1 && (
+                      <span className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
+                        {t.Parcela_Atual || 1}/{t.Total_Parcelas}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+
+          if (selectionMode) {
+            return (
+              <div
+                key={t.ID_Transacao}
+                className={`rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b] ${
+                  manual ? 'cursor-pointer active:scale-[0.99]' : 'opacity-75'
+                }`}
+                onClick={manual ? () => toggleManualSelection(t.ID_Transacao) : undefined}
+              >
+                {mobileCardBody}
+              </div>
+            );
+          }
+
           return (
           <SwipeableItem
             key={t.ID_Transacao}
-            className="rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b]" // The background beneath the swipe uses a neutral dark slate color to blend since both sides have different actions
+            className="rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b]"
             leftActions={[
               {
                 label: 'Editar',
@@ -3053,7 +3281,7 @@ const TransactionsView: React.FC = () => {
                 ),
                 colorClass: 'bg-red-500',
                 onClick: async () => {
-                  if (t.Origem === 'manual') {
+                  if (manual) {
                     if (await appConfirm('Excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao);
                   } else {
                     const batchCount = transactions.filter(tx => tx.Origem === t.Origem).length;
@@ -3063,53 +3291,7 @@ const TransactionsView: React.FC = () => {
               }
             ]}
           >
-            <div className="bg-secondary p-4 flex flex-col gap-3 relative overflow-hidden h-full">
-              {/* Category Sidebar Accent */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
-
-              <div className="flex justify-between items-start pl-2 pr-6">
-                <div className="flex flex-col gap-1 overflow-hidden pr-2">
-                  <span className="font-semibold text-white truncate text-base leading-tight">
-                    {t.Nome_Fantasia || t.Descricao || "Sem Nome"}
-                  </span>
-                  <span className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
-                    {t.Categoria}
-                    {familyOwnerContext.showAttribution ? (() => {
-                      const profile = familyOwnerContext.getProfile(
-                        familyOwnerContext.getTransactionOwnerId(t)
-                      );
-                      return profile ? (
-                        <FamilyOwnerBadge profile={profile} compact className="ml-1" />
-                      ) : null;
-                    })() : null}
-                  </span>
-                  <span className="text-xs text-slate-200 truncate flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
-                    {accountsMap.get(t.ID_Conta) || 'Conta Desconhecida'}
-                  </span>
-                </div>
-
-                <div className="flex flex-col items-end z-10 shrink-0">
-                  <span className={`font-bold text-lg leading-none ${getValueColor(t.Valor)}`}>
-                    {formatCurrency(t.Valor)}
-                  </span>
-                  <div className="flex flex-col items-end gap-0.5 mt-1">
-                    <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
-                      Compra: {t.Data ? t.Data.split('T')[0].split('-').reverse().join('/') : '-'}
-                    </span>
-                    <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
-                      Pgto: {t.Data_Pagamento ? t.Data_Pagamento.split('T')[0].split('-').reverse().join('/') : '-'}
-                    </span>
-                  </div>
-                  {t.Total_Parcelas && t.Total_Parcelas > 1 && (
-                    <span className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
-                      {t.Parcela_Atual || 1}/{t.Total_Parcelas}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+            {mobileCardBody}
           </SwipeableItem>
           );
         })}
@@ -3128,6 +3310,59 @@ const TransactionsView: React.FC = () => {
       </div>
 
       <div id="transactions-table" className="hidden lg:block bg-secondary rounded-lg shadow-lg overflow-hidden">
+        {selectionMode ? (
+          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-700/80 bg-slate-800/50 px-3 py-2 text-xs">
+            <span className="text-slate-300 mr-auto">
+              <span className="font-semibold text-white">{selectedManualCount}</span> selecionado
+              {selectedManualCount !== 1 ? 's' : ''}
+              {manualFilteredTransactions.length > 0 ? (
+                <span className="text-slate-500"> · {manualFilteredTransactions.length} manual
+                  {manualFilteredTransactions.length !== 1 ? 'is' : ''} nos filtros</span>
+              ) : null}
+            </span>
+            <button
+              type="button"
+              onClick={selectManualOnPage}
+              disabled={manualPaginatedTransactions.length === 0 || allManualPageSelected}
+              className="font-semibold text-accent hover:text-sky-300 disabled:opacity-40"
+            >
+              Página atual
+            </button>
+            {manualFilteredTransactions.length > manualPaginatedTransactions.length ? (
+              <button
+                type="button"
+                onClick={selectAllManualFiltered}
+                disabled={allManualFilteredSelected}
+                className="font-semibold text-accent hover:text-sky-300 disabled:opacity-40"
+              >
+                Todos filtrados ({manualFilteredTransactions.length})
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={clearManualSelection}
+              disabled={selectedManualCount === 0}
+              className="font-semibold text-slate-400 hover:text-white disabled:opacity-40"
+            >
+              Limpar
+            </button>
+            <button
+              type="button"
+              disabled={selectedManualCount === 0}
+              onClick={() => void handleBulkDeleteManual()}
+              className="font-semibold text-red-400 hover:text-red-300 disabled:opacity-40"
+            >
+              Excluir selecionados
+            </button>
+            <button
+              type="button"
+              onClick={exitSelectionMode}
+              className="font-semibold text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="min-w-[800px] sm:min-w-full divide-y divide-primary table-fixed">
             <thead className="bg-slate-700">
@@ -3143,10 +3378,45 @@ const TransactionsView: React.FC = () => {
                 { key: 'Categoria', label: 'Categoria', width: 'w-28' },
                 { key: 'linked_asset_id', label: 'Vínculo', width: 'w-28' },
                 { key: 'Valor', label: 'Valor', align: 'right', width: 'w-28' },
-                { key: 'Acoes', label: 'Ações', align: 'right', width: 'w-20' },
+                ...(selectionMode
+                  ? [{
+                      key: 'select',
+                      label: (
+                        <input
+                          type="checkbox"
+                          checked={allManualPageSelected}
+                          onChange={(e) => (e.target.checked ? selectManualOnPage() : deselectManualOnPage())}
+                          disabled={manualPaginatedTransactions.length === 0}
+                          className="h-4 w-4 rounded border-slate-500 text-accent focus:ring-accent"
+                          aria-label="Selecionar manuais da página"
+                        />
+                      ),
+                      width: 'w-10',
+                      align: 'center' as const,
+                    }]
+                  : []),
+                {
+                  key: 'Acoes',
+                  label: selectionMode ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Seleção</span>
+                  ) : (
+                    <div className="flex flex-col items-end gap-1 leading-tight">
+                      <span>Ações</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectionMode(true)}
+                        className="text-[10px] font-semibold normal-case tracking-normal text-accent hover:text-sky-300 whitespace-nowrap"
+                      >
+                        Exclusão por seleção
+                      </button>
+                    </div>
+                  ),
+                  align: 'right' as const,
+                  width: selectionMode ? 'w-16' : 'w-28',
+                },
               ].map(({ key, label, align, width }) => (
                 <th key={key} scope="col" className={`px-2 py-3 text-${align || 'left'} text-xs font-medium text-gray-300 uppercase tracking-wider ${width}`}>
-                  {key !== 'Acoes' && key !== 'Parcelas' && key !== 'ID_Conta' && key !== 'owner' ? <button className={`w-full h-full flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'}`} onClick={() => requestSort(key as keyof Transaction)}>
+                  {key !== 'Acoes' && key !== 'Parcelas' && key !== 'ID_Conta' && key !== 'owner' && key !== 'select' ? <button className={`w-full h-full flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'}`} onClick={() => requestSort(key as keyof Transaction)}>
                     {label}{getSortIndicator(key)}
                   </button> : <span className={`flex ${align === 'right' ? 'justify-end' : (align === 'center' ? 'justify-center' : 'justify-start')}`}>{label}</span>}
                 </th>
@@ -3170,8 +3440,10 @@ const TransactionsView: React.FC = () => {
                 }
 
                 const t = item.transaction;
+                const manual = isManualTransaction(t);
+                const isSelected = selectedManualIds.has(t.ID_Transacao);
                 return (
-                <tr key={t.ID_Transacao} className="hover:bg-primary">
+                <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''}`}>
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
@@ -3210,9 +3482,23 @@ const TransactionsView: React.FC = () => {
                         className="w-28 text-[10px] truncate" 
                   />
                   <EditableCell key={`${t.ID_Transacao}-Valor-${t.Valor}`} transaction={t} field="Valor" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="number" className="w-28 text-sm" />
+                  {selectionMode ? (
+                    <td className="px-2 py-4 w-10 text-center align-middle">
+                      {manual ? (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleManualSelection(t.ID_Transacao)}
+                          className="h-4 w-4 rounded border-slate-500 text-accent focus:ring-accent"
+                          aria-label={`Selecionar ${t.Nome_Fantasia || t.Descricao_Original || 'lançamento'}`}
+                        />
+                      ) : null}
+                    </td>
+                  ) : null}
                   <td className="px-2 py-4 whitespace-nowrap text-right text-sm font-medium w-20">
+                    {!selectionMode ? (
                     <div className="flex items-center justify-end gap-2">
-                      {t.Origem === 'manual' && (
+                      {manual && (
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
@@ -3237,7 +3523,7 @@ const TransactionsView: React.FC = () => {
                           </button>
                         </div>
                       )}
-                      {t.Origem !== 'manual' && (
+                      {!manual && (
                         <button
                           onClick={() => {
                             const batchCount = transactions.filter(tx => tx.Origem === t.Origem).length;
@@ -3252,6 +3538,7 @@ const TransactionsView: React.FC = () => {
                         </button>
                       )}
                     </div>
+                    ) : null}
                   </td>
                 </tr>
                 );

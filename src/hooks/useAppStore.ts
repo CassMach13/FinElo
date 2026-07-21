@@ -223,6 +223,7 @@ interface AppState {
   ) => Promise<{ imported: number, ignored: number }>;
   updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
+  deleteManualTransactions: (transactionIds: string[]) => Promise<number>;
   deleteTransactionsByOrigin: (origin: string) => Promise<void>;
   reassignTransactionsAccountByOrigin: (origin: string, accountId: string) => Promise<{ updated: number }>;
 
@@ -2108,6 +2109,79 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
     }
+  },
+
+  deleteManualTransactions: async (transactionIds) => {
+    if (transactionIds.length === 0) return 0;
+
+    const uniqueIds = [...new Set(transactionIds)];
+    const toDelete = get().transactions.filter(
+      (t) =>
+        uniqueIds.includes(t.ID_Transacao) &&
+        String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
+    );
+
+    if (toDelete.length === 0) return 0;
+
+    const ids = toDelete.map((t) => t.ID_Transacao);
+    const affectedAssetIds = new Set(
+      toDelete.filter((t) => t.linked_asset_id).map((t) => t.linked_asset_id as string)
+    );
+
+    const chunkSize = 100;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const { error } = await supabase.from('transactions').delete().in('ID_Transacao', chunk);
+      if (error) {
+        console.error('Erro ao deletar transações manuais:', error);
+        return 0;
+      }
+    }
+
+    set((state) => ({
+      transactions: state.transactions.filter((t) => !ids.includes(t.ID_Transacao)),
+    }));
+
+    for (const assetId of affectedAssetIds) {
+      await get().recalculateAssetBalance(assetId);
+    }
+
+    const { user, accounts } = get();
+    if (user && shouldAutoSyncCreditCardLedger(user)) {
+      const syncByAccount = new Map<string, Set<string>>();
+
+      for (const transaction of toDelete) {
+        if (!transaction.ID_Conta) continue;
+        const account = accounts.find((a) => a.id === transaction.ID_Conta);
+        if (account?.Tipo_Conta !== 'Cartão de Crédito') continue;
+
+        const ref = referenceMonthFromTransaction(transaction, account);
+        if (!syncByAccount.has(account.id)) syncByAccount.set(account.id, new Set());
+        if (REF_MONTH_RE.test(ref)) syncByAccount.get(account.id)!.add(ref);
+      }
+
+      for (const [accountId, refs] of syncByAccount) {
+        try {
+          scheduleManualCreditCardSync({
+            getState: () => ({
+              transactions: get().transactions,
+              accounts: get().accounts,
+              importLogs: get().importLogs,
+            }),
+            user,
+            accountId,
+            extraReferenceMonths: [...refs],
+            rules: engineClassifierRulesFromUser(user),
+            classifierRules: getCardClassifierRules(user),
+            onComplete: () => get().bumpCreditCardEngineRevision(),
+          });
+        } catch (autoError) {
+          console.error('[CardV2][Auto] Falha ao sincronizar exclusão em lote de manuais:', autoError);
+        }
+      }
+    }
+
+    return ids.length;
   },
 
   deleteTransactionsByOrigin: async (origin) => {
