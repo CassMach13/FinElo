@@ -736,7 +736,8 @@ const DashboardView: React.FC = () => {
       </div>
 
       {/* KPIs Cards */}
-      <div id="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 items-stretch">
+      <div id="dashboard-kpis" className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
         <SummaryCard
           title="Entradas (Operacional)"
           value={formatCurrency(summary.income)}
@@ -775,6 +776,9 @@ const DashboardView: React.FC = () => {
             'higher_better'
           )}
         />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
         <SummaryCard
           title="Economia"
           value={`${summary.savingsRate.toFixed(1)}%`}
@@ -802,132 +806,9 @@ const DashboardView: React.FC = () => {
             'higher_better'
           )}
         />
-        <NetWorthSummaryCard
-          total={totalNetWorth}
-          accounts={accountsTotal}
-          investments={manualInvestmentsDisplay}
-          assetsNet={assetsNetTotal}
-          assetsGross={grossAssetsTotal}
-          assetsDebts={assetsDebtsTotal}
-          asOfLabel={compareEnabled ? dateLabel : undefined}
-          primaryPeriodLabel={compareEnabled ? dateLabelShort : undefined}
-          compare={
-            compareEnabled && compareNetWorthSnapshot
-              ? (() => {
-                  const delta = computePeriodDelta(
-                    totalNetWorth,
-                    compareNetWorthSnapshot.total
-                  );
-                  const { label, tone } = buildComparisonDeltaLabel(delta, 'higher_better');
-                  return {
-                    periodLabel: compareDateLabelShort,
-                    breakdown: compareNetWorthSnapshot,
-                    deltaLabel: label,
-                    deltaTone: tone,
-                  };
-                })()
-              : undefined
-          }
-        />
-      </div>
+        </div>
 
-      {/* Charts Row 1 — Evolução Financeira */}
-      <div id="dashboard-charts-main" className="grid grid-cols-1 gap-6">
-        <Card
-          title={
-            viewMode === 'yearly' ? `Evolução Anual (${selectedDate.getFullYear()})` :
-              viewMode === 'monthly' ? `Tendência (Últimos 6 Meses até ${selectedDate.toLocaleDateString('pt-BR', { month: 'long' })})` :
-                viewMode === 'quarterly' ? `Evolução Trimestral` :
-                  viewMode === 'semiannual' ? `Evolução Semestral` :
-                    "Evolução Financeira"
-          }
-          className="relative overflow-hidden"
-        >
-          <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
-            <MonthlyEvolutionChart
-              data={transactionsWithoutAmbosAndInvestments}
-              viewMode={viewMode}
-              selectedDate={selectedDate}
-              compareEnabled={compareEnabled}
-              compareData={compareEnabled ? transactionsWithoutAmbosAndInvestments : undefined}
-              primaryPeriodData={compareEnabled ? chartData : undefined}
-              comparePeriodData={compareEnabled ? compareChartData : undefined}
-              compareSelectedDate={compareSelectedDate}
-              primaryLabel={dateLabelShort}
-              compareLabel={compareDateLabelShort}
-            />
-          </div>
-          {!isPremium && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
-              <div className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
-                <svg className="w-12 h-12 text-yellow-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                <h3 className="text-xl font-bold text-white mb-2">Recurso Premium</h3>
-                <p className="text-sm text-gray-300 mb-6 font-medium">Desbloqueie a Evolução Financeira detalhada para visualizar seu histórico e tendências.</p>
-                <button onClick={() => setCurrentView('pricing')} className="px-6 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/20 text-sm w-full">Fazer Upgrade</button>
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Receita vs. Despesa — linha dedicada */}
-      <div id="dashboard-charts-income-expense" className="grid grid-cols-1 gap-6">
-        <Card title="Receita vs. Despesa">
-          <IncomeExpenseChart
-            data={chartData}
-            compareData={compareEnabled ? compareChartData : undefined}
-            primaryLabel={dateLabelShort}
-            compareLabel={compareDateLabelShort}
-          />
-        </Card>
-      </div>
-
-      {/* Charts Row 2 & Recent Transactions */}
-      <div id="dashboard-charts-secondary" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card title="Despesas por Categoria" className="lg:col-span-2 relative overflow-hidden">
-          <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
-            <CategorySpendChart
-              data={chartData}
-              compareData={compareEnabled ? compareChartData : undefined}
-              primaryLabel={dateLabelShort}
-              compareLabel={compareDateLabelShort}
-            />
-          </div>
-          {!isPremium && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
-              <div className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
-                <svg className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                <h3 className="text-lg font-bold text-white mb-2">Despesas por Categoria</h3>
-                <p className="text-sm text-gray-300 mb-4">Veja exatamente onde seu dinheiro está indo com o plano Premium.</p>
-                <button onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500/20 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 font-bold rounded-lg transition-colors border border-yellow-500/50 text-sm">Desbloquear Funcionalidade</button>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Últimas Transações">
-          {recentTransactions.length > 0 ? (
-            <div className="space-y-3">
-              {recentTransactions.map(t => (
-                <div key={t.ID_Transacao} className="flex justify-between items-center p-2 hover:bg-primary rounded transition-colors">
-                  <div className="overflow-hidden">
-                    <p className="font-semibold text-sm truncate text-light">{t.Nome_Fantasia}</p>
-                    <p className="text-xs text-gray-500">{new Date(t.Data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • {t.Categoria}</p>
-                  </div>
-                  <span className={`font-bold text-sm ${t.Tipo === 'Renda' ? 'text-accent' : 'text-danger'}`}>
-                    {formatCurrencySigned(t.Tipo === 'Despesa' ? -Math.abs(t.Valor) : Math.abs(t.Valor), { showPlusForPositive: true })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-center py-4">Sem transações no período.</p>
-          )}
-        </Card>
-      </div>
-
-      {/* Budget Alerts & Financial Health — uma linha por card */}
-      <div id="dashboard-budgets" className="grid grid-cols-1 gap-6">
+        <div id="dashboard-budgets" className="grid grid-cols-1 gap-6">
         <Card title="Monitoramento de Orçamento">
           {budgetStatus.length > 0 ? (
             <div className="space-y-4">
@@ -1053,7 +934,134 @@ const DashboardView: React.FC = () => {
             <p className="text-center text-gray-400 py-4">Nenhum orçamento configurado. Vá para Configurações para adicionar.</p>
           )}
         </Card>
+        </div>
 
+        <NetWorthSummaryCard
+          total={totalNetWorth}
+          accounts={accountsTotal}
+          investments={manualInvestmentsDisplay}
+          assetsNet={assetsNetTotal}
+          assetsGross={grossAssetsTotal}
+          assetsDebts={assetsDebtsTotal}
+          asOfLabel={compareEnabled ? dateLabel : undefined}
+          primaryPeriodLabel={compareEnabled ? dateLabelShort : undefined}
+          compare={
+            compareEnabled && compareNetWorthSnapshot
+              ? (() => {
+                  const delta = computePeriodDelta(
+                    totalNetWorth,
+                    compareNetWorthSnapshot.total
+                  );
+                  const { label, tone } = buildComparisonDeltaLabel(delta, 'higher_better');
+                  return {
+                    periodLabel: compareDateLabelShort,
+                    breakdown: compareNetWorthSnapshot,
+                    deltaLabel: label,
+                    deltaTone: tone,
+                  };
+                })()
+              : undefined
+          }
+        />
+      </div>
+
+      {/* Charts Row 1 — Evolução Financeira */}
+      <div id="dashboard-charts-main" className="grid grid-cols-1 gap-6">
+        <Card
+          title={
+            viewMode === 'yearly' ? `Evolução Anual (${selectedDate.getFullYear()})` :
+              viewMode === 'monthly' ? `Tendência (Últimos 6 Meses até ${selectedDate.toLocaleDateString('pt-BR', { month: 'long' })})` :
+                viewMode === 'quarterly' ? `Evolução Trimestral` :
+                  viewMode === 'semiannual' ? `Evolução Semestral` :
+                    "Evolução Financeira"
+          }
+          className="relative overflow-hidden"
+        >
+          <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
+            <MonthlyEvolutionChart
+              data={transactionsWithoutAmbosAndInvestments}
+              viewMode={viewMode}
+              selectedDate={selectedDate}
+              compareEnabled={compareEnabled}
+              compareData={compareEnabled ? transactionsWithoutAmbosAndInvestments : undefined}
+              primaryPeriodData={compareEnabled ? chartData : undefined}
+              comparePeriodData={compareEnabled ? compareChartData : undefined}
+              compareSelectedDate={compareSelectedDate}
+              primaryLabel={dateLabelShort}
+              compareLabel={compareDateLabelShort}
+            />
+          </div>
+          {!isPremium && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
+              <div className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
+                <svg className="w-12 h-12 text-yellow-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <h3 className="text-xl font-bold text-white mb-2">Recurso Premium</h3>
+                <p className="text-sm text-gray-300 mb-6 font-medium">Desbloqueie a Evolução Financeira detalhada para visualizar seu histórico e tendências.</p>
+                <button onClick={() => setCurrentView('pricing')} className="px-6 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/20 text-sm w-full">Fazer Upgrade</button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Receita vs. Despesa — linha dedicada */}
+      <div id="dashboard-charts-income-expense" className="grid grid-cols-1 gap-6">
+        <Card title="Receita vs. Despesa">
+          <IncomeExpenseChart
+            data={chartData}
+            compareData={compareEnabled ? compareChartData : undefined}
+            primaryLabel={dateLabelShort}
+            compareLabel={compareDateLabelShort}
+          />
+        </Card>
+      </div>
+
+      {/* Charts Row 2 & Recent Transactions */}
+      <div id="dashboard-charts-secondary" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card title="Despesas por Categoria" className="lg:col-span-2 relative overflow-hidden">
+          <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
+            <CategorySpendChart
+              data={chartData}
+              compareData={compareEnabled ? compareChartData : undefined}
+              primaryLabel={dateLabelShort}
+              compareLabel={compareDateLabelShort}
+            />
+          </div>
+          {!isPremium && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
+              <div className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
+                <svg className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <h3 className="text-lg font-bold text-white mb-2">Despesas por Categoria</h3>
+                <p className="text-sm text-gray-300 mb-4">Veja exatamente onde seu dinheiro está indo com o plano Premium.</p>
+                <button onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500/20 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 font-bold rounded-lg transition-colors border border-yellow-500/50 text-sm">Desbloquear Funcionalidade</button>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card title="Últimas Transações">
+          {recentTransactions.length > 0 ? (
+            <div className="space-y-3">
+              {recentTransactions.map(t => (
+                <div key={t.ID_Transacao} className="flex justify-between items-center p-2 hover:bg-primary rounded transition-colors">
+                  <div className="overflow-hidden">
+                    <p className="font-semibold text-sm truncate text-light">{t.Nome_Fantasia}</p>
+                    <p className="text-xs text-gray-500">{new Date(t.Data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • {t.Categoria}</p>
+                  </div>
+                  <span className={`font-bold text-sm ${t.Tipo === 'Renda' ? 'text-accent' : 'text-danger'}`}>
+                    {formatCurrencySigned(t.Tipo === 'Despesa' ? -Math.abs(t.Valor) : Math.abs(t.Valor), { showPlusForPositive: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-center py-4">Sem transações no período.</p>
+          )}
+        </Card>
+      </div>
+
+      {/* Saúde Financeira */}
+      <div id="dashboard-financial-health" className="grid grid-cols-1 gap-6">
         {/* 50-30-20 Rule Widget */}
         <Card title="Método 50-30-20 (Saúde Financeira)" className="relative overflow-hidden">
           <div className="mb-4 space-y-2">
