@@ -299,7 +299,7 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     descColIndices: [1],
     valueColIndex: 2,
     invertValues: true, // Values in CSV: Positive = Expense, Negative = Payment/Refund
-    numberFormat: 'US', // Uses 1234.56 format instead of 1.234,56
+    numberFormat: 'BR', // Export Nubank: "273,37", "24,90", "- 669,86"
     ignoreRowsContaining: [],
     signatureStrings: ['date,title,amount'],
   },
@@ -534,6 +534,12 @@ const parseMonetaryValue = (valueStr: string, format?: 'US' | 'BR'): number | nu
     return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
   }
   if (format === 'US') {
+    // CSVs ocasionais usam vírgula decimal (ex.: Nubank "24,90") mesmo com config US.
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    if (lastComma !== -1 && lastDot === -1 && /,\d{2}$/.test(cleaned)) {
+      return parseFloat(cleaned.replace(',', '.'));
+    }
     return parseFloat(cleaned.replace(/,/g, ''));
   }
 
