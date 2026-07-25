@@ -1,0 +1,44 @@
+name: Quality baseline
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Type baseline, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GEMINI_API_KEY: ""
+      VITE_SUPABASE_URL: "https://example.supabase.co"
+      VITE_SUPABASE_ANON_KEY: "ci-public-placeholder"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify known TypeScript baseline
+        run: npm run typecheck:baseline
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build

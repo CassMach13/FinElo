@@ -1,0 +1,17 @@
+src/components/help/HelpCenterBrowse.tsx TS2322: Type '{ key: any; topic: any; query: any; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }' is not assignable to type '{ topic: HelpTopic; query: string; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }'.
+src/components/help/HelpCenterBrowse.tsx TS2322: Type '{ key: any; topic: any; query: any; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }' is not assignable to type '{ topic: HelpTopic; query: string; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }'.
+src/components/views/TransactionsView.tsx TS2339: Property 'split' does not exist on type 'never'.
+src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.
+src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.
+src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.
+src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.
+src/components/views/TransactionsView.tsx TS2345: Argument of type '"error"' is not assignable to parameter of type 'DialogVariant'.
+src/hooks/useAppStore.ts TS2367: This comparison appears to be unintentional because the types '"Conta Corrente" | "Poupança" | "Investimento" | "Cartão Alimentação" | "Dinheiro em Espécie" | "Outro"' and '"Cartão de Crédito"' have no overlap.
+src/services/creditCardDirectedPayment.ts TS2741: Property 'Descricao_Original' is missing in type '{}' but required in type 'Pick<Transaction, "Observacoes" | "Descricao_Original">'.
+src/services/creditCardDirectedPayment.ts TS2741: Property 'Descricao_Original' is missing in type '{ [x: string]: string; }' but required in type 'Pick<Transaction, "Observacoes" | "Descricao_Original">'.
+src/services/creditCardManualMotorSync.ts TS2305: Module '"../types"' has no exported member 'User'.
+src/services/creditCardRebuildFromImportHistoryService.ts TS2339: Property 'Card_Reference_Label' does not exist on type 'unknown'.
+src/services/creditCardRebuildFromImportHistoryService.ts TS2339: Property 'Card_Reference_Label' does not exist on type 'unknown'.
+src/services/parsers/nativeBankParsers.ts TS2304: Cannot find name 'installInfo'.
+src/services/parsers/nativeBankParsers.ts TS2304: Cannot find name 'installInfo'.
+src/services/parserService.ts TS2367: This comparison appears to be unintentional because the types '"Conta"' and '"Cartão de Crédito"' have no overlap.

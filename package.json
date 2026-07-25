@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit --pretty false",
+    "typecheck:baseline": "node scripts/check-type-baseline.mjs",
+    "verify:baseline": "npm run typecheck:baseline && npm test && npm run build"
   },
   "engines": {
     "node": ">=20.0.0"
