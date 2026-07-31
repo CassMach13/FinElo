@@ -5,6 +5,7 @@ import { Account, ImportLog, Transaction } from '../types';
 import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay';
 import { statementDueMonthKey } from '../utils/creditCardStatementDisplay';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
+import { resolveAutomaticCardReferenceMonth } from '../utils/cardImportReference';
 import {
   buildInvoiceCycleRowsForAccount,
   cardCycleMetaFromImportedLog,
@@ -452,6 +453,14 @@ function suggestReferenceMonthFromLog(fileName: string, importedDetails?: unknow
   const det = Array.isArray(importedDetails) ? importedDetails : [];
   const meta = det.find((d: any) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(d?.Card_Reference_Label || '')));
   if (meta?.Card_Reference_Label) return String(meta.Card_Reference_Label);
+  const fromImportedRows = resolveAutomaticCardReferenceMonth(
+    det.map((detail: any) => ({
+      Data: detail?.Data,
+      Valor: detail?.Valor,
+      Tipo: detail?.Tipo,
+    }))
+  );
+  if (fromImportedRows) return fromImportedRows;
   const fromFile = parseCreditCardReferenceFromFileName(fileName);
   if (!fromFile) return null;
   /** Nome do arquivo costuma indicar vencimento (ex. Jan_2026); competência = mês anterior. */

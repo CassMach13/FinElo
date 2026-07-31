@@ -18,6 +18,10 @@ import { getBelvoWidgetToken, savePluggyConnection, loadPluggyConnections, delet
 import OpenFinanceReviewModal from '../modals/OpenFinanceReviewModal';
 import { PluggyConnection, ImportConfig, Account, CardImportCycleInput } from '../../types';
 import SaveConfigModal from '../modals/SaveConfigModal';
+import {
+  getDistinctCardImportReferenceMonths,
+  resolveAutomaticCardReferenceMonth,
+} from '../../utils/cardImportReference';
 
 // --- BankCard: reusable card with favorite star toggle ---
 interface BankCardProps {
@@ -413,19 +417,6 @@ const ImportView: React.FC = () => {
     };
   };
 
-  const getDistinctCompetenciesFromTransactions = (txs: Array<{ Data?: string | Date }>): string[] => {
-    const keys = new Set<string>();
-    txs.forEach((tx) => {
-      if (!tx.Data) return;
-      const date = new Date(tx.Data);
-      if (Number.isNaN(date.getTime())) return;
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      keys.add(`${y}-${m}`);
-    });
-    return Array.from(keys).sort();
-  };
-
   const handleNativeBankFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0] || !selectedNativeBank) return;
     const selectedFile = e.target.files[0];
@@ -501,8 +492,9 @@ const ImportView: React.FC = () => {
     setNotification(null);
     try {
       const result = parseNativeBankCSV(content, bankCfg, transactions, mappingRules, paymentDate, selectedFile.name);
-      if (bankCfg.sourceType === 'Cartao' && cardCycle?.mode !== 'manual') {
-        const competencies = getDistinctCompetenciesFromTransactions(result.newTransactions);
+      let resolvedCardCycle = cardCycle;
+      if (bankCfg.sourceType === 'Cartao' && cardCycle?.mode === 'auto') {
+        const competencies = getDistinctCardImportReferenceMonths(result.newTransactions);
         if (competencies.length > 1) {
           const proceedAuto = await appConfirm(
             `Detectamos lançamentos de múltiplas competências (${competencies.join(', ')}) no mesmo arquivo. Deseja continuar no modo automático mesmo assim?`,
@@ -518,6 +510,16 @@ const ImportView: React.FC = () => {
             return;
           }
         }
+
+        const referenceLabel = resolveAutomaticCardReferenceMonth(result.newTransactions);
+        if (result.newTransactions.length > 0 && !referenceLabel) {
+          setNotification({
+            type: 'error',
+            message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
+          });
+          return;
+        }
+        resolvedCardCycle = { ...cardCycle, referenceLabel };
       }
       if (result.newTransactions.length > 0 || result.ignoredCount > 0) {
         const fakeConfig = {
@@ -533,7 +535,7 @@ const ImportView: React.FC = () => {
           fakeConfig as any,
           selectedFile.name,
           result.ignoredItems,
-          { cardCycle, creditCardFileTotals: result.creditCardFileTotals }
+          { cardCycle: resolvedCardCycle, creditCardFileTotals: result.creditCardFileTotals }
         );
         setNotification({
           type: 'success',
@@ -674,8 +676,9 @@ const ImportView: React.FC = () => {
         invertValues: invertValues
       };
       const result = await processStatementFile(file!, null, transactions, mappingRules, paymentDate, manualMappingConfig);
-      if ((tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito') && cardCycle?.mode !== 'manual') {
-        const competencies = getDistinctCompetenciesFromTransactions(result.newTransactions);
+      let resolvedCardCycle = cardCycle;
+      if ((tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito') && cardCycle?.mode === 'auto') {
+        const competencies = getDistinctCardImportReferenceMonths(result.newTransactions);
         if (competencies.length > 1) {
           const proceedAuto = await appConfirm(
             `Detectamos lançamentos de múltiplas competências (${competencies.join(', ')}) no mesmo arquivo. Deseja continuar no modo automático mesmo assim?`,
@@ -691,6 +694,16 @@ const ImportView: React.FC = () => {
             return;
           }
         }
+
+        const referenceLabel = resolveAutomaticCardReferenceMonth(result.newTransactions);
+        if (result.newTransactions.length > 0 && !referenceLabel) {
+          setNotification({
+            type: 'error',
+            message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
+          });
+          return;
+        }
+        resolvedCardCycle = { ...cardCycle, referenceLabel };
       }
       if (result.newTransactions.length > 0 || result.ignoredCount > 0) {
         const sourceName = selectedConfigSource || "Importação Inteligente";
@@ -706,7 +719,7 @@ const ImportView: React.FC = () => {
           effectiveConfig as any,
           file!.name,
           result.ignoredItems,
-          { cardCycle }
+          { cardCycle: resolvedCardCycle }
         );
         setNotification({
           type: 'success',
@@ -1744,4 +1757,3 @@ const PaymentDateModal: React.FC<PaymentDateModalProps> = ({ onClose, onConfirm 
 };
 
 export default ImportView;
-

@@ -14,6 +14,39 @@ const account: Account = {
 } as Account;
 
 describe('competenceHistoryCardsForAccount', () => {
+  it('recupera a competência automática pelas compras quando o log legado não a persistiu', () => {
+    const fileName = '10_xp_cartao_fatura_julho_2026.csv';
+    const transactions: Transaction[] = [
+      { ID_Transacao: '1', ID_Conta: 'acc-xp', Origem: fileName, Data: '2026-07-02', Valor: -300, Tipo: 'Despesa', Descricao_Original: 'STG-QA CURSO ONLINE' } as Transaction,
+      { ID_Transacao: '2', ID_Conta: 'acc-xp', Origem: fileName, Data: '2026-07-05', Valor: -120, Tipo: 'Despesa', Descricao_Original: 'STG-QA SUPERMERCADO' } as Transaction,
+      { ID_Transacao: '3', ID_Conta: 'acc-xp', Origem: fileName, Data: '2026-07-10', Valor: -29.9, Tipo: 'Despesa', Descricao_Original: 'STG-QA ASSINATURA DIGITAL' } as Transaction,
+      { ID_Transacao: '4', ID_Conta: 'acc-xp', Origem: fileName, Data: '2026-07-15', Valor: 50, Tipo: 'Renda', Descricao_Original: 'STG-QA ESTORNO CURSO' } as Transaction,
+      { ID_Transacao: '5', ID_Conta: 'acc-xp', Origem: fileName, Data: '2026-07-25', Valor: 400, Tipo: 'Renda', Descricao_Original: 'Pagamentos Validos' } as Transaction,
+    ];
+    const importedDetails = transactions.map((transaction) => ({
+      ID_Conta: transaction.ID_Conta,
+      Data: transaction.Data,
+      Valor: transaction.Valor,
+      Tipo: transaction.Tipo,
+      Card_Reference_Label: null,
+      Card_Due_Date: '2026-07-28',
+    }));
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account: { ...account, dia_vencimento: 28 },
+      accounts: [{ ...account, dia_vencimento: 28 }],
+      transactions,
+      importLogs: [{ id: 'legacy-auto', file_name: fileName, imported_details: importedDetails } as any],
+    });
+
+    const july = cards.find((card) => card.referenceMonth === '2026-07');
+    expect(july).toBeDefined();
+    expect(july?.dueDate).toBe('2026-07-28');
+    expect(july?.statementTotal).toBeCloseTo(399.9, 2);
+    expect(july?.totalRefunds).toBeCloseTo(50, 2);
+  });
+
   it('agrupa dois arquivos na mesma competência somando totais', () => {
     const transactions: Transaction[] = [
       {

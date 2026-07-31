@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { computeImportLedgerTotals } from '../src/domain/credit-card/importLedgerTotals';
+import { ledgerClassificationTextFromTransaction } from '../src/services/creditCardDirectedPayment';
 import { NATIVE_BANK_CONFIGS, parseNativeBankCSV } from '../src/services/parsers/nativeBankParsers';
+import { resolveAutomaticCardReferenceMonth } from '../src/utils/cardImportReference';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(currentDir, '../docs/homologacao/staging-2026-07-30/arquivos');
@@ -51,12 +54,36 @@ describe('pacote de homologação do staging', () => {
     const july = totals('10_xp_cartao_fatura_julho_2026.csv', xpCard);
     const august = totals('11_xp_cartao_fatura_agosto_2026.csv', xpCard);
 
+    const julyLedger = computeImportLedgerTotals(
+      july.parsed.newTransactions.map((transaction) => ({
+        amount: transaction.Valor,
+        description: ledgerClassificationTextFromTransaction(transaction),
+        installmentTotal: transaction.Total_Parcelas,
+        fineloTipo: transaction.Tipo,
+      }))
+    );
+    const julyRefund = july.parsed.newTransactions.find((transaction) =>
+      String(transaction.Descricao_Original).includes('ESTORNO CURSO')
+    );
+    const julyPayment = july.parsed.newTransactions.find((transaction) =>
+      String(transaction.Descricao_Original).includes('Pagamentos Validos')
+    );
+
     expect(july.parsed.newTransactions).toHaveLength(5);
     expect(july.income).toBeCloseTo(450, 2);
     expect(july.expenses).toBeCloseTo(449.9, 2);
+    expect(julyRefund?.Nome_Fantasia).toBe('STG-QA ESTORNO CURSO');
+    expect(julyRefund?.Categoria).not.toBe('Pagamento de Fatura');
+    expect(julyPayment?.Nome_Fantasia).toBe('Pagamento de Fatura');
+    expect(julyLedger.totalDebits).toBeCloseTo(449.9, 2);
+    expect(julyLedger.totalRefunds).toBeCloseTo(50, 2);
+    expect(julyLedger.statementTotal).toBeCloseTo(399.9, 2);
+    expect(julyLedger.totalInvoicePayments).toBeCloseTo(400, 2);
+    expect(resolveAutomaticCardReferenceMonth(july.parsed.newTransactions)).toBe('2026-07');
     expect(august.parsed.newTransactions).toHaveLength(4);
     expect(august.income).toBeCloseTo(399.9, 2);
     expect(august.expenses).toBeCloseTo(449.9, 2);
+    expect(resolveAutomaticCardReferenceMonth(august.parsed.newTransactions)).toBe('2026-08');
   });
 
   it('processa as 1.000 linhas do arquivo de estresse sem colapsar repetições legítimas', () => {

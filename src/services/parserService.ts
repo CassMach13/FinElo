@@ -580,8 +580,14 @@ export const processStatementFile = (
 
             // Special handling for Credit Card payments
             const CREDIT_CARD_PAYMENT_KEYWORDS = ['PAGAMENTO', 'PAGTO', 'LIQUIDACAO', 'CREDITO', 'DEPOSITO', 'ESTORNO'];
-            const isPotentialPayment = isCreditCardSource && finalValue > 0 && 
-              CREDIT_CARD_PAYMENT_KEYWORDS.some(kw => combinedDescription.toUpperCase().includes(kw));
+            const CREDIT_CARD_REFUND_KEYWORDS = ['ESTORNO', 'REEMBOLSO', 'DEVOLUCAO', 'CANCELAMENTO', 'AJUSTE CREDOR', 'CREDITO ESTORNADO'];
+            const normalizedDescription = combinedDescription
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toUpperCase();
+            const isExplicitRefund = CREDIT_CARD_REFUND_KEYWORDS.some(kw => normalizedDescription.includes(kw));
+            const isPotentialPayment = isCreditCardSource && finalValue > 0 && !isExplicitRefund &&
+              CREDIT_CARD_PAYMENT_KEYWORDS.some(kw => normalizedDescription.includes(kw));
 
             if (isPotentialPayment && (suggestedCategory === '-' || suggestedCategory === 'Outros')) {
               suggestedCategory = 'Pagamento de Fatura';

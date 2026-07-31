@@ -1098,8 +1098,23 @@ export function parseNativeBankCSV(
         'VALIDOS NORMAIS',
         'PAGAMENTOS VALIDOS',
       ];
-      const isPotentialPayment = CREDIT_CARD_PAYMENT_KEYWORDS.some((kw) =>
-        rawDesc.toUpperCase().includes(kw)
+      const CREDIT_CARD_REFUND_KEYWORDS = [
+        'ESTORNO',
+        'REEMBOLSO',
+        'DEVOLUCAO',
+        'CANCELAMENTO',
+        'AJUSTE CREDOR',
+        'CREDITO ESTORNADO',
+      ];
+      const normalizedDescription = rawDesc
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+      const isExplicitRefund = CREDIT_CARD_REFUND_KEYWORDS.some((kw) =>
+        normalizedDescription.includes(kw)
+      );
+      const isPotentialPayment = !isExplicitRefund && CREDIT_CARD_PAYMENT_KEYWORDS.some((kw) =>
+        normalizedDescription.includes(kw)
       );
       if (isPotentialPayment && (suggestedCategory === '-' || suggestedCategory === 'Outros')) {
         suggestedCategory = 'Pagamento de Fatura';
