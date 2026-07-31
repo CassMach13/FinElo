@@ -748,6 +748,15 @@ export const creditCardRebuildFromImportHistoryService = {
           card.dueMonth = Number(dueParts[2]);
         }
       }
+    });
+
+    // Primeiro materializa todas as competências reais. Assim, um pagamento do
+    // arquivo N não cria a competência N-1 com um vencimento sintético antes de
+    // o arquivo real dessa competência ser processado (a API retorna logs do mais
+    // recente para o mais antigo).
+    previews.forEach((p) => {
+      const ref = p.referenceMonth.trim();
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ref)) return;
 
       // Pagamento de fatura no CSV (ex. "Pagamentos Válidos") abate a competência anterior (N → N−1).
       const paymentForPrior = round2(p.totals.totalInvoicePayments);

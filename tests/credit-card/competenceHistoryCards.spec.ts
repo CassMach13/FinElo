@@ -166,6 +166,72 @@ describe('competenceHistoryCardsForAccount', () => {
     expect(fev?.paymentsOnExtracts).toBe(500);
   });
 
+  it('preserva o vencimento real da competência anterior quando os logs chegam do mais recente para o mais antigo', () => {
+    const julyFile = '10_xp_cartao_fatura_julho_2026.csv';
+    const augustFile = '11_xp_cartao_fatura_agosto_2026.csv';
+    const cardAccount = { ...account, dia_vencimento: 28 } as Account;
+    const transactions: Transaction[] = [
+      {
+        ID_Transacao: 'july-purchase',
+        ID_Conta: account.id,
+        Origem: julyFile,
+        Data: '2026-07-05',
+        Valor: -399.9,
+        Tipo: 'Despesa',
+        Descricao_Original: 'COMPRAS JULHO',
+      } as Transaction,
+      {
+        ID_Transacao: 'august-purchase',
+        ID_Conta: account.id,
+        Origem: augustFile,
+        Data: '2026-08-05',
+        Valor: -449.9,
+        Tipo: 'Despesa',
+        Descricao_Original: 'COMPRAS AGOSTO',
+      } as Transaction,
+      {
+        ID_Transacao: 'august-payment',
+        ID_Conta: account.id,
+        Origem: augustFile,
+        Data: '2026-08-10',
+        Valor: 399.9,
+        Tipo: 'Renda',
+        Descricao_Original: 'Pagamentos Validos Normais',
+      } as Transaction,
+    ];
+
+    const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account: cardAccount,
+      accounts: [cardAccount],
+      transactions,
+      importLogs: [
+        {
+          id: 'august-log',
+          file_name: augustFile,
+          imported_details: [
+            { ID_Conta: account.id, Card_Reference_Label: '2026-08', Card_Due_Date: '2026-08-28' },
+          ],
+        } as any,
+        {
+          id: 'july-log',
+          file_name: julyFile,
+          imported_details: [
+            { ID_Conta: account.id, Card_Reference_Label: '2026-07', Card_Due_Date: '2026-07-28' },
+          ],
+        } as any,
+      ],
+    });
+
+    const july = cards.find((card) => card.referenceMonth === '2026-07');
+    const august = cards.find((card) => card.referenceMonth === '2026-08');
+    expect(july?.dueDate).toBe('2026-07-28');
+    expect(july?.totalPayments).toBeCloseTo(399.9, 2);
+    expect(july?.openBalance).toBe(0);
+    expect(august?.dueDate).toBe('2026-08-28');
+    expect(august?.openBalance).toBeCloseTo(449.9, 2);
+  });
+
   it('aplica crédito de pagamento a mais da competência anterior no mês seguinte', () => {
     const transactions: Transaction[] = [
       {
