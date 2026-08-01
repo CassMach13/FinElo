@@ -173,6 +173,21 @@ export function classifyCompetenceLedgerRole(tx: Transaction): CompetenceLedgerR
 }
 
 /**
+ * Pagamentos vindos de um extrato importado aparecem no arquivo da competência N,
+ * mas, na cadeia de faturas, quitam a competência anterior (N−1). Lançamentos
+ * manuais direcionados já carregam sua competência de destino e não usam esta regra.
+ */
+export function importedPaymentAppliedReferenceMonth(
+  displayedReferenceMonth: string,
+  tx: Transaction
+): string | null {
+  const origin = String(tx.Origem || '').trim().toLowerCase();
+  if (!origin || origin === 'manual') return null;
+  if (classifyCompetenceLedgerRole(tx) !== 'pagamento') return null;
+  return previousReferenceMonth(displayedReferenceMonth);
+}
+
+/**
  * Lançamentos que compõem uma competência (por arquivo importado + manuais daquele mês).
  * Usado no modal Histórico para auditar o que entrou na fatura.
  */

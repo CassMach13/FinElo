@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeImportLedgerTotals } from '../../src/domain/credit-card/importLedgerTotals';
 import {
   creditCardRebuildFromImportHistoryService,
+  importedPaymentAppliedReferenceMonth,
   listTransactionsForCompetenceCard,
 } from '../../src/services/creditCardRebuildFromImportHistoryService';
 import type { Account, Transaction } from '../../src/types';
@@ -181,6 +182,15 @@ describe('competenceHistoryCardsForAccount', () => {
         Descricao_Original: 'COMPRAS JULHO',
       } as Transaction,
       {
+        ID_Transacao: 'july-payment',
+        ID_Conta: account.id,
+        Origem: julyFile,
+        Data: '2026-07-25',
+        Valor: 400,
+        Tipo: 'Renda',
+        Descricao_Original: 'Pagamentos Validos Normais',
+      } as Transaction,
+      {
         ID_Transacao: 'august-purchase',
         ID_Conta: account.id,
         Origem: augustFile,
@@ -227,9 +237,38 @@ describe('competenceHistoryCardsForAccount', () => {
     const august = cards.find((card) => card.referenceMonth === '2026-08');
     expect(july?.dueDate).toBe('2026-07-28');
     expect(july?.totalPayments).toBeCloseTo(399.9, 2);
+    expect(july?.paymentsOnExtracts).toBe(400);
     expect(july?.openBalance).toBe(0);
     expect(august?.dueDate).toBe('2026-08-28');
+    expect(august?.totalPayments).toBe(0);
+    expect(august?.paymentsOnExtracts).toBeCloseTo(399.9, 2);
     expect(august?.openBalance).toBeCloseTo(449.9, 2);
+  });
+
+  it('explica que pagamento importado no mês N quita a competência N−1 sem redirecionar lançamento manual', () => {
+    const importedPayment = {
+      ID_Transacao: 'imported-payment',
+      Origem: 'Fatura_XP_Ago_2026.csv',
+      Valor: 399.9,
+      Tipo: 'Renda',
+      Descricao_Original: 'Pagamentos Validos Normais',
+    } as Transaction;
+    const manualPayment = {
+      ...importedPayment,
+      ID_Transacao: 'manual-payment',
+      Origem: 'manual',
+    } as Transaction;
+    const purchase = {
+      ...importedPayment,
+      ID_Transacao: 'purchase',
+      Valor: -100,
+      Tipo: 'Despesa',
+      Descricao_Original: 'Compra',
+    } as Transaction;
+
+    expect(importedPaymentAppliedReferenceMonth('2026-08', importedPayment)).toBe('2026-07');
+    expect(importedPaymentAppliedReferenceMonth('2026-08', manualPayment)).toBeNull();
+    expect(importedPaymentAppliedReferenceMonth('2026-08', purchase)).toBeNull();
   });
 
   it('aplica crédito de pagamento a mais da competência anterior no mês seguinte', () => {

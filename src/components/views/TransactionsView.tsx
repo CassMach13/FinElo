@@ -27,6 +27,7 @@ import CompetenceInvoiceBarChart from '../charts/CompetenceInvoiceBarChart';
 import {
   classifyCompetenceLedgerRole,
   creditCardRebuildFromImportHistoryService,
+  importedPaymentAppliedReferenceMonth,
   listTransactionsForCompetenceCard,
   type CompetenceHistoryCard,
   type CompetenceLedgerRole,
@@ -484,10 +485,14 @@ const TransactionsView: React.FC = () => {
   };
 
   const renderCompetenceLedgerEntries = useCallback(
-    (ledger: Transaction[]) => (
+    (ledger: Transaction[], displayedReferenceMonth: string) => (
       <ul className="space-y-2.5">
         {ledger.map((tx) => {
           const role = classifyCompetenceLedgerRole(tx);
+          const appliedReferenceMonth = importedPaymentAppliedReferenceMonth(displayedReferenceMonth, tx);
+          const appliedReferenceBR = appliedReferenceMonth
+            ? `${appliedReferenceMonth.slice(5, 7)}/${appliedReferenceMonth.slice(0, 4)}`
+            : null;
           const dateIso =
             typeof tx.Data === 'string'
               ? tx.Data.split('T')[0]
@@ -526,6 +531,13 @@ const TransactionsView: React.FC = () => {
                   ? ` · parcela ${tx.Parcela_Atual}/${tx.Total_Parcelas}`
                   : ''}
               </p>
+              {appliedReferenceBR ? (
+                <p className="text-[11px] text-sky-200/90 mt-2 rounded-md border border-sky-500/25 bg-sky-500/10 px-2.5 py-2 leading-snug">
+                  Este pagamento está no extrato de {displayedReferenceMonth.slice(5, 7)}/
+                  {displayedReferenceMonth.slice(0, 4)}, mas quita a fatura anterior de{' '}
+                  <span className="font-bold tabular-nums">{appliedReferenceBR}</span>.
+                </p>
+              ) : null}
             </li>
           );
         })}
@@ -4214,7 +4226,8 @@ const TransactionsView: React.FC = () => {
               </div>
             </div>
             {renderCompetenceLedgerEntries(
-              competenceLedgerByRef.get(competenceLedgerModalCard.referenceMonth) ?? []
+              competenceLedgerByRef.get(competenceLedgerModalCard.referenceMonth) ?? [],
+              competenceLedgerModalCard.referenceMonth
             )}
           </div>
         ) : null}
