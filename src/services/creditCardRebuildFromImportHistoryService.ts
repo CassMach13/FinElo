@@ -6,6 +6,7 @@ import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay';
 import { statementDueMonthKey } from '../utils/creditCardStatementDisplay';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { resolveAutomaticCardReferenceMonth } from '../utils/cardImportReference';
+import { toDateOnlyIso } from '../utils/dateOnly';
 import {
   buildInvoiceCycleRowsForAccount,
   cardCycleMetaFromImportedLog,
@@ -520,7 +521,11 @@ function buildCyclesForAccount(input: {
   originKeys.forEach(({ fileName, log }) => {
     const det = log?.imported_details as any[] | undefined;
     const meta = Array.isArray(det)
-      ? det.find((d) => d?.ID_Conta === accountId && d?.Card_Reference_Label)
+      ? det.find(
+          (d) =>
+            d?.ID_Conta === accountId &&
+            (d?.Card_Reference_Label || d?.Card_Due_Date)
+        )
       : undefined;
     const referenceMonth =
       (meta?.Card_Reference_Label && /^\d{4}-(0[1-9]|1[0-2])$/.test(String(meta.Card_Reference_Label))
@@ -547,7 +552,7 @@ function toImportLines(txs: Transaction[]): Array<{
   fineloTipo?: string;
 }> {
   return txs.map((tx) => ({
-    postedDate: new Date(tx.Data).toISOString().slice(0, 10),
+    postedDate: toDateOnlyIso(tx.Data),
     description: ledgerClassificationTextFromTransaction(tx),
     amount: cardImportLedgerAmount(tx),
     installmentTotal: tx.Total_Parcelas || undefined,

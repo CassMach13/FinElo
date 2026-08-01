@@ -15,6 +15,7 @@ import {
   creditCardStatementService,
   type CardClassifierRules,
 } from './creditCardStatementService';
+import { localTodayIso } from '../utils/dateOnly';
 
 export const MANUAL_MOTOR_ORIGIN_PREFIX = 'manual:';
 
@@ -209,7 +210,7 @@ export function mergeMotorSnapshotWithManualLedger(params: {
   });
   if (cards.length === 0) return params.snapshot;
 
-  const today = params.todayIso || new Date().toISOString().slice(0, 10);
+  const today = params.todayIso || localTodayIso();
   const current = pickFaturaAtualCompetenceCard(cards, today);
   if (!current) return params.snapshot;
 

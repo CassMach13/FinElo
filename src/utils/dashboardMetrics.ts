@@ -1,5 +1,6 @@
 import type { Category, Transaction } from '../types';
 import type { DateRange } from './dashboardPeriod';
+import { parseDateOnlyLocal } from './dateOnly';
 
 export interface CategorySets {
   ambos: Set<string>;
@@ -34,9 +35,10 @@ export function buildCategorySets(categories: Category[]): CategorySets {
 }
 
 export function getTransactionEffectiveDate(transaction: Transaction): Date {
-  return transaction.Data_Pagamento
-    ? new Date(transaction.Data_Pagamento)
-    : new Date(transaction.Data);
+  return (
+    parseDateOnlyLocal(transaction.Data_Pagamento || transaction.Data) ??
+    new Date(Number.NaN)
+  );
 }
 
 export function filterTransactionsByRange(

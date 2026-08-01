@@ -174,13 +174,13 @@ export function cardCycleMetaFromImportedLog(
   const accountRows = det.filter((d: any) => d?.ID_Conta === accountId);
   const pool = accountRows.length > 0 ? accountRows : det;
   const metaWithRef = pool.find((d: any) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(d?.Card_Reference_Label || '')));
-  if (!metaWithRef?.Card_Reference_Label) return { competenciaBR: '', vencimentoBR: '' };
-  const ref = String(metaWithRef.Card_Reference_Label);
-  const yyyy = ref.slice(0, 4);
-  const mm = ref.slice(5, 7);
-  const competenciaBR = `${mm}/${yyyy}`;
+  const metaWithDue = pool.find((d: any) =>
+    /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(String(d?.Card_Due_Date || ''))
+  );
+  const ref = metaWithRef?.Card_Reference_Label ? String(metaWithRef.Card_Reference_Label) : '';
+  const competenciaBR = ref ? `${ref.slice(5, 7)}/${ref.slice(0, 4)}` : '';
   let vencimentoBR = '';
-  const due = metaWithRef.Card_Due_Date;
+  const due = metaWithRef?.Card_Due_Date || metaWithDue?.Card_Due_Date;
   if (typeof due === 'string' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(due)) {
     const [y, m, d] = due.split('-');
     vencimentoBR = `${d}/${m}/${y}`;

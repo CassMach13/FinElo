@@ -1,5 +1,6 @@
 import { Account, ImportLog, Transaction } from '../types';
 import { creditCardEngineService } from './creditCardEngineService';
+import { toDateOnlyIso } from '../utils/dateOnly';
 
 interface BuildRowsInput {
   transactions: Transaction[];
@@ -8,10 +9,10 @@ interface BuildRowsInput {
 const buildRowsFromTransactions = ({ transactions }: BuildRowsInput) =>
   transactions
     .slice()
-    .sort((a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime())
+    .sort((a, b) => toDateOnlyIso(a.Data).localeCompare(toDateOnlyIso(b.Data)))
     .map((tx, index) => ({
       sourceRowIndex: index + 1,
-      postedDate: new Date(tx.Data).toISOString().slice(0, 10),
+      postedDate: toDateOnlyIso(tx.Data),
       description: tx.Descricao_Original || tx.Nome_Fantasia || '',
       holderName: tx.Portador || undefined,
       amount: Number(tx.Valor || 0),
@@ -97,4 +98,3 @@ export const creditCardMigrationService = {
     return { processedLots, processedEntries };
   },
 };
-

@@ -23,6 +23,7 @@ import {
   referenceMonthFromIsoDate,
 } from '../../services/creditCardDirectedPayment';
 import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso } from '../../services/creditCardManualCompetence';
+import { addMonthsToDateOnly, parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
 
 interface NewTransactionModalProps {
   onClose: () => void;
@@ -487,22 +488,32 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     }
 
     const finalValue = transaction.Tipo === 'Despesa' ? -Math.abs(valorParcela) : Math.abs(valorParcela);
-    const baseDate = new Date(transaction.Data);
+    const baseDateIso = toDateOnlyIso(transaction.Data);
 
     const transactionsToSave: Omit<Transaction, 'ID_Transacao' | 'Origem'>[] = [];
 
     for (let i = 0; i < loopCount; i++) {
-      const currentTxDate = new Date(baseDate);
-      currentTxDate.setMonth(baseDate.getMonth() + i);
+      const currentTxDateIso = addMonthsToDateOnly(baseDateIso, i);
+      const currentTxDate = parseDateOnlyLocal(currentTxDateIso);
+      if (!currentTxDate) {
+        setErrors((prev) => ({ ...prev, Data: 'Não foi possível calcular a data do lançamento.' }));
+        setIsSaving(false);
+        return;
+      }
 
       let currentPaymentDate: Date | undefined = undefined;
       const paymentDateSource = showSeparatePaymentDate
         ? transaction.Data_Pagamento || transaction.Data
         : transaction.Data;
       if (paymentDateSource) {
-        const basePayDate = new Date(paymentDateSource);
-        currentPaymentDate = new Date(basePayDate);
-        currentPaymentDate.setMonth(basePayDate.getMonth() + i);
+        const currentPaymentDateIso = addMonthsToDateOnly(paymentDateSource, i);
+        const parsedPaymentDate = parseDateOnlyLocal(currentPaymentDateIso);
+        if (!parsedPaymentDate) {
+          setErrors((prev) => ({ ...prev, Data_Pagamento: 'Data de pagamento inválida.' }));
+          setIsSaving(false);
+          return;
+        }
+        currentPaymentDate = parsedPaymentDate;
       }
 
       let description = transaction.Nome_Fantasia;

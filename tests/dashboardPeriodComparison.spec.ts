@@ -11,6 +11,7 @@ import {
   getCompareDateRange,
   getDashboardDateRange,
   shiftAnchorBack,
+  shiftAnchorForward,
 } from '../src/utils/dashboardPeriod';
 import {
   buildComparisonDeltaLabel,
@@ -72,6 +73,14 @@ describe('dashboardPeriod', () => {
     const compare = getCompareDateRange(primary, 'monthly', 'previous', anchor);
     expect(compare.start.getMonth()).toBe(4);
     expect(compare.end.getMonth()).toBe(4);
+  });
+
+  it('navega entre meses sem pular fevereiro quando a âncora está no dia 31', () => {
+    const previous = shiftAnchorBack(new Date(2026, 2, 31, 12), 'monthly');
+    const next = shiftAnchorForward(new Date(2026, 0, 31, 12), 'monthly');
+
+    expect([previous.getFullYear(), previous.getMonth(), previous.getDate()]).toEqual([2026, 1, 1]);
+    expect([next.getFullYear(), next.getMonth(), next.getDate()]).toEqual([2026, 1, 1]);
   });
 
   it('preset padrão em visão anual é ano anterior', () => {
@@ -153,6 +162,27 @@ describe('dashboardMetrics', () => {
     ]);
     expect(summary.balance).toBe(600);
     expect(summary.savingsRate).toBeCloseTo(60, 1);
+  });
+
+  it('inclui data civil em texto no primeiro dia do período no fuso do Brasil', () => {
+    const range = getDashboardDateRange({
+      viewMode: 'monthly',
+      selectedDate: new Date(2026, 7, 15),
+    });
+    const metrics = computeDashboardPeriodMetrics(
+      [
+        tx({
+          Data: '2026-08-01' as unknown as Date,
+          Valor: -25,
+          Tipo: 'Despesa',
+          Categoria: 'Alimentação',
+        }),
+      ],
+      categories,
+      range
+    );
+
+    expect(metrics.operational.expense).toBe(25);
   });
 });
 

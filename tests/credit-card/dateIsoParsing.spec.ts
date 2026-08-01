@@ -11,6 +11,10 @@ describe('toLocalDateIso', () => {
     expect(toLocalDateIso('2026-05-25 00:00:00+00')).toBe('2026-05-25');
     expect(toLocalDateIso('2026-05-25T00:00:00.000Z')).toBe('2026-05-25');
   });
+
+  it('não desloca um Date criado a partir de input civil ISO', () => {
+    expect(toLocalDateIso(new Date('2026-08-01'))).toBe('2026-08-01');
+  });
 });
 
 describe('inferManualRefundReferenceMonth cashback', () => {

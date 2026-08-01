@@ -6,6 +6,7 @@ import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import { NATIVE_BANK_CONFIGS } from '../../services/parsers/nativeBankParsers';
+import { localTodayIso, parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
 
 
 interface AccountModalProps {
@@ -25,7 +26,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
         bank_id: account?.bank_id || '',
         saldoAtual: account?.Saldo_Inicial || 0,
         saldoInicial: account?.Saldo_Inicial || 0,
-        dataSaldoInicial: account ? new Date(account.Data_Saldo_Inicial).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        dataSaldoInicial: account ? toDateOnlyIso(account.Data_Saldo_Inicial) : localTodayIso(),
         // Campos de Cartão de Crédito
         limite_credito: account?.limite_credito ?? '',
         dia_vencimento: account?.dia_vencimento ?? '',
@@ -56,8 +57,8 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
         } : { limite_credito: undefined, dia_vencimento: undefined, dia_fechamento: undefined };
 
         if (balanceMode === 'initial' || account) {
-            const dataSaldo = formState.dataSaldoInicial ? new Date(formState.dataSaldoInicial) : new Date();
-            const dataSaldoAjustada = new Date(dataSaldo.getUTCFullYear(), dataSaldo.getUTCMonth(), dataSaldo.getUTCDate());
+            const dataSaldoAjustada =
+                parseDateOnlyLocal(formState.dataSaldoInicial || localTodayIso()) || new Date();
 
             let saldo = parseFloat(String(formState.saldoInicial));
             // Se for cartão e o usuário digitou positivo (ex: 2000 de gasto), converte para negativo (dívida)
@@ -81,7 +82,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
                 Tipo_Conta: formState.Tipo_Conta as Account['Tipo_Conta'],
                 bank_id: isDinheiroEspecie ? undefined : formState.bank_id || undefined,
                 Saldo_Inicial: saldo,
-                Data_Saldo_Inicial: new Date(),
+                Data_Saldo_Inicial: parseDateOnlyLocal(localTodayIso()) || new Date(),
                 ...creditCardFields,
             };
         }

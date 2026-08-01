@@ -52,6 +52,7 @@ import {
   computeNetWorthSnapshot,
 } from '../../utils/dashboardNetWorth';
 import type { SummaryCardComparison } from '../ui/SummaryCard';
+import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
 
 import NewTransactionModal from '../modals/NewTransactionModal';
 import AccountModal from './AccountModal';
@@ -93,8 +94,8 @@ const DashboardView: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [customDateRange, setCustomDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+    start: localTodayIso(),
+    end: localTodayIso()
   });
 
   const [compareEnabled, setCompareEnabled] = useState(() => {
@@ -109,8 +110,8 @@ const DashboardView: React.FC = () => {
     return saved ? new Date(saved) : shiftAnchorBack(new Date(), 'monthly');
   });
   const [compareCustomDateRange, setCompareCustomDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
+    start: localTodayIso(),
+    end: localTodayIso(),
   });
 
   // 2. Persistence: Save to localStorage on change
@@ -407,9 +408,9 @@ const DashboardView: React.FC = () => {
   const recentTransactions = useMemo(() => {
     return [...filteredTransactions]
       .sort((a, b) => {
-        const dateA = a.Data_Pagamento ? new Date(a.Data_Pagamento).getTime() : new Date(a.Data).getTime();
-        const dateB = b.Data_Pagamento ? new Date(b.Data_Pagamento).getTime() : new Date(b.Data).getTime();
-        return dateB - dateA;
+        const dateA = toDateOnlyIso(a.Data_Pagamento || a.Data);
+        const dateB = toDateOnlyIso(b.Data_Pagamento || b.Data);
+        return dateB.localeCompare(dateA);
       })
       .slice(0, 5);
   }, [filteredTransactions]);

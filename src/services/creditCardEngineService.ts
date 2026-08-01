@@ -21,6 +21,7 @@ import {
   CreditCardManualTotalsPayload,
 } from '../domain/credit-card/types';
 import { sumInvoicePaymentsFromClassifiedEntries } from '../utils/parseCreditCardFileTotals';
+import { toDateOnlyIso } from '../utils/dateOnly';
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
@@ -65,10 +66,7 @@ const mergeClassificationOverridesFromPaymentRefundTxIds = (
 };
 
 const toIsoDate = (value: Date | string | undefined | null): string | null => {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 10);
+  return toDateOnlyIso(value) || null;
 };
 
 const toReferenceLabel = (year: number, month: number): string =>
@@ -564,7 +562,7 @@ export const creditCardEngineService = {
 
       return {
         sourceRowIndex,
-        postedDate: new Date(tx.Data).toISOString().slice(0, 10),
+        postedDate: toDateOnlyIso(tx.Data),
         description: tx.Descricao_Original || tx.Nome_Fantasia || '',
         holderName: tx.Portador || undefined,
         amount: Number(tx.Valor || 0),
@@ -1201,4 +1199,3 @@ export const creditCardEngineService = {
     return { statementId: statementData.id, processedEntries: reclassified.length };
   },
 };
-

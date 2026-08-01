@@ -8,6 +8,7 @@ import {
   resolveTransactionFilters,
   saveTransactionFiltersPanelExpanded,
   shouldApplyDateFilter,
+  matchesTransactionFilters,
   TRANSACTION_FILTERS_PANEL_EXPANDED_KEY,
 } from '../src/utils/transactionPeriodFilters';
 import type { Transaction } from '../src/types';
@@ -96,5 +97,29 @@ describe('transactionPeriodFilters', () => {
     expect(defaults.periodPreset).toBe('current_month');
     expect(defaults.startDate).toBe('2026-01-01');
     expect(defaults.endDate).toBe('2026-01-31');
+  });
+
+  it('mantém transações do primeiro e do último dia no filtro mensal', () => {
+    const filters = {
+      ...getDefaultTransactionFilters(),
+      startDate: '2026-08-01',
+      endDate: '2026-08-31',
+      periodPreset: 'custom' as const,
+    };
+    const makeTx = (date: string) => ({
+      Data: date,
+      Nome_Fantasia: 'Teste',
+      Descricao_Original: 'Teste',
+      Valor: -10,
+      Tipo: 'Despesa',
+      Categoria: 'Teste',
+      Origem: 'manual',
+      Fonte: 'Manual',
+    }) as Transaction;
+
+    expect(matchesTransactionFilters(makeTx('2026-08-01'), filters)).toBe(true);
+    expect(matchesTransactionFilters(makeTx('2026-08-31'), filters)).toBe(true);
+    expect(matchesTransactionFilters(makeTx('2026-07-31'), filters)).toBe(false);
+    expect(matchesTransactionFilters(makeTx('2026-09-01'), filters)).toBe(false);
   });
 });

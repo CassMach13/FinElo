@@ -35,6 +35,8 @@ import {
 } from '../services/creditCardRebuildFromImportHistoryService';
 import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
+import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
+import { collectPaginatedRows } from '../utils/paginatedFetch';
 import { isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
 import {
@@ -933,13 +935,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { message: 'A conta selecionada não é cartão de crédito.', origins: 0, processed: 0 };
     }
 
-    const { data: freshCardTx, error: freshCardTxError } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('ID_Conta', accountId)
-      .neq('Origem', 'manual');
-    if (freshCardTxError) throw freshCardTxError;
-    const cardTx = ((freshCardTx || []) as Transaction[])
+    const freshCardTx = await collectPaginatedRows<Transaction>(async (from, to) => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('ID_Conta', accountId)
+        .neq('Origem', 'manual')
+        .order('ID_Transacao', { ascending: true })
+        .range(from, to);
+      return { data: (data as Transaction[] | null) ?? null, error };
+    });
+    const cardTx = freshCardTx
       .filter((tx) => tx.Origem && tx.Origem !== 'manual');
     if (cardTx.length === 0) {
       return { message: `Nenhuma importação de cartão encontrada para ${account.Nome_Conta}.`, origins: 0, processed: 0 };
@@ -947,9 +953,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const toReferenceFromTxDate = (value?: string | Date | null): string | null => {
       if (!value) return null;
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return null;
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const iso = toDateOnlyIso(value);
+      return iso ? iso.slice(0, 7) : null;
     };
     const buildDueDateFromReference = (referenceLabel: string): string => {
       const [yearStr, monthStr] = referenceLabel.split('-');
@@ -973,14 +978,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const origins = Array.from(groupedByOrigin.keys());
     let latestImportLogs = importLogs;
     if (origins.length > 0) {
-      const { data: freshLogs, error: freshLogsError } = await supabase
-        .from('import_logs')
-        .select('*')
-        .in('file_name', origins)
-        .order('import_date', { ascending: false });
-      if (!freshLogsError && Array.isArray(freshLogs)) {
-        latestImportLogs = freshLogs as ImportLog[];
-      }
+      const originSet = new Set(origins);
+      const freshLogs = await collectPaginatedRows<ImportLog>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('import_logs')
+          .select('*')
+          .order('import_date', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to);
+        return { data: (data as ImportLog[] | null) ?? null, error };
+      });
+      latestImportLogs = freshLogs.filter((log) => originSet.has(log.file_name));
     }
 
     const lotByOrigin = new Map<string, {
@@ -1024,10 +1032,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const pendingOrigins: string[] = [];
 
     groupedByOrigin.forEach((txs, origin) => {
-      const maxDate = txs
-        .map((tx) => new Date(tx.Data))
-        .filter((d) => !Number.isNaN(d.getTime()))
-        .sort((a, b) => b.getTime() - a.getTime())[0];
+      const maxDateIso = txs
+        .map((tx) => toDateOnlyIso(tx.Data))
+        .filter(Boolean)
+        .sort((a, b) => b.localeCompare(a))[0];
+      const maxDate = parseDateOnlyLocal(maxDateIso);
       const inferredReference = maxDate ? toReferenceFromTxDate(maxDate) : null;
       const lot = lotByOrigin.get(origin);
       const referenceLabel = lot?.referenceLabel || inferredReference;
@@ -1414,39 +1423,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Transações (agora com Supabase)
   fetchTransactions: async () => {
     set({ isLoading: true });
-    let allTransactions: Transaction[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .range(from, to);
-
-      if (error) {
-        console.error('Erro ao buscar transações (página ' + page + '):', error);
-        hasMore = false; // Stop on error
-      } else {
-        if (data) {
-          allTransactions = [...allTransactions, ...data as Transaction[]];
-          // If we got fewer items than requested, we've reached the end
-          if (data.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
+    try {
+      const allTransactions = await collectPaginatedRows<Transaction>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('ID_Transacao', { ascending: true })
+          .range(from, to);
+        return { data: (data as Transaction[] | null) ?? null, error };
+      });
+      set({ transactions: allTransactions, isLoading: false });
+    } catch (error) {
+      console.error('Erro ao buscar o histórico completo de transações:', error);
+      set({ isLoading: false });
+      await appAlert(
+        'Não foi possível carregar todo o histórico. A lista anterior foi preservada e nenhum dado foi apagado. Tente atualizar novamente.',
+        'Histórico incompleto',
+        'warning'
+      );
     }
-
-    set({ transactions: allTransactions, isLoading: false });
   },
 
   // Contas
@@ -1575,13 +1570,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     return accounts.map(account => {
       const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
-      const initialBalanceDate = new Date(account.Data_Saldo_Inicial).getTime();
+      const initialBalanceDate = toDateOnlyIso(account.Data_Saldo_Inicial);
 
       const relevantTransactionsSum = transactions
         .filter(t => {
           if (t.ID_Conta !== account.id) return false;
           
-          const transactionPurchaseDate = new Date(t.Data).getTime();
+          const transactionPurchaseDate = toDateOnlyIso(t.Data);
+          if (!transactionPurchaseDate || !initialBalanceDate) return false;
           // For credit cards, we care about the PURCHASE date (limit consumption), 
           // and we include ALL transactions (past and future) to reflect total debt.
           if (isCreditCard) {
@@ -1589,7 +1585,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
 
           // For other accounts, we use the Payment Date filter (cash flow view)
-          const paymentDateStr = t.Data_Pagamento ? new Date(t.Data_Pagamento).toISOString().split('T')[0] : new Date(t.Data).toISOString().split('T')[0];
+          const paymentDateStr = toDateOnlyIso(t.Data_Pagamento || t.Data);
           return transactionPurchaseDate > initialBalanceDate && paymentDateStr <= todayStr;
         })
         .reduce((sum, t) => sum + t.Valor, 0);
@@ -1865,7 +1861,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
           const rows = insertedBatch.map((tx, index) => ({
             sourceRowIndex: index + 1,
-            postedDate: new Date(tx.Data).toISOString().slice(0, 10),
+            postedDate: toDateOnlyIso(tx.Data),
             description: tx.Descricao_Original || tx.Nome_Fantasia || '',
             holderName: tx.Portador || undefined,
             amount: Number(tx.Valor || 0),
@@ -2591,15 +2587,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchImportLogs: async () => {
-    const { data, error } = await supabase
-      .from('import_logs')
-      .select('*')
-      .order('import_date', { ascending: false });
-
-    if (error) {
-      console.error('Erro ao buscar logs de importação:', error);
-    } else {
-      set({ importLogs: data as ImportLog[] });
+    try {
+      const logs = await collectPaginatedRows<ImportLog>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('import_logs')
+          .select('*')
+          .order('import_date', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to);
+        return { data: (data as ImportLog[] | null) ?? null, error };
+      });
+      set({ importLogs: logs });
+    } catch (error) {
+      console.error('Erro ao buscar o histórico completo de importações:', error);
+      await appAlert(
+        'Não foi possível carregar todo o histórico de importações. A lista anterior foi preservada e nenhum dado foi apagado.',
+        'Histórico de importações incompleto',
+        'warning'
+      );
     }
   },
 

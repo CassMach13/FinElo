@@ -19,6 +19,7 @@ import {
   stripCompetenceMarker,
   upsertCompetenceMarkerInTransaction,
 } from './creditCardDirectedPayment';
+import { toDateOnlyIso } from '../utils/dateOnly';
 
 export function parseDueFromReferenceMonth(referenceMonth: string, dueDay: number): string {
   const m = /^(\d{4})-(\d{2})$/.exec(referenceMonth.trim());
@@ -127,14 +128,7 @@ export const MANUAL_COMPETENCE_FILE_LABEL = 'Lançamentos manuais';
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function toLocalDateIso(date: Date | string | undefined): string {
-  if (!date) return '';
-  if (typeof date === 'string') {
-    const trimmed = date.trim();
-    const m = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed);
-    if (m) return m[1];
-    return trimmed.split('T')[0];
-  }
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return toDateOnlyIso(date);
 }
 
 /**

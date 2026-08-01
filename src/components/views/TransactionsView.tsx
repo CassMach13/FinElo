@@ -23,6 +23,13 @@ import { creditCardEngineService } from '../../services/creditCardEngineService'
 import { supabase } from '../../supabaseClient';
 
 import { formatCurrency, formatCurrencySigned, getCurrencyColorClass } from '../../utils/formatters';
+import {
+  formatDateOnlyPtBr,
+  localTodayIso,
+  parseDateOnlyLocal,
+  toDateOnlyIso,
+} from '../../utils/dateOnly';
+import { collectPaginatedRows } from '../../utils/paginatedFetch';
 import CompetenceInvoiceBarChart from '../charts/CompetenceInvoiceBarChart';
 import {
   classifyCompetenceLedgerRole,
@@ -274,7 +281,7 @@ const TransactionsView: React.FC = () => {
   >(new Map());
   const [paymentConfirmationsReady, setPaymentConfirmationsReady] = useState(false);
 
-  const isoTodayStr = () => new Date().toISOString().slice(0, 10);
+  const isoTodayStr = () => localTodayIso();
 
   const currentPaymentKeywords = useMemo(
     () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
@@ -493,10 +500,7 @@ const TransactionsView: React.FC = () => {
           const appliedReferenceBR = appliedReferenceMonth
             ? `${appliedReferenceMonth.slice(5, 7)}/${appliedReferenceMonth.slice(0, 4)}`
             : null;
-          const dateIso =
-            typeof tx.Data === 'string'
-              ? tx.Data.split('T')[0]
-              : new Date(tx.Data).toISOString().slice(0, 10);
+          const dateIso = toDateOnlyIso(tx.Data);
           const dateBr = dateIso
             ? `${dateIso.slice(8, 10)}/${dateIso.slice(5, 7)}/${dateIso.slice(0, 4)}`
             : '—';
@@ -1048,13 +1052,17 @@ const TransactionsView: React.FC = () => {
     setExpandedStatementId(null);
 
     try {
-      const { data: accountTxData, error: accountTxError } = await supabase
-        .from('transactions')
-        .select('ID_Transacao, Origem, Data, ID_Conta, Valor, Tipo, Nome_Fantasia, Descricao_Original')
-        .eq('ID_Conta', account.id)
-        .neq('Origem', 'manual')
-        .not('Origem', 'is', null);
-      if (accountTxError) throw accountTxError;
+      const accountTxData = await collectPaginatedRows<any>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('ID_Transacao, Origem, Data, ID_Conta, Valor, Tipo, Nome_Fantasia, Descricao_Original')
+          .eq('ID_Conta', account.id)
+          .neq('Origem', 'manual')
+          .not('Origem', 'is', null)
+          .order('ID_Transacao', { ascending: true })
+          .range(from, to);
+        return { data, error };
+      });
 
       const byOriginKey = new Map<string, { count: number; maxDate: Date | null; origins: Set<string> }>();
       (accountTxData || []).forEach((tx: any) => {
@@ -1063,16 +1071,20 @@ const TransactionsView: React.FC = () => {
         if (!originKey) return;
         const current = byOriginKey.get(originKey) || { count: 0, maxDate: null, origins: new Set<string>() };
         if (origin) current.origins.add(origin);
-        const txDate = tx.Data ? new Date(tx.Data) : null;
+        const txDate = tx.Data ? parseDateOnlyLocal(tx.Data) : null;
         const nextMax = (!current.maxDate || (txDate && txDate > current.maxDate)) ? txDate : current.maxDate;
         byOriginKey.set(originKey, { count: current.count + 1, maxDate: nextMax || current.maxDate, origins: current.origins });
       });
 
-      const { data: logsData, error: logsError } = await supabase
-        .from('import_logs')
-        .select('file_name, import_date, imported_details')
-        .order('import_date', { ascending: false });
-      if (logsError) throw logsError;
+      const logsData = await collectPaginatedRows<any>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('import_logs')
+          .select('id, file_name, import_date, imported_details')
+          .order('import_date', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to);
+        return { data, error };
+      });
 
       const logsByOriginKey = new Map<string, any>();
       const metadataByOriginKey = new Map<string, {
@@ -1117,15 +1129,19 @@ const TransactionsView: React.FC = () => {
       }
 
       const txDataByOriginAll: any[] = [];
-      if (originKeys.length > 0 && user?.id) {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('ID_Transacao, Origem, Data, ID_Conta, Valor, Tipo, Nome_Fantasia, Descricao_Original, user_id')
-          .eq('user_id', user.id)
-          .neq('Origem', 'manual')
-          .not('Origem', 'is', null);
-        if (error) throw error;
-        txDataByOriginAll.push(...(data || []));
+      if (originKeys.length > 0) {
+        const sourceRows = await collectPaginatedRows<any>(async (from, to) => {
+          const { data, error } = await supabase
+            .from('transactions')
+            .select('ID_Transacao, Origem, Data, ID_Conta, Valor, Tipo, Nome_Fantasia, Descricao_Original, user_id')
+            .eq('ID_Conta', account.id)
+            .neq('Origem', 'manual')
+            .not('Origem', 'is', null)
+            .order('ID_Transacao', { ascending: true })
+            .range(from, to);
+          return { data, error };
+        });
+        txDataByOriginAll.push(...sourceRows);
       }
 
       const originKeysByBase = new Map<string, Set<string>>();
@@ -1322,7 +1338,7 @@ const TransactionsView: React.FC = () => {
             transaction_id: tx.ID_Transacao || null,
             item_type: txType,
             amount,
-            posted_date: tx.Data ? new Date(tx.Data).toISOString().slice(0, 10) : null,
+            posted_date: toDateOnlyIso(tx.Data) || null,
           });
           if (import.meta.env.DEV && isDebugTargetTx(tx.Origem, tx.Valor)) {
             console.log('[CardV2][debug][Cassio Jan/2025 R$49.76][statementBucket]', {
@@ -1566,7 +1582,7 @@ const TransactionsView: React.FC = () => {
         return {
           id: tx.ID_Transacao || `${lot.originKey}-${tx.Data}-${tx.Valor}-${tx.Nome_Fantasia}`,
           transactionId: tx.ID_Transacao || null,
-          date: tx.Data ? new Date(tx.Data).toISOString().slice(0, 10) : '',
+          date: toDateOnlyIso(tx.Data),
           description: tx.Nome_Fantasia || tx.Descricao_Original || 'Sem descrição',
           amount: Number(tx.Valor || 0),
           selectedType,
@@ -2298,7 +2314,7 @@ const TransactionsView: React.FC = () => {
   const processDataForExport = (dataToExport: Transaction[]) => {
     return dataToExport.map((t) => {
       const row: Record<string, string | number> = {
-        Data: new Date(t.Data).toLocaleDateString('pt-BR'),
+        Data: formatDateOnlyPtBr(t.Data, ''),
         'Descrição Personalizada (Usuário)': t.Nome_Fantasia || '',
         'Descrição Original (Banco)': t.Descricao_Original || '',
         Categoria: t.Categoria || '',
@@ -2326,7 +2342,7 @@ const TransactionsView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `transacoes_filtradas_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `transacoes_filtradas_${localTodayIso()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2337,7 +2353,7 @@ const TransactionsView: React.FC = () => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Transações");
-    XLSX.writeFile(workbook, `transacoes_filtradas_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(workbook, `transacoes_filtradas_${localTodayIso()}.xlsx`);
   };
 
   const handleExportChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -4466,9 +4482,8 @@ const EditableCell: React.FC<EditableCellProps> = ({
         </td>
       );
     }
-    // Correção: Garante que 'value' é uma data válida antes de chamar toISOString()
-    const dateValue = value ? new Date(value as Date) : null;
-    const inputValue = type === 'date' && dateValue && !isNaN(dateValue.getTime()) ? dateValue.toISOString().split('T')[0]
+    const dateValue = type === 'date' ? toDateOnlyIso(value as Date | string) : '';
+    const inputValue = type === 'date' ? dateValue
       : type === 'installments' ? `${transaction.Parcela_Atual || ''}/${transaction.Total_Parcelas || ''}`
         : value as string;
 

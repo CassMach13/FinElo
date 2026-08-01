@@ -9,6 +9,7 @@ import {
   CreditCardStatementStatus,
   Transaction,
 } from '../types';
+import { localTodayIso, toDateOnlyIso } from '../utils/dateOnly';
 
 interface UpsertStatementInput {
   userId: string;
@@ -118,20 +119,22 @@ const inferReferenceLabel = (origin: string, transactions: Transaction[]): strin
   const fromOrigin = parseReferenceLabelFromOrigin(origin);
   if (fromOrigin) return fromOrigin;
 
-  const maxDate = transactions
-    .map((t) => new Date(t.Data))
-    .sort((a, b) => b.getTime() - a.getTime())[0];
+  const maxDateIso = transactions
+    .map((t) => toDateOnlyIso(t.Data))
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a))[0];
 
-  if (!maxDate || Number.isNaN(maxDate.getTime())) {
-    return formatReferenceLabel(new Date());
+  if (!maxDateIso) {
+    return localTodayIso().slice(0, 7);
   }
 
-  const dueCycle = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 1);
+  const [year, month] = maxDateIso.split('-').map(Number);
+  const dueCycle = new Date(year, month, 1);
   return formatReferenceLabel(dueCycle);
 };
 
 const sortByDateDesc = (a: Transaction, b: Transaction): number =>
-  new Date(b.Data).getTime() - new Date(a.Data).getTime();
+  toDateOnlyIso(b.Data).localeCompare(toDateOnlyIso(a.Data));
 const PAYMENT_EPSILON = 0.5;
 
 const chunkArray = <T,>(arr: T[], chunkSize: number): T[][] => {
@@ -367,7 +370,7 @@ export const creditCardStatementService = {
           dueDate,
         });
       }
-      const postedDate = new Date(tx.Data).toISOString().split('T')[0];
+      const postedDate = toDateOnlyIso(tx.Data);
 
       // Pagamento vindo no lote atual quita a fatura anterior.
       if (itemType === 'payment') {
@@ -428,8 +431,8 @@ export const creditCardStatementService = {
       const emptyJob = await this.createReprocessJob({
         userId: input.userId,
         accountId: input.account.id,
-        fromDate: new Date().toISOString().slice(0, 10),
-        toDate: new Date().toISOString().slice(0, 10),
+        fromDate: localTodayIso(),
+        toDate: localTodayIso(),
       });
       await this.finalizeReprocessJob(emptyJob.id, 'success', {
         reason: 'no-transactions-for-origin',
@@ -440,8 +443,8 @@ export const creditCardStatementService = {
     }
 
     const ordered = [...txs].sort(sortByDateDesc);
-    const fromDate = new Date(ordered[ordered.length - 1].Data).toISOString().slice(0, 10);
-    const toDate = new Date(ordered[0].Data).toISOString().slice(0, 10);
+    const fromDate = toDateOnlyIso(ordered[ordered.length - 1].Data);
+    const toDate = toDateOnlyIso(ordered[0].Data);
 
     const job = await this.createReprocessJob({
       userId: input.userId,
@@ -548,10 +551,10 @@ export const creditCardStatementService = {
 
   async removeOriginFromStatements(input: RemoveOriginInput): Promise<{ jobId: string; removedItems: number }> {
     const txs = input.deletedTransactions.filter((t) => t.ID_Conta === input.account.id && t.Origem === input.origin);
-    const fallbackDate = new Date().toISOString().slice(0, 10);
+    const fallbackDate = localTodayIso();
     const ordered = [...txs].sort(sortByDateDesc);
-    const fromDate = ordered.length > 0 ? new Date(ordered[ordered.length - 1].Data).toISOString().slice(0, 10) : fallbackDate;
-    const toDate = ordered.length > 0 ? new Date(ordered[0].Data).toISOString().slice(0, 10) : fallbackDate;
+    const fromDate = ordered.length > 0 ? toDateOnlyIso(ordered[ordered.length - 1].Data) : fallbackDate;
+    const toDate = ordered.length > 0 ? toDateOnlyIso(ordered[0].Data) : fallbackDate;
 
     const job = await this.createReprocessJob({
       userId: input.userId,
@@ -839,4 +842,3 @@ export const getCreditCardShadowDashboard = async (
     return b.absoluteDiff - a.absoluteDiff;
   });
 };
-

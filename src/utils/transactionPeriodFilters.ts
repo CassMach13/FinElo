@@ -1,4 +1,5 @@
 import type { Transaction } from '../types';
+import { parseDateOnlyLocal, toDateOnlyIso } from './dateOnly';
 
 export type TransactionPeriodPreset =
   | 'current_month'
@@ -186,7 +187,7 @@ export function getTransactionFilterDate(
     dateField === 'Pagamento'
       ? transaction.Data_Pagamento || transaction.Data
       : transaction.Data;
-  return new Date(source);
+  return parseDateOnlyLocal(source) ?? new Date(Number.NaN);
 }
 
 /** Parcelas, financiamentos e recorrências explícitas no lançamento. */
@@ -219,18 +220,12 @@ export function matchesTransactionFilters(
   }
 
   const applyDateFilter = shouldApplyDateFilter(filters);
-  const startDate = filters.startDate ? new Date(filters.startDate).getTime() : null;
-  const endDate = filters.endDate
-    ? new Date(
-        new Date(filters.endDate).setDate(new Date(filters.endDate).getDate() + 1)
-      ).getTime()
-    : null;
-
-  const transactionDate = getTransactionFilterDate(transaction, filters.dateField).setHours(
-    0,
-    0,
-    0,
-    0
+  const startDate = toDateOnlyIso(filters.startDate) || null;
+  const endDate = toDateOnlyIso(filters.endDate) || null;
+  const transactionDate = toDateOnlyIso(
+    filters.dateField === 'Pagamento'
+      ? transaction.Data_Pagamento || transaction.Data
+      : transaction.Data
   );
 
   const searchQuery = filters.text.trim().toLowerCase();
@@ -245,7 +240,9 @@ export function matchesTransactionFilters(
 
   const matchesDate =
     !applyDateFilter ||
-    ((!startDate || transactionDate >= startDate) && (!endDate || transactionDate < endDate));
+    (Boolean(transactionDate) &&
+      (!startDate || transactionDate >= startDate) &&
+      (!endDate || transactionDate <= endDate));
 
   const matchesOwner =
     options?.skipOwnerFilter ||

@@ -1,33 +1,28 @@
 import type { Account, Asset, Transaction } from '../types';
-
-function toLocalDateStr(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
+import { toDateOnlyIso } from './dateOnly';
 
 export function computeAccountBalanceAsOf(
   account: Account,
   transactions: Transaction[],
   asOfDate: Date
 ): number {
-  const cutoffStr = toLocalDateStr(asOfDate);
-  const cutoffTime = asOfDate.getTime();
+  const cutoffStr = toDateOnlyIso(asOfDate);
   const isCreditCard = account.Tipo_Conta === 'Cartão de Crédito';
-  const initialBalanceDate = new Date(account.Data_Saldo_Inicial).getTime();
+  const initialBalanceDate = toDateOnlyIso(account.Data_Saldo_Inicial);
 
   const relevantTransactionsSum = transactions
     .filter((t) => {
       if (t.ID_Conta !== account.id) return false;
-      const transactionPurchaseDate = new Date(t.Data).getTime();
+      const transactionPurchaseDate = toDateOnlyIso(t.Data);
+      if (!transactionPurchaseDate || !initialBalanceDate) return false;
 
       if (isCreditCard) {
         return (
-          transactionPurchaseDate > initialBalanceDate && transactionPurchaseDate <= cutoffTime
+          transactionPurchaseDate > initialBalanceDate && transactionPurchaseDate <= cutoffStr
         );
       }
 
-      const paymentDateStr = t.Data_Pagamento
-        ? toLocalDateStr(new Date(t.Data_Pagamento))
-        : toLocalDateStr(new Date(t.Data));
+      const paymentDateStr = toDateOnlyIso(t.Data_Pagamento || t.Data);
       return transactionPurchaseDate > initialBalanceDate && paymentDateStr <= cutoffStr;
     })
     .reduce((sum, t) => sum + t.Valor, 0);

@@ -3,6 +3,7 @@ import { Transaction } from '../../types';
 import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 import PeriodCompareColumns from '../ui/PeriodCompareColumns';
 import PeriodCompareLegend from '../ui/PeriodCompareLegend';
+import { parseDateOnlyLocal } from '../../utils/dateOnly';
 
 interface ChartProps {
   data: Transaction[];
@@ -19,7 +20,7 @@ interface ChartProps {
 
 type MonthBucket = { name: string; Renda: number; Despesa: number; Saldo: number };
 
-function buildMonthBuckets(
+export function buildMonthBuckets(
   data: Transaction[],
   viewMode: ChartProps['viewMode'],
   selectedDate: Date
@@ -56,7 +57,8 @@ function buildMonthBuckets(
   }
 
   data.forEach((t) => {
-    const effectiveDate = t.Data_Pagamento ? new Date(t.Data_Pagamento) : new Date(t.Data);
+    const effectiveDate = parseDateOnlyLocal(t.Data_Pagamento || t.Data);
+    if (!effectiveDate) return;
     const key = `${effectiveDate.getFullYear()}-${effectiveDate.getMonth()}`;
     if (!monthsMap.has(key)) return;
     const entry = monthsMap.get(key)!;

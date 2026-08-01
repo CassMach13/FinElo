@@ -1,6 +1,5 @@
 src/components/help/HelpCenterBrowse.tsx TS2322: Type '{ key: any; topic: any; query: any; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }' is not assignable to type '{ topic: HelpTopic; query: string; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }'.
 src/components/help/HelpCenterBrowse.tsx TS2322: Type '{ key: any; topic: any; query: any; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }' is not assignable to type '{ topic: HelpTopic; query: string; expanded: boolean; onToggle: () => void; onAction: (topic: HelpTopic) => void; }'.
-src/components/views/TransactionsView.tsx TS2339: Property 'split' does not exist on type 'never'.
 src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.
 src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.
 src/components/views/TransactionsView.tsx TS2322: Type 'string' is not assignable to type 'Date'.

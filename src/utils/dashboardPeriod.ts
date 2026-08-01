@@ -62,6 +62,7 @@ export function getDashboardDateRange(input: DashboardPeriodInput): DateRange {
 
 export function shiftAnchorBack(date: Date, viewMode: DashboardViewMode): Date {
   const next = new Date(date);
+  if (viewMode !== 'custom') next.setDate(1);
   if (viewMode === 'monthly') next.setMonth(next.getMonth() - 1);
   else if (viewMode === 'quarterly') next.setMonth(next.getMonth() - 3);
   else if (viewMode === 'semiannual') next.setMonth(next.getMonth() - 6);
@@ -71,6 +72,7 @@ export function shiftAnchorBack(date: Date, viewMode: DashboardViewMode): Date {
 
 export function shiftAnchorForward(date: Date, viewMode: DashboardViewMode): Date {
   const next = new Date(date);
+  if (viewMode !== 'custom') next.setDate(1);
   if (viewMode === 'monthly') next.setMonth(next.getMonth() + 1);
   else if (viewMode === 'quarterly') next.setMonth(next.getMonth() + 3);
   else if (viewMode === 'semiannual') next.setMonth(next.getMonth() + 6);

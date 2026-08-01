@@ -12,6 +12,7 @@ import {
   pickOldestOpenCompetenceCard,
 } from '../../services/creditCardDirectedPayment';
 import type { Account, Category } from '../../types';
+import { localTodayIso } from '../../utils/dateOnly';
 
 export interface PayCreditCardInvoiceModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   const incomeCategories = useMemo(() => incomeCategoriesForPayment(categories), [categories]);
 
   const [referenceMonth, setReferenceMonth] = useState('');
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useState(() => localTodayIso());
   const [amountDraft, setAmountDraft] = useState('');
   const [category, setCategory] = useState('');
   const [sourceAccountId, setSourceAccountId] = useState('');
@@ -82,7 +83,7 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
     const oldest = pickOldestOpenCompetenceCard(competenceCards);
     const ref = oldest?.referenceMonth || openCards[0]?.referenceMonth || '';
     setReferenceMonth(ref);
-    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentDate(localTodayIso());
     const suggested =
       oldest && oldest.openBalance > 0.005
         ? oldest.openBalance
