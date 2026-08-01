@@ -28,6 +28,7 @@ export interface TransactionFiltersState {
 
 export const TRANSACTION_FILTERS_STORAGE_KEY = 'finelo_transaction_filters_v1';
 export const TRANSACTION_FILTERS_PANEL_EXPANDED_KEY = 'finelo_transactions_filters_expanded';
+export const UNASSIGNED_ACCOUNT_FILTER_ID = '__finelo_unassigned_account__';
 
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 
@@ -248,14 +249,18 @@ export function matchesTransactionFilters(
     options?.skipOwnerFilter ||
     !filters.ownerUserId ||
     options?.getTransactionOwnerId?.(transaction) === filters.ownerUserId;
+  const matchesAccount =
+    filters.accountId.length === 0 ||
+    (transaction.ID_Conta
+      ? filters.accountId.includes(transaction.ID_Conta)
+      : filters.accountId.includes(UNASSIGNED_ACCOUNT_FILTER_ID));
 
   return (
     matchesText &&
     matchesDate &&
     matchesOwner &&
     (filters.category.length === 0 || filters.category.includes(transaction.Categoria)) &&
-    (filters.accountId.length === 0 ||
-      (transaction.ID_Conta && filters.accountId.includes(transaction.ID_Conta))) &&
+    matchesAccount &&
     (filters.type === '' || transaction.Tipo === filters.type)
   );
 }

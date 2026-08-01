@@ -70,3 +70,13 @@ export const isOpenFinanceEnabled = (user?: UserWithMetadata): boolean => {
   return user?.user_metadata?.open_finance_enabled === true;
 };
 
+/**
+ * Importação atômica da Sprint 1A. Desligada por padrão e habilitada somente
+ * no ambiente que declarar explicitamente a flag (primeiro: staging).
+ */
+export const isAtomicImportEnabled = (user?: UserWithMetadata): boolean => {
+  if (!user?.id) return false;
+  if (user.user_metadata?.atomic_imports_disabled === true) return false;
+  return import.meta.env.VITE_ATOMIC_IMPORTS_ENABLED === 'true';
+};
+

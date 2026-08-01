@@ -24,7 +24,12 @@ import {
 } from '../types';
 import { User } from '@supabase/supabase-js';
 import { getDefaultTransactionFilters } from '../utils/transactionPeriodFilters';
-import { isCardV2Enabled, isCardV2ShadowEnabled, isCreditCardEngineEnabled } from '../services/featureFlagService';
+import {
+  isAtomicImportEnabled,
+  isCardV2Enabled,
+  isCardV2ShadowEnabled,
+  isCreditCardEngineEnabled,
+} from '../services/featureFlagService';
 import { creditCardStatementService, CreditCardShadowDashboardRow, getCreditCardShadowDashboard, CardClassifierRules, CardClassifierOverrides } from '../services/creditCardStatementService';
 import { creditCardEngineService, parseCreditCardReferenceFromFileName } from '../services/creditCardEngineService';
 import { creditCardMigrationService } from '../services/creditCardMigrationService';
@@ -43,6 +48,10 @@ import {
   prepareManualPurchaseCompetenceOnPaymentDateEdit,
   referenceMonthFromTransaction,
 } from '../services/creditCardManualCompetence';
+import {
+  buildStructuredImportFingerprint,
+  isSha256Fingerprint,
+} from '../utils/importBatchIntegrity';
 
 const parseClassifierKeywords = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -221,6 +230,8 @@ interface AppState {
     options?: {
       cardCycle?: CardImportCycleInput;
       creditCardFileTotals?: { statementTotal?: number; totalPayments?: number };
+      /** SHA-256 do conteúdo bruto + conta; não inclui o nome do arquivo. */
+      batchFingerprint?: string;
     }
   ) => Promise<{ imported: number, ignored: number }>;
   updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
@@ -1720,18 +1731,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { imported: 0, ignored: 0 };
 
-    // Política de proteção simplificada:
-    // bloquear apenas quando o nome do arquivo já foi importado pelo usuário.
-    const { data: existingFileLog, error: existingFileLogError } = await supabase
-      .from('import_logs')
-      .select('id')
-      .eq('file_name', fileName)
-      .limit(1);
-    if (existingFileLogError) {
-      throw new Error(`Não foi possível validar duplicidade de arquivo: ${existingFileLogError.message}`);
-    }
-    if ((existingFileLog || []).length > 0) {
-      throw new Error(`Arquivo já importado anteriormente (${fileName}). Renomeie o arquivo se quiser importar novamente.`);
+    const atomicImportEnabled = isAtomicImportEnabled(user);
+
+    // Compatibilidade: com a flag desligada, o fluxo atual segue igual. Em
+    // staging, a identidade passa a ser conteúdo + conta e ignora o nome.
+    if (!atomicImportEnabled) {
+      const { data: existingFileLog, error: existingFileLogError } = await supabase
+        .from('import_logs')
+        .select('id')
+        .eq('file_name', fileName)
+        .limit(1);
+      if (existingFileLogError) {
+        throw new Error(`Não foi possível validar duplicidade de arquivo: ${existingFileLogError.message}`);
+      }
+      if ((existingFileLog || []).length > 0) {
+        throw new Error(`Arquivo já importado anteriormente (${fileName}). Renomeie o arquivo se quiser importar novamente.`);
+      }
     }
 
     const normalizeCardCycle = (input?: CardImportCycleInput): CardImportCycleInput | undefined => {
@@ -1761,98 +1776,145 @@ export const useAppStore = create<AppState>((set, get) => ({
       ID_Conta: importConfig.ID_Conta_Associada || null,
     }));
 
-    // 3. Insert new transactions
+    const targetAccount = get().accounts.find(a => a.id === importConfig.ID_Conta_Associada);
+    let allIgnoredDetails = [...duplicates, ...ignoredItems];
     let insertedBatch: Transaction[] = [];
-    /** Erro bulk insert (quando há; `select()` vazio não indica erro se `error` vier preenchido). */
-    let bulkInsertErrorMessage: string | null = null;
-    if (transactionsWithContext.length > 0) {
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert(transactionsWithContext)
-        .select();
+    let imported_count_saved = 0;
 
+    if (atomicImportEnabled) {
+      const fingerprint =
+        options?.batchFingerprint ||
+        (await buildStructuredImportFingerprint(
+          newTransactions,
+          importConfig.ID_Conta_Associada || null
+        ));
+      if (!isSha256Fingerprint(fingerprint)) {
+        throw new Error('A impressão digital do arquivo é inválida; nenhuma transação foi gravada.');
+      }
+
+      const { data, error } = await supabase.rpc('import_transactions_atomic', {
+        p_fingerprint: fingerprint,
+        p_file_name: fileName,
+        p_account_id: importConfig.ID_Conta_Associada || null,
+        p_transactions: transactionsWithContext,
+        p_total_transactions: newTransactions.length + ignoredItems.length,
+        p_ignored_details: allIgnoredDetails,
+        p_detail_context: {
+          Conta_Nome: targetAccount?.Nome_Conta || null,
+          Card_Cycle_Mode: normalizedCardCycle?.mode || null,
+          Card_Reference_Label: normalizedCardCycle?.referenceLabel || null,
+          Card_Due_Date: normalizedCardCycle?.dueDate || null,
+        },
+      });
       if (error) {
-        bulkInsertErrorMessage = error.message;
-        console.error('Erro ao adicionar múltiplas transações:', error);
-      } else if (data) {
-        insertedBatch = data as Transaction[];
-        const attempted = transactionsWithContext.length;
-        const got = insertedBatch.length;
-        if (got !== attempted) {
-          console.error(
-            '[addMultipleTransactions] Divergência pós-insert: linhas tentadas:',
-            attempted,
-            'persistidas conforme retorno da API:',
-            got,
-            '— log de importação gravará apenas com len(imported_details) === imported_count.'
-          );
-        }
-        set((state) => ({ transactions: [...state.transactions, ...insertedBatch] }));
+        throw new Error(`Importação atômica cancelada sem gravações parciais: ${error.message}`);
+      }
 
-        // Automação: Atualizar saldo do patrimônio para a nova leva se houver vínculo
-        const affectedAssetIds = new Set(insertedBatch.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
-        for (const assetId of affectedAssetIds) {
-          await get().recalculateAssetBalance(assetId);
+      const atomicResult = data as {
+        duplicate?: boolean;
+        transactions?: Transaction[];
+        import_log?: ImportLog;
+      } | null;
+      if (atomicResult?.duplicate) {
+        throw new Error(
+          'Este mesmo conteúdo já foi importado anteriormente nesta conta. Renomear o arquivo não cria um novo lote.'
+        );
+      }
+
+      insertedBatch = Array.isArray(atomicResult?.transactions)
+        ? atomicResult!.transactions!
+        : [];
+      imported_count_saved = insertedBatch.length;
+      allIgnoredDetails = Array.isArray(atomicResult?.import_log?.ignored_details)
+        ? atomicResult!.import_log!.ignored_details
+        : allIgnoredDetails;
+      void get().fetchImportLogs();
+    } else {
+      /** Erro bulk insert (quando há; `select()` vazio não indica erro se `error` vier preenchido). */
+      let bulkInsertErrorMessage: string | null = null;
+      if (transactionsWithContext.length > 0) {
+        const { data, error } = await supabase
+          .from('transactions')
+          .insert(transactionsWithContext)
+          .select();
+
+        if (error) {
+          bulkInsertErrorMessage = error.message;
+          console.error('Erro ao adicionar múltiplas transações:', error);
+        } else if (data) {
+          insertedBatch = data as Transaction[];
+          const attempted = transactionsWithContext.length;
+          const got = insertedBatch.length;
+          if (got !== attempted) {
+            console.error(
+              '[addMultipleTransactions] Divergência pós-insert: linhas tentadas:',
+              attempted,
+              'persistidas conforme retorno da API:',
+              got,
+              '— log de importação gravará apenas com len(imported_details) === imported_count.'
+            );
+          }
         }
       }
+
+      const attemptedCount = transactionsWithContext.length;
+      const persistedCount = insertedBatch.length;
+      const imported_details_payload =
+        persistedCount > 0
+          ? insertedBatch.map((tx) => ({
+              ID_Transacao: tx.ID_Transacao,
+              Origem: tx.Origem ?? null,
+              Data: tx.Data,
+              Descricao: tx.Descricao_Original,
+              Nome_Fantasia: tx.Nome_Fantasia,
+              Valor: tx.Valor,
+              Categoria: tx.Categoria,
+              ID_Conta: tx.ID_Conta || null,
+              Conta_Nome: targetAccount?.Nome_Conta || null,
+              Card_Cycle_Mode: normalizedCardCycle?.mode || null,
+              Card_Reference_Label: normalizedCardCycle?.referenceLabel || null,
+              Card_Due_Date: normalizedCardCycle?.dueDate || null,
+            }))
+          : [];
+
+      if (attemptedCount > 0 && persistedCount === 0) {
+        allIgnoredDetails = [
+          ...allIgnoredDetails,
+          {
+            Motivo:
+              bulkInsertErrorMessage ??
+              'API não retornou linhas após insert (verifique erro de rede, RLS ou constraints).',
+            Esperadas: attemptedCount,
+          },
+        ];
+      }
+
+      imported_count_saved = imported_details_payload.length;
+      const logEntry = {
+        user_id: user.id,
+        file_name: fileName,
+        total_transactions: newTransactions.length + ignoredItems.length,
+        imported_count: imported_count_saved,
+        ignored_count: allIgnoredDetails.length,
+        ignored_details: allIgnoredDetails,
+        imported_details: imported_details_payload,
+      };
+
+      const { error: logError } = await supabase.from('import_logs').insert([logEntry]);
+      if (logError) console.error('Erro ao salvar log de importação:', logError);
+      else void get().fetchImportLogs();
     }
 
-    // 4. Log the import result
-    // Combine duplicates found here with ignored items passed from parser
-    let allIgnoredDetails = [...duplicates, ...ignoredItems];
+    if (insertedBatch.length > 0) {
+      set((state) => ({ transactions: [...state.transactions, ...insertedBatch] }));
 
-    const targetAccount = get().accounts.find(a => a.id === importConfig.ID_Conta_Associada);
-
-    const attemptedCount = transactionsWithContext.length;
-    const persistedCount = insertedBatch.length;
-
-    /** Só usar linhas efetivamente retornadas pelo insert+.select(); nunca declarar mais importações que entries no JSON (evita 125 vs 124 no histórico). */
-    let imported_details_payload =
-      persistedCount > 0
-        ? insertedBatch.map((tx) => ({
-            ID_Transacao: tx.ID_Transacao,
-            Origem: tx.Origem ?? null,
-            Data: tx.Data,
-            Descricao: tx.Descricao_Original,
-            Nome_Fantasia: tx.Nome_Fantasia,
-            Valor: tx.Valor,
-            Categoria: tx.Categoria,
-            ID_Conta: tx.ID_Conta || null,
-            Conta_Nome: targetAccount?.Nome_Conta || null,
-            Card_Cycle_Mode: normalizedCardCycle?.mode || null,
-            Card_Reference_Label: normalizedCardCycle?.referenceLabel || null,
-            Card_Due_Date: normalizedCardCycle?.dueDate || null,
-          }))
-        : [];
-
-    if (attemptedCount > 0 && persistedCount === 0) {
-      allIgnoredDetails = [
-        ...allIgnoredDetails,
-        {
-          Motivo:
-            bulkInsertErrorMessage ??
-            'API não retornou linhas após insert (verifique erro de rede, RLS ou constraints).',
-          Esperadas: attemptedCount,
-        },
-      ];
+      const affectedAssetIds = new Set(
+        insertedBatch.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string)
+      );
+      for (const assetId of affectedAssetIds) {
+        await get().recalculateAssetBalance(assetId);
+      }
     }
-
-    /** Contagem persistida deve coincidir sempre com imported_details_payload.length */
-    const imported_count_saved = imported_details_payload.length;
-
-    const logEntry = {
-      user_id: user.id,
-      file_name: fileName,
-      total_transactions: newTransactions.length + ignoredItems.length, // Linhas vistas pelo parser + ignoradas por ele
-      imported_count: imported_count_saved,
-      ignored_count: allIgnoredDetails.length,
-      ignored_details: allIgnoredDetails,
-      imported_details: imported_details_payload,
-    };
-
-    const { error: logError } = await supabase.from('import_logs').insert([logEntry]);
-    if (logError) console.error('Erro ao salvar log de importação:', logError);
-    else get().fetchImportLogs(); // Refresh logs
 
     // 5. Card engine processing (single source of truth)
     if (insertedBatch.length > 0 && shouldAutoSyncCreditCardLedger(user)) {

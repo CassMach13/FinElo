@@ -94,6 +94,7 @@ import {
   savePersistedTransactionFilters,
   saveTransactionFiltersPanelExpanded,
   matchesTransactionFilters,
+  UNASSIGNED_ACCOUNT_FILTER_ID,
   type TransactionFiltersState,
   type TransactionPeriodPreset,
   type TransactionViewScope,
@@ -2320,7 +2321,7 @@ const TransactionsView: React.FC = () => {
         Categoria: t.Categoria || '',
         Tipo: t.Tipo || '',
         Valor: t.Valor,
-        Conta: accountsMap.get(t.ID_Conta) || 'N/A',
+        Conta: t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta desconhecida' : 'Sem conta',
         Parcelas: t.Parcela_Atual ? `${t.Parcela_Atual}/${t.Total_Parcelas || 1}` : '',
         Tags: t.Tags ? t.Tags.join(', ') : '',
         Observações: t.Observacoes || '',
@@ -2428,6 +2429,10 @@ const TransactionsView: React.FC = () => {
   }, []);
 
   const periodSummary = useMemo(() => formatPeriodLabel(transactionFilters), [transactionFilters]);
+  const unassignedTransactionCount = useMemo(
+    () => transactions.filter((transaction) => !transaction.ID_Conta).length,
+    [transactions]
+  );
   const filtersCollapsedSummary = useMemo(
     () => buildTransactionFiltersCollapsedSummary(transactionFilters),
     [transactionFilters]
@@ -2641,6 +2646,16 @@ const TransactionsView: React.FC = () => {
 
   const handleAccountFilterChange = (selectedAccounts: string[]) => {
     applyTransactionFilters({ accountId: selectedAccounts });
+  };
+
+  const handleShowUnassignedTransactions = () => {
+    applyTransactionFilters({
+      accountId: [UNASSIGNED_ACCOUNT_FILTER_ID],
+      viewScope: 'all',
+      periodPreset: 'all',
+      startDate: '',
+      endDate: '',
+    });
   };
 
   const handleSaveCategory = async (categoryData: Omit<Category, 'id'>) => {
@@ -2993,10 +3008,18 @@ const TransactionsView: React.FC = () => {
                 <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <MultiSelect
                     label="Conta"
-                    options={accounts.map((a) => ({
-                      label: a.is_archived ? `${a.Nome_Conta} (Arquivada)` : a.Nome_Conta,
-                      value: a.id,
-                    }))}
+                    options={[
+                      ...(unassignedTransactionCount > 0
+                        ? [{
+                            label: `Sem conta (${unassignedTransactionCount})`,
+                            value: UNASSIGNED_ACCOUNT_FILTER_ID,
+                          }]
+                        : []),
+                      ...accounts.map((a) => ({
+                        label: a.is_archived ? `${a.Nome_Conta} (Arquivada)` : a.Nome_Conta,
+                        value: a.id,
+                      })),
+                    ]}
                     value={transactionFilters.accountId}
                     onChange={handleAccountFilterChange}
                     placeholder="Todas"
@@ -3032,6 +3055,25 @@ const TransactionsView: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {unassignedTransactionCount > 0 && (
+        <div
+          className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3"
+          role="status"
+        >
+          <div>
+            <p className="text-sm font-bold text-amber-200">
+              {unassignedTransactionCount} lançamento{unassignedTransactionCount === 1 ? '' : 's'} sem conta
+            </p>
+            <p className="text-xs text-amber-100/70 mt-0.5">
+              Os dados continuam no histórico, mas não entram em saldos filtrados por conta.
+            </p>
+          </div>
+          <Button variant="secondary" onClick={handleShowUnassignedTransactions}>
+            Ver lançamentos
+          </Button>
+        </div>
+      )}
 
       <div id="transactions-balances" className="space-y-8 mb-6">
         {regularBalanceAccounts.length > 0 && (
@@ -3239,7 +3281,7 @@ const TransactionsView: React.FC = () => {
                     </span>
                     <span className="text-xs text-slate-200 truncate flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
-                      {accountsMap.get(t.ID_Conta) || 'Conta Desconhecida'}
+                      {t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta Desconhecida' : 'Sem conta'}
                     </span>
                   </div>
 

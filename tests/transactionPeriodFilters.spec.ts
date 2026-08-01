@@ -10,6 +10,7 @@ import {
   shouldApplyDateFilter,
   matchesTransactionFilters,
   TRANSACTION_FILTERS_PANEL_EXPANDED_KEY,
+  UNASSIGNED_ACCOUNT_FILTER_ID,
 } from '../src/utils/transactionPeriodFilters';
 import type { Transaction } from '../src/types';
 
@@ -121,5 +122,29 @@ describe('transactionPeriodFilters', () => {
     expect(matchesTransactionFilters(makeTx('2026-08-31'), filters)).toBe(true);
     expect(matchesTransactionFilters(makeTx('2026-07-31'), filters)).toBe(false);
     expect(matchesTransactionFilters(makeTx('2026-09-01'), filters)).toBe(false);
+  });
+
+  it('permite localizar transações sem conta sem misturá-las às contas existentes', () => {
+    const base = {
+      Data: '2026-08-01',
+      Nome_Fantasia: 'Teste',
+      Descricao_Original: 'Teste',
+      Valor: -10,
+      Tipo: 'Despesa',
+      Categoria: 'Teste',
+      Origem: 'arquivo.csv',
+      Fonte: 'Importação',
+    } as Transaction;
+    const filters = {
+      ...getDefaultTransactionFilters(),
+      viewScope: 'all' as const,
+      periodPreset: 'all' as const,
+      startDate: '',
+      endDate: '',
+      accountId: [UNASSIGNED_ACCOUNT_FILTER_ID],
+    };
+
+    expect(matchesTransactionFilters(base, filters)).toBe(true);
+    expect(matchesTransactionFilters({ ...base, ID_Conta: 'account-a' }, filters)).toBe(false);
   });
 });

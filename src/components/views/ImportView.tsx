@@ -22,6 +22,7 @@ import {
   getDistinctCardImportReferenceMonths,
   resolveAutomaticCardReferenceMonth,
 } from '../../utils/cardImportReference';
+import { buildFileImportFingerprint } from '../../utils/importBatchIntegrity';
 
 // --- BankCard: reusable card with favorite star toggle ---
 interface BankCardProps {
@@ -535,7 +536,14 @@ const ImportView: React.FC = () => {
           fakeConfig as any,
           selectedFile.name,
           result.ignoredItems,
-          { cardCycle: resolvedCardCycle, creditCardFileTotals: result.creditCardFileTotals }
+          {
+            cardCycle: resolvedCardCycle,
+            creditCardFileTotals: result.creditCardFileTotals,
+            batchFingerprint: await buildFileImportFingerprint(
+              selectedFile,
+              selectedNativeAccountId || null
+            ),
+          }
         );
         setNotification({
           type: 'success',
@@ -719,7 +727,13 @@ const ImportView: React.FC = () => {
           effectiveConfig as any,
           file!.name,
           result.ignoredItems,
-          { cardCycle: resolvedCardCycle }
+          {
+            cardCycle: resolvedCardCycle,
+            batchFingerprint: await buildFileImportFingerprint(
+              file!,
+              (effectiveConfig as ImportConfig).ID_Conta_Associada || null
+            ),
+          }
         );
         setNotification({
           type: 'success',

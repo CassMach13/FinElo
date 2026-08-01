@@ -22,6 +22,10 @@ import {
 } from '../domain/credit-card/types';
 import { sumInvoicePaymentsFromClassifiedEntries } from '../utils/parseCreditCardFileTotals';
 import { toDateOnlyIso } from '../utils/dateOnly';
+import {
+  planCreditCardEntryPersistence,
+  type ExistingCreditCardEntryIdentity,
+} from '../utils/creditCardEntryIntegrity';
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
@@ -1055,10 +1059,40 @@ export const creditCardEngineService = {
       statement_id: statementId,
     }));
 
-    const { error: entriesUpsertError } = await supabase
-      .from('credit_card_entries')
-      .upsert(insertRows, { onConflict: 'card_id,source_file_name,source_row_hash' });
-    if (entriesUpsertError) throw entriesUpsertError;
+    const incomingTransactionIds = [
+      ...new Set(insertRows.map((row) => row.transaction_id).filter(Boolean)),
+    ] as string[];
+    const existingProjectionRows: ExistingCreditCardEntryIdentity[] = [];
+    for (let index = 0; index < incomingTransactionIds.length; index += 200) {
+      const chunk = incomingTransactionIds.slice(index, index + 200);
+      const { data: existingData, error: existingError } = await supabase
+        .from('credit_card_entries')
+        .select('id,transaction_id,card_id,account_id,source_file_name,source_row_hash')
+        .in('transaction_id', chunk);
+      if (existingError) throw existingError;
+      existingProjectionRows.push(...((existingData || []) as ExistingCreditCardEntryIdentity[]));
+    }
+
+    const persistencePlan = planCreditCardEntryPersistence(insertRows, existingProjectionRows);
+
+    if (persistencePlan.upserts.length > 0) {
+      const { error: entriesUpsertError } = await supabase
+        .from('credit_card_entries')
+        .upsert(persistencePlan.upserts, { onConflict: 'card_id,source_file_name,source_row_hash' });
+      if (entriesUpsertError) throw entriesUpsertError;
+    }
+
+    for (const update of persistencePlan.updates) {
+      // transaction_id é a identidade imutável: atualizamos a projeção existente
+      // pelo id em vez de inserir outra linha quando data/descrição/hash mudarem.
+      const { transaction_id: transactionId, ...updatePayload } = update.row;
+      const { error: entryUpdateError } = await supabase
+        .from('credit_card_entries')
+        .update(updatePayload)
+        .eq('id', update.id)
+        .eq('transaction_id', transactionId!);
+      if (entryUpdateError) throw entryUpdateError;
+    }
 
     await this.pruneOrphanEntriesForImportSource({
       cardId: ensuredCard.id,
