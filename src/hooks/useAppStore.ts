@@ -2678,46 +2678,87 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const transactionsByOrigin = get().transactions.filter(t => t.Origem === fileName);
+    const atomicImportEnabled = isAtomicImportEnabled(user);
+    let deletedTransactions: Transaction[] = [];
 
-    // 1. Delete transactions from this import
-    console.log(`[deleteImportLog] Tentando excluir transações com Origem = "${fileName}"...`);
-    const { error: txError, count } = await supabase
-      .from('transactions')
-      .delete({ count: 'exact' }) // Request count of deleted rows
-      .eq('Origem', fileName)
-      .eq('user_id', user.id);
+    if (atomicImportEnabled) {
+      const { data, error } = await supabase.rpc('delete_import_batch_atomic', {
+        p_import_log_id: logId,
+      });
+      if (error) {
+        console.error('[deleteImportLog] Exclusão atômica cancelada:', error);
+        await appAlert(
+          `Exclusão cancelada sem alterar dados: ${error.message}`,
+          'Lote não excluído',
+          'danger'
+        );
+        return;
+      }
 
-    if (txError) {
-      console.error('[deleteImportLog] Erro ao deletar transações:', txError);
-      await appAlert('Erro ao deletar transações associadas. O log não será apagado.', 'Erro', 'danger');
-      return;
-    }
-    console.log(`[deleteImportLog] Transações deletadas: ${count}`);
-
-    // 2. Delete the log entry
-    console.log(`[deleteImportLog] Tentando excluir log com ID = "${logId}"...`);
-    const { error: logError } = await supabase
-      .from('import_logs')
-      .delete()
-      .eq('id', logId);
-
-    if (logError) {
-      console.error('[deleteImportLog] Erro ao deletar log:', logError);
-      await appAlert('Transações deletadas, mas erro ao apagar o log. Verifique as permissões (RLS) no Supabase.', 'Erro', 'danger');
+      const result = data as {
+        deleted_count?: number;
+        deleted_transactions?: Transaction[];
+      } | null;
+      deletedTransactions = Array.isArray(result?.deleted_transactions)
+        ? result!.deleted_transactions!
+        : [];
+      if (Number(result?.deleted_count ?? 0) !== deletedTransactions.length) {
+        await get().fetchAllData();
+        await appAlert(
+          'O servidor concluiu a exclusão, mas a resposta ficou inconsistente. Os dados foram recarregados para conferência.',
+          'Conferência necessária',
+          'warning'
+        );
+        return;
+      }
+      console.log(`[deleteImportLog] Exclusão atômica removeu ${deletedTransactions.length} transações exatas.`);
     } else {
-      console.log('[deleteImportLog] Log excluído com sucesso.');
+      // Compatibilidade da produção enquanto a flag permanece desligada.
+      deletedTransactions = get().transactions.filter(t => t.Origem === fileName);
+      console.log(`[deleteImportLog] Tentando excluir transações com Origem = "${fileName}"...`);
+      const { error: txError, count } = await supabase
+        .from('transactions')
+        .delete({ count: 'exact' })
+        .eq('Origem', fileName)
+        .eq('user_id', user.id);
+
+      if (txError) {
+        console.error('[deleteImportLog] Erro ao deletar transações:', txError);
+        await appAlert('Erro ao deletar transações associadas. O log não será apagado.', 'Erro', 'danger');
+        return;
+      }
+      console.log(`[deleteImportLog] Transações deletadas: ${count}`);
+
+      console.log(`[deleteImportLog] Tentando excluir log com ID = "${logId}"...`);
+      const { error: logError } = await supabase
+        .from('import_logs')
+        .delete()
+        .eq('id', logId);
+
+      if (logError) {
+        console.error('[deleteImportLog] Erro ao deletar log:', logError);
+        await appAlert('Transações deletadas, mas erro ao apagar o log. Verifique as permissões (RLS) no Supabase.', 'Erro', 'danger');
+        return;
+      }
+    }
+
+    console.log('[deleteImportLog] Log excluído com sucesso.');
       
       // Identify affected assets BEFORE updating local state
       const affectedAssetIds = new Set(
-        get().transactions
-          .filter(t => t.Origem === fileName && t.linked_asset_id)
+        deletedTransactions
+          .filter(t => t.linked_asset_id)
           .map(t => t.linked_asset_id as string)
       );
 
+      const deletedTransactionIds = new Set(
+        deletedTransactions.map(t => t.ID_Transacao).filter(Boolean)
+      );
       set((state) => ({
         importLogs: state.importLogs.filter(l => l.id !== logId),
-        transactions: state.transactions.filter(t => t.Origem !== fileName)
+        transactions: atomicImportEnabled
+          ? state.transactions.filter(t => !deletedTransactionIds.has(t.ID_Transacao))
+          : state.transactions.filter(t => t.Origem !== fileName)
       }));
 
       console.log('[deleteImportLog] Estado local atualizado.');
@@ -2732,7 +2773,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const cardAccounts = get().accounts.filter(a => a.Tipo_Conta === 'Cartão de Crédito');
         const groupedByAccount = new Map<string, Transaction[]>();
 
-        transactionsByOrigin.forEach((tx) => {
+        deletedTransactions.forEach((tx) => {
           if (!tx.ID_Conta) return;
           const account = cardAccounts.find((a) => a.id === tx.ID_Conta);
           if (!account) return;
@@ -2752,6 +2793,17 @@ export const useAppStore = create<AppState>((set, get) => ({
               origin: fileName,
               deletedTransactions: deletedTx,
             });
+            if (
+              atomicImportEnabled &&
+              get().transactions.some(t => t.ID_Conta === accountId && t.Origem === fileName)
+            ) {
+              await syncImportedCardOrigin({
+                getState: () => ({ transactions: get().transactions, accounts: get().accounts }),
+                user,
+                accountId,
+                origin: fileName,
+              });
+            }
           } catch (autoError) {
             console.error('[CardV2][Auto] Falha ao sincronizar exclusão de importação:', autoError);
           }
@@ -2764,7 +2816,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       await appAlert('Importação e transações associadas excluídas com sucesso!', 'Sucesso', 'success');
-    }
   },
 
   syncLegacyImportLogs: async () => {

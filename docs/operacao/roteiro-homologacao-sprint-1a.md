@@ -21,10 +21,11 @@ Antes da homologação manual, devem estar verdes:
 ## Preparação da conta de teste
 
 1. Entrar na conta principal de staging.
-2. Anotar o total atual de transações e a quantidade de logs de importação.
-3. Usar somente contas e cartões com prefixo `STG-QA`.
-4. Se os lotes abaixo já existirem, excluir apenas esses lotes pelo histórico de importação antes de começar.
-5. Não usar e-mail, arquivo ou dado de cliente de produção.
+2. Em `Transações`, abrir os filtros e selecionar `Período → Tudo`. Anotar o total exibido somente depois disso, pois o padrão `Este mês` oculta lançamentos de outros meses sem apagá-los.
+3. Anotar também a quantidade de logs de importação.
+4. Usar somente contas e cartões com prefixo `STG-QA`.
+5. Se os lotes abaixo já existirem, excluir apenas esses lotes pelo histórico de importação antes de começar.
+6. Não usar e-mail, arquivo ou dado de cliente de produção.
 
 Arquivos já versionados para o teste:
 
@@ -39,7 +40,7 @@ Arquivos já versionados para o teste:
 ## Teste A — idempotência por conteúdo
 
 1. Importar `01_nubank_conta_base_julho_2026.csv` na conta `STG-QA Conta`.
-2. Confirmar a quantidade informada pela tela e o aumento exato no total de transações.
+2. Voltar a `Transações`, manter `Período → Tudo` e confirmar `10 novas transações, 0 ignoradas` e o aumento exato de 10 no total geral. Em `Este mês` (agosto/2026), o contador não muda porque este arquivo contém datas de julho/2026.
 3. Importar `03_nubank_conta_base_julho_2026_RENOMEADO.csv` na mesma conta.
 
 Resultado obrigatório:
@@ -50,14 +51,17 @@ Resultado obrigatório:
 
 ## Teste B — valores iguais não são falsos duplicados
 
-1. Importar `02_nubank_conta_mesmos_valores_agosto_2026.csv` na mesma conta.
-2. Conferir cada data, descrição e valor.
+1. No histórico de importações, pesquisar `02_nubank_conta_mesmos_valores_agosto_2026.csv`. Se já existir um lote legado, não iniciar o teste até removê-lo com a exclusão exata da Sprint 1A.
+2. Importar `02_nubank_conta_mesmos_valores_agosto_2026.csv` na mesma conta.
+3. Conferir cada data, descrição e valor.
 
 Resultado obrigatório:
 
 - o lote de agosto é aceito;
 - todas as linhas legítimas são gravadas, mesmo contendo valores/descrições iguais aos de julho;
 - não há ignorados por regra aproximada.
+
+Se dois logs tiverem o mesmo nome, excluir um deles deve remover somente os IDs presentes no `imported_details` daquele log. Exclusão ampla por `Origem` reprova imediatamente a Sprint.
 
 ## Teste C — falha sem gravação parcial
 
