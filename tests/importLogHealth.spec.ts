@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildImportLogAlerts } from '../src/utils/importLogHealth';
+import {
+  auditImportLogLedger,
+  buildImportLogAlerts,
+  findImportLogsByTransactionId,
+} from '../src/utils/importLogHealth';
 import type { ImportLog } from '../src/types';
 
 const baseLog = (partial: Partial<ImportLog>): ImportLog => ({
@@ -124,5 +128,53 @@ describe('importLogHealth', () => {
     };
     const r = buildImportLogAlerts(log, ctx);
     expect(r.badges.some((b) => b.includes('Sem IDs'))).toBe(true);
+  });
+});
+
+describe('importLogLedgerAudit', () => {
+  it('distingue linhas ativas e excluidas pelo ID exato mesmo com nomes de arquivo iguais', () => {
+    const current = baseLog({
+      id: 'current',
+      file_name: 'mesmo-nome.csv',
+      imported_count: 2,
+      total_transactions: 2,
+      imported_details: [
+        { ID_Transacao: 'tx-active', Data: '2026-08-01', Valor: -10 },
+        { ID_Transacao: 'tx-deleted', Data: '2026-08-02', Valor: -20 },
+      ],
+    });
+    const sibling = baseLog({
+      id: 'sibling',
+      file_name: 'mesmo-nome.csv',
+      imported_details: [{ ID_Transacao: 'tx-sibling', Data: '2026-08-03', Valor: -30 }],
+    });
+    const transactions = [
+      { ID_Transacao: 'tx-active', Origem: 'mesmo-nome.csv' },
+      { ID_Transacao: 'tx-sibling', Origem: 'mesmo-nome.csv' },
+    ];
+
+    const audit = auditImportLogLedger(current, transactions);
+    expect(audit.state).toBe('partial');
+    expect(audit.activeTransactionIds).toEqual(['tx-active']);
+    expect(audit.deletedTransactionIds).toEqual(['tx-deleted']);
+    expect(buildImportLogAlerts(current, { transactions }).badges).toContain(
+      'Parcial no ledger (1/2 ativas)'
+    );
+    expect(findImportLogsByTransactionId([current, sibling], 'tx-sibling')).toEqual([sibling]);
+  });
+
+  it('marca log totalmente orfao sem usar transacoes de lote homonimo', () => {
+    const orphan = baseLog({
+      id: 'orphan',
+      file_name: 'duplicado.csv',
+      imported_details: [{ ID_Transacao: 'tx-missing', Data: '2026-08-01', Valor: -10 }],
+    });
+    const transactions = [{ ID_Transacao: 'tx-other-lot', Origem: 'duplicado.csv' }];
+
+    const audit = auditImportLogLedger(orphan, transactions);
+    expect(audit.state).toBe('removed');
+    const alerts = buildImportLogAlerts(orphan, { transactions });
+    expect(alerts.level).toBe('error');
+    expect(alerts.badges).toContain('Sem linhas ativas (0/1)');
   });
 });

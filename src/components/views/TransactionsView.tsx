@@ -18,7 +18,7 @@ import MultiSelect from './../ui/MultiSelect';
 import Select from './../ui/Select';
 import Button from './../ui/Button';
 import { TourButton } from '../TourButton';
-import { isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featureFlagService';
+import { isAtomicImportEnabled, isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featureFlagService';
 import { creditCardEngineService } from '../../services/creditCardEngineService';
 import { supabase } from '../../supabaseClient';
 
@@ -30,6 +30,7 @@ import {
   toDateOnlyIso,
 } from '../../utils/dateOnly';
 import { collectPaginatedRows } from '../../utils/paginatedFetch';
+import { findImportLogsByTransactionId, importLogTransactionIds } from '../../utils/importLogHealth';
 import CompetenceInvoiceBarChart from '../charts/CompetenceInvoiceBarChart';
 import {
   classifyCompetenceLedgerRole,
@@ -218,7 +219,7 @@ const TransactionsView: React.FC = () => {
     updateTransaction,
     deleteTransaction,
     deleteManualTransactions,
-    deleteTransactionsByOrigin,
+    deleteImportedBatchByTransaction,
     addMappingRule,
     transactionFilters,
     setTransactionFilters,
@@ -239,7 +240,12 @@ const TransactionsView: React.FC = () => {
   } = useAppStore();
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ transactionId: string; origin: string; count: number } | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    transactionId: string;
+    origin: string;
+    count: number;
+    exactTraceability: boolean;
+  } | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedManualIds, setSelectedManualIds] = useState<Set<string>>(() => new Set());
   const [sortConfig, setSortConfig] = useState<{ key: keyof Transaction; direction: 'ascending' | 'descending' }>({ key: 'Data', direction: 'descending' });
@@ -282,7 +288,24 @@ const TransactionsView: React.FC = () => {
   >(new Map());
   const [paymentConfirmationsReady, setPaymentConfirmationsReady] = useState(false);
 
+  const prepareImportedBatchDeletion = useCallback((transaction: Transaction) => {
+    const matchingLogs = findImportLogsByTransactionId(importLogs, transaction.ID_Transacao);
+    const exactLog = matchingLogs.length === 1 ? matchingLogs[0] : null;
+    const ledgerIds = new Set(transactions.map((item) => item.ID_Transacao));
+    const count = exactLog
+      ? importLogTransactionIds(exactLog).filter((id) => ledgerIds.has(id)).length
+      : transactions.filter((item) => item.Origem === transaction.Origem).length;
+
+    setDeleteConfirmation({
+      transactionId: transaction.ID_Transacao,
+      origin: transaction.Origem,
+      count,
+      exactTraceability: Boolean(exactLog),
+    });
+  }, [importLogs, transactions]);
+
   const isoTodayStr = () => localTodayIso();
+  const atomicImportEnabled = isAtomicImportEnabled(user);
 
   const currentPaymentKeywords = useMemo(
     () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
@@ -3354,8 +3377,7 @@ const TransactionsView: React.FC = () => {
                   if (manual) {
                     if (await appConfirm('Excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao);
                   } else {
-                    const batchCount = transactions.filter(tx => tx.Origem === t.Origem).length;
-                    setDeleteConfirmation({ transactionId: t.ID_Transacao, origin: t.Origem, count: batchCount });
+                    prepareImportedBatchDeletion(t);
                   }
                 }
               }
@@ -3596,8 +3618,7 @@ const TransactionsView: React.FC = () => {
                       {!manual && (
                         <button
                           onClick={() => {
-                            const batchCount = transactions.filter(tx => tx.Origem === t.Origem).length;
-                            setDeleteConfirmation({ transactionId: t.ID_Transacao, origin: t.Origem, count: batchCount });
+                            prepareImportedBatchDeletion(t);
                           }}
                           className="text-gray-500 hover:text-red-400"
                           title={`Excluir lote de importação: ${t.Origem}`}
@@ -4353,11 +4374,23 @@ const TransactionsView: React.FC = () => {
         >
           <div className="space-y-4">
             <p className="text-gray-300">Você está tentando excluir uma transação que faz parte de um lote importado. O que você gostaria de fazer?</p>
+            {atomicImportEnabled && !deleteConfirmation.exactTraceability && (
+              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                Este histórico não possui IDs suficientes para identificar o lote com segurança. A exclusão do lote inteiro está bloqueada; a linha isolada ainda pode ser excluída e permanecerá visível como excluída na auditoria.
+              </p>
+            )}
             <div className="flex flex-col space-y-2">
-              <Button variant="secondary" onClick={() => { deleteTransaction(deleteConfirmation.transactionId); setDeleteConfirmation(null); }}>
+              <Button variant="secondary" onClick={async () => { await deleteTransaction(deleteConfirmation.transactionId); setDeleteConfirmation(null); }}>
                 Excluir Apenas Esta Transação
               </Button>
-              <Button variant="danger" onClick={() => { deleteTransactionsByOrigin(deleteConfirmation.origin); setDeleteConfirmation(null); }}>
+              <Button
+                variant="danger"
+                disabled={atomicImportEnabled && !deleteConfirmation.exactTraceability}
+                onClick={async () => {
+                  await deleteImportedBatchByTransaction(deleteConfirmation.transactionId);
+                  setDeleteConfirmation(null);
+                }}
+              >
                 Excluir o Lote Inteiro ({deleteConfirmation.count} transações de "{deleteConfirmation.origin}")
               </Button>
             </div>

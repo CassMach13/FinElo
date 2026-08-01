@@ -523,6 +523,20 @@ const ImportView: React.FC = () => {
         resolvedCardCycle = { ...cardCycle, referenceLabel };
       }
       if (result.newTransactions.length > 0 || result.ignoredCount > 0) {
+        const targetAccountName = accounts.find(account => account.id === selectedNativeAccountId)?.Nome_Conta || 'conta selecionada';
+        const confirmed = await appConfirm(
+          `Arquivo: ${selectedFile.name}\nConta: ${targetAccountName}\nLinhas novas: ${result.newTransactions.length}\nLinhas ignoradas: ${result.ignoredCount}\n\nConfirmar a gravação deste lote?`,
+          'Confirmar Importação',
+          'Confirmar e Importar',
+          'warning'
+        );
+        if (!confirmed) {
+          setNotification({
+            type: 'error',
+            message: 'Importação cancelada antes da gravação. Nenhum dado foi alterado.',
+          });
+          return;
+        }
         const fakeConfig = {
           id: bankCfg.id,
           Nome_Fonte: bankCfg.name,

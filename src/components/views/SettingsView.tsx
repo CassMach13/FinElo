@@ -19,7 +19,12 @@ import AssetDetailModal from '../modals/AssetDetailModal';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
-import { buildImportLogAlerts, isImportedDetailRowsIncomplete, type ImportLogAlertContext } from '../../utils/importLogHealth';
+import {
+    buildImportLogAlerts,
+    importedDetailsHasTransactionIds,
+    isImportedDetailRowsIncomplete,
+    type ImportLogAlertContext,
+} from '../../utils/importLogHealth';
 import {
   FAMILY_MEMBER_NICKNAMES_METADATA_KEY,
   getOtherFamilyMemberEmail,
@@ -29,7 +34,7 @@ import {
 } from '../../utils/familyMemberNicknames';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, deleteTransactionsByOrigin, reassignTransactionsAccountByOrigin, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, reassignTransactionsAccountByImportLog, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -144,7 +149,12 @@ const SettingsView: React.FC = () => {
 
     // State for Import Log Details Modal
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-    const [selectedLogDetails, setSelectedLogDetails] = useState<{ fileName: string, ignoredDetails: any[], importedDetails: any[] } | null>(null);
+    const [selectedLogDetails, setSelectedLogDetails] = useState<{
+        fileName: string;
+        ignoredDetails: any[];
+        importedDetails: any[];
+        ledgerTransactionIds: string[];
+    } | null>(null);
     const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
     const [reassignTargetLog, setReassignTargetLog] = useState<ImportLog | null>(null);
     const [reassignAccountId, setReassignAccountId] = useState<string>('');
@@ -155,7 +165,13 @@ const SettingsView: React.FC = () => {
     const [repairImportLogsBusy, setRepairImportLogsBusy] = useState(false);
 
     const importAlertContext: ImportLogAlertContext = useMemo(
-        () => ({ accounts, transactions }),
+        () => ({
+            accounts,
+            transactions,
+            transactionIds: new Set(
+                transactions.map((transaction) => transaction.ID_Transacao).filter(Boolean)
+            ),
+        }),
         [accounts, transactions]
     );
 
@@ -344,7 +360,7 @@ const SettingsView: React.FC = () => {
 
         if (!confirm) return;
 
-        const result = await reassignTransactionsAccountByOrigin(reassignTargetLog.file_name, reassignAccountId);
+        const result = await reassignTransactionsAccountByImportLog(reassignTargetLog.id, reassignAccountId);
         const selectedAccount = accounts.find(a => a.id === reassignAccountId);
         const isCreditCardTarget = selectedAccount?.Tipo_Conta === 'Cartão de Crédito';
         setIsReassignModalOpen(false);
@@ -362,7 +378,7 @@ const SettingsView: React.FC = () => {
         } else {
             await appAlert('Nenhuma transação foi atualizada. Verifique se este arquivo possui lançamentos vinculados no histórico.', 'Aviso', 'warning');
         }
-    }, [reassignTargetLog, reassignAccountId, accounts, reassignTransactionsAccountByOrigin]);
+    }, [reassignTargetLog, reassignAccountId, accounts, reassignTransactionsAccountByImportLog]);
 
     const handleRepairImportLogPayloads = useCallback(async () => {
         const ok = await appConfirm(
@@ -427,6 +443,34 @@ const SettingsView: React.FC = () => {
 
         importLogs.forEach((log) => {
             const importedDetails = (log.imported_details as any[]) || [];
+            const exactIds = new Set(
+                importedDetails
+                    .map((detail) => detail?.ID_Transacao ?? detail?.transaction_id ?? detail?.transactionId)
+                    .filter(Boolean)
+                    .map(String)
+            );
+            const exactAccountFrequency = new Map<string, number>();
+            transactions
+                .filter((transaction) => exactIds.has(transaction.ID_Transacao) && transaction.ID_Conta)
+                .forEach((transaction) => {
+                    const accountId = transaction.ID_Conta as string;
+                    exactAccountFrequency.set(accountId, (exactAccountFrequency.get(accountId) || 0) + 1);
+                });
+
+            if (exactAccountFrequency.size > 0) {
+                const ordered = Array.from(exactAccountFrequency.entries()).sort((a, b) => b[1] - a[1]);
+                const [topAccountId, topCount] = ordered[0];
+                const totalCount = ordered.reduce((sum, [, count]) => sum + count, 0);
+                const topName = accountNames.get(topAccountId) || 'Conta desconhecida';
+                labels.set(
+                    log.id,
+                    exactAccountFrequency.size === 1
+                        ? topName
+                        : `Múltiplas (predomínio: ${topName} - ${Math.round((topCount / totalCount) * 100)}%)`
+                );
+                return;
+            }
+
             const detailsAccountName = importedDetails.find(d => d?.Conta_Nome)?.Conta_Nome;
 
             if (detailsAccountName) {
@@ -501,7 +545,7 @@ const SettingsView: React.FC = () => {
         const { supabase } = await import('../../supabaseClient');
         const { data, error } = await supabase
             .from('transactions')
-            .select('Data, Descricao_Original, Nome_Fantasia, Valor, Categoria, ID_Conta')
+            .select('ID_Transacao, Data, Descricao_Original, Nome_Fantasia, Valor, Categoria, ID_Conta')
             .eq('Origem', origin)
             .order('Data', { ascending: true });
         if (error) {
@@ -509,6 +553,7 @@ const SettingsView: React.FC = () => {
             return [];
         }
         return (data || []).map((tx: any) => ({
+            ID_Transacao: tx.ID_Transacao,
             Data: tx.Data,
             Descricao_Original: tx.Descricao_Original,
             Nome_Fantasia: tx.Nome_Fantasia,
@@ -659,14 +704,20 @@ const SettingsView: React.FC = () => {
                         onEdit={async (item) => {
                             if (item.ignored_count > 0 || item.imported_count > 0) {
                                 let importedDetails = Array.isArray(item.imported_details) ? item.imported_details : [];
+                                const hasExactIds = importedDetailsHasTransactionIds(importedDetails);
                                 /** Logs antigos: `imported_count` vinha das linhas tentadas, não do retorno do insert+.select(). */
                                 const countMismatchVersusPayload = item.imported_count !== importedDetails.length;
                                 const needsFallback =
-                                    countMismatchVersusPayload ||
-                                    isImportedDetailsIncomplete(importedDetails) ||
-                                    (item.imported_count > 1 && importedDetails.length <= 1);
+                                    !hasExactIds && (
+                                        countMismatchVersusPayload ||
+                                        isImportedDetailsIncomplete(importedDetails) ||
+                                        (item.imported_count > 1 && importedDetails.length <= 1)
+                                    );
                                 if (needsFallback) {
-                                    const fallback = await fetchImportedDetailsFromTransactions(item.file_name);
+                                    const sameNameLogs = importLogs.filter((log) => log.file_name === item.file_name);
+                                    const fallback = sameNameLogs.length === 1
+                                        ? await fetchImportedDetailsFromTransactions(item.file_name)
+                                        : [];
                                     if (fallback.length > 0 && (fallback.length > importedDetails.length || countMismatchVersusPayload)) {
                                         importedDetails = fallback;
                                     }
@@ -674,7 +725,10 @@ const SettingsView: React.FC = () => {
                                 setSelectedLogDetails({
                                     fileName: item.file_name,
                                     ignoredDetails: item.ignored_details || [],
-                                    importedDetails
+                                    importedDetails,
+                                    ledgerTransactionIds: transactions
+                                        .map((transaction) => transaction.ID_Transacao)
+                                        .filter((id): id is string => Boolean(id)),
                                 });
                                 setIsDetailsModalOpen(true);
                             } else {
@@ -1240,6 +1294,7 @@ const SettingsView: React.FC = () => {
                     fileName={selectedLogDetails.fileName}
                     ignoredDetails={selectedLogDetails.ignoredDetails}
                     importedDetails={selectedLogDetails.importedDetails}
+                    ledgerTransactionIds={selectedLogDetails.ledgerTransactionIds}
                 />
             )}
 

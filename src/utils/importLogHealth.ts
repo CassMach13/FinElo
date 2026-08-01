@@ -12,6 +12,78 @@ export interface ImportLogAlertResult {
 export interface ImportLogAlertContext {
   accounts?: Array<{ id: string; Tipo_Conta?: string }>;
   transactions?: Array<{ Origem?: string | null; ID_Conta?: string | null; ID_Transacao?: string | null }>;
+  transactionIds?: ReadonlySet<string>;
+}
+
+export type ImportLogLedgerState = 'active' | 'partial' | 'removed' | 'untraceable';
+
+export interface ImportLogLedgerAudit {
+  state: ImportLogLedgerState;
+  importedCount: number;
+  traceableCount: number;
+  activeCount: number;
+  deletedCount: number;
+  untraceableCount: number;
+  activeTransactionIds: string[];
+  deletedTransactionIds: string[];
+}
+
+export function importDetailTransactionId(item: unknown): string | null {
+  if (!item || typeof item !== 'object') return null;
+  const row = item as Record<string, unknown>;
+  const raw = row.ID_Transacao ?? row.transaction_id ?? row.transactionId;
+  if (raw === undefined || raw === null) return null;
+  const value = String(raw).trim();
+  return value.length > 0 ? value : null;
+}
+
+export function importLogTransactionIds(log: ImportLog): string[] {
+  const rows = Array.isArray(log.imported_details) ? log.imported_details : [];
+  return Array.from(new Set(rows.map(importDetailTransactionId).filter((id): id is string => Boolean(id))));
+}
+
+export function findImportLogsByTransactionId(logs: ImportLog[], transactionId: string): ImportLog[] {
+  return logs.filter((log) => importLogTransactionIds(log).includes(transactionId));
+}
+
+export function auditImportLogLedger(
+  log: ImportLog,
+  transactions: ImportLogAlertContext['transactions'] = [],
+  providedLedgerIds?: ReadonlySet<string>
+): ImportLogLedgerAudit {
+  const expectedIds = importLogTransactionIds(log);
+  const ledgerIds = providedLedgerIds || new Set(
+      (transactions || [])
+        .map((transaction) => transaction.ID_Transacao)
+        .filter((id): id is string => Boolean(id && String(id).trim()))
+        .map(String)
+    );
+  const activeTransactionIds = expectedIds.filter((id) => ledgerIds.has(id));
+  const deletedTransactionIds = expectedIds.filter((id) => !ledgerIds.has(id));
+  const importedCount = Math.max(0, Number(log.imported_count) || 0);
+  const untraceableCount = Math.max(0, importedCount - expectedIds.length);
+
+  let state: ImportLogLedgerState = 'untraceable';
+  if (expectedIds.length > 0) {
+    if (activeTransactionIds.length === expectedIds.length && untraceableCount === 0) {
+      state = 'active';
+    } else if (activeTransactionIds.length === 0 && untraceableCount === 0) {
+      state = 'removed';
+    } else {
+      state = 'partial';
+    }
+  }
+
+  return {
+    state,
+    importedCount,
+    traceableCount: expectedIds.length,
+    activeCount: activeTransactionIds.length,
+    deletedCount: deletedTransactionIds.length,
+    untraceableCount,
+    activeTransactionIds,
+    deletedTransactionIds,
+  };
 }
 
 export function isImportedDetailRowsIncomplete(rows: unknown[]): boolean {
@@ -23,12 +95,7 @@ export function isImportedDetailRowsIncomplete(rows: unknown[]): boolean {
 
 export function importedDetailsHasTransactionIds(rows: unknown[]): boolean {
   if (!Array.isArray(rows)) return false;
-  return rows.some((item) => {
-    if (!item || typeof item !== 'object') return false;
-    const o = item as Record<string, unknown>;
-    const tid = o.ID_Transacao ?? o.transaction_id ?? o.transactionId;
-    return tid !== undefined && tid !== null && `${tid}` !== '';
-  });
+  return rows.some((item) => Boolean(importDetailTransactionId(item)));
 }
 
 function importedDetailsSuggestCardCycle(rows: unknown[]): boolean {
@@ -102,6 +169,16 @@ function importLedgerRowsForComparableKey(log: ImportLog, ctx?: ImportLogAlertCo
  */
 function importLedgerFullyTraceableInStore(log: ImportLog, ctx?: ImportLogAlertContext): boolean {
   if (!ctx?.transactions?.length || log.imported_count <= 0) return false;
+  const exactIds = importLogTransactionIds(log);
+  if (exactIds.length === log.imported_count) {
+    const ledgerIds = ctx.transactionIds || new Set(
+        ctx.transactions
+          .map((transaction) => transaction.ID_Transacao)
+          .filter((id): id is string => Boolean(id && String(id).trim()))
+          .map(String)
+      );
+    return exactIds.every((id) => ledgerIds.has(id));
+  }
   const rows = importLedgerRowsForComparableKey(log, ctx);
   if (rows.length < log.imported_count) return false;
   return rows.every((t) => Boolean(t.ID_Transacao && `${t.ID_Transacao}`.trim().length > 0));
@@ -130,6 +207,17 @@ export function buildImportLogAlerts(log: ImportLog, ctx?: ImportLogAlertContext
 
   const det = Array.isArray(log.imported_details) ? log.imported_details : [];
   const accounted = log.imported_count + log.ignored_count;
+  const ledgerAudit = ctx?.transactions
+    ? auditImportLogLedger(log, ctx.transactions, ctx.transactionIds)
+    : null;
+
+  if (ledgerAudit?.state === 'partial') {
+    badges.push(`Parcial no ledger (${ledgerAudit.activeCount}/${ledgerAudit.importedCount} ativas)`);
+    bumpWarn();
+  } else if (ledgerAudit?.state === 'removed') {
+    badges.push(`Sem linhas ativas (0/${ledgerAudit.importedCount})`);
+    bumpErr();
+  }
 
   if (!importCountMatchesDetailsOrLedger(log, ctx)) {
     badges.push(`imported_count (${log.imported_count}) ≠ linhas em imported_details (${det.length})`);

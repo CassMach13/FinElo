@@ -15,8 +15,8 @@ Antes da homologação manual, devem estar verdes:
 1. `npm run typecheck:baseline` — nenhum diagnóstico TypeScript novo.
 2. `npm test` — suíte completa.
 3. `npm run build` com `VITE_ATOMIC_IMPORTS_ENABLED=true`.
-4. `supabase/tests/056_sprint_1a_integrity_guardrails_test.sql` em PostgreSQL 17 descartável.
-5. Aplicação e remoção de `supabase/rollbacks/056_sprint_1a_integrity_guardrails_down.sql`, comprovando que `transactions` e `import_logs` permanecem.
+4. Testes SQL `056` a `060` em PostgreSQL 17 descartável.
+5. Aplicação dos rollbacks em ordem reversa, comprovando que `transactions` e `import_logs` permanecem.
 
 ## Preparação da conta de teste
 
@@ -118,6 +118,36 @@ Se staging não tiver nenhum registro sem conta, este teste deve ser marcado com
 5. Confirmar retorno ao total inicial.
 6. Importar `91_nubank_conta_linhas_invalidas.csv` e validar as contagens de importados/ignorados.
 
+## Teste G — auditoria de exclusões isoladas
+
+1. Importar um lote rastreável de 5 linhas e anotar o total.
+2. Em `Transações`, escolher uma linha do lote e usar `Excluir Apenas Esta Transação`.
+3. Em `Configurações → Histórico de Importações`, localizar exatamente o lote pelo nome e horário e clicar em `Exibir`.
+4. Conferir o resumo e as cinco linhas originais.
+5. Depois, voltar a `Transações` e excluir o restante pelo botão `Excluir o Lote Inteiro` de uma linha ativa.
+
+Resultado obrigatório:
+
+- o total cai inicialmente em exatamente 1;
+- o histórico permanece com `Parcial no ledger (4/5 ativas)`;
+- `Exibir` mostra quatro linhas `Ativa` e a linha removida como `Excluída`;
+- nenhum lote homônimo participa da contagem ou da exclusão;
+- ao excluir o lote inteiro, somente as quatro linhas restantes, o log exato e sua reserva de conteúdo são removidos;
+- o mesmo arquivo pode ser importado novamente depois da exclusão completa.
+
+## Teste H — confirmação antes da gravação
+
+1. No fluxo de banco nativo, escolher um arquivo válido.
+2. Na confirmação, conferir arquivo, conta e contagens e clicar em cancelar.
+3. Confirmar que nenhum total mudou.
+4. Selecionar o arquivo novamente e confirmar a importação.
+
+Resultado obrigatório:
+
+- selecionar o arquivo não grava antes da confirmação explícita;
+- cancelar não cria transações, log ou reserva de conteúdo;
+- confirmar cria um único lote completo.
+
 ## Critérios de reprovação imediata
 
 - qualquer escrita no projeto de produção;
@@ -135,7 +165,7 @@ Ordem obrigatória se a Sprint 1A for recusada:
 1. Desligar `VITE_ATOMIC_IMPORTS_ENABLED` no Preview/Staging e redeployar.
 2. Excluir pela interface somente os lotes de teste criados neste roteiro.
 3. Reverter o commit da Sprint 1A na branch ou promover novamente o último Preview aprovado.
-4. Executar `supabase/rollbacks/056_sprint_1a_integrity_guardrails_down.sql` somente no projeto `sxmmrnwbxntccscojmfh`.
+4. Executar os rollbacks `060`, `059`, `058`, `057` e `056`, nessa ordem, somente no projeto `sxmmrnwbxntccscojmfh`.
 5. Confirmar que `transactions` e `import_logs` continuam presentes e com as mesmas contagens.
 6. Rodar login, dashboard, transações, importação legada com a flag desligada e cartão.
 

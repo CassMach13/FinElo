@@ -42,7 +42,7 @@ import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
 import { collectPaginatedRows } from '../utils/paginatedFetch';
-import { isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
+import { findImportLogsByTransactionId, isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
 import {
   prepareManualPurchaseCompetenceOnPaymentDateEdit,
@@ -238,7 +238,9 @@ interface AppState {
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteManualTransactions: (transactionIds: string[]) => Promise<number>;
   deleteTransactionsByOrigin: (origin: string) => Promise<void>;
+  deleteImportedBatchByTransaction: (transactionId: string) => Promise<void>;
   reassignTransactionsAccountByOrigin: (origin: string, accountId: string) => Promise<{ updated: number }>;
+  reassignTransactionsAccountByImportLog: (logId: string, accountId: string) => Promise<{ updated: number }>;
 
   // CRUD for Categories
   fetchCategories: () => Promise<void>;
@@ -2314,6 +2316,102 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
     }
+  },
+
+  deleteImportedBatchByTransaction: async (transactionId) => {
+    const { user, transactions, importLogs } = get();
+    const transaction = transactions.find((item) => item.ID_Transacao === transactionId);
+    if (!user || !transaction || !transaction.Origem || transaction.Origem === 'manual') {
+      await appAlert(
+        'Não foi possível identificar a transação importada. Nenhum dado foi alterado.',
+        'Lote não excluído',
+        'warning'
+      );
+      return;
+    }
+
+    if (!isAtomicImportEnabled(user)) {
+      await get().deleteTransactionsByOrigin(transaction.Origem);
+      return;
+    }
+
+    const matchingLogs = findImportLogsByTransactionId(importLogs, transactionId);
+    if (matchingLogs.length !== 1) {
+      await appAlert(
+        matchingLogs.length === 0
+          ? 'Este lote não possui rastreio exato por ID. A exclusão ampla foi bloqueada para proteger outros lançamentos.'
+          : 'Mais de um lote referencia esta transação. A exclusão foi bloqueada por inconsistência de auditoria.',
+        'Lote não excluído',
+        'danger'
+      );
+      return;
+    }
+
+    const log = matchingLogs[0];
+    await get().deleteImportLog(log.id, log.file_name);
+  },
+
+  reassignTransactionsAccountByImportLog: async (logId, accountId) => {
+    const { user, importLogs, accounts } = get();
+    if (!user) return { updated: 0 };
+    const log = importLogs.find((item) => item.id === logId);
+    if (!log) return { updated: 0 };
+
+    if (!isAtomicImportEnabled(user)) {
+      return get().reassignTransactionsAccountByOrigin(log.file_name, accountId);
+    }
+
+    const { data, error } = await supabase.rpc('reassign_import_batch_atomic', {
+      p_import_log_id: logId,
+      p_account_id: accountId,
+    });
+    if (error) {
+      console.error('Erro ao corrigir conta do lote exato:', error);
+      await appAlert(
+        `Correção cancelada sem alterar dados: ${error.message}`,
+        'Conta não corrigida',
+        'danger'
+      );
+      return { updated: 0 };
+    }
+
+    const result = data as {
+      updated_count?: number;
+      active_transaction_ids?: string[];
+      imported_details?: unknown[];
+    } | null;
+    const activeIds = new Set(Array.isArray(result?.active_transaction_ids) ? result!.active_transaction_ids! : []);
+    const updated = Number(result?.updated_count ?? 0);
+
+    set((state) => ({
+      transactions: state.transactions.map((transaction) =>
+        activeIds.has(transaction.ID_Transacao)
+          ? { ...transaction, ID_Conta: accountId }
+          : transaction
+      ),
+      importLogs: state.importLogs.map((item) =>
+        item.id === logId && Array.isArray(result?.imported_details)
+          ? { ...item, imported_details: result!.imported_details }
+          : item
+      ),
+    }));
+
+    const targetAccount = accounts.find((account) => account.id === accountId);
+    if (updated > 0 && targetAccount?.Tipo_Conta === 'Cartão de Crédito' && shouldAutoSyncCreditCardLedger(user)) {
+      try {
+        await syncImportedCardOrigin({
+          getState: () => ({ transactions: get().transactions, accounts: get().accounts }),
+          user,
+          accountId,
+          origin: log.file_name,
+        });
+        get().bumpCreditCardEngineRevision();
+      } catch (autoError) {
+        console.error('[CardV2][Auto] Falha ao sincronizar correção exata de conta:', autoError);
+      }
+    }
+
+    return { updated };
   },
 
   reassignTransactionsAccountByOrigin: async (origin, accountId) => {
