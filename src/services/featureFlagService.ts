@@ -1,6 +1,6 @@
 import { User } from '@supabase/supabase-js';
 
-type UserWithMetadata = Pick<User, 'id' | 'user_metadata' | 'email'> | null | undefined;
+type UserWithMetadata = Pick<User, 'id' | 'user_metadata' | 'app_metadata' | 'email'> | null | undefined;
 
 const clampPercent = (value: number): number => {
   if (Number.isNaN(value)) return 0;
@@ -71,12 +71,20 @@ export const isOpenFinanceEnabled = (user?: UserWithMetadata): boolean => {
 };
 
 /**
- * Importação atômica da Sprint 1A. Desligada por padrão e habilitada somente
- * no ambiente que declarar explicitamente a flag (primeiro: staging).
+ * Importação atômica da Sprint 1A.
+ * Prioridade:
+ * 1) opt-out administrativo ou do usuário desabilita imediatamente;
+ * 2) app_metadata.atomic_imports_enabled habilita somente a conta piloto;
+ * 3) VITE_ATOMIC_IMPORTS_ENABLED=true habilita globalmente no ambiente.
+ *
+ * O opt-in individual usa app_metadata porque esse campo só pode ser alterado
+ * por uma credencial administrativa, não pela própria sessão do usuário.
  */
 export const isAtomicImportEnabled = (user?: UserWithMetadata): boolean => {
   if (!user?.id) return false;
+  if (user.app_metadata?.atomic_imports_disabled === true) return false;
   if (user.user_metadata?.atomic_imports_disabled === true) return false;
+  if (user.app_metadata?.atomic_imports_enabled === true) return true;
   return import.meta.env.VITE_ATOMIC_IMPORTS_ENABLED === 'true';
 };
 
