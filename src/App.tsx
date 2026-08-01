@@ -83,10 +83,19 @@ const AppContent: React.FC = () => {
   // PWA Safety Update Check
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      const interval = setInterval(() => {
-        navigator.serviceWorker.getRegistration().then(reg => reg && reg.update());
-      }, 10 * 60 * 1000);
-      return () => clearInterval(interval);
+      const checkForUpdate = () => {
+        void navigator.serviceWorker
+          .getRegistration()
+          .then(registration => registration?.update())
+          .catch(() => undefined);
+      };
+      checkForUpdate();
+      const interval = setInterval(checkForUpdate, 10 * 60 * 1000);
+      window.addEventListener('focus', checkForUpdate);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('focus', checkForUpdate);
+      };
     }
   }, []);
 

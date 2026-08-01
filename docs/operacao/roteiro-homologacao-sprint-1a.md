@@ -63,6 +63,8 @@ Resultado obrigatório:
 
 Se dois logs tiverem o mesmo nome, excluir um deles deve remover somente os IDs presentes no `imported_details` daquele log. Exclusão ampla por `Origem` reprova imediatamente a Sprint.
 
+Antes desse teste, confirme que a página carregou o deployment mais recente. Um cliente antigo tentando excluir por `Origem` na presença de lotes colidentes deve ser bloqueado pelo banco sem remover nenhuma transação. Se as transações já tiverem sido removidas e restar apenas o log, a limpeza órfã deve apagar somente o log e retornar `orphan_cleanup=true`.
+
 ## Teste C — falha sem gravação parcial
 
 1. Anotar os totais de transações e logs.
