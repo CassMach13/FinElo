@@ -101,6 +101,64 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     });
   });
 
+  it('bloqueia pagamento importado cuja fatura anterior está fora da janela disponível', () => {
+    const sameMonthCycles = [
+      {
+        fileName: cycles[0].fileName,
+        referenceMonth: '2026-07',
+        dueDate: '2026-07-28',
+      },
+      {
+        fileName: cycles[1].fileName,
+        referenceMonth: '2026-08',
+        dueDate: '2026-08-28',
+      },
+    ];
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: sameMonthCycles,
+      transactions: [
+        transaction({
+          id: 'july-purchase-window',
+          origin: sameMonthCycles[0].fileName,
+          date: '2026-07-02',
+          amount: -399.9,
+          description: 'COMPRA JULHO',
+        }),
+        transaction({
+          id: 'july-payment-outside-window',
+          origin: sameMonthCycles[0].fileName,
+          date: '2026-07-25',
+          amount: 400,
+          description: 'PAGAMENTO DE FATURA',
+        }),
+        transaction({
+          id: 'aug-payment-window',
+          origin: sameMonthCycles[1].fileName,
+          date: '2026-08-20',
+          amount: 399.9,
+          description: 'PAGAMENTO DE FATURA',
+        }),
+        transaction({
+          id: 'aug-purchase-window',
+          origin: sameMonthCycles[1].fileName,
+          date: '2026-08-21',
+          amount: -449.9,
+          description: 'COMPRA AGOSTO',
+        }),
+      ],
+    });
+
+    expect(shadow.projectedPaymentCount).toBe(1);
+    expect(shadow.safeToStage).toBe(false);
+    expect(shadow.blockers).toContainEqual(
+      expect.objectContaining({
+        code: 'unresolved-imported-payment-target',
+        transactionId: 'july-payment-outside-window',
+      })
+    );
+  });
+
   it('não trata valores e descrições iguais como duplicidade', () => {
     const sameValueTransactions = [
       transaction({
@@ -573,6 +631,78 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     const comparison = compareAtomicCardProjections(shadow, persisted);
     expect(comparison.missingPaymentKeys).toEqual([]);
     expect(comparison.orphanPaymentKeys).toEqual(['orphan-payment-transaction']);
+    expect(comparison.safeToActivate).toBe(false);
+  });
+
+  it('sinaliza colisão econômica quando um pagamento vinculado também existe sem identidade', () => {
+    const manualCycle = {
+      fileName: 'manual:2026-07',
+      referenceMonth: '2026-07',
+      dueDate: '2026-08-28',
+    };
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: [manualCycle],
+      transactions: [
+        transaction({
+          id: 'linked-payment',
+          origin: manualCycle.fileName,
+          date: '2026-08-20',
+          amount: 50,
+          description: 'PAGAMENTO DE FATURA',
+          type: 'Renda',
+        }),
+      ],
+    });
+    const statement = shadow.statements[0];
+    const entry = shadow.entries[0];
+    const payment = shadow.payments[0];
+    const persisted: PersistedAtomicCardProjection = {
+      source: 'engine',
+      statements: [
+        {
+          statementKey: statement.statementKey,
+          dueDate: statement.dueDate,
+          entryCount: statement.entryCount,
+          statementTotalCents: statement.statementTotalCents,
+          totalPaymentsCents: statement.totalPaymentsCents,
+          openBalanceCents: statement.openBalanceCents,
+        },
+      ],
+      entries: [
+        {
+          transactionId: entry.transactionId,
+          statementKey: entry.statementKey,
+          postedDate: entry.postedDate,
+          amountCents: entry.amountCents,
+          entryType: entry.entryType,
+        },
+      ],
+      payments: [
+        {
+          rowId: 'linked-row',
+          transactionId: payment.transactionId,
+          statementKey: payment.statementKey,
+          paymentDate: payment.paymentDate,
+          amountCents: payment.amountCents,
+          source: payment.source,
+        },
+        {
+          rowId: 'legacy-row-without-identity',
+          transactionId: null,
+          statementKey: payment.statementKey,
+          paymentDate: payment.paymentDate,
+          amountCents: payment.amountCents,
+          source: payment.source,
+        },
+      ],
+    };
+
+    const comparison = compareAtomicCardProjections(shadow, persisted);
+    expect(comparison.suspiciousPersistedPaymentEventKeys).toEqual([
+      `${payment.statementKey}|${payment.paymentDate}|${payment.amountCents}|${payment.source}`,
+    ]);
+    expect(comparison.orphanPaymentKeys).toEqual(['row:legacy-row-without-identity']);
     expect(comparison.safeToActivate).toBe(false);
   });
 });

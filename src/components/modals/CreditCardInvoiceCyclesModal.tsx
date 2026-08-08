@@ -541,6 +541,30 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       );
     });
 
+    comparison.suspiciousPersistedPaymentEventKeys.forEach((eventKey) => {
+      const matchingPayments = persisted.payments.filter(
+        (payment) =>
+          [
+            payment.statementKey,
+            payment.paymentDate || '',
+            payment.amountCents,
+            payment.source,
+          ].join('|') === eventKey
+      );
+      const sample = matchingPayments[0];
+      if (!sample) return;
+      const identities = matchingPayments
+        .map((payment) =>
+          payment.transactionId
+            ? `transação ${shortId(payment.transactionId)}`
+            : `linha sem transação ${shortId(payment.rowId)}`
+        )
+        .join(' + ');
+      lines.push(
+        `Possível pagamento duplicado: ${matchingPayments.length} linhas representam ${money(sample.amountCents)} em ${sample.paymentDate || '—'}, quitando ${sample.statementKey}, origem ${sample.source} (${identities}).`
+      );
+    });
+
     if (comparison.protectedMetadataStatementKeys.length > 0) {
       lines.push(
         `Metadados protegidos presentes nas faturas: ${comparison.protectedMetadataStatementKeys.join(', ')}. Eles não podem ser descartados por uma futura troca.`
@@ -854,7 +878,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           `Fonte atual: ${persisted.source}.`,
           `Sombra: ${shadow.sourceTransactionCount} transações, ${shadow.projectedEntryCount} itens, ${shadow.projectedPaymentCount} pagamentos e ${shadow.statements.length} faturas.`,
           `Diferenças: ${comparison.differenceCount}. Bloqueios: ${shadow.blockers.length}. Alertas: ${shadow.warnings.length}.`,
-          `Duplicidades atuais: ${comparison.duplicatePersistedTransactionIds.length} transação(ões), ${comparison.duplicatePersistedPaymentTransactionIds.length} pagamento(s) e ${comparison.duplicatePersistedStatementKeys.length} competência(s).`,
+          `Duplicidades atuais: ${comparison.duplicatePersistedTransactionIds.length} transação(ões), ${comparison.duplicatePersistedPaymentTransactionIds.length} pagamento(s) por ID, ${comparison.suspiciousPersistedPaymentEventKeys.length} evento(s) de pagamento sem identidade e ${comparison.duplicatePersistedStatementKeys.length} competência(s).`,
           `Ausentes na projeção atual: ${comparison.missingTransactionIds.length} transação(ões), ${comparison.missingPaymentKeys.length} pagamento(s) e ${comparison.missingStatementKeys.length} fatura(s).`,
           `Órfãos na projeção atual: ${comparison.orphanTransactionIds.length} transação(ões), ${comparison.orphanPaymentKeys.length} pagamento(s) e ${comparison.orphanStatementKeys.length} fatura(s).`,
           `Alterados: ${comparison.changedTransactionIds.length} transação(ões), ${comparison.changedPaymentTransactionIds.length} pagamento(s) e ${comparison.changedStatementKeys.length} fatura(s).`,

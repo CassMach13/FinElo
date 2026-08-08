@@ -36,7 +36,8 @@ export type AtomicCardShadowIssueCode =
   | 'invalid-transaction-date'
   | 'invalid-transaction-amount'
   | 'transaction-sign-conflict'
-  | 'uncovered-imported-transactions';
+  | 'uncovered-imported-transactions'
+  | 'unresolved-imported-payment-target';
 
 export interface AtomicCardShadowIssue {
   code: AtomicCardShadowIssueCode;
@@ -142,6 +143,7 @@ export interface AtomicCardProjectionComparison {
   duplicatePersistedTransactionIds: string[];
   duplicatePersistedStatementKeys: string[];
   duplicatePersistedPaymentTransactionIds: string[];
+  suspiciousPersistedPaymentEventKeys: string[];
   protectedMetadataStatementKeys: string[];
   missingTransactionIds: string[];
   orphanTransactionIds: string[];
@@ -670,6 +672,26 @@ export function buildAtomicCardRebuildShadow(input: {
     return left.transactionId.localeCompare(right.transactionId);
   });
 
+  const projectedPaymentHashes = new Set(
+    projectedPayments.map((payment) => payment.sourceRowHash)
+  );
+  projectedEntries
+    .filter(
+      (entry) =>
+        entry.entryType === 'invoice_payment' &&
+        !entry.sourceFileName.startsWith('manual:') &&
+        !projectedPaymentHashes.has(entry.sourceRowHash)
+    )
+    .forEach((entry) => {
+      issues.push({
+        code: 'unresolved-imported-payment-target',
+        severity: 'blocker',
+        fileName: entry.sourceFileName,
+        transactionId: entry.transactionId,
+        message: `O pagamento importado ${entry.transactionId} de "${entry.sourceFileName}" não possui uma fatura anterior disponível para receber sua quitação.`,
+      });
+    });
+
   const blockers = issues.filter((issue) => issue.severity === 'blocker');
   const warnings = issues.filter((issue) => issue.severity === 'warning');
   const checksum = stableHash(
@@ -798,6 +820,19 @@ export function compareAtomicCardProjections(
     .filter(([, count]) => count > 1)
     .map(([id]) => id)
     .sort();
+  const persistedPaymentsByEconomicEvent = new Map<string, PersistedAtomicCardPayment[]>();
+  persisted.payments.forEach((payment) => {
+    const signature = paymentSignature(payment);
+    const rows = persistedPaymentsByEconomicEvent.get(signature) || [];
+    rows.push(payment);
+    persistedPaymentsByEconomicEvent.set(signature, rows);
+  });
+  const suspiciousPersistedPaymentEventKeys = Array.from(
+    persistedPaymentsByEconomicEvent.entries()
+  )
+    .filter(([, payments]) => payments.length > 1 && payments.some((payment) => !payment.transactionId))
+    .map(([signature]) => signature)
+    .sort();
   const unmatchedPersistedPaymentIndexes = new Set(
     persisted.payments.map((_, index) => index)
   );
@@ -842,6 +877,7 @@ export function compareAtomicCardProjections(
     duplicatePersistedTransactionIds.length +
     duplicatePersistedStatementKeys.length +
     duplicatePersistedPaymentTransactionIds.length +
+    suspiciousPersistedPaymentEventKeys.length +
     protectedMetadataStatementKeys.length +
     missingTransactionIds.length +
     orphanTransactionIds.length +
@@ -857,6 +893,7 @@ export function compareAtomicCardProjections(
     duplicatePersistedTransactionIds.length > 0 ||
     duplicatePersistedStatementKeys.length > 0 ||
     duplicatePersistedPaymentTransactionIds.length > 0 ||
+    suspiciousPersistedPaymentEventKeys.length > 0 ||
     protectedMetadataStatementKeys.length > 0 ||
     orphanTransactionIds.length > 0 ||
     orphanStatementKeys.length > 0 ||
@@ -870,6 +907,7 @@ export function compareAtomicCardProjections(
     duplicatePersistedTransactionIds,
     duplicatePersistedStatementKeys,
     duplicatePersistedPaymentTransactionIds,
+    suspiciousPersistedPaymentEventKeys,
     protectedMetadataStatementKeys,
     missingTransactionIds,
     orphanTransactionIds,
