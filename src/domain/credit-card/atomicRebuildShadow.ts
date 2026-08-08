@@ -111,6 +111,9 @@ export interface PersistedAtomicCardStatement {
   totalPaymentsCents: number;
   openBalanceCents: number;
   hasProtectedMetadata?: boolean;
+  manualTotalsPresent?: boolean;
+  statementTotalFromFileCents?: number | null;
+  totalPaymentsFromFileCents?: number | null;
 }
 
 export interface PersistedAtomicCardEntry {
@@ -128,6 +131,8 @@ export interface PersistedAtomicCardPayment {
   paymentDate: string | null;
   amountCents: number;
   source: string;
+  notes?: string | null;
+  createdAt?: string | null;
 }
 
 export interface PersistedAtomicCardProjection {

@@ -555,9 +555,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       if (!sample) return;
       const identities = matchingPayments
         .map((payment) =>
-          payment.transactionId
-            ? `transação ${shortId(payment.transactionId)}`
-            : `linha sem transação ${shortId(payment.rowId)}`
+          [
+            payment.transactionId
+              ? `transação ${shortId(payment.transactionId)}`
+              : `linha sem transação ${shortId(payment.rowId)}`,
+            payment.createdAt ? `criada em ${payment.createdAt}` : null,
+            payment.notes ? `nota “${payment.notes}”` : null,
+          ]
+            .filter(Boolean)
+            .join(', ')
         )
         .join(' + ');
       lines.push(
@@ -566,9 +572,23 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     });
 
     if (comparison.protectedMetadataStatementKeys.length > 0) {
-      lines.push(
-        `Metadados protegidos presentes nas faturas: ${comparison.protectedMetadataStatementKeys.join(', ')}. Eles não podem ser descartados por uma futura troca.`
-      );
+      comparison.protectedMetadataStatementKeys.forEach((statementKey) => {
+        const statement = persisted.statements.find(
+          (candidate) => candidate.statementKey === statementKey
+        );
+        const metadata = [
+          statement?.statementTotalFromFileCents != null
+            ? `total oficial do arquivo ${money(statement.statementTotalFromFileCents)}`
+            : null,
+          statement?.totalPaymentsFromFileCents != null
+            ? `pagamentos encontrados no extrato ${money(statement.totalPaymentsFromFileCents)}`
+            : null,
+          statement?.manualTotalsPresent ? 'ajustes manuais presentes' : null,
+        ].filter(Boolean);
+        lines.push(
+          `Metadados protegidos da fatura ${statementKey}: ${metadata.join(', ') || 'presente'}. Eles não podem ser descartados por uma futura troca.`
+        );
+      });
     }
 
     return lines;

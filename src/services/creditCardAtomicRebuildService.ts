@@ -63,6 +63,8 @@ interface PersistedPaymentRow {
   payment_date?: string | null;
   amount?: number | string | null;
   source?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
 }
 
 export interface AtomicCardRebuildAuditResult {
@@ -220,7 +222,7 @@ async function readAllPayments(statementIds: string[]): Promise<PersistedPayment
   return collectPaginatedRows<PersistedPaymentRow>(async (from, to) => {
     const { data, error } = await supabase
       .from('credit_card_payments')
-      .select('id,statement_id,payment_transaction_id,payment_date,amount,source')
+      .select('id,statement_id,payment_transaction_id,payment_date,amount,source,notes,created_at')
       .in('statement_id', statementIds)
       .order('id', { ascending: true })
       .range(from, to);
@@ -289,6 +291,11 @@ export async function readPersistedAtomicCardProjection(
         row.manual_totals_json != null ||
         row.statement_total_from_file != null ||
         row.total_payments_from_file != null,
+      manualTotalsPresent: row.manual_totals_json != null,
+      statementTotalFromFileCents:
+        row.statement_total_from_file != null ? toCents(row.statement_total_from_file) : null,
+      totalPaymentsFromFileCents:
+        row.total_payments_from_file != null ? toCents(row.total_payments_from_file) : null,
     };
   });
   const payments: PersistedAtomicCardPayment[] = paymentRows.map((row) => ({
@@ -298,6 +305,8 @@ export async function readPersistedAtomicCardProjection(
     paymentDate: row.payment_date || null,
     amountCents: toCents(row.amount),
     source: row.source || 'manual',
+    notes: row.notes || null,
+    createdAt: row.created_at || null,
   }));
 
   statements.sort((left, right) => left.statementKey.localeCompare(right.statementKey));
