@@ -149,3 +149,14 @@ Se a Sprint 1B for recusada:
 4. Não executar rollback de banco: a Sprint 1B não possui migration nem grava dados.
 5. Manter a chave v2 no navegador é inofensivo; ela não é lida com a flag desligada. Pode ser removida posteriormente sem afetar a v1.
 6. Revalidar login, dashboard, total de transações, datas, cartão e exportação legada.
+
+## Evidências registradas em 08/08/2026
+
+- Preview estável da branch `codex/sprint-1b-smart-filters`, commit `d0a6ca0`, validado sem qualquer alteração em produção.
+- Conta-piloto de staging: total completo confirmado em 28 transações; atalhos, busca, origem, conta, categoria, tipo, chips, persistência e retorno ao histórico completo aprovados.
+- Datas-limite, filtros combinados e remoção isolada de chips preservaram os registros e os demais critérios ativos.
+- Teste de exportação com o subconjunto conhecido `STG-QA Conta Nubank`: 19 de 28 transações, 10 colunas em CSV e XLSX, cabeçalhos idênticos e 19 linhas logicamente idênticas após normalização de datas e valores.
+- A tela foi restaurada para 28 de 28 transações após o teste de exportação.
+- Ensaio atômico de rollback no projeto `finelo-staging`: a flag da única conta-piloto foi removida, confirmada como ausente e restaurada exatamente ao metadado inicial dentro da mesma transação. Resultado final agregado: um usuário-alvo e flag restaurada como `true`.
+- Builds com a flag ligada e desligada aprovados; 164 testes aplicáveis aprovados, além de teste de volume com 3.500 transações sem mutação da coleção.
+- Avaliação manual inicial: experiência considerada mais clara. Homologação qualitativa adicional com outros usuários permanece pendente antes de qualquer decisão de produção.
