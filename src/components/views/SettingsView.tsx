@@ -26,7 +26,6 @@ import {
     isImportedDetailRowsIncomplete,
     type ImportLogAlertContext,
 } from '../../utils/importLogHealth';
-import { isAtomicImportEnabled } from '../../services/featureFlagService';
 import {
   FAMILY_MEMBER_NICKNAMES_METADATA_KEY,
   getOtherFamilyMemberEmail,
@@ -36,7 +35,7 @@ import {
 } from '../../utils/familyMemberNicknames';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, transactions, fetchTransactions, fetchImportLogs, reassignTransactionsAccountByImportLog, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, atomicImportEnabled, transactions, fetchTransactions, fetchImportLogs, reassignTransactionsAccountByImportLog, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -353,7 +352,6 @@ const SettingsView: React.FC = () => {
         }
 
         const accountName = accounts.find(a => a.id === reassignAccountId)?.Nome_Conta || 'conta selecionada';
-        const atomicImportEnabled = isAtomicImportEnabled(user);
         const ledgerAudit = atomicImportEnabled
             ? auditImportLogLedger(reassignTargetLog, transactions)
             : null;

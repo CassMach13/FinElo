@@ -18,7 +18,7 @@ import MultiSelect from './../ui/MultiSelect';
 import Select from './../ui/Select';
 import Button from './../ui/Button';
 import { TourButton } from '../TourButton';
-import { isAtomicImportEnabled, isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featureFlagService';
+import { isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featureFlagService';
 import { creditCardEngineService } from '../../services/creditCardEngineService';
 import { supabase } from '../../supabaseClient';
 
@@ -228,6 +228,7 @@ const TransactionsView: React.FC = () => {
     updateAccount,
     getAccountsWithCalculatedBalance,
     user,
+    atomicImportEnabled,
     syncCreditCardHistoryFromAccount,
     saveCardImportLotClassification,
     updateUserPreferences,
@@ -305,8 +306,6 @@ const TransactionsView: React.FC = () => {
   }, [importLogs, transactions]);
 
   const isoTodayStr = () => localTodayIso();
-  const atomicImportEnabled = isAtomicImportEnabled(user);
-
   const currentPaymentKeywords = useMemo(
     () => parseKeywordList(user?.user_metadata?.cardPaymentKeywords, DEFAULT_CARD_PAYMENT_KEYWORDS),
     [user?.user_metadata?.cardPaymentKeywords]

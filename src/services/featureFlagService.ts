@@ -2,6 +2,15 @@ import { User } from '@supabase/supabase-js';
 
 type UserWithMetadata = Pick<User, 'id' | 'user_metadata' | 'app_metadata' | 'email'> | null | undefined;
 
+export type AtomicImportServerState = 'enabled' | 'disabled' | 'unset';
+
+type AtomicImportFlagResult = {
+  data: AtomicImportServerState | null;
+  error: { message: string } | null;
+};
+
+export type AtomicImportFlagReader = () => Promise<AtomicImportFlagResult>;
+
 const clampPercent = (value: number): number => {
   if (Number.isNaN(value)) return 0;
   return Math.min(100, Math.max(0, value));
@@ -74,8 +83,9 @@ export const isOpenFinanceEnabled = (user?: UserWithMetadata): boolean => {
  * Importação atômica da Sprint 1A.
  * Prioridade:
  * 1) opt-out administrativo ou do usuário desabilita imediatamente;
- * 2) app_metadata.atomic_imports_enabled habilita somente a conta piloto;
- * 3) VITE_ATOMIC_IMPORTS_ENABLED=true habilita globalmente no ambiente.
+ * 2) app_metadata.atomic_imports_enabled=false é rollback administrativo explícito;
+ * 3) app_metadata.atomic_imports_enabled=true habilita somente a conta piloto;
+ * 4) VITE_ATOMIC_IMPORTS_ENABLED=true habilita globalmente no ambiente.
  *
  * O opt-in individual usa app_metadata porque esse campo só pode ser alterado
  * por uma credencial administrativa, não pela própria sessão do usuário.
@@ -84,7 +94,32 @@ export const isAtomicImportEnabled = (user?: UserWithMetadata): boolean => {
   if (!user?.id) return false;
   if (user.app_metadata?.atomic_imports_disabled === true) return false;
   if (user.user_metadata?.atomic_imports_disabled === true) return false;
+  if (user.app_metadata?.atomic_imports_enabled === false) return false;
   if (user.app_metadata?.atomic_imports_enabled === true) return true;
   return import.meta.env.VITE_ATOMIC_IMPORTS_ENABLED === 'true';
+};
+
+/**
+ * Resolve a flag individual no servidor para não depender de um JWT antigo.
+ * Falhas de rede, função ausente ou resposta inesperada mantêm o fluxo legado
+ * (desligado), evitando ampliar o rollout por acidente.
+ */
+export const resolveAtomicImportEnabled = async (
+  user: UserWithMetadata,
+  readServerFlag: AtomicImportFlagReader
+): Promise<boolean> => {
+  if (!user?.id) return false;
+  if (user.user_metadata?.atomic_imports_disabled === true) return false;
+
+  try {
+    const { data, error } = await readServerFlag();
+    if (error || !data) return false;
+    if (data === 'disabled') return false;
+    if (data === 'enabled') return true;
+    if (data === 'unset') return import.meta.env.VITE_ATOMIC_IMPORTS_ENABLED === 'true';
+    return false;
+  } catch {
+    return false;
+  }
 };
 

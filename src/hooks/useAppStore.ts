@@ -25,10 +25,10 @@ import {
 import { User } from '@supabase/supabase-js';
 import { getDefaultTransactionFilters } from '../utils/transactionPeriodFilters';
 import {
-  isAtomicImportEnabled,
   isCardV2Enabled,
   isCardV2ShadowEnabled,
   isCreditCardEngineEnabled,
+  resolveAtomicImportEnabled,
 } from '../services/featureFlagService';
 import { creditCardStatementService, CreditCardShadowDashboardRow, getCreditCardShadowDashboard, CardClassifierRules, CardClassifierOverrides } from '../services/creditCardStatementService';
 import { creditCardEngineService, parseCreditCardReferenceFromFileName } from '../services/creditCardEngineService';
@@ -52,6 +52,15 @@ import {
   buildStructuredImportFingerprint,
   isSha256Fingerprint,
 } from '../utils/importBatchIntegrity';
+
+const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
+  resolveAtomicImportEnabled(user, async () => {
+    const { data, error } = await supabase.rpc('get_atomic_import_feature_state');
+    return {
+      data: data === 'enabled' || data === 'disabled' || data === 'unset' ? data : null,
+      error: error ? { message: error.message } : null,
+    };
+  });
 
 const parseClassifierKeywords = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -174,6 +183,7 @@ async function removeImportedCardArtifacts(opts: {
 interface AppState {
   transactions: Transaction[];
   user: User | null;
+  atomicImportEnabled: boolean;
   accounts: Account[];
   categories: Category[];
   budgets: Budget[];
@@ -205,6 +215,7 @@ interface AppState {
 
   setTransactionFilters: (filters: AppState['transactionFilters']) => void;
   setUser: (user: User | null) => void;
+  refreshAtomicImportEligibility: () => Promise<boolean>;
   updateUserPreferences: (preferences: Partial<User['user_metadata']>) => Promise<void>;
   signOut: () => Promise<void>;
 
@@ -364,6 +375,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // --- ESTADO INICIAL ---
   transactions: [],
   user: null,
+  atomicImportEnabled: false,
   accounts: [],
   categories: [],
   budgets: [],
@@ -398,12 +410,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
   setUser: (user) => {
     const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
-    set({ 
-      user, 
-      isPremium: isAdmin || get().isPremium, 
-      isWealth: isAdmin || get().isWealth,
-      unlimitedSync: isAdmin || get().unlimitedSync 
-    });
+    set((state) => ({
+      user,
+      atomicImportEnabled:
+        user?.id && user.id === state.user?.id ? state.atomicImportEnabled : false,
+      isPremium: isAdmin || state.isPremium,
+      isWealth: isAdmin || state.isWealth,
+      unlimitedSync: isAdmin || state.unlimitedSync,
+    }));
+  },
+
+  refreshAtomicImportEligibility: async () => {
+    const user = get().user;
+    const enabled = await readAtomicImportEligibility(user);
+    if (get().user?.id === user?.id) {
+      set({ atomicImportEnabled: enabled });
+    }
+    return enabled;
   },
   
   updateUserPreferences: async (preferences) => {
@@ -1396,6 +1419,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Limpa o estado da aplicação SEMPRE, independente do erro no servidor
     set({
       user: null,
+      atomicImportEnabled: false,
       transactions: [],
       accounts: [],
       categories: [],
@@ -1416,6 +1440,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchAllData: async () => {
     set({ isLoading: true });
     await Promise.all([
+      get().refreshAtomicImportEligibility(),
       get().fetchTransactions(),
       get().fetchAccounts(),
       get().fetchCategories(),
@@ -1733,7 +1758,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { imported: 0, ignored: 0 };
 
-    const atomicImportEnabled = isAtomicImportEnabled(user);
+    const atomicImportEnabled = await readAtomicImportEligibility(user);
+    if (get().user?.id === user.id) set({ atomicImportEnabled });
 
     // Compatibilidade: com a flag desligada, o fluxo atual segue igual. Em
     // staging, a identidade passa a ser conteúdo + conta e ignora o nome.
@@ -2330,7 +2356,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    if (!isAtomicImportEnabled(user)) {
+    const atomicImportEnabled = await readAtomicImportEligibility(user);
+    if (get().user?.id === user.id) set({ atomicImportEnabled });
+
+    if (!atomicImportEnabled) {
       await get().deleteTransactionsByOrigin(transaction.Origem);
       return;
     }
@@ -2357,7 +2386,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const log = importLogs.find((item) => item.id === logId);
     if (!log) return { updated: 0 };
 
-    if (!isAtomicImportEnabled(user)) {
+    const atomicImportEnabled = await readAtomicImportEligibility(user);
+    if (get().user?.id === user.id) set({ atomicImportEnabled });
+
+    if (!atomicImportEnabled) {
       return get().reassignTransactionsAccountByOrigin(log.file_name, accountId);
     }
 
@@ -2776,7 +2808,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const atomicImportEnabled = isAtomicImportEnabled(user);
+    const atomicImportEnabled = await readAtomicImportEligibility(user);
+    if (get().user?.id === user.id) set({ atomicImportEnabled });
     let deletedTransactions: Transaction[] = [];
 
     if (atomicImportEnabled) {
