@@ -12,7 +12,7 @@ Data de preparação: 08/08/2026
 ## Estado verificado antes de produção
 
 - `origin/main`: `886b1c5d17f059c96d08d0b5f9f216e33bf2be17`.
-- branch candidata: `6a4e5debccc08b9b22081b4fddf3f47e361cd3e7`, exatamente três commits à frente de `origin/main` e nenhum commit atrás.
+- código candidato: `6a4e5debccc08b9b22081b4fddf3f47e361cd3e7`; commits posteriores na branch são exclusivamente deste plano operacional. A branch permanece sem commits atrás de `origin/main`.
 - diferença da Sprint 1B: oito arquivos, sem migration e sem nova chamada de escrita Supabase no diff.
 - Vercel: `VITE_SMART_TRANSACTION_FILTERS_ENABLED` ausente; portanto não há habilitação global.
 - Supabase oficial: uma conta corresponde ao piloto; zero usuários possuem a chave da nova flag, zero habilitados e zero desabilitados.
@@ -40,7 +40,7 @@ Esta impressão digital não expõe descrições, valores, contas ou outros dado
 ## Sequência de liberação
 
 1. Obter autorização explícita para merge/deployment após a leitura dos riscos acima.
-2. Fazer fast-forward de `main` de `886b1c5` para `6a4e5de` sem tocar no worktree principal com alterações locais do usuário.
+2. Fazer fast-forward de `main` de `886b1c5` para a cabeça remota revisada de `codex/sprint-1b-smart-filters`, sem tocar no worktree principal com alterações locais do usuário.
 3. Monitorar o deployment da Vercel até `Ready`; confirmar que o domínio oficial responde e que a produção continua com zero usuários habilitados.
 4. Abrir a conta-piloto ainda com a flag ausente e confirmar a experiência legada.
 5. Alterar somente a conta-piloto, preservando todos os demais metadados, e exigir exatamente uma linha afetada.
