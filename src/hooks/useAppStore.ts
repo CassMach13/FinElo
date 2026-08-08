@@ -41,6 +41,10 @@ import {
   type ImportHistoryRebuildCycle,
   type ImportHistoryRebuildResult,
 } from '../services/creditCardRebuildFromImportHistoryService';
+import {
+  creditCardAtomicRebuildService,
+  type AtomicCardRebuildAuditResult,
+} from '../services/creditCardAtomicRebuildService';
 import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
@@ -347,6 +351,11 @@ interface AppState {
     accountId: string,
     cycles: ImportHistoryRebuildCycle[]
   ) => Promise<ImportHistoryRebuildResult>;
+  /** Sprint 2A: monta e compara a projeção completa usando somente leitura. */
+  auditCreditCardRebuildFromImportHistory: (
+    accountId: string,
+    cycles: ImportHistoryRebuildCycle[]
+  ) => Promise<AtomicCardRebuildAuditResult>;
   syncCreditCardHistoryFromAccount: (accountId: string) => Promise<{ message: string; origins: number; processed: number }>;
   saveCardImportLotClassification: (
     origin: string,
@@ -930,6 +939,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().refreshCreditCardShadowDashboard();
 
     return result;
+  },
+
+  auditCreditCardRebuildFromImportHistory: async (accountId, cycles) => {
+    const { user, accounts, transactions, importLogs } = get();
+    if (!user) throw new Error('Usuário não autenticado.');
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) throw new Error('Conta não encontrada.');
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      throw new Error('A conta selecionada não é cartão de crédito.');
+    }
+
+    return creditCardAtomicRebuildService.audit({
+      account,
+      cycles,
+      transactions,
+      importLogs,
+      rules: engineClassifierRulesFromUser(user),
+    });
   },
 
   rebuildCreditCardByPeriod: async (accountId, fromDate, toDate) => {

@@ -7,6 +7,7 @@ import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { comparableImportOriginKey } from '../../utils/importOriginKey';
 import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
+import type { AtomicCardRebuildAuditResult } from '../../services/creditCardAtomicRebuildService';
 import { formatCurrency } from '../../utils/formatters';
 import type { Account, ImportLog, Transaction } from '../../types';
 import Select from '../ui/Select';
@@ -386,6 +387,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const importLogs = useAppStore((s) => s.importLogs);
   const user = useAppStore((s) => s.user);
   const rebuildCreditCardFromImportHistory = useAppStore((s) => s.rebuildCreditCardFromImportHistory);
+  const auditCreditCardRebuildFromImportHistory = useAppStore((s) => s.auditCreditCardRebuildFromImportHistory);
 
   const creditCardAccounts = useMemo(
     () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
@@ -398,7 +400,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const [rows, setRows] = useState<CreditCardInvoiceCycleRow[]>([]);
   const [invoiceDueDayStr, setInvoiceDueDayStr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [operation, setOperation] = useState<'audit' | 'rebuild' | null>(null);
   const [applyProgress, setApplyProgress] = useState<string | null>(null);
+  const [shadowAudit, setShadowAudit] = useState<AtomicCardRebuildAuditResult | null>(null);
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
 
@@ -407,7 +411,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       prevIsOpenRef.current = false;
       prevFilterSigRef.current = undefined;
       setBusy(false);
+      setOperation(null);
       setApplyProgress(null);
+      setShadowAudit(null);
       return;
     }
 
@@ -437,6 +443,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
 
     if (openedNow || filterChanged) {
       setRows(fresh);
+      setShadowAudit(null);
       if (effectiveFilterAccountId) {
         const acc = accounts.find((a) => a.id === effectiveFilterAccountId);
         const dAcc = Number(acc?.dia_vencimento);
@@ -483,6 +490,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   );
 
   const rowsSortedByVencimento = useMemo(() => sortRowsByVencimentoDesc(rows), [rows]);
+  const manualCardTransactionCount = useMemo(
+    () =>
+      effectiveFilterAccountId
+        ? transactions.filter(
+            (transaction) =>
+              transaction.ID_Conta === effectiveFilterAccountId &&
+              String(transaction.Origem || 'manual').trim().toLowerCase() === 'manual'
+          ).length
+        : 0,
+    [effectiveFilterAccountId, transactions]
+  );
+  const hasAuditSource = rows.length > 0 || manualCardTransactionCount > 0;
 
   const previewByRowKey = useMemo(() => {
     const map = new Map<string, ReturnType<typeof creditCardRebuildFromImportHistoryService.previewCycles>[number]>();
@@ -603,6 +622,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     if (!confirmed) return;
 
     setBusy(true);
+    setOperation('rebuild');
     setApplyProgress('Somando linhas por arquivo…');
 
     try {
@@ -624,6 +644,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       });
 
       setBusy(false);
+      setOperation(null);
       setApplyProgress(null);
       onClose();
 
@@ -635,6 +656,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     } catch (e: unknown) {
       console.error('[CreditCardInvoiceCyclesModal]', e);
       setBusy(false);
+      setOperation(null);
       setApplyProgress(null);
       const raw = e instanceof Error ? e.message : String(e);
       const isNetwork =
@@ -659,8 +681,109 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     onClose,
   ]);
 
+  const handleShadowAudit = useCallback(async () => {
+    if (!user) {
+      await appAlert('Faça login para continuar.', 'Sessão', 'warning');
+      return;
+    }
+    if (!effectiveFilterAccountId) {
+      await appAlert('Selecione o cartão de crédito.', 'Cartão', 'warning');
+      return;
+    }
+    if (!hasAuditSource) {
+      await appAlert('Não há lançamentos importados ou manuais deste cartão para auditar.', 'Histórico', 'warning');
+      return;
+    }
+
+    for (const row of rows) {
+      const error = validateRow(row);
+      if (error) {
+        await appAlert(error, 'Validação', 'warning');
+        return;
+      }
+    }
+
+    const cycles = rows.map((row) => {
+      const { referenceMonth, dueDate } = rowIsoValues(row);
+      return {
+        fileName: row.displayOrigin,
+        referenceMonth,
+        dueDate,
+      };
+    });
+
+    setBusy(true);
+    setOperation('audit');
+    setApplyProgress('Montando a projeção em memória e comparando com o banco, sem alterar dados…');
+    try {
+      const result = await auditCreditCardRebuildFromImportHistory(
+        effectiveFilterAccountId,
+        cycles
+      );
+      setShadowAudit(result);
+
+      const { shadow, persisted, comparison } = result;
+      const statusLabel =
+        comparison.status === 'blocked'
+          ? 'BLOQUEADA'
+          : comparison.status === 'identical'
+            ? 'IDÊNTICA'
+            : comparison.safeToActivate
+              ? 'DIFERENTE — apta para uma futura troca atômica'
+              : 'DIFERENTE — requer investigação antes de qualquer troca';
+      const issueLines = shadow.issues
+        .slice(0, 5)
+        .map((issue) => `• ${issue.message}`);
+      await appAlert(
+        [
+          `Auditoria ${statusLabel}. Nenhum dado foi alterado.`,
+          `Fonte atual: ${persisted.source}.`,
+          `Sombra: ${shadow.sourceTransactionCount} transações, ${shadow.projectedEntryCount} itens, ${shadow.projectedPaymentCount} pagamentos e ${shadow.statements.length} faturas.`,
+          `Diferenças: ${comparison.differenceCount}. Bloqueios: ${shadow.blockers.length}. Alertas: ${shadow.warnings.length}.`,
+          `Duplicidades atuais: ${comparison.duplicatePersistedTransactionIds.length} transação(ões), ${comparison.duplicatePersistedPaymentTransactionIds.length} pagamento(s) e ${comparison.duplicatePersistedStatementKeys.length} competência(s).`,
+          `Ausentes na projeção atual: ${comparison.missingTransactionIds.length} transação(ões), ${comparison.missingPaymentKeys.length} pagamento(s) e ${comparison.missingStatementKeys.length} fatura(s).`,
+          `Órfãos na projeção atual: ${comparison.orphanTransactionIds.length} transação(ões), ${comparison.orphanPaymentKeys.length} pagamento(s) e ${comparison.orphanStatementKeys.length} fatura(s).`,
+          `Alterados: ${comparison.changedTransactionIds.length} transação(ões), ${comparison.changedPaymentTransactionIds.length} pagamento(s) e ${comparison.changedStatementKeys.length} fatura(s).`,
+          `Faturas com metadados protegidos: ${comparison.protectedMetadataStatementKeys.length}.`,
+          `Apta para futura troca atômica: ${comparison.safeToActivate ? 'sim' : 'não'}.`,
+          `Checksum: ${shadow.checksum}.`,
+          ...issueLines,
+        ].join('\n'),
+        comparison.status === 'blocked' || !comparison.safeToActivate
+          ? 'Auditoria requer investigação'
+          : 'Auditoria somente leitura',
+        comparison.status === 'blocked' || !comparison.safeToActivate
+          ? 'danger'
+          : comparison.status === 'identical'
+            ? 'success'
+            : 'warning'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][ShadowAudit]', error);
+      setShadowAudit(null);
+      await appAlert(
+        error instanceof Error ? error.message : 'Falha ao auditar a projeção do cartão.',
+        'Auditoria não concluída',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [
+    user,
+    effectiveFilterAccountId,
+    hasAuditSource,
+    rows,
+    validateRow,
+    rowIsoValues,
+    auditCreditCardRebuildFromImportHistory,
+  ]);
+
   const handleInvoiceDueDayChange = useCallback(
     (value: string) => {
+      setShadowAudit(null);
       const sanitized = sanitizeInvoiceDueDayInput(value);
       setInvoiceDueDayStr(sanitized);
       setRows((prev) =>
@@ -679,6 +802,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
 
   const handleCompetenciaChange = useCallback(
     (key: string, value: string) => {
+      setShadowAudit(null);
       setRows((prev) =>
         sortRowsByVencimentoDesc(
           prev.map((r) => {
@@ -697,9 +821,12 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const summaryHint = useMemo(() => {
     if (!engineOn) return 'Motor de cartão desativado para este usuário.';
     if (!effectiveFilterAccountId) return 'Selecione o cartão para listar os arquivos do histórico de importações.';
+    if (rows.length === 0 && manualCardTransactionCount > 0) {
+      return `${manualCardTransactionCount} lançamento(s) manual(is) disponível(is) para auditoria somente leitura.`;
+    }
     if (rows.length === 0) return 'Nenhum arquivo deste cartão no histórico (nem transações vinculadas).';
-    return `${rows.length} arquivo(s) em «${filteredAccountName}» — totais calculados pela soma das linhas de cada CSV.`;
-  }, [engineOn, rows.length, filteredAccountName, effectiveFilterAccountId]);
+    return `${rows.length} arquivo(s) e ${manualCardTransactionCount} lançamento(s) manual(is) em «${filteredAccountName}».`;
+  }, [engineOn, rows.length, manualCardTransactionCount, filteredAccountName, effectiveFilterAccountId]);
 
   const modalTitle = filteredAccountName
     ? `Faturas pelo histórico — ${filteredAccountName}`
@@ -721,10 +848,17 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
             Fechar
           </Button>
           <Button
+            variant="secondary"
+            disabled={busy || !effectiveFilterAccountId || !hasAuditSource}
+            onClick={handleShadowAudit}
+          >
+            {operation === 'audit' ? 'Auditando…' : 'Auditar sem alterar dados'}
+          </Button>
+          <Button
             disabled={busy || !engineOn || !effectiveFilterAccountId || rows.length === 0}
             onClick={handleApplyWithConfirm}
           >
-            {busy ? 'Processando…' : 'Reconstruir faturas deste cartão'}
+            {operation === 'rebuild' ? 'Processando…' : 'Reconstruir faturas deste cartão'}
           </Button>
         </div>
       }
@@ -765,6 +899,40 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
             className="rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-2.5 text-sm text-cyan-100"
           >
             <span className="font-medium text-white">Em andamento.</span> {applyProgress}
+          </div>
+        )}
+
+        {shadowAudit && (
+          <div
+            className={`rounded-xl border px-3 py-3 text-xs ${
+              shadowAudit.comparison.status === 'blocked' ||
+              !shadowAudit.comparison.safeToActivate
+                ? 'border-red-500/40 bg-red-500/10 text-red-100'
+                : shadowAudit.comparison.status === 'identical'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-100'
+            }`}
+          >
+            <p className="font-semibold text-white">
+              Sprint 2A — auditoria somente leitura:{' '}
+              {shadowAudit.comparison.status === 'blocked'
+                ? 'bloqueada'
+                : shadowAudit.comparison.status === 'identical'
+                  ? 'projeção idêntica'
+                  : shadowAudit.comparison.safeToActivate
+                    ? 'diferenças reparáveis encontradas'
+                    : 'diferenças que exigem investigação'}
+            </p>
+            <p className="mt-1 leading-relaxed">
+              {shadowAudit.shadow.sourceTransactionCount} transações ·{' '}
+              {shadowAudit.shadow.projectedEntryCount} itens ·{' '}
+              {shadowAudit.shadow.projectedPaymentCount} pagamentos ·{' '}
+              {shadowAudit.shadow.statements.length} faturas ·{' '}
+              {shadowAudit.comparison.differenceCount} diferenças ·{' '}
+              {shadowAudit.shadow.blockers.length} bloqueios · futura troca atômica{' '}
+              {shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}. Nenhum dado foi gravado.
+            </p>
+            <p className="mt-1 font-mono text-[10px] opacity-75">{shadowAudit.shadow.checksum}</p>
           </div>
         )}
 
@@ -853,6 +1021,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
 
         <p className="text-[11px] text-gray-500 leading-snug">
           A prévia usa as linhas já importadas (aba Transações). Por arquivo, a coluna Pagamentos mostra o valor do CSV; no histórico por competência, esse valor abate a fatura do mês anterior.
+        </p>
+        <p className="text-[11px] text-amber-300/80 leading-snug">
+          <strong>Auditar sem alterar dados</strong> apenas lê e compara importações e lançamentos manuais. O botão <strong>Reconstruir faturas deste cartão</strong> continua sendo o fluxo operacional atual e altera a projeção do cartão.
         </p>
       </div>
     </Modal>
