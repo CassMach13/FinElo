@@ -18,7 +18,11 @@ import MultiSelect from './../ui/MultiSelect';
 import Select from './../ui/Select';
 import Button from './../ui/Button';
 import { TourButton } from '../TourButton';
-import { isCardV2Enabled, isCreditCardEngineEnabled } from '../../services/featureFlagService';
+import {
+  isCardV2Enabled,
+  isCreditCardEngineEnabled,
+  isSmartTransactionFiltersEnabled,
+} from '../../services/featureFlagService';
 import { creditCardEngineService } from '../../services/creditCardEngineService';
 import { supabase } from '../../supabaseClient';
 
@@ -64,6 +68,7 @@ import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
+import SmartTransactionFiltersPanel from '../transactions/SmartTransactionFiltersPanel';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
 import FamilyOwnerBadge from '../ui/FamilyOwnerBadge';
 import FamilyOwnerAuditPanel from '../ui/FamilyOwnerAuditPanel';
@@ -89,12 +94,15 @@ import {
   VIEW_SCOPE_LABELS,
   formatPeriodLabel,
   getDefaultTransactionFilters,
+  getShowAllTransactionFilters,
   loadPersistedTransactionFilters,
   loadTransactionFiltersPanelExpanded,
   resolveTransactionFilters,
   savePersistedTransactionFilters,
   saveTransactionFiltersPanelExpanded,
   matchesTransactionFilters,
+  SMART_TRANSACTION_FILTERS_STORAGE_KEY,
+  TRANSACTION_FILTERS_STORAGE_KEY,
   UNASSIGNED_ACCOUNT_FILTER_ID,
   type TransactionFiltersState,
   type TransactionPeriodPreset,
@@ -239,6 +247,10 @@ const TransactionsView: React.FC = () => {
     importLogs,
     bumpCreditCardEngineRevision,
   } = useAppStore();
+  const smartFiltersEnabled = isSmartTransactionFiltersEnabled(user);
+  const filtersStorageKey = smartFiltersEnabled
+    ? SMART_TRANSACTION_FILTERS_STORAGE_KEY
+    : TRANSACTION_FILTERS_STORAGE_KEY;
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -256,7 +268,7 @@ const TransactionsView: React.FC = () => {
   );
   const [showOwnerColumn, setShowOwnerColumn] = useState(() => loadFamilyOwnerColumnVisible());
   const [groupByOwner, setGroupByOwner] = useState(() => loadFamilyGroupByOwner());
-  const filtersHydratedRef = useRef(false);
+  const filtersHydratedRef = useRef<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -2391,20 +2403,20 @@ const TransactionsView: React.FC = () => {
     (patch: Partial<TransactionFiltersState>) => {
       const next = resolveTransactionFilters({ ...transactionFilters, ...patch });
       setTransactionFilters(next);
-      savePersistedTransactionFilters(next);
+      savePersistedTransactionFilters(next, filtersStorageKey);
       setCurrentPage(1);
     },
-    [transactionFilters, setTransactionFilters]
+    [filtersStorageKey, transactionFilters, setTransactionFilters]
   );
 
   useEffect(() => {
-    if (filtersHydratedRef.current) return;
-    filtersHydratedRef.current = true;
-    const persisted = loadPersistedTransactionFilters();
+    if (filtersHydratedRef.current === filtersStorageKey) return;
+    filtersHydratedRef.current = filtersStorageKey;
+    const persisted = loadPersistedTransactionFilters(filtersStorageKey);
     const resolved = resolveTransactionFilters(persisted ?? undefined);
     setTransactionFilters(resolved);
-    savePersistedTransactionFilters(resolved);
-  }, [setTransactionFilters]);
+    savePersistedTransactionFilters(resolved, filtersStorageKey);
+  }, [filtersStorageKey, setTransactionFilters]);
 
   const handlePeriodPreset = useCallback(
     (preset: TransactionPeriodPreset) => {
@@ -2461,6 +2473,10 @@ const TransactionsView: React.FC = () => {
   );
   const historyViewActive =
     transactionFilters.viewScope === 'all' || transactionFilters.periodPreset === 'all';
+  const creditCardAccountIdsForFilters = useMemo(
+    () => new Set(accounts.filter((account) => account.Tipo_Conta === 'Cartão de Crédito').map((account) => account.id)),
+    [accounts]
+  );
 
   const toggleFiltersPanel = useCallback(() => {
     setFiltersPanelExpanded((prev) => {
@@ -2510,19 +2526,36 @@ const TransactionsView: React.FC = () => {
     return sortableItems.filter((t) =>
       matchesTransactionFilters(t, transactionFilters, {
         getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+        getAccountName: (accountId) => (accountId ? accountsMap.get(accountId) : 'Sem conta'),
+        isCreditCardAccount: (accountId) => Boolean(accountId && creditCardAccountIdsForFilters.has(accountId)),
       })
     );
-  }, [transactions, transactionFilters, sortConfig, familyOwnerContext]);
+  }, [
+    transactions,
+    transactionFilters,
+    sortConfig,
+    familyOwnerContext,
+    accountsMap,
+    creditCardAccountIdsForFilters,
+  ]);
 
   const transactionsForFamilySummary = useMemo(
     () =>
       transactions.filter((t) =>
         matchesTransactionFilters(t, transactionFilters, {
           getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+          getAccountName: (accountId) => (accountId ? accountsMap.get(accountId) : 'Sem conta'),
+          isCreditCardAccount: (accountId) => Boolean(accountId && creditCardAccountIdsForFilters.has(accountId)),
           skipOwnerFilter: true,
         })
       ),
-    [transactions, transactionFilters, familyOwnerContext]
+    [
+      transactions,
+      transactionFilters,
+      familyOwnerContext,
+      accountsMap,
+      creditCardAccountIdsForFilters,
+    ]
   );
 
   const familyPeriodTotals = useMemo(
@@ -2710,7 +2743,14 @@ const TransactionsView: React.FC = () => {
   const clearFilters = () => {
     const defaults = getDefaultTransactionFilters();
     setTransactionFilters(defaults);
-    savePersistedTransactionFilters(defaults);
+    savePersistedTransactionFilters(defaults, filtersStorageKey);
+    setCurrentPage(1);
+  };
+
+  const showAllTransactions = () => {
+    const allFilters = getShowAllTransactionFilters();
+    setTransactionFilters(allFilters);
+    savePersistedTransactionFilters(allFilters, filtersStorageKey);
     setCurrentPage(1);
   };
 
@@ -2844,7 +2884,22 @@ const TransactionsView: React.FC = () => {
       )}
 
       <div id="transactions-filters">
-        <Card className="!overflow-visible z-40 relative !p-4 sm:!p-5">
+        {smartFiltersEnabled ? (
+          <SmartTransactionFiltersPanel
+            filters={transactionFilters}
+            accounts={accounts}
+            categories={categories}
+            owners={familyOwnerContext.owners}
+            showOwnerFilter={familyOwnerContext.showAttribution}
+            totalCount={transactions.length}
+            visibleCount={filteredTransactions.length}
+            unassignedCount={unassignedTransactionCount}
+            onChange={applyTransactionFilters}
+            onReset={clearFilters}
+            onShowAll={showAllTransactions}
+          />
+        ) : (
+          <Card className="!overflow-visible z-40 relative !p-4 sm:!p-5">
           <button
             type="button"
             className="w-full flex items-center justify-between gap-3 text-left rounded-xl hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors -mx-1 px-1 py-0.5"
@@ -3075,7 +3130,8 @@ const TransactionsView: React.FC = () => {
               </div>
             </div>
           </div>
-        </Card>
+          </Card>
+        )}
       </div>
 
       {unassignedTransactionCount > 0 && (

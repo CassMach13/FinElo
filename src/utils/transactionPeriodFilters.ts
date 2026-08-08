@@ -12,6 +12,8 @@ export type TransactionViewScope = 'operation' | 'commitments' | 'all';
 
 export type TransactionDateField = 'Data' | 'Pagamento';
 
+export type TransactionSourceScope = 'all' | 'manual' | 'imported' | 'credit_card';
+
 export interface TransactionFiltersState {
   text: string;
   startDate: string;
@@ -22,11 +24,13 @@ export interface TransactionFiltersState {
   accountId: string[];
   /** user_id do responsável; vazio = todos (plano família). */
   ownerUserId: string;
+  sourceScope: TransactionSourceScope;
   viewScope: TransactionViewScope;
   periodPreset: TransactionPeriodPreset;
 }
 
 export const TRANSACTION_FILTERS_STORAGE_KEY = 'finelo_transaction_filters_v1';
+export const SMART_TRANSACTION_FILTERS_STORAGE_KEY = 'finelo_transaction_filters_v2';
 export const TRANSACTION_FILTERS_PANEL_EXPANDED_KEY = 'finelo_transactions_filters_expanded';
 export const UNASSIGNED_ACCOUNT_FILTER_ID = '__finelo_unassigned_account__';
 
@@ -88,6 +92,9 @@ export function buildTransactionFiltersCollapsedSummary(
   }
   if (filters.type) parts.push(filters.type === 'Renda' ? 'Entradas' : 'Saídas');
   if (filters.ownerUserId) parts.push('1 pessoa');
+  if (filters.sourceScope === 'manual') parts.push('Manuais');
+  if (filters.sourceScope === 'imported') parts.push('Importadas');
+  if (filters.sourceScope === 'credit_card') parts.push('Cartão');
   return parts.join(' · ');
 }
 
@@ -128,6 +135,7 @@ export function getDefaultTransactionFilters(): TransactionFiltersState {
     type: '',
     accountId: [],
     ownerUserId: '',
+    sourceScope: 'all',
     viewScope: 'operation',
     periodPreset: 'current_month',
   };
@@ -137,16 +145,30 @@ export function getDefaultTransactionFilters(): TransactionFiltersState {
 export function resolveTransactionFilters(
   partial?: Partial<TransactionFiltersState> | null
 ): TransactionFiltersState {
+  const validSourceScopes: TransactionSourceScope[] = ['all', 'manual', 'imported', 'credit_card'];
+  const sourceScope = validSourceScopes.includes(partial?.sourceScope as TransactionSourceScope)
+    ? (partial?.sourceScope as TransactionSourceScope)
+    : 'all';
   const merged: TransactionFiltersState = {
     ...getDefaultTransactionFilters(),
     ...partial,
     ownerUserId: partial?.ownerUserId ?? getDefaultTransactionFilters().ownerUserId,
+    sourceScope,
   };
 
-  if (merged.viewScope === 'all' || merged.periodPreset === 'all') {
+  if (merged.viewScope === 'all') {
     return {
       ...merged,
       viewScope: 'all',
+      periodPreset: 'all',
+      startDate: '',
+      endDate: '',
+    };
+  }
+
+  if (merged.periodPreset === 'all') {
+    return {
+      ...merged,
       periodPreset: 'all',
       startDate: '',
       endDate: '',
@@ -161,9 +183,11 @@ export function resolveTransactionFilters(
   return merged;
 }
 
-export function loadPersistedTransactionFilters(): Partial<TransactionFiltersState> | null {
+export function loadPersistedTransactionFilters(
+  storageKey = TRANSACTION_FILTERS_STORAGE_KEY
+): Partial<TransactionFiltersState> | null {
   try {
-    const raw = localStorage.getItem(TRANSACTION_FILTERS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<TransactionFiltersState>;
     return parsed && typeof parsed === 'object' ? parsed : null;
@@ -172,9 +196,12 @@ export function loadPersistedTransactionFilters(): Partial<TransactionFiltersSta
   }
 }
 
-export function savePersistedTransactionFilters(filters: TransactionFiltersState): void {
+export function savePersistedTransactionFilters(
+  filters: TransactionFiltersState,
+  storageKey = TRANSACTION_FILTERS_STORAGE_KEY
+): void {
   try {
-    localStorage.setItem(TRANSACTION_FILTERS_STORAGE_KEY, JSON.stringify(filters));
+    localStorage.setItem(storageKey, JSON.stringify(filters));
   } catch {
     /* quota / private mode */
   }
@@ -208,13 +235,28 @@ export function shouldApplyDateFilter(filters: TransactionFiltersState): boolean
   );
 }
 
+const normalizeSearchText = (value: unknown): string =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isManualTransaction = (transaction: Transaction): boolean =>
+  normalizeSearchText(transaction.Origem || 'manual') === 'manual';
+
+export interface TransactionFilterMatchOptions {
+  getTransactionOwnerId?: (tx: Transaction) => string | undefined;
+  getAccountName?: (accountId: string | undefined) => string | undefined;
+  isCreditCardAccount?: (accountId: string | undefined) => boolean;
+  skipOwnerFilter?: boolean;
+}
+
 export function matchesTransactionFilters(
   transaction: Transaction,
   filters: TransactionFiltersState,
-  options?: {
-    getTransactionOwnerId?: (tx: Transaction) => string | undefined;
-    skipOwnerFilter?: boolean;
-  }
+  options?: TransactionFilterMatchOptions
 ): boolean {
   if (filters.viewScope === 'commitments' && !isCommitmentTransaction(transaction)) {
     return false;
@@ -229,15 +271,28 @@ export function matchesTransactionFilters(
       : transaction.Data
   );
 
-  const searchQuery = filters.text.trim().toLowerCase();
-  const matchesText =
-    searchQuery === '' ||
-    (transaction.Nome_Fantasia || '').toLowerCase().includes(searchQuery) ||
-    (transaction.Descricao_Original || '').toLowerCase().includes(searchQuery) ||
-    transaction.Valor.toString().includes(filters.text) ||
-    transaction.Valor.toFixed(2).includes(filters.text) ||
-    transaction.Valor.toString().replace('.', ',').includes(filters.text) ||
-    transaction.Valor.toFixed(2).replace('.', ',').includes(filters.text);
+  const searchTokens = normalizeSearchText(filters.text).split(' ').filter(Boolean);
+  const valueText = Number.isFinite(transaction.Valor)
+    ? [
+        transaction.Valor.toString(),
+        transaction.Valor.toFixed(2),
+        transaction.Valor.toString().replace('.', ','),
+        transaction.Valor.toFixed(2).replace('.', ','),
+      ].join(' ')
+    : '';
+  const searchHaystack = normalizeSearchText([
+    transaction.Nome_Fantasia,
+    transaction.Descricao_Original,
+    transaction.Categoria,
+    transaction.Tipo,
+    transaction.Fonte,
+    transaction.Origem,
+    transaction.Data,
+    transaction.Data_Pagamento,
+    options?.getAccountName?.(transaction.ID_Conta),
+    valueText,
+  ].join(' '));
+  const matchesText = searchTokens.every((token) => searchHaystack.includes(token));
 
   const matchesDate =
     !applyDateFilter ||
@@ -254,15 +309,41 @@ export function matchesTransactionFilters(
     (transaction.ID_Conta
       ? filters.accountId.includes(transaction.ID_Conta)
       : filters.accountId.includes(UNASSIGNED_ACCOUNT_FILTER_ID));
+  // Compatibilidade com chamadas e estados v1 que ainda não possuem sourceScope.
+  const sourceScope = filters.sourceScope ?? 'all';
+  const matchesSource =
+    sourceScope === 'all' ||
+    (sourceScope === 'manual' && isManualTransaction(transaction)) ||
+    (sourceScope === 'imported' && !isManualTransaction(transaction)) ||
+    (sourceScope === 'credit_card' &&
+      Boolean(options?.isCreditCardAccount?.(transaction.ID_Conta)));
 
   return (
     matchesText &&
     matchesDate &&
     matchesOwner &&
+    matchesSource &&
     (filters.category.length === 0 || filters.category.includes(transaction.Categoria)) &&
     matchesAccount &&
     (filters.type === '' || transaction.Tipo === filters.type)
   );
+}
+
+/** Exibe todos os dados e remove filtros auxiliares sem alterar qualquer transação. */
+export function getShowAllTransactionFilters(): TransactionFiltersState {
+  return {
+    ...getDefaultTransactionFilters(),
+    text: '',
+    startDate: '',
+    endDate: '',
+    category: [],
+    type: '',
+    accountId: [],
+    ownerUserId: '',
+    sourceScope: 'all',
+    viewScope: 'all',
+    periodPreset: 'all',
+  };
 }
 
 export function formatPeriodLabel(filters: TransactionFiltersState): string {

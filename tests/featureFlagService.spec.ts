@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '@supabase/supabase-js';
 import {
   isAtomicImportEnabled,
+  isSmartTransactionFiltersEnabled,
   resolveAtomicImportEnabled,
 } from '../src/services/featureFlagService';
 
@@ -74,6 +75,43 @@ describe('isAtomicImportEnabled', () => {
     vi.stubEnv('VITE_ATOMIC_IMPORTS_ENABLED', 'true');
     expect(isAtomicImportEnabled(user({
       user_metadata: { atomic_imports_disabled: true },
+    }))).toBe(false);
+  });
+});
+
+describe('isSmartTransactionFiltersEnabled', () => {
+  it('permanece desligada por padrão e sem usuário autenticado', () => {
+    vi.stubEnv('VITE_SMART_TRANSACTION_FILTERS_ENABLED', 'false');
+    expect(isSmartTransactionFiltersEnabled(user())).toBe(false);
+    expect(isSmartTransactionFiltersEnabled(null)).toBe(false);
+  });
+
+  it('permite Preview/Staging global sem exigir migration', () => {
+    vi.stubEnv('VITE_SMART_TRANSACTION_FILTERS_ENABLED', 'true');
+    expect(isSmartTransactionFiltersEnabled(user())).toBe(true);
+  });
+
+  it('habilita uma conta piloto por metadado individual', () => {
+    vi.stubEnv('VITE_SMART_TRANSACTION_FILTERS_ENABLED', 'false');
+    expect(isSmartTransactionFiltersEnabled(user({
+      app_metadata: { smart_transaction_filters_enabled: true },
+    }))).toBe(true);
+  });
+
+  it('não permite que user_metadata habilite o piloto administrativo', () => {
+    vi.stubEnv('VITE_SMART_TRANSACTION_FILTERS_ENABLED', 'false');
+    expect(isSmartTransactionFiltersEnabled(user({
+      user_metadata: { smart_transaction_filters_enabled: true },
+    }))).toBe(false);
+  });
+
+  it('opt-out administrativo prevalece sobre opt-in e flag global', () => {
+    vi.stubEnv('VITE_SMART_TRANSACTION_FILTERS_ENABLED', 'true');
+    expect(isSmartTransactionFiltersEnabled(user({
+      app_metadata: {
+        smart_transaction_filters_enabled: true,
+        smart_transaction_filters_disabled: true,
+      },
     }))).toBe(false);
   });
 });

@@ -80,6 +80,21 @@ export const isOpenFinanceEnabled = (user?: UserWithMetadata): boolean => {
 };
 
 /**
+ * Filtros inteligentes da Sprint 1B.
+ *
+ * A experiência permanece desligada por padrão. O opt-in administrativo em
+ * app_metadata permite um piloto individual em produção; a variável de
+ * ambiente é usada apenas para Preview/Staging ou rollout global aprovado.
+ */
+export const isSmartTransactionFiltersEnabled = (user?: UserWithMetadata): boolean => {
+  if (!user?.id) return false;
+  if (user.app_metadata?.smart_transaction_filters_disabled === true) return false;
+  if (user.user_metadata?.smart_transaction_filters_disabled === true) return false;
+  if (user.app_metadata?.smart_transaction_filters_enabled === true) return true;
+  return import.meta.env.VITE_SMART_TRANSACTION_FILTERS_ENABLED === 'true';
+};
+
+/**
  * Importação atômica da Sprint 1A.
  * Prioridade:
  * 1) opt-out administrativo ou do usuário desabilita imediatamente;

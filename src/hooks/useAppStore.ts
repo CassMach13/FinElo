@@ -23,7 +23,10 @@ import {
   ManualStatementTotalsPayload,
 } from '../types';
 import { User } from '@supabase/supabase-js';
-import { getDefaultTransactionFilters } from '../utils/transactionPeriodFilters';
+import {
+  getDefaultTransactionFilters,
+  type TransactionFiltersState,
+} from '../utils/transactionPeriodFilters';
 import {
   isCardV2Enabled,
   isCardV2ShadowEnabled,
@@ -191,18 +194,7 @@ interface AppState {
   importConfigs: ImportConfig[];
   importLogs: ImportLog[]; // New state
   isLoading: boolean;
-  transactionFilters: {
-    text: string;
-    startDate: string;
-    endDate: string;
-    dateField: 'Data' | 'Pagamento';
-    category: string[];
-    type: string;
-    accountId: string[];
-    ownerUserId: string;
-    viewScope: 'operation' | 'commitments' | 'all';
-    periodPreset: 'current_month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
-  };
+  transactionFilters: TransactionFiltersState;
 
   // Assets (Patrimônio)
   assets: Asset[];
