@@ -406,6 +406,117 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
 
+  const shadowAuditDiagnosticLines = useMemo(() => {
+    if (!shadowAudit) return [];
+
+    const { shadow, persisted, comparison } = shadowAudit;
+    const transactionById = new Map(
+      transactions
+        .filter((transaction) => Boolean(transaction.ID_Transacao))
+        .map((transaction) => [String(transaction.ID_Transacao), transaction])
+    );
+    const shortId = (value: string | null | undefined): string => {
+      const normalized = String(value || '').trim();
+      if (!normalized) return 'sem-id';
+      return normalized.length > 12 ? `${normalized.slice(0, 8)}…${normalized.slice(-4)}` : normalized;
+    };
+    const transactionName = (transactionId: string): string => {
+      const transaction = transactionById.get(transactionId);
+      const description = transaction?.Descricao_Original || transaction?.Nome_Fantasia;
+      return description ? `“${description}” (${shortId(transactionId)})` : shortId(transactionId);
+    };
+    const money = (amountCents: number): string => formatCurrency(amountCents / 100);
+    const lines: string[] = [];
+
+    comparison.changedTransactionIds.forEach((transactionId) => {
+      const current = persisted.entries.find((entry) => entry.transactionId === transactionId);
+      const expected = shadow.entries.find((entry) => entry.transactionId === transactionId);
+      if (!current || !expected) return;
+      lines.push(
+        `Item ${transactionName(transactionId)}: atual [fatura ${current.statementKey}, data ${current.postedDate || '—'}, ${money(current.amountCents)}, ${current.entryType}] → sombra [fatura ${expected.statementKey}, data ${expected.postedDate}, ${money(expected.amountCents)}, ${expected.entryType}].`
+      );
+    });
+
+    comparison.missingTransactionIds.forEach((transactionId) => {
+      const expected = shadow.entries.find((entry) => entry.transactionId === transactionId);
+      lines.push(
+        `Item ausente na projeção atual: ${transactionName(transactionId)}${
+          expected ? `; sombra em ${expected.statementKey}, ${expected.postedDate}, ${money(expected.amountCents)}, ${expected.entryType}` : ''
+        }.`
+      );
+    });
+    comparison.orphanTransactionIds.forEach((transactionId) => {
+      const current = persisted.entries.find((entry) => entry.transactionId === transactionId);
+      lines.push(
+        `Item órfão na projeção atual: ${transactionName(transactionId)}${
+          current ? `; atual em ${current.statementKey}, ${current.postedDate || '—'}, ${money(current.amountCents)}, ${current.entryType}` : ''
+        }.`
+      );
+    });
+
+    comparison.missingStatementKeys.forEach((statementKey) => {
+      const expected = shadow.statements.find((statement) => statement.statementKey === statementKey);
+      lines.push(
+        `Fatura ausente na projeção atual: ${statementKey}${
+          expected ? `; sombra com vencimento ${expected.dueDate}, ${expected.entryCount} itens, total ${money(expected.statementTotalCents)}, pagamentos ${money(expected.totalPaymentsCents)} e saldo ${money(expected.openBalanceCents)}` : ''
+        }.`
+      );
+    });
+    comparison.orphanStatementKeys.forEach((statementKey) => {
+      const current = persisted.statements.find((statement) => statement.statementKey === statementKey);
+      lines.push(
+        `Fatura órfã na projeção atual: ${statementKey}${
+          current ? `; vencimento ${current.dueDate || '—'}, ${current.entryCount} itens, total ${money(current.statementTotalCents)}, pagamentos ${money(current.totalPaymentsCents)} e saldo ${money(current.openBalanceCents)}` : ''
+        }.`
+      );
+    });
+    comparison.changedStatementKeys.forEach((statementKey) => {
+      const current = persisted.statements.find((statement) => statement.statementKey === statementKey);
+      const expected = shadow.statements.find((statement) => statement.statementKey === statementKey);
+      if (!current || !expected) return;
+      lines.push(
+        `Fatura ${statementKey}: atual [venc. ${current.dueDate || '—'}, ${current.entryCount} itens, total ${money(current.statementTotalCents)}, pagamentos ${money(current.totalPaymentsCents)}, saldo ${money(current.openBalanceCents)}] → sombra [venc. ${expected.dueDate}, ${expected.entryCount} itens, total ${money(expected.statementTotalCents)}, pagamentos ${money(expected.totalPaymentsCents)}, saldo ${money(expected.openBalanceCents)}].`
+      );
+    });
+
+    comparison.missingPaymentKeys.forEach((paymentKey) => {
+      const expected = shadow.payments.find(
+        (payment) => payment.transactionId === paymentKey || `shadow:${payment.sourceRowHash}` === paymentKey
+      );
+      lines.push(
+        `Pagamento ausente na projeção atual: ${expected ? transactionName(expected.transactionId) : shortId(paymentKey)}${
+          expected ? `; sombra quita ${expected.statementKey} em ${expected.paymentDate}, ${money(expected.amountCents)}, origem ${expected.source}` : ''
+        }.`
+      );
+    });
+    comparison.orphanPaymentKeys.forEach((paymentKey) => {
+      const current = persisted.payments.find(
+        (payment) => payment.transactionId === paymentKey || `row:${payment.rowId}` === paymentKey
+      );
+      lines.push(
+        `Pagamento órfão na projeção atual: ${current?.transactionId ? transactionName(current.transactionId) : shortId(paymentKey)}${
+          current ? `; atual quita ${current.statementKey} em ${current.paymentDate || '—'}, ${money(current.amountCents)}, origem ${current.source}` : ''
+        }.`
+      );
+    });
+    comparison.changedPaymentTransactionIds.forEach((transactionId) => {
+      const current = persisted.payments.find((payment) => payment.transactionId === transactionId);
+      const expected = shadow.payments.find((payment) => payment.transactionId === transactionId);
+      if (!current || !expected) return;
+      lines.push(
+        `Pagamento ${transactionName(transactionId)}: atual [quita ${current.statementKey}, data ${current.paymentDate || '—'}, ${money(current.amountCents)}, ${current.source}] → sombra [quita ${expected.statementKey}, data ${expected.paymentDate}, ${money(expected.amountCents)}, ${expected.source}].`
+      );
+    });
+
+    if (comparison.protectedMetadataStatementKeys.length > 0) {
+      lines.push(
+        `Metadados protegidos presentes nas faturas: ${comparison.protectedMetadataStatementKeys.join(', ')}. Eles não podem ser descartados por uma futura troca.`
+      );
+    }
+
+    return lines;
+  }, [shadowAudit, transactions]);
+
   useEffect(() => {
     if (!isOpen) {
       prevIsOpenRef.current = false;
@@ -933,6 +1044,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               {shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}. Nenhum dado foi gravado.
             </p>
             <p className="mt-1 font-mono text-[10px] opacity-75">{shadowAudit.shadow.checksum}</p>
+            {shadowAuditDiagnosticLines.length > 0 && (
+              <details className="mt-3 rounded-lg border border-white/15 bg-slate-950/35 px-3 py-2">
+                <summary className="cursor-pointer select-none font-semibold text-white">
+                  Ver diagnóstico detalhado ({shadowAuditDiagnosticLines.length} linhas)
+                </summary>
+                <ol className="mt-2 list-decimal space-y-1.5 pl-5 leading-relaxed">
+                  {shadowAuditDiagnosticLines.map((line, index) => (
+                    <li key={`${index}-${line}`}>{line}</li>
+                  ))}
+                </ol>
+              </details>
+            )}
           </div>
         )}
 
