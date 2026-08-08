@@ -461,6 +461,12 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     const money = (amountCents: number): string => formatCurrency(amountCents / 100);
     const lines: string[] = [];
 
+    shadow.issues.forEach((issue) => {
+      lines.push(
+        `${issue.severity === 'blocker' ? 'Bloqueio' : 'Alerta'} ${issue.code}: ${issue.message}`
+      );
+    });
+
     comparison.changedTransactionIds.forEach((transactionId) => {
       const current = persisted.entries.find((entry) => entry.transactionId === transactionId);
       const expected = shadow.entries.find((entry) => entry.transactionId === transactionId);
