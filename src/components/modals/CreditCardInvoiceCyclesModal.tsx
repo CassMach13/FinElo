@@ -94,6 +94,43 @@ export interface CreditCardInvoiceCycleRow {
   sortUploadMs: number;
 }
 
+/**
+ * O vencimento confirmado no histórico é a fonte de verdade. Há bases legítimas
+ * em que competência e vencimento ficam no mesmo mês e bases em que o vencimento
+ * está no mês seguinte; recalcular sempre deslocaria silenciosamente o primeiro caso.
+ */
+export function resolveCreditCardInvoiceCycleDueDateIso(
+  row: Pick<CreditCardInvoiceCycleRow, 'competenciaBR' | 'vencimentoBR'>,
+  dueDay: number | null
+): string | null {
+  const persistedDueDate = parseBRDateToIso(row.vencimentoBR.trim());
+  if (persistedDueDate) return persistedDueDate;
+
+  const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+  if (!referenceMonth || dueDay == null) return null;
+  return parseBRDateToIso(computeVencimentoBRFromCompetenceIsoMonth(referenceMonth, dueDay));
+}
+
+function updateDueDayPreservingKnownMonth(
+  row: Pick<CreditCardInvoiceCycleRow, 'competenciaBR' | 'vencimentoBR'>,
+  dueDay: number | null
+): string {
+  if (dueDay == null) return '';
+  const persistedDueDate = parseBRDateToIso(row.vencimentoBR.trim());
+  if (!persistedDueDate) {
+    const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+    return referenceMonth
+      ? computeVencimentoBRFromCompetenceIsoMonth(referenceMonth, dueDay)
+      : '';
+  }
+
+  const year = Number(persistedDueDate.slice(0, 4));
+  const month = Number(persistedDueDate.slice(5, 7));
+  const lastDay = new Date(year, month, 0).getDate();
+  const safeDay = Math.min(Math.max(1, dueDay), lastDay);
+  return `${String(safeDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+}
+
 /** Infere a conta de cartão de um registro do histórico de importações. */
 function resolveImportLogAccountId(
   log: ImportLog,
@@ -346,17 +383,13 @@ function mergeRowsPreserveInputs(
     const p = prevByKey.get(r.key);
     if (!p) return r;
     const competenciaBR = p.competenciaBR.trim() !== '' ? p.competenciaBR : r.competenciaBR;
-    const iso = parseMMAAAAToIsoMonth(competenciaBR.trim());
     const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
-
-    let vencimentoBR = '';
-    if (p.competenciaBR.trim() !== '') {
-      vencimentoBR = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : p.vencimentoBR;
-    } else if (r.vencimentoBR.trim() !== '') {
-      vencimentoBR = r.vencimentoBR;
-    } else {
-      vencimentoBR = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
-    }
+    const vencimentoBR =
+      p.vencimentoBR.trim() !== ''
+        ? p.vencimentoBR
+        : r.vencimentoBR.trim() !== ''
+          ? r.vencimentoBR
+          : updateDueDayPreservingKnownMonth({ competenciaBR, vencimentoBR: '' }, day);
 
     return {
       ...r,
@@ -622,13 +655,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       rowsSortedByVencimento.map((r) => {
         const refIso = parseMMAAAAToIsoMonth(r.competenciaBR.trim());
         const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
-        let dueDate = '';
-        if (refIso && day != null) {
-          const venBR = computeVencimentoBRFromCompetenceIsoMonth(refIso, day);
-          dueDate = parseBRDateToIso(venBR) || '';
-        } else {
-          dueDate = parseBRDateToIso(r.vencimentoBR.trim()) || '';
-        }
+        const dueDate = resolveCreditCardInvoiceCycleDueDateIso(r, day) || '';
         return {
           fileName: r.displayOrigin,
           referenceMonth: refIso || '',
@@ -650,20 +677,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         return `Competência inválida em "${r.displayOrigin}" — use MM/AAAA (ex.: 02/2026 para fevereiro de 2026).`;
       }
       const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
-      const venIsoPersisted = parseBRDateToIso(r.vencimentoBR.trim());
-
-      if (day != null) {
-        const venBR = computeVencimentoBRFromCompetenceIsoMonth(refIso, day);
-        const dueIso = parseBRDateToIso(venBR);
-        if (!dueIso) {
-          return `Não foi possível calcular o vencimento para "${r.displayOrigin}".`;
-        }
-        return null;
-      }
-
-      if (venIsoPersisted) {
-        return null;
-      }
+      if (resolveCreditCardInvoiceCycleDueDateIso(r, day)) return null;
 
       return `Informe o dia de vencimento (1–31) acima ou cadastre «dia de vencimento» na conta «${r.accountName}».`;
     },
@@ -674,20 +688,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     (r: CreditCardInvoiceCycleRow) => {
       const referenceMonth = parseMMAAAAToIsoMonth(r.competenciaBR.trim())!;
       const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
-      let dueDate: string;
-      if (day != null) {
-        const venBR = computeVencimentoBRFromCompetenceIsoMonth(referenceMonth, day);
-        const parsed = parseBRDateToIso(venBR);
-        if (!parsed) {
-          throw new Error(`Vencimento inválido para "${r.displayOrigin}".`);
-        }
-        dueDate = parsed;
-      } else {
-        const fromRow = parseBRDateToIso(r.vencimentoBR.trim());
-        if (!fromRow) {
-          throw new Error(`Defina o dia de vencimento ou complete o vencimento em "${r.displayOrigin}".`);
-        }
-        dueDate = fromRow;
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(r, day);
+      if (!dueDate) {
+        throw new Error(`Defina o dia de vencimento ou complete o vencimento em "${r.displayOrigin}".`);
       }
       return { referenceMonth, dueDate };
     },
@@ -900,9 +903,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       setRows((prev) =>
         sortRowsByVencimentoDesc(
           prev.map((r) => {
-            const iso = parseMMAAAAToIsoMonth(r.competenciaBR.trim());
             const day = effectiveDueDayForAccount(r.accountId, sanitized, accounts);
-            const ven = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
+            const ven = updateDueDayPreservingKnownMonth(r, day);
             return { ...r, vencimentoBR: ven };
           })
         )
@@ -978,7 +980,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         <p className="text-sm text-gray-300 leading-relaxed">
           Lista os arquivos do <strong className="text-white">histórico de importações</strong> do cartão escolhido (ex.: Cartão XP).
           Para cada arquivo, confira ou informe a <strong className="text-white">competência</strong> (<strong className="text-white">MM/AAAA</strong>) e o{' '}
-          <strong className="text-white">vencimento</strong> (calculado pelo dia informado no mês seguinte à competência).
+          <strong className="text-white">vencimento</strong> (o valor confirmado no histórico é preservado; o cálculo automático só preenche datas ausentes).
           Ao aplicar, o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e as{' '}
           <strong className="text-white">estornos</strong> na competência do arquivo; <strong className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong className="text-white">anterior</strong> (padrão N+1 do extrato).
         </p>
@@ -1119,7 +1121,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                       <td className="px-3 py-2 align-top min-w-[118px]">
                         <span
                           className="inline-block font-mono text-[11px] text-gray-300 pt-1.5 min-h-[32px]"
-                          title="DD/MM/AAAA — mês seguinte à competência"
+                          title="DD/MM/AAAA — vencimento confirmado no histórico"
                         >
                           {r.vencimentoBR.trim() || '—'}
                         </span>
