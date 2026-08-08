@@ -576,6 +576,21 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         `Possível pagamento duplicado: ${matchingPayments.length} linhas representam ${money(sample.amountCents)} em ${sample.paymentDate || '—'}, quitando ${sample.statementKey}, origem ${sample.source} (${identities}).`
       );
     });
+    comparison.repairablePersistedPaymentRowIds.forEach((rowId) => {
+      const obsolete = persisted.payments.find((payment) => payment.rowId === rowId);
+      if (!obsolete) return;
+      const replacement = persisted.payments.find(
+        (payment) =>
+          Boolean(payment.transactionId) &&
+          payment.statementKey === obsolete.statementKey &&
+          payment.paymentDate === obsolete.paymentDate &&
+          payment.amountCents === obsolete.amountCents &&
+          payment.source === obsolete.source
+      );
+      lines.push(
+        `Plano de reparo somente leitura: a linha sem identidade ${shortId(rowId)} é candidata segura à remoção; preservar ${replacement?.transactionId ? `a linha vinculada à ${transactionName(replacement.transactionId)}` : 'a linha vinculada à transação'}. Nenhuma remoção foi executada.`
+      );
+    });
 
     if (comparison.protectedMetadataStatementKeys.length > 0) {
       comparison.protectedMetadataStatementKeys.forEach((statementKey) => {

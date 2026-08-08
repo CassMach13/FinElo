@@ -101,7 +101,7 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     });
   });
 
-  it('bloqueia pagamento importado cuja fatura anterior está fora da janela disponível', () => {
+  it('preserva como alerta o pagamento anterior à primeira fatura da janela disponível', () => {
     const sameMonthCycles = [
       {
         fileName: cycles[0].fileName,
@@ -150,11 +150,55 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     });
 
     expect(shadow.projectedPaymentCount).toBe(1);
+    expect(shadow.safeToStage).toBe(true);
+    expect(shadow.blockers).toEqual([]);
+    expect(shadow.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'payment-before-rebuild-window',
+        transactionId: 'july-payment-outside-window',
+      })
+    );
+  });
+
+  it('continua bloqueando pagamento cuja fatura anterior falta dentro da janela', () => {
+    const cyclesWithGap = [
+      {
+        fileName: 'fatura-julho.csv',
+        referenceMonth: '2026-07',
+        dueDate: '2026-07-28',
+      },
+      {
+        fileName: 'fatura-setembro.csv',
+        referenceMonth: '2026-09',
+        dueDate: '2026-09-28',
+      },
+    ];
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: cyclesWithGap,
+      transactions: [
+        transaction({
+          id: 'july-purchase-before-gap',
+          origin: cyclesWithGap[0].fileName,
+          date: '2026-07-02',
+          amount: -100,
+          description: 'COMPRA JULHO',
+        }),
+        transaction({
+          id: 'september-payment-with-gap',
+          origin: cyclesWithGap[1].fileName,
+          date: '2026-09-20',
+          amount: 100,
+          description: 'PAGAMENTO DE FATURA',
+        }),
+      ],
+    });
+
     expect(shadow.safeToStage).toBe(false);
     expect(shadow.blockers).toContainEqual(
       expect.objectContaining({
         code: 'unresolved-imported-payment-target',
-        transactionId: 'july-payment-outside-window',
+        transactionId: 'september-payment-with-gap',
       })
     );
   });
@@ -704,5 +748,77 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     ]);
     expect(comparison.orphanPaymentKeys).toEqual(['row:legacy-row-without-identity']);
     expect(comparison.safeToActivate).toBe(false);
+  });
+
+  it('marca para reparo somente a linha importada sem identidade com a mesma proveniência', () => {
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles,
+      transactions: [
+        transaction({
+          id: 'july-purchase-for-repair',
+          origin: cycles[0].fileName,
+          date: '2026-07-02',
+          amount: -399.9,
+          description: 'COMPRA JULHO',
+        }),
+        transaction({
+          id: 'linked-imported-payment',
+          origin: cycles[1].fileName,
+          date: '2026-08-20',
+          amount: 399.9,
+          description: 'PAGAMENTOS VALIDOS',
+        }),
+      ],
+    });
+    const expectedPayment = shadow.payments[0];
+    const statements = shadow.statements.map((statement) => ({
+      statementKey: statement.statementKey,
+      dueDate: statement.dueDate,
+      entryCount: statement.entryCount,
+      statementTotalCents: statement.statementTotalCents,
+      totalPaymentsCents: statement.totalPaymentsCents,
+      openBalanceCents: statement.openBalanceCents,
+    }));
+    const entries = shadow.entries.map((entry) => ({
+      transactionId: entry.transactionId,
+      statementKey: entry.statementKey,
+      postedDate: entry.postedDate,
+      amountCents: entry.amountCents,
+      entryType: entry.entryType,
+    }));
+    const persisted: PersistedAtomicCardProjection = {
+      source: 'engine',
+      statements,
+      entries,
+      payments: [
+        {
+          rowId: 'linked-imported-row',
+          transactionId: expectedPayment.transactionId,
+          statementKey: expectedPayment.statementKey,
+          paymentDate: expectedPayment.paymentDate,
+          amountCents: expectedPayment.amountCents,
+          source: expectedPayment.source,
+          notes: 'hnew · 11_xp_cartao_fatura_agosto_2026.csv · linha 4 · Pagamentos Validos',
+        },
+        {
+          rowId: 'legacy-imported-row',
+          transactionId: null,
+          statementKey: expectedPayment.statementKey,
+          paymentDate: expectedPayment.paymentDate,
+          amountCents: expectedPayment.amountCents,
+          source: expectedPayment.source,
+          notes: 'hold · 11_xp_cartao_fatura_agosto_2026.csv · linha 4 · Pagamentos Validos',
+        },
+      ],
+    };
+
+    const comparison = compareAtomicCardProjections(shadow, persisted);
+    expect(comparison.repairablePersistedPaymentRowIds).toEqual(['legacy-imported-row']);
+
+    persisted.payments[1].notes =
+      'hold · 11_xp_cartao_fatura_agosto_2026.csv · linha 5 · Outro pagamento';
+    const ambiguous = compareAtomicCardProjections(shadow, persisted);
+    expect(ambiguous.repairablePersistedPaymentRowIds).toEqual([]);
   });
 });
