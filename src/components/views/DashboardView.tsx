@@ -53,6 +53,7 @@ import {
 } from '../../utils/dashboardNetWorth';
 import type { SummaryCardComparison } from '../ui/SummaryCard';
 import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
+import { getDashboardDataDisplayState } from '../../utils/initialDataLoad';
 
 import NewTransactionModal from '../modals/NewTransactionModal';
 import AccountModal from './AccountModal';
@@ -61,7 +62,7 @@ import CategoryModal from '../modals/CategoryModal';
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
-  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite } = useAppStore();
+  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
   const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
 
@@ -78,8 +79,10 @@ const DashboardView: React.FC = () => {
 
   // Auto-start tour logic
   useEffect(() => {
-    autoStartTour('dashboard');
-  }, []);
+    if (initialDataLoadStatus === 'ready') {
+      autoStartTour('dashboard');
+    }
+  }, [initialDataLoadStatus]);
 
   const handleDismissAssetAlert = () => {
     setShowAssetReviewAlert(false);
@@ -493,6 +496,63 @@ const DashboardView: React.FC = () => {
     }
   };
 
+  const dashboardDataDisplayState = getDashboardDataDisplayState(
+    initialDataLoadStatus,
+    transactions.length,
+  );
+
+  if (dashboardDataDisplayState === 'loading') {
+    return (
+      <div
+        id="dashboard-loading-state"
+        className="space-y-6 pb-12"
+        role="status"
+        aria-live="polite"
+      >
+        <div>
+          <div className="h-9 w-64 max-w-full animate-pulse rounded-lg bg-slate-700/50" />
+          <div className="mt-3 h-4 w-96 max-w-full animate-pulse rounded bg-slate-700/40" />
+        </div>
+        <div className="rounded-xl border border-slate-700/60 bg-secondary p-6 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+            <div>
+              <p className="font-semibold text-light">Carregando seus dados financeiros…</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Seus lançamentos permanecem seguros enquanto preparamos o painel.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="h-32 animate-pulse rounded-xl border border-slate-700/50 bg-secondary" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (dashboardDataDisplayState === 'error') {
+    return (
+      <div id="dashboard-load-error" className="pb-12" role="alert">
+        <div className="rounded-xl border border-amber-500/30 bg-secondary p-6 shadow-lg">
+          <h2 className="text-xl font-bold text-light">Não foi possível concluir a atualização</h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-300">
+            Nenhum dado foi apagado. Evitamos mostrar valores incompletos; tente carregar o painel novamente.
+          </p>
+          <button
+            type="button"
+            onClick={() => void fetchAllData()}
+            className="mt-5 rounded-lg bg-accent px-5 py-2 font-semibold text-white transition-colors hover:bg-accent/80"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="dashboard-content" className="space-y-8 print:space-y-4 pb-12">
 
@@ -527,7 +587,7 @@ const DashboardView: React.FC = () => {
       </div>
 
       {/* Empty State / Demo Data CTA */}
-      {transactions.length === 0 && (
+      {dashboardDataDisplayState === 'empty' && (
         <div className="bg-gradient-to-r from-secondary to-primary/50 rounded-xl p-6 border border-accent/20 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
           <div className="flex items-center gap-4">
             <div className="bg-accent/20 p-3 rounded-full">

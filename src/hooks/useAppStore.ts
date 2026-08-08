@@ -55,6 +55,10 @@ import {
   buildStructuredImportFingerprint,
   isSha256Fingerprint,
 } from '../utils/importBatchIntegrity';
+import {
+  deriveInitialDataLoadStatusForUser,
+  type InitialDataLoadStatus,
+} from '../utils/initialDataLoad';
 
 const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
   resolveAtomicImportEnabled(user, async () => {
@@ -194,6 +198,7 @@ interface AppState {
   importConfigs: ImportConfig[];
   importLogs: ImportLog[]; // New state
   isLoading: boolean;
+  initialDataLoadStatus: InitialDataLoadStatus;
   transactionFilters: TransactionFiltersState;
 
   // Assets (Patrimônio)
@@ -380,6 +385,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isWealth: false,
   unlimitedSync: false,
   isLoading: false,
+  initialDataLoadStatus: 'idle',
   adminMetrics: null,
   assets: [],
   transactionFilters: getDefaultTransactionFilters(),
@@ -404,6 +410,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
     set((state) => ({
       user,
+      initialDataLoadStatus: deriveInitialDataLoadStatusForUser(
+        state.initialDataLoadStatus,
+        state.user?.id,
+        user?.id,
+      ),
       atomicImportEnabled:
         user?.id && user.id === state.user?.id ? state.atomicImportEnabled : false,
       isPremium: isAdmin || state.isPremium,
@@ -1425,28 +1436,58 @@ export const useAppStore = create<AppState>((set, get) => ({
       creditCardStatementEntries: [],
       selectedCreditCardStatementAudit: null,
       creditCardEngineRevision: 0,
+      initialDataLoadStatus: 'idle',
     });
     // O redirecionamento será tratado no componente App.tsx
   },
 
   fetchAllData: async () => {
-    set({ isLoading: true });
-    await Promise.all([
-      get().refreshAtomicImportEligibility(),
-      get().fetchTransactions(),
-      get().fetchAccounts(),
-      get().fetchCategories(),
-      get().fetchBudgets(),
-      get().fetchMappingRules(),
-      get().fetchImportConfigs(),
-      get().fetchPendingInvites(),
-      get().fetchImportLogs(),
-      get().fetchSubscription(),
-      get().fetchAssets(),
-      get().fetchFounderCount(),
-      get().fetchCreditCardReprocessJobs(),
-    ]);
-    set({ isLoading: false });
+    const requestedUserId = get().user?.id;
+    const isInitialLoad = get().initialDataLoadStatus !== 'ready';
+    set({
+      isLoading: true,
+      ...(isInitialLoad ? { initialDataLoadStatus: 'loading' as const } : {}),
+    });
+    try {
+      await Promise.all([
+        get().refreshAtomicImportEligibility(),
+        get().fetchTransactions(),
+        get().fetchAccounts(),
+        get().fetchCategories(),
+        get().fetchBudgets(),
+        get().fetchMappingRules(),
+        get().fetchImportConfigs(),
+        get().fetchPendingInvites(),
+        get().fetchImportLogs(),
+        get().fetchSubscription(),
+        get().fetchAssets(),
+        get().fetchFounderCount(),
+        get().fetchCreditCardReprocessJobs(),
+      ]);
+      if (get().user?.id === requestedUserId) {
+        set((state) => ({
+          isLoading: false,
+          initialDataLoadStatus:
+            state.initialDataLoadStatus === 'error' ? 'error' : 'ready',
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao concluir a carga inicial do aplicativo:', error);
+      if (get().user?.id === requestedUserId) {
+        set((state) => ({
+          isLoading: false,
+          initialDataLoadStatus:
+            state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
+        }));
+      }
+      if (isInitialLoad) {
+        await appAlert(
+          'Não foi possível concluir a atualização. Seus dados anteriores foram preservados e nenhum registro foi apagado.',
+          'Atualização incompleta',
+          'warning',
+        );
+      }
+    }
   },
 
 
@@ -1465,7 +1506,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ transactions: allTransactions, isLoading: false });
     } catch (error) {
       console.error('Erro ao buscar o histórico completo de transações:', error);
-      set({ isLoading: false });
+      set((state) => ({
+        isLoading: false,
+        initialDataLoadStatus:
+          state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
+      }));
       await appAlert(
         'Não foi possível carregar todo o histórico. A lista anterior foi preservada e nenhum dado foi apagado. Tente atualizar novamente.',
         'Histórico incompleto',
