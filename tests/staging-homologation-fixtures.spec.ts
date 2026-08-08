@@ -86,6 +86,29 @@ describe('pacote de homologação do staging', () => {
     expect(resolveAutomaticCardReferenceMonth(august.parsed.newTransactions)).toBe('2026-08');
   });
 
+  it('valida o par sintético da Sprint 2B sem colapsar compras iguais', () => {
+    const july = totals('20_xp_cartao_idempotencia_julho_2026.csv', xpCard);
+    const august = totals('21_xp_cartao_idempotencia_agosto_2026.csv', xpCard);
+
+    const repeatedPurchases = july.parsed.newTransactions.filter(
+      (transaction) => transaction.Nome_Fantasia === 'STG-2B COMPRA REPETIDA'
+    );
+    const julyPayment = july.parsed.newTransactions.find(
+      (transaction) => transaction.Nome_Fantasia === 'Pagamento de Fatura'
+    );
+    const augustPayment = august.parsed.newTransactions.find(
+      (transaction) => transaction.Nome_Fantasia === 'Pagamento de Fatura'
+    );
+
+    expect(july.parsed.newTransactions).toHaveLength(4);
+    expect(august.parsed.newTransactions).toHaveLength(2);
+    expect(repeatedPurchases).toHaveLength(2);
+    expect(julyPayment?.Valor).toBeCloseTo(190, 2);
+    expect(augustPayment?.Valor).toBeCloseTo(190, 2);
+    expect(resolveAutomaticCardReferenceMonth(july.parsed.newTransactions)).toBe('2026-07');
+    expect(resolveAutomaticCardReferenceMonth(august.parsed.newTransactions)).toBe('2026-08');
+  });
+
   it('processa as 1.000 linhas do arquivo de estresse sem colapsar repetições legítimas', () => {
     const result = totals('90_nubank_conta_stress_1000_linhas.csv', nubankAccount);
 

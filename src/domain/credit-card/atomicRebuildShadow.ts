@@ -1,6 +1,7 @@
 import type { Account, Transaction } from '../../types';
 import { toDateOnlyIso } from '../../utils/dateOnly';
 import { comparableImportOriginKey } from '../../utils/importOriginKey';
+import { importedPaymentProvenanceKeyFromNotes } from '../../utils/creditCardPaymentIntegrity';
 import type { ClassificationRules } from './classifiers';
 import { creditCardStatementEngine } from './creditCardStatementEngine';
 import { resolveImportedInvoicePaymentTarget } from './payments';
@@ -761,13 +762,6 @@ const paymentSignature = (
     payment.source,
   ].join('|');
 
-const importedPaymentProvenanceKey = (notes?: string | null): string | null => {
-  if (!notes) return null;
-  const match = notes.match(/^[^·]+\s+·\s+(.+?)\s+·\s+linha\s+(\d+)\s+·/i);
-  if (!match) return null;
-  return `${comparableImportOriginKey(match[1])}|${Number(match[2])}`;
-};
-
 export function compareAtomicCardProjections(
   shadow: AtomicCardShadowProjection,
   persisted: PersistedAtomicCardProjection
@@ -870,7 +864,7 @@ export function compareAtomicCardProjections(
       if (linkedRows.length !== 1 || rowsWithoutIdentity.length === 0) return [];
 
       const provenanceKeys = payments.map((payment) =>
-        importedPaymentProvenanceKey(payment.notes)
+        importedPaymentProvenanceKeyFromNotes(payment.notes)
       );
       const firstProvenanceKey = provenanceKeys[0];
       if (

@@ -22,10 +22,16 @@ import {
 } from '../domain/credit-card/types';
 import { sumInvoicePaymentsFromClassifiedEntries } from '../utils/parseCreditCardFileTotals';
 import { toDateOnlyIso } from '../utils/dateOnly';
+import { collectPaginatedRows } from '../utils/paginatedFetch';
 import {
   planCreditCardEntryPersistence,
   type ExistingCreditCardEntryIdentity,
 } from '../utils/creditCardEntryIntegrity';
+import {
+  assertUniqueImportedPaymentBatch,
+  planImportedPaymentPersistence,
+  type ExistingImportedPaymentIdentity,
+} from '../utils/creditCardPaymentIntegrity';
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
@@ -651,6 +657,35 @@ export const creditCardEngineService = {
     );
     if (targets.length === 0) return undefined;
 
+    assertUniqueImportedPaymentBatch(
+      targets.map((entry) => {
+        const row = opts.inputRows.find(
+          (candidate) => candidate.sourceRowIndex === entry.sourceRowIndex
+        );
+        return {
+          sourceFileName: opts.sourceFileName,
+          sourceRowIndex: entry.sourceRowIndex,
+          transactionId: row?.transactionId || entry.transactionId || null,
+        };
+      })
+    );
+
+    const existingPaymentIdentities = await collectPaginatedRows<ExistingImportedPaymentIdentity>(
+      async (from, to) => {
+        const { data, error } = await supabase
+          .from('credit_card_payments')
+          .select('id,payment_transaction_id,notes')
+          .eq('card_id', opts.cardId)
+          .eq('source', 'imported_statement')
+          .order('id', { ascending: true })
+          .range(from, to);
+        return {
+          data: (data || []) as ExistingImportedPaymentIdentity[],
+          error,
+        };
+      }
+    );
+
     const prevStmt = getPreviousStatementRow(sortedPick, importPick);
     const importRowStmt = sortedPick.find(
       (s) => s.dueYear === importPick.dueYear && s.dueMonth === importPick.dueMonth
@@ -683,38 +718,48 @@ export const creditCardEngineService = {
       const tid = row?.transactionId || entry.transactionId || undefined;
       const amt = round2(Math.abs(Number(entry.amount || 0)));
       if (!amt || amt <= 0) continue;
-
-      if (tid) {
-        await supabase
-          .from('credit_card_payments')
-          .delete()
-          .eq('card_id', opts.cardId)
-          .eq('payment_transaction_id', tid);
-      } else {
-        await supabase
-          .from('credit_card_payments')
-          .delete()
-          .eq('card_id', opts.cardId)
-          .eq('statement_id', targetStmt.id)
-          .eq('source', 'imported_statement')
-          .like('notes', `%${entry.sourceRowHash}%`);
-      }
-
-      const { error: insErr } = await supabase.from('credit_card_payments').insert({
+      const notes = `${entry.sourceRowHash} · ${opts.sourceFileName} · linha ${entry.sourceRowIndex} · ${entry.description.slice(0, 100)}`;
+      const persistencePlan = planImportedPaymentPersistence(
+        {
+          sourceFileName: opts.sourceFileName,
+          sourceRowIndex: entry.sourceRowIndex,
+          transactionId: tid,
+        },
+        existingPaymentIdentities
+      );
+      const payload = {
         user_id: opts.userId,
         card_id: opts.cardId,
         statement_id: targetStmt.id,
-        payment_transaction_id: tid || null,
+        payment_transaction_id: persistencePlan.transactionId,
         payment_date: entry.postedDate,
         amount: amt,
         source: 'imported_statement',
-        notes: `${entry.sourceRowHash} · ${opts.sourceFileName} · linha ${entry.sourceRowIndex} · ${entry.description.slice(0, 100)}`,
-      });
-      if (insErr) {
-        console.error('[CardEngine] Falha ao gravar pagamento importado:', insErr.message);
-      } else {
-        lastStmtId = targetStmt.id;
+        notes,
+      };
+
+      const writeQuery =
+        persistencePlan.action === 'update'
+          ? supabase
+              .from('credit_card_payments')
+              .update(payload)
+              .eq('id', persistencePlan.rowId)
+              .eq('card_id', opts.cardId)
+          : supabase.from('credit_card_payments').insert(payload);
+      const { data: writtenPayment, error: writeError } = await writeQuery
+        .select('id,payment_transaction_id,notes')
+        .single();
+      if (writeError) {
+        throw new Error(`Falha ao persistir pagamento importado sem duplicação: ${writeError.message}`);
       }
+
+      const writtenIdentity = writtenPayment as ExistingImportedPaymentIdentity;
+      const priorIndex = existingPaymentIdentities.findIndex(
+        (candidate) => candidate.id === writtenIdentity.id
+      );
+      if (priorIndex >= 0) existingPaymentIdentities[priorIndex] = writtenIdentity;
+      else existingPaymentIdentities.push(writtenIdentity);
+      lastStmtId = targetStmt.id;
     }
 
     return lastStmtId;
