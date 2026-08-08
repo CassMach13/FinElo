@@ -321,6 +321,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
           <div className="border-t border-white/10 pt-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
               <Input
+                id="smart-filter-start-date"
                 label="Data inicial"
                 type="date"
                 name="startDate"
@@ -328,6 +329,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
                 onChange={(event) => handleCustomDate('startDate', event.target.value)}
               />
               <Input
+                id="smart-filter-end-date"
                 label="Data final"
                 type="date"
                 name="endDate"
@@ -335,6 +337,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
                 onChange={(event) => handleCustomDate('endDate', event.target.value)}
               />
               <Select
+                id="smart-filter-date-field"
                 label="Usar data de"
                 name="dateField"
                 value={filters.dateField}
@@ -344,6 +347,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
                 <option value="Pagamento">Pagamento</option>
               </Select>
               <Select
+                id="smart-filter-type"
                 label="Tipo financeiro"
                 name="type"
                 value={filters.type}
@@ -372,6 +376,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
               />
               {showOwnerFilter ? (
                 <Select
+                  id="smart-filter-owner"
                   label="Responsável"
                   name="ownerUserId"
                   value={filters.ownerUserId}
