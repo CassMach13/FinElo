@@ -21,6 +21,12 @@ import {
   type AtomicCardDuplicateCohortCode,
   type AtomicCardForensicRecommendationCode,
 } from '../../domain/credit-card/atomicRebuildForensics';
+import {
+  buildAtomicCardLineageReport,
+  type AtomicCardLineageMatchCode,
+  type AtomicCardLineageRecommendationCode,
+  type AtomicCardLineageStatus,
+} from '../../domain/credit-card/atomicRebuildLineage';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -52,6 +58,36 @@ const FORENSIC_RECOMMENDATION_LABELS: Record<AtomicCardForensicRecommendationCod
   'preserve-protected-statement-metadata': 'Preservar totais oficiais e ajustes protegidos das faturas.',
   'activate-only-with-snapshot': 'Ativar apenas com snapshot individual e revisão imutável.',
   'observe-no-structural-change': 'Manter em observação; não há mudança estrutural pendente.',
+};
+
+const LINEAGE_STATUS_LABELS: Record<AtomicCardLineageStatus, string> = {
+  clean: 'nenhuma quebra de identidade detectada',
+  'explained-no-safe-repair': 'linhas conservadas; quebra de identidade explicada, mas sem reparo seguro',
+  'partially-explained': 'quebra de identidade parcialmente explicada',
+  unresolved: 'lacuna de identidade ainda não explicada',
+};
+
+const LINEAGE_MATCH_LABELS: Record<AtomicCardLineageMatchCode, string> = {
+  'exact-content-unique': 'conteúdo integral com pareamento único',
+  'exact-content-ambiguous': 'conteúdo integral repetido e ambíguo',
+  'competence-shift-unique': 'mesmo conteúdo em outra competência',
+  'competence-shift-ambiguous': 'mesmo conteúdo repetido em outra competência',
+  'type-shift-unique': 'mesma data e valor com tipo diferente',
+  'type-shift-ambiguous': 'mesma data e valor com tipos ambíguos',
+  'date-amount-only': 'coincidência fraca de data e valor',
+  unmatched: 'sem explicação por conteúdo',
+};
+
+const LINEAGE_RECOMMENDATION_LABELS: Record<AtomicCardLineageRecommendationCode, string> = {
+  'row-count-conserved-not-deleted': 'A quantidade de linhas desta projeção foi conservada; a divergência observada é de identidade, não de volume.',
+  'identity-surplus-balances-missing': 'As identidades ausentes são numericamente compensadas por linhas excedentes em grupos duplicados.',
+  'content-signatures-explain-missing': 'As assinaturas de conteúdo explicam todas as identidades ausentes, sem autorizar exclusão automática.',
+  'restore-source-provenance-before-repair': 'Recuperar proveniência histórica antes de escolher qual linha representa cada identidade.',
+  'review-competence-before-identity-repair': 'Resolver primeiro a regra de competência; ela altera a linha usada como referência.',
+  'do-not-reimport': 'Não reimportar arquivos para tentar corrigir o histórico; isso pode ampliar as duplicidades.',
+  'keep-activation-blocked': 'Manter ativação e reparos bloqueados enquanto houver identidade ambígua.',
+  'deterministic-repair-path-available': 'Existem linhas com reparo determinístico separado, sempre condicionado a snapshot.',
+  'unexplained-row-gap': 'Persistem linhas ou identidades sem explicação suficiente; aprofundar a auditoria antes de qualquer escrita.',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -508,6 +544,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     () =>
       shadowAudit
         ? buildAtomicCardForensicReport(
+            shadowAudit.shadow,
+            shadowAudit.persisted,
+            shadowAudit.comparison
+          )
+        : null,
+    [shadowAudit]
+  );
+
+  const shadowAuditLineage = useMemo(
+    () =>
+      shadowAudit
+        ? buildAtomicCardLineageReport(
             shadowAudit.shadow,
             shadowAudit.persisted,
             shadowAudit.comparison
@@ -1784,6 +1832,112 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                       {shadowAuditForensics.recommendationCodes.map((code) => (
                         <li key={code}>{FORENSIC_RECOMMENDATION_LABELS[code]}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+            {shadowAuditLineage && (
+              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Etapa forense — conservação e linhagem</p>
+                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                    explicativo · não autoriza reparo
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Diagnóstico: <strong className="text-white">{LINEAGE_STATUS_LABELS[shadowAuditLineage.status]}</strong>.
+                  O pareamento usa somente assinaturas de conteúdo em memória; nenhuma linha foi escolhida para exclusão ou atualização.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas projetadas / persistidas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditLineage.conservation.projectedRowCount} / {shadowAuditLineage.conservation.persistedRowCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Identidades únicas projetadas / atuais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditLineage.conservation.projectedUniqueIdentityCount} / {shadowAuditLineage.conservation.persistedUniqueIdentityCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Identidades ausentes / linhas excedentes</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditLineage.conservation.missingIdentityCount} / {shadowAuditLineage.conservation.duplicateExcessRowCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Balanço de identidade</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? 'compensado exatamente' : 'ainda não compensado'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Explicação por assinatura de conteúdo</p>
+                    {shadowAuditLineage.matchProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditLineage.matchProfiles.map((profile) => (
+                          <li key={profile.code} className="flex justify-between gap-2">
+                            <span>{LINEAGE_MATCH_LABELS[profile.code]}</span>
+                            <strong className="text-white">{profile.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma quebra de identidade para explicar.</p>
+                    )}
+                    <p className="mt-2 border-t border-white/10 pt-2 text-slate-300">
+                      Explicadas: <strong className="text-white">{shadowAuditLineage.matchedIdentityCount}</strong> · ainda sem explicação:{' '}
+                      <strong className="text-white">{shadowAuditLineage.unexplainedMissingIdentityCount}</strong> · excedentes sem correspondência:{' '}
+                      <strong className="text-white">{shadowAuditLineage.unexplainedSurplusRowCount}</strong>.
+                    </p>
+                  </div>
+
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Coortes de origem afetadas</p>
+                    {shadowAuditLineage.sourceCohorts.length > 0 ? (
+                      <ul className="mt-1 space-y-1.5">
+                        {shadowAuditLineage.sourceCohorts.slice(0, 8).map((cohort) => (
+                          <li key={cohort.cohort} className="rounded border border-white/5 bg-black/10 px-2 py-1.5">
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <strong className="text-white">{cohort.cohort}</strong>
+                              <span>{cohort.statementKeys.join(', ') || 'competência não identificada'}</span>
+                            </div>
+                            <p className="mt-0.5 text-slate-400">
+                              {cohort.projectedEntryCount} linha(s) · {cohort.missingIdentityCount} identidade(s) ausente(s) ·{' '}
+                              {cohort.duplicateExcessRowCount} excedente(s) · {cohort.repeatedSourceRowSignatureCount} assinatura(s) de origem repetida(s)
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma coorte de origem afetada.</p>
+                    )}
+                    {shadowAuditLineage.sourceCohorts.length > 8 && (
+                      <p className="mt-1 text-slate-500">
+                        Mais {shadowAuditLineage.sourceCohorts.length - 8} coorte(s) preservada(s) no resumo agregado.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p>
+                    Grupos de identidade duplicada: <strong className="text-white">{shadowAuditLineage.conservation.duplicateIdentityGroupCount}</strong> ·{' '}
+                    identidades órfãs: <strong className="text-white">{shadowAuditLineage.conservation.orphanIdentityCount}</strong> ·{' '}
+                    linhas com reparo determinístico já comprovado: <strong className="text-white">{shadowAuditLineage.deterministicRepairRowCount}</strong>.
+                  </p>
+                  {shadowAuditLineage.recommendationCodes.length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                      {shadowAuditLineage.recommendationCodes.map((code) => (
+                        <li key={code}>{LINEAGE_RECOMMENDATION_LABELS[code]}</li>
                       ))}
                     </ul>
                   )}
