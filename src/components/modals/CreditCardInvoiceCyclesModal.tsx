@@ -16,6 +16,43 @@ import { formatCurrency } from '../../utils/formatters';
 import type { Account, ImportLog, Transaction } from '../../types';
 import Select from '../ui/Select';
 import { unknownErrorMessage } from '../../utils/unknownError';
+import {
+  buildAtomicCardForensicReport,
+  type AtomicCardDuplicateCohortCode,
+  type AtomicCardForensicRecommendationCode,
+} from '../../domain/credit-card/atomicRebuildForensics';
+
+const FORENSIC_FIELD_LABELS: Record<string, string> = {
+  statementKey: 'competência',
+  postedDate: 'data',
+  amountCents: 'valor',
+  entryType: 'tipo',
+  dueDate: 'vencimento',
+  entryCount: 'quantidade de itens',
+  statementTotalCents: 'total',
+  totalPaymentsCents: 'pagamentos',
+  openBalanceCents: 'saldo',
+  paymentDate: 'data',
+  source: 'origem',
+};
+
+const FORENSIC_DUPLICATE_LABELS: Record<AtomicCardDuplicateCohortCode, string> = {
+  'deterministic-repair': 'reparo determinístico',
+  'outside-shadow': 'fora da reconstrução',
+  'no-canonical-match': 'sem linha canônica compatível',
+  'missing-row-identity': 'linha sem identidade persistida',
+  'ambiguous-row-set': 'conjunto de linhas ambíguo',
+};
+
+const FORENSIC_RECOMMENDATION_LABELS: Record<AtomicCardForensicRecommendationCode, string> = {
+  'investigate-ambiguous-transaction-identities': 'Investigar identidades duplicadas antes de qualquer remoção.',
+  'investigate-missing-projection-entries': 'Explicar itens ausentes da projeção atual antes de reconstruir.',
+  'review-competence-assignment': 'Revisar a regra de competência que concentra as mudanças de itens.',
+  'repair-payment-duplicates-with-snapshot': 'Reparar somente pagamentos inequivocamente duplicados, sempre com snapshot.',
+  'preserve-protected-statement-metadata': 'Preservar totais oficiais e ajustes protegidos das faturas.',
+  'activate-only-with-snapshot': 'Ativar apenas com snapshot individual e revisão imutável.',
+  'observe-no-structural-change': 'Manter em observação; não há mudança estrutural pendente.',
+};
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 function parseBRDateToIso(value: string): string | null {
@@ -466,6 +503,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const [atomicActivationEnabled, setAtomicActivationEnabled] = useState(false);
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
+
+  const shadowAuditForensics = useMemo(
+    () =>
+      shadowAudit
+        ? buildAtomicCardForensicReport(
+            shadowAudit.shadow,
+            shadowAudit.persisted,
+            shadowAudit.comparison
+          )
+        : null,
+    [shadowAudit]
+  );
 
   const shadowAuditDiagnosticLines = useMemo(() => {
     if (!shadowAudit) return [];
@@ -1617,6 +1666,130 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 : `futura troca atômica ${shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}`}. Nenhum dado foi gravado.
             </p>
             <p className="mt-1 font-mono text-[10px] opacity-75">{shadowAudit.shadow.checksum}</p>
+            {shadowAuditForensics && (
+              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Etapa forense — causas agregadas</p>
+                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                    somente leitura · sem identificadores
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Ação recomendada:{' '}
+                  <strong className="text-white">
+                    {shadowAuditForensics.recommendedAction === 'investigate'
+                      ? 'investigar antes de reparar'
+                      : shadowAuditForensics.recommendedAction === 'repair-narrow'
+                        ? 'reparo estreito com snapshot'
+                        : shadowAuditForensics.recommendedAction === 'activate'
+                          ? 'ativação individual com snapshot'
+                          : 'observar sem alterar'}
+                  </strong>
+                  . O agrupamento abaixo não contém descrições, nomes de arquivos nem IDs de transações.
+                </p>
+
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Itens alterados por campo</p>
+                    {shadowAuditForensics.entryChangeProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditForensics.entryChangeProfiles.slice(0, 6).map((profile) => (
+                          <li key={profile.key} className="flex justify-between gap-2">
+                            <span>{profile.fields.map((field) => FORENSIC_FIELD_LABELS[field] || field).join(' + ')}</span>
+                            <strong className="text-white">{profile.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma alteração de item.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Faturas alteradas por campo</p>
+                    {shadowAuditForensics.statementChangeProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditForensics.statementChangeProfiles.slice(0, 6).map((profile) => (
+                          <li key={profile.key} className="flex justify-between gap-2">
+                            <span>{profile.fields.map((field) => FORENSIC_FIELD_LABELS[field] || field).join(' + ')}</span>
+                            <strong className="text-white">{profile.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma alteração de fatura.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Pagamentos alterados por campo</p>
+                    {shadowAuditForensics.paymentChangeProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditForensics.paymentChangeProfiles.slice(0, 6).map((profile) => (
+                          <li key={profile.key} className="flex justify-between gap-2">
+                            <span>{profile.fields.map((field) => FORENSIC_FIELD_LABELS[field] || field).join(' + ')}</span>
+                            <strong className="text-white">{profile.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma alteração de pagamento.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Duplicidades de itens</p>
+                    {shadowAuditForensics.duplicateTransactionCohorts.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditForensics.duplicateTransactionCohorts.map((cohort) => (
+                          <li key={cohort.code} className="flex justify-between gap-2">
+                            <span>{FORENSIC_DUPLICATE_LABELS[cohort.code]}</span>
+                            <strong className="text-white">{cohort.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma duplicidade de item.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Itens ausentes por competência</p>
+                    {shadowAuditForensics.missingTransactionsByStatement.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditForensics.missingTransactionsByStatement.slice(0, 8).map((cohort) => (
+                          <li key={cohort.statementKey} className="flex justify-between gap-2">
+                            <span>{cohort.statementKey === 'unknown' ? 'competência não identificada' : cohort.statementKey}</span>
+                            <strong className="text-white">{cohort.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhum item ausente.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p>
+                    Pagamentos órfãos: <strong className="text-white">{shadowAuditForensics.orphanPaymentsWithIdentity}</strong> com identidade e{' '}
+                    <strong className="text-white">{shadowAuditForensics.orphanPaymentsWithoutIdentity}</strong> sem identidade · candidatos determinísticos:{' '}
+                    <strong className="text-white">{shadowAuditForensics.repairableEntryRows}</strong> item(ns) e{' '}
+                    <strong className="text-white">{shadowAuditForensics.repairablePaymentRows}</strong> pagamento(s) · faturas protegidas:{' '}
+                    <strong className="text-white">{shadowAuditForensics.protectedStatementCount}</strong>.
+                  </p>
+                  {shadowAuditForensics.recommendationCodes.length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                      {shadowAuditForensics.recommendationCodes.map((code) => (
+                        <li key={code}>{FORENSIC_RECOMMENDATION_LABELS[code]}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
             {shadowAuditDiagnosticLines.length > 0 && (
               <details className="mt-3 rounded-lg border border-white/15 bg-slate-950/35 px-3 py-2">
                 <summary className="cursor-pointer select-none font-semibold text-white">
