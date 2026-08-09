@@ -79,7 +79,7 @@ const LINEAGE_MATCH_LABELS: Record<AtomicCardLineageMatchCode, string> = {
 };
 
 const LINEAGE_RECOMMENDATION_LABELS: Record<AtomicCardLineageRecommendationCode, string> = {
-  'row-count-conserved-not-deleted': 'A quantidade de linhas desta projeção foi conservada; a divergência observada é de identidade, não de volume.',
+  'row-count-conserved-not-deleted': 'A quantidade de linhas desta projeção foi conservada; não há indício de perda por redução de volume.',
   'identity-surplus-balances-missing': 'As identidades ausentes são numericamente compensadas por linhas excedentes em grupos duplicados.',
   'content-signatures-explain-missing': 'As assinaturas de conteúdo explicam todas as identidades ausentes, sem autorizar exclusão automática.',
   'restore-source-provenance-before-repair': 'Recuperar proveniência histórica antes de escolher qual linha representa cada identidade.',
