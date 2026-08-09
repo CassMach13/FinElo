@@ -133,6 +133,11 @@ describe('creditCardAtomicRebuildService.audit', () => {
     ];
     const engineRows = Array.from({ length: 1001 }, (_, index) => ({
       id: `entry-${index}`,
+      source_file_name: 'fatura-julho.csv',
+      source_row_index: index + 1,
+      source_row_hash: `source-hash-${index}`,
+      import_lot_id: 'lot-private',
+      created_at: '2026-08-01T12:00:00Z',
       statement_id: 'statement-1',
       transaction_id: index === 0 ? 'tx-shadow' : `old-${index}`,
       posted_date: '2026-07-10',
@@ -146,10 +151,14 @@ describe('creditCardAtomicRebuildService.audit', () => {
       credit_card_payments: [],
     };
     const rangesByTable = new Map<string, Array<[number, number]>>();
+    const selectedColumnsByTable = new Map<string, string>();
 
     mocks.from.mockImplementation((table: string) => {
       const builder: Record<string, unknown> = {};
-      builder.select = vi.fn(() => builder);
+      builder.select = vi.fn((columns: string) => {
+        selectedColumnsByTable.set(table, columns);
+        return builder;
+      });
       builder.eq = vi.fn(() => builder);
       builder.in = vi.fn(() => builder);
       builder.order = vi.fn(() => builder);
@@ -182,10 +191,22 @@ describe('creditCardAtomicRebuildService.audit', () => {
     });
 
     expect(result.persisted.entries).toHaveLength(1001);
+    expect(result.persisted.entries[0]).toMatchObject({
+      rowId: 'entry-0',
+      sourceFileName: 'fatura-julho.csv',
+      sourceRowIndex: 1,
+      sourceRowHash: 'source-hash-0',
+      importLotId: 'lot-private',
+      createdAt: '2026-08-01T12:00:00Z',
+    });
     expect(rangesByTable.get('credit_card_entries')).toEqual([
       [0, 999],
       [1000, 1999],
     ]);
+    expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_file_name');
+    expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_row_hash');
+    expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_row_index');
+    expect(selectedColumnsByTable.get('credit_card_entries')).toContain('import_lot_id');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_statements');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_entries');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_statement_items');

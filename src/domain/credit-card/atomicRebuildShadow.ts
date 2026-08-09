@@ -121,6 +121,12 @@ export interface PersistedAtomicCardStatement {
 export interface PersistedAtomicCardEntry {
   /** Identidade da linha materializada, usada apenas para auditoria/reparo seguro. */
   rowId?: string;
+  /** Proveniência persistida; permanece opcional para leituras do modelo legado. */
+  sourceFileName?: string | null;
+  sourceRowIndex?: number | null;
+  sourceRowHash?: string | null;
+  importLotId?: string | null;
+  createdAt?: string | null;
   transactionId: string;
   statementKey: string;
   postedDate: string | null;

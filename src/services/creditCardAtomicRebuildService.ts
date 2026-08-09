@@ -43,6 +43,11 @@ interface PersistedStatementRow {
 
 interface PersistedEngineEntryRow {
   id: string;
+  source_file_name?: string | null;
+  source_row_index?: number | null;
+  source_row_hash?: string | null;
+  import_lot_id?: string | null;
+  created_at?: string | null;
   statement_id?: string | null;
   transaction_id?: string | null;
   posted_date?: string | null;
@@ -249,7 +254,9 @@ async function readAllEngineEntries(accountId: string): Promise<PersistedEngineE
   return collectPaginatedRows<PersistedEngineEntryRow>(async (from, to) => {
     const { data, error } = await supabase
       .from('credit_card_entries')
-      .select('id,statement_id,transaction_id,posted_date,amount,entry_type')
+      .select(
+        'id,statement_id,transaction_id,posted_date,amount,entry_type,source_file_name,source_row_index,source_row_hash,import_lot_id,created_at'
+      )
       .eq('account_id', accountId)
       .order('id', { ascending: true })
       .range(from, to);
@@ -308,6 +315,14 @@ export async function readPersistedAtomicCardProjection(
     source === 'engine'
       ? engineRows.map((row) => ({
           rowId: row.id,
+          sourceFileName: row.source_file_name || null,
+          sourceRowIndex:
+            row.source_row_index === null || row.source_row_index === undefined
+              ? null
+              : Number(row.source_row_index),
+          sourceRowHash: row.source_row_hash || null,
+          importLotId: row.import_lot_id || null,
+          createdAt: row.created_at || null,
           transactionId: String(row.transaction_id || `engine-row:${row.id}`),
           statementKey: statementKeyById.get(String(row.statement_id || '')) || 'sem-competencia',
           postedDate: row.posted_date || null,

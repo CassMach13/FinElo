@@ -27,6 +27,12 @@ import {
   type AtomicCardLineageRecommendationCode,
   type AtomicCardLineageStatus,
 } from '../../domain/credit-card/atomicRebuildLineage';
+import {
+  buildAtomicCardProvenanceReport,
+  type AtomicCardProvenanceEvidenceCode,
+  type AtomicCardProvenanceRecommendationCode,
+  type AtomicCardProvenanceStatus,
+} from '../../domain/credit-card/atomicRebuildProvenance';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -88,6 +94,42 @@ const LINEAGE_RECOMMENDATION_LABELS: Record<AtomicCardLineageRecommendationCode,
   'keep-activation-blocked': 'Manter ativação e reparos bloqueados enquanto houver identidade ambígua.',
   'deterministic-repair-path-available': 'Existem linhas com reparo determinístico separado, sempre condicionado a snapshot.',
   'unexplained-row-gap': 'Persistem linhas ou identidades sem explicação suficiente; aprofundar a auditoria antes de qualquer escrita.',
+};
+
+const PROVENANCE_STATUS_LABELS: Record<AtomicCardProvenanceStatus, string> = {
+  clean: 'nenhuma identidade precisa ser reconstruída',
+  'fully-traceable': 'todas as identidades ausentes possuem trilha completa e única',
+  'partially-traceable': 'parte das identidades possui trilha completa',
+  ambiguous: 'existem colisões ou âncoras ambíguas',
+  'insufficient-evidence': 'a proveniência disponível ainda é insuficiente',
+};
+
+const PROVENANCE_EVIDENCE_LABELS: Record<AtomicCardProvenanceEvidenceCode, string> = {
+  'exact-provenance-content': 'origem exata e conteúdo preservado',
+  'exact-provenance-competence-shift': 'origem exata, reposicionada entre competências',
+  'exact-provenance-type-shift': 'origem exata, com tipo divergente',
+  'exact-provenance-competence-and-type-shift': 'origem exata, com competência e tipo divergentes',
+  'exact-provenance-content-mismatch': 'origem exata, mas conteúdo econômico divergente',
+  'ambiguous-provenance': 'origem repetida ou ambígua',
+  'missing-provenance': 'origem histórica não localizada',
+  'missing-row-identity': 'linha localizada sem identidade persistida',
+  'owner-not-duplicated': 'linha localizada sem duplicidade que explique a troca',
+  'owner-anchor-missing': 'âncora da identidade atual não localizada',
+  'owner-anchor-ambiguous': 'mais de uma âncora possível para a identidade atual',
+};
+
+const PROVENANCE_RECOMMENDATION_LABELS: Record<AtomicCardProvenanceRecommendationCode, string> = {
+  'no-identity-reconstruction-needed': 'Nenhuma reconstrução de identidade é necessária nesta projeção.',
+  'all-missing-identities-have-exact-provenance': 'Todas as identidades ausentes foram localizadas por origem e hash da linha.',
+  'owner-anchors-confirmed': 'Cada identidade atualmente duplicada possui uma âncora independente que deve ser preservada.',
+  'future-dry-run-plan-available': 'Há evidência suficiente para desenvolver futuramente um plano de simulação, ainda sem escrita.',
+  'investigate-provenance-collisions': 'Investigar colisões de proveniência antes de selecionar qualquer linha.',
+  'investigate-unavailable-provenance': 'Completar a trilha histórica das linhas ainda sem evidência suficiente.',
+  'review-competence-before-any-repair': 'Confirmar a competência correta antes de considerar qualquer reparo de identidade.',
+  'preserve-owner-anchor': 'Preservar as linhas-âncora; elas comprovam qual registro deve conservar a identidade atual.',
+  'no-write-without-snapshot': 'Qualquer etapa futura de escrita exigirá snapshot individual e rollback previamente testado.',
+  'do-not-reimport': 'Não reimportar arquivos para corrigir a identidade; isso pode ampliar as duplicidades.',
+  'keep-activation-blocked': 'Manter projeção e reparos bloqueados nesta etapa somente leitura.',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -556,6 +598,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     () =>
       shadowAudit
         ? buildAtomicCardLineageReport(
+            shadowAudit.shadow,
+            shadowAudit.persisted,
+            shadowAudit.comparison
+          )
+        : null,
+    [shadowAudit]
+  );
+
+  const shadowAuditProvenance = useMemo(
+    () =>
+      shadowAudit
+        ? buildAtomicCardProvenanceReport(
             shadowAudit.shadow,
             shadowAudit.persisted,
             shadowAudit.comparison
@@ -1942,6 +1996,113 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                       {shadowAuditLineage.recommendationCodes.map((code) => (
                         <li key={code}>{LINEAGE_RECOMMENDATION_LABELS[code]}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+            {shadowAuditProvenance && (
+              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2F — proveniência histórica</p>
+                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                    somente leitura · não cria reparo
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Diagnóstico: <strong className="text-white">{PROVENANCE_STATUS_LABELS[shadowAuditProvenance.status]}</strong>.
+                  A análise cruza origem e hash apenas em memória; nomes de arquivos, hashes, lotes e IDs de linha não aparecem neste relatório.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas atuais com / sem proveniência</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditProvenance.coverage.persistedRowsWithSourceIdentity} / {shadowAuditProvenance.coverage.persistedRowsWithoutSourceIdentity}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Ausentes / localizadas pela origem</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditProvenance.missingIdentityCount} / {shadowAuditProvenance.exactProvenanceMatchCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Âncoras confirmadas / pendentes</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditProvenance.ownerAnchorConfirmedCount} / {shadowAuditProvenance.ownerAnchorMissingCount + shadowAuditProvenance.ownerAnchorAmbiguousCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Candidatas rastreáveis / não resolvidas</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditProvenance.unresolvedCount === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {shadowAuditProvenance.recoveryCandidateCount} / {shadowAuditProvenance.unresolvedCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Evidências agregadas</p>
+                    {shadowAuditProvenance.evidenceProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditProvenance.evidenceProfiles.map((profile) => (
+                          <li key={profile.code} className="flex justify-between gap-2">
+                            <span>{PROVENANCE_EVIDENCE_LABELS[profile.code]}</span>
+                            <strong className="text-white">{profile.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma identidade ausente exige reconstrução.</p>
+                    )}
+                    <p className="mt-2 border-t border-white/10 pt-2 text-slate-300">
+                      Colisões atuais / projetadas:{' '}
+                      <strong className="text-white">{shadowAuditProvenance.coverage.persistedSourceCollisionGroupCount}</strong> /{' '}
+                      <strong className="text-white">{shadowAuditProvenance.coverage.projectedSourceCollisionGroupCount}</strong>.
+                    </p>
+                  </div>
+
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Coortes opacas afetadas</p>
+                    {shadowAuditProvenance.sourceCohorts.length > 0 ? (
+                      <ul className="mt-1 space-y-1.5">
+                        {shadowAuditProvenance.sourceCohorts.slice(0, 8).map((cohort) => (
+                          <li key={cohort.cohort} className="rounded border border-white/5 bg-black/10 px-2 py-1.5">
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <strong className="text-white">{cohort.cohort}</strong>
+                              <span>{cohort.statementKeys.join(', ') || 'competência não identificada'}</span>
+                            </div>
+                            <p className="mt-0.5 text-slate-400">
+                              {cohort.missingIdentityCount} ausente(s) · {cohort.exactProvenanceMatchCount} localizada(s) ·{' '}
+                              {cohort.recoveryCandidateCount} rastreável(is) · {cohort.unresolvedCount} pendente(s)
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma coorte de origem afetada.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p>
+                    Evidência para uma futura simulação individual:{' '}
+                    <strong className={shadowAuditProvenance.status === 'clean' || shadowAuditProvenance.eligibleForFutureDryRunPlan ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditProvenance.status === 'clean'
+                        ? 'não necessária'
+                        : shadowAuditProvenance.eligibleForFutureDryRunPlan
+                          ? 'suficiente'
+                          : 'ainda insuficiente'}
+                    </strong>.
+                    {' '}Isso não autoriza escrita, ativação ou reparo.
+                  </p>
+                  {shadowAuditProvenance.recommendationCodes.length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                      {shadowAuditProvenance.recommendationCodes.map((code) => (
+                        <li key={code}>{PROVENANCE_RECOMMENDATION_LABELS[code]}</li>
                       ))}
                     </ul>
                   )}
