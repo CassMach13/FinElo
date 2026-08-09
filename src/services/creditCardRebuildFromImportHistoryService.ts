@@ -629,6 +629,7 @@ export const creditCardRebuildFromImportHistoryService = {
         dueYear,
         dueMonth,
         dueDate: cycle.dueDate,
+        purchaseReferenceLabel: cycle.referenceMonth,
         rules,
         fileTotals: {
           statementTotal: totals.statementTotal,

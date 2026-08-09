@@ -124,6 +124,7 @@ export async function syncManualCreditCardAccount(opts: {
             dueYear,
             dueMonth,
             dueDate,
+            purchaseReferenceLabel: ref,
             skipRecalculateAllStatements: true,
           });
           engineTouched = true;

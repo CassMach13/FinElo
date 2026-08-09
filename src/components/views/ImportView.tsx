@@ -495,11 +495,23 @@ const ImportView: React.FC = () => {
       const result = parseNativeBankCSV(content, bankCfg, transactions, mappingRules, paymentDate, selectedFile.name);
       let resolvedCardCycle = cardCycle;
       if (bankCfg.sourceType === 'Cartao' && cardCycle?.mode === 'auto') {
+        const referenceLabel = resolveAutomaticCardReferenceMonth(
+          result.newTransactions,
+          cardCycle.dueDate
+        );
+        if (result.newTransactions.length > 0 && !referenceLabel) {
+          setNotification({
+            type: 'error',
+            message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
+          });
+          return;
+        }
+
         const competencies = getDistinctCardImportReferenceMonths(result.newTransactions);
         if (competencies.length > 1) {
           const proceedAuto = await appConfirm(
-            `Detectamos lançamentos de múltiplas competências (${competencies.join(', ')}) no mesmo arquivo. Deseja continuar no modo automático mesmo assim?`,
-            'Possível Ambiguidade de Competência',
+            `O arquivo contém lançamentos em mais de um mês (${competencies.join(', ')}). Isso pode ser normal quando a fatura fecha no começo do mês. Pelo vencimento informado, a competência automática será ${referenceLabel}. Confirme ou volte para defini-la manualmente.`,
+            'Confirmar Competência Automática',
             'Continuar automático',
             'warning'
           );
@@ -511,21 +523,15 @@ const ImportView: React.FC = () => {
             return;
           }
         }
-
-        const referenceLabel = resolveAutomaticCardReferenceMonth(result.newTransactions);
-        if (result.newTransactions.length > 0 && !referenceLabel) {
-          setNotification({
-            type: 'error',
-            message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
-          });
-          return;
-        }
         resolvedCardCycle = { ...cardCycle, referenceLabel };
       }
       if (result.newTransactions.length > 0 || result.ignoredCount > 0) {
         const targetAccountName = accounts.find(account => account.id === selectedNativeAccountId)?.Nome_Conta || 'conta selecionada';
+        const cardCycleSummary = resolvedCardCycle
+          ? `\nCompetência da fatura: ${resolvedCardCycle.referenceLabel || 'não identificada'}\nVencimento: ${resolvedCardCycle.dueDate || 'não informado'}`
+          : '';
         const confirmed = await appConfirm(
-          `Arquivo: ${selectedFile.name}\nConta: ${targetAccountName}\nLinhas novas: ${result.newTransactions.length}\nLinhas ignoradas: ${result.ignoredCount}\n\nConfirmar a gravação deste lote?`,
+          `Arquivo: ${selectedFile.name}\nConta: ${targetAccountName}${cardCycleSummary}\nLinhas novas: ${result.newTransactions.length}\nLinhas ignoradas: ${result.ignoredCount}\n\nConfirmar a gravação deste lote?`,
           'Confirmar Importação',
           'Confirmar e Importar',
           'warning'
@@ -700,11 +706,23 @@ const ImportView: React.FC = () => {
       const result = await processStatementFile(file!, null, transactions, mappingRules, paymentDate, manualMappingConfig);
       let resolvedCardCycle = cardCycle;
       if ((tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito') && cardCycle?.mode === 'auto') {
+        const referenceLabel = resolveAutomaticCardReferenceMonth(
+          result.newTransactions,
+          cardCycle.dueDate
+        );
+        if (result.newTransactions.length > 0 && !referenceLabel) {
+          setNotification({
+            type: 'error',
+            message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
+          });
+          return;
+        }
+
         const competencies = getDistinctCardImportReferenceMonths(result.newTransactions);
         if (competencies.length > 1) {
           const proceedAuto = await appConfirm(
-            `Detectamos lançamentos de múltiplas competências (${competencies.join(', ')}) no mesmo arquivo. Deseja continuar no modo automático mesmo assim?`,
-            'Possível Ambiguidade de Competência',
+            `O arquivo contém lançamentos em mais de um mês (${competencies.join(', ')}). Isso pode ser normal quando a fatura fecha no começo do mês. Pelo vencimento informado, a competência automática será ${referenceLabel}. Confirme ou volte para defini-la manualmente.`,
+            'Confirmar Competência Automática',
             'Continuar automático',
             'warning'
           );
@@ -715,15 +733,6 @@ const ImportView: React.FC = () => {
             });
             return;
           }
-        }
-
-        const referenceLabel = resolveAutomaticCardReferenceMonth(result.newTransactions);
-        if (result.newTransactions.length > 0 && !referenceLabel) {
-          setNotification({
-            type: 'error',
-            message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
-          });
-          return;
         }
         resolvedCardCycle = { ...cardCycle, referenceLabel };
       }

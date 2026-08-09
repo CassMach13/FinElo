@@ -494,6 +494,7 @@ export const creditCardEngineService = {
     dueYear?: number;
     dueMonth?: number;
     dueDate?: string;
+    purchaseReferenceLabel?: string;
     /** Evita recalcular o cartão inteiro a cada origem (use um recálculo ao final do lote). */
     skipRecalculateAllStatements?: boolean;
   }): Promise<{ processed: number; statementId: string; lotId: string }> {
@@ -511,6 +512,7 @@ export const creditCardEngineService = {
       dueYear: input.dueYear,
       dueMonth: input.dueMonth,
       dueDate: input.dueDate,
+      purchaseReferenceLabel: input.purchaseReferenceLabel,
       rules: input.rules,
       paymentOverrideTransactionIds: input.paymentOverrideTransactionIds,
       refundOverrideTransactionIds: input.refundOverrideTransactionIds,
@@ -952,6 +954,7 @@ export const creditCardEngineService = {
     dueYear?: number;
     dueMonth?: number;
     dueDate?: string;
+    purchaseReferenceLabel?: string;
     rules?: ClassificationRules;
     overrides?: ClassificationOverrides;
     paymentOverrideTransactionIds?: string[];
@@ -964,7 +967,11 @@ export const creditCardEngineService = {
     const dueYear = input.dueYear || inferred?.dueYear || new Date().getFullYear();
     const dueMonth = input.dueMonth || inferred?.dueMonth || new Date().getMonth() + 1;
     const statementDueDate = input.dueDate || toIsoDate(new Date(dueYear, dueMonth - 1, Math.min(28, input.account.dia_vencimento || 10)));
-    const purchaseReferenceLabel = calcReferenceLabelFromDue(dueYear, dueMonth);
+    const purchaseReferenceLabel = /^\d{4}-(0[1-9]|1[0-2])$/.test(
+      input.purchaseReferenceLabel || ''
+    )
+      ? input.purchaseReferenceLabel!
+      : calcReferenceLabelFromDue(dueYear, dueMonth);
 
     const normalized = creditCardStatementEngine.normalizeImportLot({
       userId: input.userId,

@@ -21,10 +21,10 @@ dia 19 e vencimento no dia 28. Use somente estes arquivos:
 ## Cenário principal
 
 1. Anote a contagem inicial de transações.
-2. Importe o arquivo 20 para o cartão sintético, confirmando competência 07/2026
+2. Importe o arquivo 20 para o cartão sintético, confirmando competência 06/2026
    e vencimento 28/07/2026.
 3. Confirme o acréscimo exato de quatro transações.
-4. Importe o arquivo 21, confirmando competência 08/2026 e vencimento 28/08/2026.
+4. Importe o arquivo 21, confirmando competência 07/2026 e vencimento 28/08/2026.
 5. Confirme o acréscimo exato de duas transações: total inicial + 6.
 6. Execute a auditoria sombra e salve o relatório e o checksum.
 7. Em Configurações, use **Corrigir Conta** somente no lote do arquivo 21,

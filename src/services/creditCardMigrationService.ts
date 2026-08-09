@@ -1,6 +1,7 @@
 import { Account, ImportLog, Transaction } from '../types';
 import { creditCardEngineService } from './creditCardEngineService';
 import { toDateOnlyIso } from '../utils/dateOnly';
+import { resolveCardImportCycleCoordinates } from '../utils/cardImportReference';
 
 interface BuildRowsInput {
   transactions: Transaction[];
@@ -26,25 +27,17 @@ const extractCardCycleFromImportLog = (log: ImportLog, accountId: string): {
   dueYear?: number;
   dueMonth?: number;
   dueDate?: string;
+  purchaseReferenceLabel?: string;
 } => {
   const details = Array.isArray(log.imported_details) ? log.imported_details : [];
   const row = details.find((item: any) => item?.ID_Conta === accountId);
   if (!row) return {};
 
-  let dueYear: number | undefined;
-  let dueMonth: number | undefined;
-  if (typeof row.Card_Reference_Label === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(row.Card_Reference_Label)) {
-    const [yearStr, monthStr] = row.Card_Reference_Label.split('-');
-    dueYear = Number(yearStr);
-    dueMonth = Number(monthStr);
-  }
-
-  const dueDate =
-    typeof row.Card_Due_Date === 'string' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(row.Card_Due_Date)
-      ? row.Card_Due_Date
-      : undefined;
-
-  return { dueYear, dueMonth, dueDate };
+  return resolveCardImportCycleCoordinates({
+    referenceLabel:
+      typeof row.Card_Reference_Label === 'string' ? row.Card_Reference_Label : null,
+    dueDate: typeof row.Card_Due_Date === 'string' ? row.Card_Due_Date : null,
+  });
 };
 
 export const creditCardMigrationService = {
@@ -89,6 +82,7 @@ export const creditCardMigrationService = {
         dueYear: cardCycle.dueYear,
         dueMonth: cardCycle.dueMonth,
         dueDate: cardCycle.dueDate,
+        purchaseReferenceLabel: cardCycle.purchaseReferenceLabel,
       });
 
       processedLots += 1;

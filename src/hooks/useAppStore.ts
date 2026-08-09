@@ -63,6 +63,7 @@ import {
   deriveInitialDataLoadStatusForUser,
   type InitialDataLoadStatus,
 } from '../utils/initialDataLoad';
+import { resolveCardImportCycleCoordinates } from '../utils/cardImportReference';
 
 const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
   resolveAtomicImportEnabled(user, async () => {
@@ -108,17 +109,7 @@ const engineClassifierRulesFromUser = (user: User | null): ClassificationRules |
 
 const parseManualCardCycleToDue = (
   cardCycle?: CardImportCycleInput
-): { dueYear?: number; dueMonth?: number; dueDate?: string } => {
-  const dueDate =
-    cardCycle?.dueDate && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(cardCycle.dueDate)
-      ? cardCycle.dueDate
-      : undefined;
-  if (!cardCycle?.referenceLabel || !/^\d{4}-(0[1-9]|1[0-2])$/.test(cardCycle.referenceLabel)) {
-    return { dueDate };
-  }
-  const [y, m] = cardCycle.referenceLabel.split('-');
-  return { dueYear: Number(y), dueMonth: Number(m), dueDate };
-};
+) => resolveCardImportCycleCoordinates(cardCycle);
 
 async function syncImportedCardOrigin(opts: {
   getState: () => { transactions: Transaction[]; accounts: Account[] };
@@ -148,6 +139,7 @@ async function syncImportedCardOrigin(opts: {
       dueYear: due.dueYear,
       dueMonth: due.dueMonth,
       dueDate: due.dueDate,
+      purchaseReferenceLabel: due.purchaseReferenceLabel,
     });
     return;
   }
@@ -869,6 +861,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         dueYear: due.dueYear,
         dueMonth: due.dueMonth,
         dueDate: due.dueDate,
+        purchaseReferenceLabel: due.purchaseReferenceLabel,
       });
       processed = result.processed;
     } else {
@@ -1179,6 +1172,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             assignment.dueDate ||
             dueParsed.dueDate ||
             buildDueDateFromReference(assignment.referenceLabel),
+          purchaseReferenceLabel: dueParsed.purchaseReferenceLabel,
         });
         processedTotal += engineResult.processed;
       } else {
@@ -2024,12 +2018,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             merchantName: tx.Nome_Fantasia || undefined,
             transactionId: tx.ID_Transacao || undefined,
           }));
-          let dueYear = normalizedCardCycle?.referenceLabel
-            ? Number(normalizedCardCycle.referenceLabel.split('-')[0])
-            : undefined;
-          let dueMonth = normalizedCardCycle?.referenceLabel
-            ? Number(normalizedCardCycle.referenceLabel.split('-')[1])
-            : undefined;
+          const cycleCoordinates = resolveCardImportCycleCoordinates(normalizedCardCycle);
+          let dueYear = cycleCoordinates.dueYear;
+          let dueMonth = cycleCoordinates.dueMonth;
           if (dueYear === undefined || dueMonth === undefined) {
             const inferredRef = parseCreditCardReferenceFromFileName(fileName);
             if (inferredRef) {
@@ -2044,7 +2035,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             rows,
             dueYear,
             dueMonth,
-            dueDate: normalizedCardCycle?.dueDate || undefined,
+            dueDate: cycleCoordinates.dueDate,
+            purchaseReferenceLabel: cycleCoordinates.purchaseReferenceLabel,
             rules: engineClassifierRulesFromUser(user),
             fileTotals: options?.creditCardFileTotals,
           });
