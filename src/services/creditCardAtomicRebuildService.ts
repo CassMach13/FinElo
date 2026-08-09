@@ -36,6 +36,9 @@ interface PersistedStatementRow {
   manual_totals_json?: unknown;
   statement_total_from_file?: number | string | null;
   total_payments_from_file?: number | string | null;
+  atomic_projection_version?: number | null;
+  atomic_projection_checksum?: string | null;
+  atomic_projection_snapshot_id?: string | null;
 }
 
 interface PersistedEngineEntryRow {
@@ -71,6 +74,33 @@ export interface AtomicCardRebuildAuditResult {
   shadow: AtomicCardShadowProjection;
   persisted: PersistedAtomicCardProjection;
   comparison: AtomicCardProjectionComparison;
+  /** Revisão opaca calculada no banco antes e depois da leitura paginada. */
+  persistedRevision: string;
+}
+
+export interface AtomicCardActivationResult {
+  snapshotId: string;
+  shadowChecksum: string;
+  beforeRevision: string;
+  afterRevision: string;
+  statementsUpdated: number;
+  entriesUpdated: number;
+  paymentsUpdated: number;
+  postActivationAudit: AtomicCardRebuildAuditResult;
+}
+
+export interface AtomicCardRollbackAvailability {
+  snapshotId: string;
+  accountId: string;
+  shadowChecksum: string;
+  appliedAt: string;
+}
+
+export interface AtomicCardRollbackResult {
+  snapshotId: string;
+  accountId: string;
+  restoredRevision: string;
+  rolledBack: boolean;
 }
 
 const toCents = (value: number | string | null | undefined): number =>
@@ -184,7 +214,7 @@ async function readAllStatements(accountId: string): Promise<PersistedStatementR
     const { data, error } = await supabase
       .from('credit_card_statements')
       .select(
-        'id,card_id,reference_label,due_year,due_month,due_date,total_charges,total_credits,total_payments,open_amount,statement_total,open_balance,manual_totals_json,statement_total_from_file,total_payments_from_file'
+        'id,card_id,reference_label,due_year,due_month,due_date,total_charges,total_credits,total_payments,open_amount,statement_total,open_balance,manual_totals_json,statement_total_from_file,total_payments_from_file,atomic_projection_version,atomic_projection_checksum,atomic_projection_snapshot_id'
       )
       .eq('account_id', accountId)
       .order('id', { ascending: true })
@@ -324,25 +354,196 @@ export async function readPersistedAtomicCardProjection(
   return { source, statements, entries, payments };
 }
 
+async function readProjectionRevision(accountId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('get_credit_card_projection_revision', {
+    p_account_id: accountId,
+  });
+  if (error) throw error;
+  const revision = String(data || '');
+  if (!/^[a-f0-9]{32}$/.test(revision)) {
+    throw new Error('O banco não retornou uma revisão válida para a projeção do cartão.');
+  }
+  return revision;
+}
+
+const buildAudit = (
+  shadow: AtomicCardShadowProjection,
+  persisted: PersistedAtomicCardProjection,
+  persistedRevision: string
+): AtomicCardRebuildAuditResult => ({
+  shadow,
+  persisted,
+  comparison: compareAtomicCardProjections(shadow, persisted),
+  persistedRevision,
+});
+
+const toActivationPayload = (shadow: AtomicCardShadowProjection) => ({
+  statements: shadow.statements.map((statement) => ({
+    statementKey: statement.statementKey,
+    purchaseReferenceMonth: statement.purchaseReferenceMonth,
+    dueDate: statement.dueDate,
+    dueYear: statement.dueYear,
+    dueMonth: statement.dueMonth,
+    status: statement.status,
+    totalPurchasesCents: statement.totalPurchasesCents,
+    totalFeesCents: statement.totalFeesCents,
+    totalInterestCents: statement.totalInterestCents,
+    totalRefundsCents: statement.totalRefundsCents,
+    statementTotalCents: statement.statementTotalCents,
+    totalPaymentsCents: statement.totalPaymentsCents,
+    openBalanceCents: statement.openBalanceCents,
+  })),
+  entries: shadow.entries.map((entry) => ({
+    transactionId: entry.transactionId,
+    statementKey: entry.statementKey,
+    postedDate: entry.postedDate,
+    amountCents: entry.amountCents,
+    entryType: entry.entryType,
+  })),
+  payments: shadow.payments.map((payment) => ({
+    transactionId: payment.transactionId,
+    statementKey: payment.statementKey,
+    paymentDate: payment.paymentDate,
+    amountCents: payment.amountCents,
+    source: payment.source,
+  })),
+});
+
+type AtomicAuditInput = {
+  account: Account;
+  cycles: AtomicCardRebuildCycle[];
+  transactions: Transaction[];
+  importLogs?: ImportLog[];
+  rules?: ClassificationRules;
+};
+
 export const creditCardAtomicRebuildService = {
+  async isActivationEnabled(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('get_atomic_card_rebuild_feature_state');
+      return !error && data === 'enabled';
+    } catch {
+      return false;
+    }
+  },
+
   /**
    * Prévia integral e somente leitura. Diferenças são relatadas; nunca aplicadas.
    */
-  async audit(input: {
-    account: Account;
-    cycles: AtomicCardRebuildCycle[];
-    transactions: Transaction[];
-    importLogs?: ImportLog[];
-    rules?: ClassificationRules;
-  }): Promise<AtomicCardRebuildAuditResult> {
+  async audit(input: AtomicAuditInput): Promise<AtomicCardRebuildAuditResult> {
     const prepared = prepareAtomicCardShadowSource(input);
     const shadow = buildAtomicCardRebuildShadow({
       ...input,
       cycles: prepared.cycles,
       transactions: prepared.transactions,
     });
+    const revisionBefore = await readProjectionRevision(input.account.id);
     const persisted = await readPersistedAtomicCardProjection(input.account.id);
-    const comparison = compareAtomicCardProjections(shadow, persisted);
-    return { shadow, persisted, comparison };
+    const revisionAfter = await readProjectionRevision(input.account.id);
+    if (revisionBefore !== revisionAfter) {
+      throw new Error(
+        'A projeção do cartão mudou durante a auditoria. Nenhum dado foi alterado; execute a auditoria novamente.'
+      );
+    }
+    return buildAudit(shadow, persisted, revisionAfter);
+  },
+
+  /**
+   * Reaudita imediatamente e envia a projeção ao único RPC que pode gravá-la.
+   * O banco repete as guardas sob lock e salva o snapshot na mesma transação.
+   */
+  async activate(
+    input: AtomicAuditInput,
+    expectedAudit: AtomicCardRebuildAuditResult
+  ): Promise<AtomicCardActivationResult> {
+    if (!(await this.isActivationEnabled())) {
+      throw new Error('A ativação atômica de cartão não está habilitada para esta conta.');
+    }
+    const freshAudit = await this.audit(input);
+    if (
+      freshAudit.shadow.checksum !== expectedAudit.shadow.checksum ||
+      freshAudit.persistedRevision !== expectedAudit.persistedRevision
+    ) {
+      throw new Error(
+        'A projeção mudou depois da auditoria exibida. Nenhum dado foi alterado; audite novamente.'
+      );
+    }
+    if (!freshAudit.comparison.safeToActivate) {
+      throw new Error(
+        'A auditoria atual não permite uma ativação somente por atualização. Nenhum dado foi alterado.'
+      );
+    }
+
+    const payload = toActivationPayload(freshAudit.shadow);
+    const { data, error } = await supabase.rpc('activate_credit_card_projection_atomic', {
+      p_account_id: input.account.id,
+      p_expected_revision: freshAudit.persistedRevision,
+      p_shadow_checksum: freshAudit.shadow.checksum,
+      p_statements: payload.statements,
+      p_entries: payload.entries,
+      p_payments: payload.payments,
+    });
+    if (error) throw error;
+
+    const row = (data || {}) as Record<string, unknown>;
+    const snapshotId = String(row.snapshot_id || '');
+    if (!snapshotId) throw new Error('A ativação não retornou o snapshot de rollback.');
+
+    const postActivationAudit = await this.audit(input);
+    if (
+      postActivationAudit.shadow.checksum !== freshAudit.shadow.checksum ||
+      postActivationAudit.comparison.structuralDifferenceCount !== 0
+    ) {
+      throw new Error(
+        `A ativação foi confirmada, mas a verificação posterior divergiu. Snapshot ${snapshotId} disponível para rollback.`
+      );
+    }
+
+    return {
+      snapshotId,
+      shadowChecksum: String(row.shadow_checksum || freshAudit.shadow.checksum),
+      beforeRevision: String(row.before_revision || freshAudit.persistedRevision),
+      afterRevision: String(row.after_revision || postActivationAudit.persistedRevision),
+      statementsUpdated: Number(row.statements_updated || 0),
+      entriesUpdated: Number(row.entries_updated || 0),
+      paymentsUpdated: Number(row.payments_updated || 0),
+      postActivationAudit,
+    };
+  },
+
+  async latestRollback(accountId: string): Promise<AtomicCardRollbackAvailability | null> {
+    const { data, error } = await supabase
+      .from('credit_card_atomic_rebuild_snapshots')
+      .select('id,account_id,shadow_checksum,applied_at,after_revision')
+      .eq('account_id', accountId)
+      .is('rolled_back_at', null)
+      .not('after_revision', 'is', null)
+      .order('applied_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const currentRevision = await readProjectionRevision(accountId);
+    if (String(data.after_revision || '') !== currentRevision) return null;
+    return {
+      snapshotId: String(data.id),
+      accountId: String(data.account_id),
+      shadowChecksum: String(data.shadow_checksum),
+      appliedAt: String(data.applied_at),
+    };
+  },
+
+  async rollback(snapshotId: string): Promise<AtomicCardRollbackResult> {
+    const { data, error } = await supabase.rpc('rollback_credit_card_projection_atomic', {
+      p_snapshot_id: snapshotId,
+    });
+    if (error) throw error;
+    const row = (data || {}) as Record<string, unknown>;
+    return {
+      snapshotId: String(row.snapshot_id || snapshotId),
+      accountId: String(row.account_id || ''),
+      restoredRevision: String(row.restored_revision || ''),
+      rolledBack: Boolean(row.rolled_back),
+    };
   },
 };

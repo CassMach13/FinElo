@@ -559,7 +559,87 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     expect(protectedComparison.protectedMetadataStatementKeys).toEqual([
       statement.statementKey,
     ]);
-    expect(protectedComparison.safeToActivate).toBe(false);
+    expect(protectedComparison.safeToActivate).toBe(true);
+    expect(protectedComparison.structuralDifferenceCount).toBe(1);
+    expect(protectedComparison.activationChangeCount).toBe(1);
+    expect(protectedComparison.differenceCount).toBe(2);
+  });
+
+  it('preserva metadados protegidos sem liberá-los como uma alteração isolada', () => {
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: [cycles[0]],
+      transactions: [
+        transaction({
+          id: 'protected-only',
+          origin: cycles[0].fileName,
+          date: '2026-07-10',
+          amount: -35,
+          description: 'CAFÉ',
+        }),
+      ],
+    });
+    const persisted: PersistedAtomicCardProjection = {
+      source: 'engine',
+      statements: shadow.statements.map((statement) => ({
+        statementKey: statement.statementKey,
+        dueDate: statement.dueDate,
+        entryCount: statement.entryCount,
+        statementTotalCents: statement.statementTotalCents,
+        totalPaymentsCents: statement.totalPaymentsCents,
+        openBalanceCents: statement.openBalanceCents,
+        hasProtectedMetadata: true,
+      })),
+      entries: shadow.entries.map((entry) => ({
+        transactionId: entry.transactionId,
+        statementKey: entry.statementKey,
+        postedDate: entry.postedDate,
+        amountCents: entry.amountCents,
+        entryType: entry.entryType,
+      })),
+      payments: [],
+    };
+
+    const comparison = compareAtomicCardProjections(shadow, persisted);
+    expect(comparison.structuralDifferenceCount).toBe(0);
+    expect(comparison.activationChangeCount).toBe(0);
+    expect(comparison.differenceCount).toBe(1);
+    expect(comparison.safeToActivate).toBe(false);
+  });
+
+  it('não libera ativação que precisaria criar uma linha ausente', () => {
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: [cycles[0]],
+      transactions: [
+        transaction({
+          id: 'missing-entry',
+          origin: cycles[0].fileName,
+          date: '2026-07-10',
+          amount: -35,
+          description: 'CAFÉ',
+        }),
+      ],
+    });
+    const statement = shadow.statements[0];
+    const comparison = compareAtomicCardProjections(shadow, {
+      source: 'engine',
+      statements: [
+        {
+          statementKey: statement.statementKey,
+          dueDate: statement.dueDate,
+          entryCount: 0,
+          statementTotalCents: 0,
+          totalPaymentsCents: 0,
+          openBalanceCents: 0,
+        },
+      ],
+      entries: [],
+      payments: [],
+    });
+
+    expect(comparison.missingTransactionIds).toEqual(['missing-entry']);
+    expect(comparison.safeToActivate).toBe(false);
   });
 
   it('expõe IDs duplicados já existentes na projeção persistida', () => {

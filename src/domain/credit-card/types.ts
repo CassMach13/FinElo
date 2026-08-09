@@ -88,6 +88,9 @@ export interface CreditCardStatement {
   totalPaymentsFromFile?: number | null;
   /** Soma das linhas pelo motor (auditoria). */
   linesComputedTotal?: number | null;
+  atomicProjectionVersion?: number | null;
+  atomicProjectionChecksum?: string | null;
+  atomicProjectionSnapshotId?: string | null;
 }
 
 /** Shape de `manual_totals_json` na tabela credit_card_statements. */

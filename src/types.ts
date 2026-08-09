@@ -260,6 +260,9 @@ export interface CreditCardStatementV2 {
   statement_total_from_file?: number | null;
   /** Pagamentos oficiais na competência do arquivo. */
   total_payments_from_file?: number | null;
+  atomic_projection_version?: number | null;
+  atomic_projection_checksum?: string | null;
+  atomic_projection_snapshot_id?: string | null;
   /** Indicações manuais do usuário para total/pago desta competência (sobrescreve o motor no recálculo). */
   manual_totals?: ManualStatementTotalsPayload | null;
 }

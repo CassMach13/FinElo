@@ -191,6 +191,7 @@ function applyDisplayTotalsOverlay(
   opts: {
     linesComputedTotal: number;
     fromFile?: CreditCardFileTotalsInput | null;
+    useFileTotalsForDisplay?: boolean;
   }
 ): CreditCardStatement {
   const manual = computed.manualTotals;
@@ -210,6 +211,7 @@ function applyDisplayTotalsOverlay(
 
   const file = opts.fromFile;
   if (
+    opts.useFileTotalsForDisplay !== false &&
     !hasManualStatement &&
     file?.statementTotal != null &&
     Number.isFinite(file.statementTotal) &&
@@ -218,6 +220,7 @@ function applyDisplayTotalsOverlay(
     st = round2(Number(file.statementTotal));
   }
   if (
+    opts.useFileTotalsForDisplay !== false &&
     !hasManualPayments &&
     file?.totalPayments != null &&
     Number.isFinite(file.totalPayments) &&
@@ -315,6 +318,12 @@ function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardSt
       row.total_payments_from_file != null ? Number(row.total_payments_from_file) : null,
     linesComputedTotal:
       row.lines_computed_total != null ? Number(row.lines_computed_total) : null,
+    atomicProjectionVersion:
+      row.atomic_projection_version != null ? Number(row.atomic_projection_version) : null,
+    atomicProjectionChecksum:
+      row.atomic_projection_checksum != null ? String(row.atomic_projection_checksum) : null,
+    atomicProjectionSnapshotId:
+      row.atomic_projection_snapshot_id != null ? String(row.atomic_projection_snapshot_id) : null,
   };
 }
 
@@ -335,7 +344,8 @@ export const creditCardEngineService = {
     );
 
     const fileTotals = await loadFileTotalsForStatement(detail.statement);
-    const authoritativeFile = hasAuthoritativeFileTotals(fileTotals);
+    const atomicProjectionActive = detail.statement.atomicProjectionVersion === 1;
+    const authoritativeFile = !atomicProjectionActive && hasAuthoritativeFileTotals(fileTotals);
 
     const needsFutureInvoiceMerge =
       !authoritativeFile &&
@@ -385,7 +395,11 @@ export const creditCardEngineService = {
 
     const persisted = applyDisplayTotalsOverlay(
       { ...recalculated, manualTotals: detail.statement.manualTotals ?? null },
-      { linesComputedTotal, fromFile: fileTotals }
+      {
+        linesComputedTotal,
+        fromFile: fileTotals,
+        useFileTotalsForDisplay: !atomicProjectionActive,
+      }
     );
 
     const { error: updateStatementError } = await supabase

@@ -49,6 +49,7 @@ const transaction: Transaction = {
 describe('creditCardAtomicRebuildService.audit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.rpc.mockResolvedValue({ data: 'a'.repeat(32), error: null });
   });
 
   it('inclui lançamentos manuais em origens por competência sem alterar os objetos originais', () => {
@@ -192,7 +193,13 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.upsert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    expect(mocks.rpc).toHaveBeenNthCalledWith(1, 'get_credit_card_projection_revision', {
+      p_account_id: account.id,
+    });
+    expect(mocks.rpc).toHaveBeenNthCalledWith(2, 'get_credit_card_projection_revision', {
+      p_account_id: account.id,
+    });
   });
 
   it('aborta a auditoria inteira se uma página de leitura falhar', async () => {
@@ -259,6 +266,33 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.upsert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith('get_credit_card_projection_revision', {
+      p_account_id: account.id,
+    });
+  });
+
+  it('cancela a auditoria se a revisão mudar durante a leitura paginada', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: 'a'.repeat(32), error: null })
+      .mockResolvedValueOnce({ data: 'b'.repeat(32), error: null });
+
+    mocks.from.mockImplementation(() => {
+      const builder: Record<string, unknown> = {};
+      builder.select = vi.fn(() => builder);
+      builder.eq = vi.fn(() => builder);
+      builder.in = vi.fn(() => builder);
+      builder.order = vi.fn(() => builder);
+      builder.range = vi.fn(async () => ({ data: [], error: null }));
+      return builder;
+    });
+
+    await expect(
+      creditCardAtomicRebuildService.audit({
+        account,
+        cycles: [],
+        transactions: [],
+      })
+    ).rejects.toThrow('mudou durante a auditoria');
   });
 });

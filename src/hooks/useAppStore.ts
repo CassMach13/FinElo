@@ -43,7 +43,10 @@ import {
 } from '../services/creditCardRebuildFromImportHistoryService';
 import {
   creditCardAtomicRebuildService,
+  type AtomicCardActivationResult,
   type AtomicCardRebuildAuditResult,
+  type AtomicCardRollbackAvailability,
+  type AtomicCardRollbackResult,
 } from '../services/creditCardAtomicRebuildService';
 import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
@@ -350,6 +353,17 @@ interface AppState {
     accountId: string,
     cycles: ImportHistoryRebuildCycle[]
   ) => Promise<AtomicCardRebuildAuditResult>;
+  /** Sprint 2C: reaudita e ativa somente por um RPC transacional com snapshot. */
+  activateCreditCardRebuildFromImportHistory: (
+    accountId: string,
+    cycles: ImportHistoryRebuildCycle[],
+    expectedAudit: AtomicCardRebuildAuditResult
+  ) => Promise<AtomicCardActivationResult>;
+  getLatestAtomicCardRollback: (
+    accountId: string
+  ) => Promise<AtomicCardRollbackAvailability | null>;
+  getAtomicCardRebuildFeatureState: () => Promise<boolean>;
+  rollbackAtomicCardRebuild: (snapshotId: string) => Promise<AtomicCardRollbackResult>;
   syncCreditCardHistoryFromAccount: (accountId: string) => Promise<{ message: string; origins: number; processed: number }>;
   saveCardImportLotClassification: (
     origin: string,
@@ -567,6 +581,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         open_balance: statement.openBalance,
         statement_total_from_file: statement.statementTotalFromFile ?? null,
         total_payments_from_file: statement.totalPaymentsFromFile ?? null,
+        atomic_projection_version: statement.atomicProjectionVersion ?? null,
+        atomic_projection_checksum: statement.atomicProjectionChecksum ?? null,
+        atomic_projection_snapshot_id: statement.atomicProjectionSnapshotId ?? null,
         manual_totals: statement.manualTotals ?? null,
       })) as CreditCardStatementV2[];
       set({ creditCardStatements: mapped });
@@ -602,6 +619,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         open_balance: detail.statement.openBalance,
         statement_total_from_file: detail.statement.statementTotalFromFile ?? null,
         total_payments_from_file: detail.statement.totalPaymentsFromFile ?? null,
+        atomic_projection_version: detail.statement.atomicProjectionVersion ?? null,
+        atomic_projection_checksum: detail.statement.atomicProjectionChecksum ?? null,
+        atomic_projection_snapshot_id: detail.statement.atomicProjectionSnapshotId ?? null,
         manual_totals: detail.statement.manualTotals ?? null,
       };
       const entries = detail.entries.map((entry) => ({
@@ -952,6 +972,56 @@ export const useAppStore = create<AppState>((set, get) => ({
       importLogs,
       rules: engineClassifierRulesFromUser(user),
     });
+  },
+
+  activateCreditCardRebuildFromImportHistory: async (accountId, cycles, expectedAudit) => {
+    const { user, accounts, transactions, importLogs } = get();
+    if (!user) throw new Error('Usuário não autenticado.');
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) throw new Error('Conta não encontrada.');
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      throw new Error('A conta selecionada não é cartão de crédito.');
+    }
+    if (!isCreditCardEngineEnabled(user)) {
+      throw new Error('O motor de cartão não está habilitado para esta conta.');
+    }
+
+    const result = await creditCardAtomicRebuildService.activate(
+      {
+        account,
+        cycles,
+        transactions,
+        importLogs,
+        rules: engineClassifierRulesFromUser(user),
+      },
+      expectedAudit
+    );
+
+    await get().fetchTransactions();
+    await get().fetchImportLogs();
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+    return result;
+  },
+
+  getLatestAtomicCardRollback: async (accountId) => {
+    if (!get().user) return null;
+    return creditCardAtomicRebuildService.latestRollback(accountId);
+  },
+
+  getAtomicCardRebuildFeatureState: async () => {
+    if (!get().user) return false;
+    return creditCardAtomicRebuildService.isActivationEnabled();
+  },
+
+  rollbackAtomicCardRebuild: async (snapshotId) => {
+    if (!get().user) throw new Error('Usuário não autenticado.');
+    const result = await creditCardAtomicRebuildService.rollback(snapshotId);
+    await get().fetchTransactions();
+    await get().fetchImportLogs();
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+    return result;
   },
 
   rebuildCreditCardByPeriod: async (accountId, fromDate, toDate) => {

@@ -7,7 +7,10 @@ import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import { comparableImportOriginKey } from '../../utils/importOriginKey';
 import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
-import type { AtomicCardRebuildAuditResult } from '../../services/creditCardAtomicRebuildService';
+import type {
+  AtomicCardRebuildAuditResult,
+  AtomicCardRollbackAvailability,
+} from '../../services/creditCardAtomicRebuildService';
 import { formatCurrency } from '../../utils/formatters';
 import type { Account, ImportLog, Transaction } from '../../types';
 import Select from '../ui/Select';
@@ -421,8 +424,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const importLogs = useAppStore((s) => s.importLogs);
   const user = useAppStore((s) => s.user);
   const saveCardImportLotClassification = useAppStore((s) => s.saveCardImportLotClassification);
-  const rebuildCreditCardFromImportHistory = useAppStore((s) => s.rebuildCreditCardFromImportHistory);
   const auditCreditCardRebuildFromImportHistory = useAppStore((s) => s.auditCreditCardRebuildFromImportHistory);
+  const activateCreditCardRebuildFromImportHistory = useAppStore(
+    (s) => s.activateCreditCardRebuildFromImportHistory
+  );
+  const getLatestAtomicCardRollback = useAppStore((s) => s.getLatestAtomicCardRollback);
+  const getAtomicCardRebuildFeatureState = useAppStore(
+    (s) => s.getAtomicCardRebuildFeatureState
+  );
+  const rollbackAtomicCardRebuild = useAppStore((s) => s.rollbackAtomicCardRebuild);
 
   const creditCardAccounts = useMemo(
     () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
@@ -435,9 +445,11 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const [rows, setRows] = useState<CreditCardInvoiceCycleRow[]>([]);
   const [invoiceDueDayStr, setInvoiceDueDayStr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [operation, setOperation] = useState<'save' | 'audit' | 'rebuild' | null>(null);
+  const [operation, setOperation] = useState<'save' | 'audit' | 'rebuild' | 'rollback' | null>(null);
   const [applyProgress, setApplyProgress] = useState<string | null>(null);
   const [shadowAudit, setShadowAudit] = useState<AtomicCardRebuildAuditResult | null>(null);
+  const [latestRollback, setLatestRollback] = useState<AtomicCardRollbackAvailability | null>(null);
+  const [atomicActivationEnabled, setAtomicActivationEnabled] = useState(false);
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
 
@@ -625,6 +637,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       setOperation(null);
       setApplyProgress(null);
       setShadowAudit(null);
+      setLatestRollback(null);
+      setAtomicActivationEnabled(false);
       return;
     }
 
@@ -689,6 +703,45 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     const first = creditCardAccounts[0]?.id;
     if (first) setSelectedCardAccountId(first);
   }, [isOpen, filterAccountId, selectedCardAccountId, creditCardAccounts]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || !effectiveFilterAccountId) {
+      setLatestRollback(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void getLatestAtomicCardRollback(effectiveFilterAccountId)
+      .then((snapshot) => {
+        if (active) setLatestRollback(snapshot);
+      })
+      .catch((error) => {
+        console.error('[CreditCardInvoiceCyclesModal][LatestAtomicRollback]', error);
+        if (active) setLatestRollback(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, effectiveFilterAccountId, getLatestAtomicCardRollback]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || !user) {
+      setAtomicActivationEnabled(false);
+      return () => {
+        active = false;
+      };
+    }
+    void getAtomicCardRebuildFeatureState().then((enabled) => {
+      if (active) setAtomicActivationEnabled(enabled);
+    });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, user, getAtomicCardRebuildFeatureState]);
 
   const engineOn = user ? isCreditCardEngineEnabled(user) : false;
 
@@ -933,6 +986,14 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       await appAlert('Não há arquivos deste cartão no histórico de importações.', 'Histórico', 'warning');
       return;
     }
+    if (!atomicActivationEnabled) {
+      await appAlert(
+        'A ativação atômica permanece desligada para esta conta. A auditoria e o salvamento de competências continuam disponíveis sem alterar a conciliação.',
+        'Sprint 2C em modo escuro',
+        'warning'
+      );
+      return;
+    }
     if (!shadowAudit?.comparison.safeToActivate) {
       await appAlert(
         'A reconstrução está bloqueada porque a auditoria atual ainda não declarou a troca segura. Salve apenas as competências e investigue as diferenças antes de reconstruir.',
@@ -951,16 +1012,16 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     }
 
     const confirmed = await appConfirm(
-      `Reconstruir ${rows.length} fatura(s) somando as linhas de cada arquivo (compras/estornos na competência do arquivo; pagamentos de fatura abatem o mês anterior)?`,
-      'Reconstruir pelo histórico',
-      'Aplicar',
+      `Ativar atomicamente a projeção auditada de ${rows.length} arquivo(s)? O banco repetirá todas as validações, atualizará apenas linhas já existentes e salvará um snapshot individual para desfazer.`,
+      'Ativar projeção auditada',
+      'Ativar com snapshot',
       'warning'
     );
     if (!confirmed) return;
 
     setBusy(true);
     setOperation('rebuild');
-    setApplyProgress('Somando linhas por arquivo…');
+    setApplyProgress('Reauditando e bloqueando a projeção no banco…');
 
     try {
       const cycles = rows.map((r) => {
@@ -972,52 +1033,101 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         };
       });
 
-      setApplyProgress(`Processando ${cycles.length} arquivo(s)…`);
-      const result = await rebuildCreditCardFromImportHistory(effectiveFilterAccountId, cycles);
-
-      const lines = result.previews.map((p) => {
-        const t = p.totals;
-        return `✓ ${p.fileName}: fatura ${formatCurrency(t.statementTotal)} · pagamentos ${formatCurrency(t.totalPayments)} · ${p.transactionCount} lanç.`;
-      });
+      setApplyProgress(`Aplicando ${cycles.length} arquivo(s) em uma única transação…`);
+      const result = await activateCreditCardRebuildFromImportHistory(
+        effectiveFilterAccountId,
+        cycles,
+        shadowAudit
+      );
 
       setBusy(false);
       setOperation(null);
       setApplyProgress(null);
-      onClose();
+      setShadowAudit(result.postActivationAudit);
+      setLatestRollback({
+        snapshotId: result.snapshotId,
+        accountId: effectiveFilterAccountId,
+        shadowChecksum: result.shadowChecksum,
+        appliedAt: new Date().toISOString(),
+      });
 
       await appAlert(
-        `${result.message}\n\n${lines.slice(0, 20).join('\n')}${lines.length > 20 ? `\n… (+${lines.length - 20})` : ''}`,
-        result.processedFiles > 0 ? 'Faturas reconstruídas' : 'Nenhum arquivo processado',
-        result.processedFiles > 0 ? 'success' : 'warning'
+        [
+          'Projeção ativada e verificada em uma única transação.',
+          `${result.statementsUpdated} fatura(s), ${result.entriesUpdated} item(ns) e ${result.paymentsUpdated} pagamento(s) atualizados.`,
+          `Snapshot para rollback: ${result.snapshotId}.`,
+          'Nenhum lançamento financeiro foi criado ou excluído.',
+        ].join('\n'),
+        'Ativação atômica concluída',
+        'success'
       );
     } catch (e: unknown) {
       console.error('[CreditCardInvoiceCyclesModal]', e);
       setBusy(false);
       setOperation(null);
       setApplyProgress(null);
-      const raw = unknownErrorMessage(e, 'Falha ao reconstruir faturas.');
+      const raw = unknownErrorMessage(e, 'Falha ao ativar a projeção.');
       const isNetwork =
         /failed to fetch|network|connection closed|err_connection/i.test(raw) ||
         (e instanceof TypeError && raw.includes('fetch'));
       await appAlert(
         isNetwork
-          ? 'Conexão com o servidor foi interrompida durante o recálculo (muitas requisições de uma vez). Verifique a internet, aguarde alguns segundos e tente novamente. Se persistir, reconstrua em lotes menores (menos arquivos por vez).'
-          : raw || 'Falha ao reconstruir faturas. Veja o console (F12).',
-        'Erro',
+          ? 'A conexão com o servidor foi interrompida. O banco confirma a ativação de forma indivisível; audite novamente para verificar o estado antes de repetir.'
+          : raw || 'Falha ao ativar a projeção. Nenhuma alteração parcial é aceita pelo banco.',
+        'Ativação não concluída',
         'danger'
       );
     }
   }, [
     user,
     engineOn,
+    atomicActivationEnabled,
     effectiveFilterAccountId,
     rows,
     shadowAudit,
     validateRow,
     rowIsoValues,
-    rebuildCreditCardFromImportHistory,
-    onClose,
+    activateCreditCardRebuildFromImportHistory,
   ]);
+
+  const handleRollback = useCallback(async () => {
+    if (!latestRollback) return;
+    const confirmed = await appConfirm(
+      `Desfazer integralmente a ativação ${latestRollback.shadowChecksum}? O banco só permitirá o rollback se nenhuma linha da projeção tiver mudado depois da ativação.`,
+      'Desfazer ativação atômica',
+      'Restaurar snapshot',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setOperation('rollback');
+    setApplyProgress('Validando a revisão atual e restaurando o snapshot em uma única transação…');
+    try {
+      const result = await rollbackAtomicCardRebuild(latestRollback.snapshotId);
+      setLatestRollback(null);
+      setShadowAudit(null);
+      await appAlert(
+        `Snapshot ${result.snapshotId} restaurado com sucesso. A projeção voltou exatamente à revisão anterior.`,
+        'Rollback concluído',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][AtomicRollback]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'O rollback foi recusado. Nenhuma alteração parcial foi aceita pelo banco.'
+        ),
+        'Rollback não concluído',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [latestRollback, rollbackAtomicCardRebuild]);
 
   const handleShadowAudit = useCallback(async () => {
     if (!user) {
@@ -1198,22 +1308,30 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           >
             {operation === 'audit' ? 'Auditando…' : 'Auditar sem alterar dados'}
           </Button>
+          {latestRollback && (
+            <Button variant="secondary" disabled={busy} onClick={handleRollback}>
+              {operation === 'rollback' ? 'Restaurando…' : 'Desfazer última ativação'}
+            </Button>
+          )}
           <Button
             disabled={
               busy ||
               !engineOn ||
+              !atomicActivationEnabled ||
               !effectiveFilterAccountId ||
               rows.length === 0 ||
               !shadowAudit?.comparison.safeToActivate
             }
             onClick={handleApplyWithConfirm}
             title={
-              shadowAudit?.comparison.safeToActivate
-                ? 'A auditoria atual permite a reconstrução.'
-                : 'A reconstrução só é liberada após uma auditoria segura dos valores atuais.'
+              !atomicActivationEnabled
+                ? 'Ativação desligada pelo kill switch individual da Sprint 2C.'
+                : shadowAudit?.comparison.safeToActivate
+                ? 'A auditoria atual permite atualizar as linhas existentes atomicamente.'
+                : 'A ativação só é liberada após uma auditoria segura e sem criação ou exclusão de linhas.'
             }
           >
-            {operation === 'rebuild' ? 'Processando…' : 'Reconstruir faturas deste cartão'}
+            {operation === 'rebuild' ? 'Ativando…' : 'Ativar projeção com snapshot'}
           </Button>
         </div>
       }
@@ -1224,7 +1342,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           Para cada arquivo, confira ou informe a <strong className="text-white">competência</strong> (<strong className="text-white">MM/AAAA</strong>) e o{' '}
           <strong className="text-white">vencimento</strong> (o valor confirmado no histórico é preservado; o cálculo automático só preenche datas ausentes).
           Use <strong className="text-white">Salvar competências</strong> para registrar apenas esses metadados, sem alterar lançamentos ou conciliação.
-          Uma reconstrução só é liberada depois de uma auditoria segura; nesse caso o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e os{' '}
+          Uma ativação só é liberada depois de uma auditoria segura. A Sprint 2C atualiza apenas linhas que já existem, em uma única transação, e cria um snapshot individual para desfazer. A projeção <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e os{' '}
           <strong className="text-white">estornos</strong> na competência do arquivo; <strong className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong className="text-white">anterior</strong> (padrão N+1 do extrato).
         </p>
 
@@ -1270,7 +1388,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
             }`}
           >
             <p className="font-semibold text-white">
-              Sprint 2A — auditoria somente leitura:{' '}
+              Sprint 2C — auditoria e ativação atômica:{' '}
               {shadowAudit.comparison.status === 'blocked'
                 ? 'bloqueada'
                 : shadowAudit.comparison.status === 'identical'
@@ -1284,7 +1402,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               {shadowAudit.shadow.projectedEntryCount} itens ·{' '}
               {shadowAudit.shadow.projectedPaymentCount} pagamentos ·{' '}
               {shadowAudit.shadow.statements.length} faturas ·{' '}
-              {shadowAudit.comparison.differenceCount} diferenças ·{' '}
+              {shadowAudit.comparison.differenceCount} diferenças ({shadowAudit.comparison.structuralDifferenceCount} estruturais) ·{' '}
               {shadowAudit.shadow.blockers.length} bloqueios · futura troca atômica{' '}
               {shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}. Nenhum dado foi gravado.
             </p>

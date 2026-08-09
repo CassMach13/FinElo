@@ -33,6 +33,7 @@ export function resolveStatementDisplayTotals(
   const motorSt = round2(Number(row.statement_total ?? 0));
   const motorPay = round2(Number(row.total_payments ?? 0));
   const priorAbate = round2(Number(manual?.prior_credit_abatement ?? 0));
+  const atomicProjectionActive = row.atomic_projection_version === 1;
 
   if (manual?.use_manual) {
     const st =
@@ -53,7 +54,12 @@ export function resolveStatementDisplayTotals(
   }
 
   const fromFileSt = row.statement_total_from_file;
-  if (fromFileSt != null && Number.isFinite(fromFileSt) && fromFileSt > 0) {
+  if (
+    !atomicProjectionActive &&
+    fromFileSt != null &&
+    Number.isFinite(fromFileSt) &&
+    fromFileSt > 0
+  ) {
     const st = round2(Number(fromFileSt));
     const pay = round2(
       row.total_payments_from_file != null && Number.isFinite(row.total_payments_from_file)
@@ -68,7 +74,7 @@ export function resolveStatementDisplayTotals(
     };
   }
 
-  if (ledgerOverride && ledgerOverride.statementTotal > 0) {
+  if (!atomicProjectionActive && ledgerOverride && ledgerOverride.statementTotal > 0) {
     const st = round2(ledgerOverride.statementTotal);
     const pay = round2(ledgerOverride.totalPayments + priorAbate);
     return {

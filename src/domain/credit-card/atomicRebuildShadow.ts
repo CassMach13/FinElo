@@ -146,6 +146,11 @@ export interface PersistedAtomicCardProjection {
 
 export interface AtomicCardProjectionComparison {
   status: 'blocked' | 'identical' | 'different';
+  /**
+   * True only for the deliberately narrow Sprint 2C activation mode: every
+   * normalized row already exists and can be updated in place. No insert,
+   * delete or ambiguous repair is permitted.
+   */
   safeToActivate: boolean;
   duplicatePersistedTransactionIds: string[];
   duplicatePersistedStatementKeys: string[];
@@ -162,6 +167,10 @@ export interface AtomicCardProjectionComparison {
   missingPaymentKeys: string[];
   orphanPaymentKeys: string[];
   changedPaymentTransactionIds: string[];
+  /** Structural differences that an activation would have to reconcile. */
+  structuralDifferenceCount: number;
+  /** Existing rows that can be updated in place by the Sprint 2C RPC. */
+  activationChangeCount: number;
   differenceCount: number;
 }
 
@@ -917,12 +926,11 @@ export function compareAtomicCardProjections(
   missingPaymentKeys.sort();
   changedPaymentTransactionIds.sort();
 
-  const differenceCount =
+  const structuralDifferenceCount =
     duplicatePersistedTransactionIds.length +
     duplicatePersistedStatementKeys.length +
     duplicatePersistedPaymentTransactionIds.length +
     suspiciousPersistedPaymentEventKeys.length +
-    protectedMetadataStatementKeys.length +
     missingTransactionIds.length +
     orphanTransactionIds.length +
     changedTransactionIds.length +
@@ -932,22 +940,32 @@ export function compareAtomicCardProjections(
     missingPaymentKeys.length +
     orphanPaymentKeys.length +
     changedPaymentTransactionIds.length;
+  const activationChangeCount =
+    changedTransactionIds.length +
+    changedStatementKeys.length +
+    changedPaymentTransactionIds.length;
+  const differenceCount =
+    structuralDifferenceCount + protectedMetadataStatementKeys.length;
 
   const hasUnsafePersistedProjection =
+    persisted.source !== 'engine' ||
     duplicatePersistedTransactionIds.length > 0 ||
     duplicatePersistedStatementKeys.length > 0 ||
     duplicatePersistedPaymentTransactionIds.length > 0 ||
     suspiciousPersistedPaymentEventKeys.length > 0 ||
-    protectedMetadataStatementKeys.length > 0 ||
+    missingTransactionIds.length > 0 ||
     orphanTransactionIds.length > 0 ||
+    missingStatementKeys.length > 0 ||
     orphanStatementKeys.length > 0 ||
+    missingPaymentKeys.length > 0 ||
     orphanPaymentKeys.length > 0;
   const status: AtomicCardProjectionComparison['status'] =
     shadow.blockers.length > 0 ? 'blocked' : differenceCount === 0 ? 'identical' : 'different';
 
   return {
     status,
-    safeToActivate: shadow.safeToStage && !hasUnsafePersistedProjection,
+    safeToActivate:
+      shadow.safeToStage && !hasUnsafePersistedProjection && activationChangeCount > 0,
     duplicatePersistedTransactionIds,
     duplicatePersistedStatementKeys,
     duplicatePersistedPaymentTransactionIds,
@@ -963,6 +981,8 @@ export function compareAtomicCardProjections(
     missingPaymentKeys,
     orphanPaymentKeys,
     changedPaymentTransactionIds,
+    structuralDifferenceCount,
+    activationChangeCount,
     differenceCount,
   };
 }

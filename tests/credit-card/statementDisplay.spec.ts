@@ -44,4 +44,25 @@ describe('resolveStatementDisplayTotals', () => {
     expect(d.totalPayments).toBe(5553.44);
     expect(d.source).toBe('ledger');
   });
+
+  it('mantém totais do arquivo apenas como evidência após ativação atômica', () => {
+    const d = resolveStatementDisplayTotals(
+      baseRow({
+        statement_total: 449.9,
+        total_payments: 0,
+        open_balance: 449.9,
+        statement_total_from_file: 449.9,
+        total_payments_from_file: 399.9,
+        atomic_projection_version: 1,
+      }),
+      { statementTotal: 449.9, totalPayments: 399.9 }
+    );
+
+    expect(d).toEqual({
+      statementTotal: 449.9,
+      totalPayments: 0,
+      openBalance: 449.9,
+      source: 'motor',
+    });
+  });
 });
