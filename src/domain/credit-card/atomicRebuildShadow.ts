@@ -145,7 +145,7 @@ export interface PersistedAtomicCardProjection {
 }
 
 export interface AtomicCardProjectionComparison {
-  status: 'blocked' | 'identical' | 'different';
+  status: 'blocked' | 'identical' | 'informational' | 'different';
   /**
    * True only for the deliberately narrow Sprint 2C activation mode: every
    * normalized row already exists and can be updated in place. No insert,
@@ -960,7 +960,13 @@ export function compareAtomicCardProjections(
     missingPaymentKeys.length > 0 ||
     orphanPaymentKeys.length > 0;
   const status: AtomicCardProjectionComparison['status'] =
-    shadow.blockers.length > 0 ? 'blocked' : differenceCount === 0 ? 'identical' : 'different';
+    shadow.blockers.length > 0
+      ? 'blocked'
+      : differenceCount === 0
+        ? 'identical'
+        : structuralDifferenceCount === 0
+          ? 'informational'
+          : 'different';
 
   return {
     status,

@@ -601,6 +601,7 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     };
 
     const comparison = compareAtomicCardProjections(shadow, persisted);
+    expect(comparison.status).toBe('informational');
     expect(comparison.structuralDifferenceCount).toBe(0);
     expect(comparison.activationChangeCount).toBe(0);
     expect(comparison.differenceCount).toBe(1);

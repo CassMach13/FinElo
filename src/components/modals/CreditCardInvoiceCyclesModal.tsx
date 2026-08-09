@@ -1176,6 +1176,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           ? 'BLOQUEADA'
           : comparison.status === 'identical'
             ? 'IDÊNTICA'
+            : comparison.status === 'informational'
+              ? 'CONCILIADA — somente evidências protegidas permanecem'
             : comparison.safeToActivate
               ? 'DIFERENTE — apta para uma futura troca atômica'
               : 'DIFERENTE — requer investigação antes de qualquer troca';
@@ -1193,16 +1195,22 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           `Órfãos na projeção atual: ${comparison.orphanTransactionIds.length} transação(ões), ${comparison.orphanPaymentKeys.length} pagamento(s) e ${comparison.orphanStatementKeys.length} fatura(s).`,
           `Alterados: ${comparison.changedTransactionIds.length} transação(ões), ${comparison.changedPaymentTransactionIds.length} pagamento(s) e ${comparison.changedStatementKeys.length} fatura(s).`,
           `Faturas com metadados protegidos: ${comparison.protectedMetadataStatementKeys.length}.`,
-          `Apta para futura troca atômica: ${comparison.safeToActivate ? 'sim' : 'não'}.`,
+          comparison.status === 'informational'
+            ? 'Nova troca atômica necessária: não; a projeção estrutural já está conciliada.'
+            : `Apta para futura troca atômica: ${comparison.safeToActivate ? 'sim' : 'não'}.`,
           `Checksum: ${shadow.checksum}.`,
           ...issueLines,
         ].join('\n'),
-        comparison.status === 'blocked' || !comparison.safeToActivate
+        comparison.status === 'blocked' ||
+          (comparison.status === 'different' && !comparison.safeToActivate)
           ? 'Auditoria requer investigação'
-          : 'Auditoria somente leitura',
-        comparison.status === 'blocked' || !comparison.safeToActivate
+          : comparison.status === 'informational'
+            ? 'Auditoria conciliada'
+            : 'Auditoria somente leitura',
+        comparison.status === 'blocked' ||
+          (comparison.status === 'different' && !comparison.safeToActivate)
           ? 'danger'
-          : comparison.status === 'identical'
+          : comparison.status === 'identical' || comparison.status === 'informational'
             ? 'success'
             : 'warning'
       );
@@ -1380,9 +1388,11 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           <div
             className={`rounded-xl border px-3 py-3 text-xs ${
               shadowAudit.comparison.status === 'blocked' ||
-              !shadowAudit.comparison.safeToActivate
+              (shadowAudit.comparison.status === 'different' &&
+                !shadowAudit.comparison.safeToActivate)
                 ? 'border-red-500/40 bg-red-500/10 text-red-100'
-                : shadowAudit.comparison.status === 'identical'
+                : shadowAudit.comparison.status === 'identical' ||
+                    shadowAudit.comparison.status === 'informational'
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
                   : 'border-amber-500/40 bg-amber-500/10 text-amber-100'
             }`}
@@ -1393,6 +1403,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 ? 'bloqueada'
                 : shadowAudit.comparison.status === 'identical'
                   ? 'projeção idêntica'
+                  : shadowAudit.comparison.status === 'informational'
+                    ? 'projeção conciliada; evidências preservadas'
                   : shadowAudit.comparison.safeToActivate
                     ? 'diferenças reparáveis encontradas'
                     : 'diferenças que exigem investigação'}
@@ -1403,8 +1415,10 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               {shadowAudit.shadow.projectedPaymentCount} pagamentos ·{' '}
               {shadowAudit.shadow.statements.length} faturas ·{' '}
               {shadowAudit.comparison.differenceCount} diferenças ({shadowAudit.comparison.structuralDifferenceCount} estruturais) ·{' '}
-              {shadowAudit.shadow.blockers.length} bloqueios · futura troca atômica{' '}
-              {shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}. Nenhum dado foi gravado.
+              {shadowAudit.shadow.blockers.length} bloqueios ·{' '}
+              {shadowAudit.comparison.status === 'informational'
+                ? 'nenhuma nova troca atômica necessária'
+                : `futura troca atômica ${shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}`}. Nenhum dado foi gravado.
             </p>
             <p className="mt-1 font-mono text-[10px] opacity-75">{shadowAudit.shadow.checksum}</p>
             {shadowAuditDiagnosticLines.length > 0 && (
