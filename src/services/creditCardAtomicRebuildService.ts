@@ -103,6 +103,28 @@ export interface AtomicCardRollbackResult {
   rolledBack: boolean;
 }
 
+export interface AtomicCardPaymentRepairResult {
+  snapshotId: string;
+  beforeRevision: string;
+  afterRevision: string;
+  deletedPayments: number;
+  postRepairAudit: AtomicCardRebuildAuditResult;
+}
+
+export interface AtomicCardPaymentRepairRollbackAvailability {
+  snapshotId: string;
+  accountId: string;
+  appliedAt: string;
+}
+
+export interface AtomicCardPaymentRepairRollbackResult {
+  snapshotId: string;
+  accountId: string;
+  restoredRevision: string;
+  restoredPayments: number;
+  rolledBack: boolean;
+}
+
 const toCents = (value: number | string | null | undefined): number =>
   Math.round(Number(value || 0) * 100);
 
@@ -537,6 +559,76 @@ export const creditCardAtomicRebuildService = {
     };
   },
 
+  /**
+   * Remove somente materializações antigas de pagamento que a auditoria
+   * classificou como reparáveis de forma determinística. O banco repete todas
+   * as guardas sob lock e cria um snapshot próprio antes de qualquer delete.
+   */
+  async repairDeterministicPaymentDuplicates(
+    input: AtomicAuditInput,
+    expectedAudit: AtomicCardRebuildAuditResult
+  ): Promise<AtomicCardPaymentRepairResult> {
+    if (!(await this.isActivationEnabled())) {
+      throw new Error('O reparo atômico de cartão não está habilitado para esta conta.');
+    }
+
+    const freshAudit = await this.audit(input);
+    if (
+      freshAudit.shadow.checksum !== expectedAudit.shadow.checksum ||
+      freshAudit.persistedRevision !== expectedAudit.persistedRevision
+    ) {
+      throw new Error(
+        'A projeção mudou depois da auditoria exibida. Nenhum dado foi alterado; audite novamente.'
+      );
+    }
+
+    const expectedRows = [...expectedAudit.comparison.repairablePersistedPaymentRowIds].sort();
+    const freshRows = [...freshAudit.comparison.repairablePersistedPaymentRowIds].sort();
+    if (
+      freshRows.length === 0 ||
+      freshRows.length !== expectedRows.length ||
+      freshRows.some((rowId, index) => rowId !== expectedRows[index])
+    ) {
+      throw new Error(
+        'As candidatas ao reparo deixaram de coincidir exatamente com a auditoria exibida. Nenhum dado foi alterado.'
+      );
+    }
+
+    const { data, error } = await supabase.rpc(
+      'repair_credit_card_payment_duplicates_atomic_v1',
+      {
+        p_account_id: input.account.id,
+        p_expected_revision: freshAudit.persistedRevision,
+        p_payment_row_ids: freshRows,
+      }
+    );
+    if (error) throw error;
+
+    const row = (data || {}) as Record<string, unknown>;
+    const snapshotId = String(row.snapshot_id || '');
+    if (!snapshotId) throw new Error('O reparo não retornou o snapshot de rollback.');
+
+    const postRepairAudit = await this.audit(input);
+    const remainingRepairRows = postRepairAudit.comparison.repairablePersistedPaymentRowIds;
+    const deletedPayments = Number(row.deleted_payments || 0);
+    if (
+      deletedPayments !== freshRows.length ||
+      remainingRepairRows.some((rowId) => freshRows.includes(rowId))
+    ) {
+      throw new Error(
+        `O reparo foi confirmado, mas a verificação posterior divergiu. Snapshot ${snapshotId} disponível para rollback.`
+      );
+    }
+
+    return {
+      snapshotId,
+      beforeRevision: String(row.before_revision || freshAudit.persistedRevision),
+      afterRevision: String(row.after_revision || postRepairAudit.persistedRevision),
+      deletedPayments,
+      postRepairAudit,
+    };
+  },
+
   async latestRollback(accountId: string): Promise<AtomicCardRollbackAvailability | null> {
     const { data, error } = await supabase
       .from('credit_card_atomic_rebuild_snapshots')
@@ -569,6 +661,48 @@ export const creditCardAtomicRebuildService = {
       snapshotId: String(row.snapshot_id || snapshotId),
       accountId: String(row.account_id || ''),
       restoredRevision: String(row.restored_revision || ''),
+      rolledBack: Boolean(row.rolled_back),
+    };
+  },
+
+  async latestPaymentRepairRollback(
+    accountId: string
+  ): Promise<AtomicCardPaymentRepairRollbackAvailability | null> {
+    const { data, error } = await supabase
+      .from('credit_card_atomic_repair_snapshots')
+      .select('id,account_id,applied_at,after_revision')
+      .eq('account_id', accountId)
+      .eq('repair_kind', 'duplicate_imported_payment')
+      .is('rolled_back_at', null)
+      .not('after_revision', 'is', null)
+      .order('applied_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const currentRevision = await readProjectionRevision(accountId);
+    if (String(data.after_revision || '') !== currentRevision) return null;
+    return {
+      snapshotId: String(data.id),
+      accountId: String(data.account_id),
+      appliedAt: String(data.applied_at),
+    };
+  },
+
+  async rollbackPaymentRepair(
+    snapshotId: string
+  ): Promise<AtomicCardPaymentRepairRollbackResult> {
+    const { data, error } = await supabase.rpc(
+      'rollback_credit_card_payment_repair_atomic_v1',
+      { p_snapshot_id: snapshotId }
+    );
+    if (error) throw error;
+    const row = (data || {}) as Record<string, unknown>;
+    return {
+      snapshotId: String(row.snapshot_id || snapshotId),
+      accountId: String(row.account_id || ''),
+      restoredRevision: String(row.restored_revision || ''),
+      restoredPayments: Number(row.restored_payments || 0),
       rolledBack: Boolean(row.rolled_back),
     };
   },

@@ -71,10 +71,32 @@ Interromper sem ativar se ocorrer qualquer um dos itens abaixo:
 - auditoria criando snapshot ou marcando faturas como projeção atômica;
 - ativação liberada com duplicidade, linha ausente ou órfã.
 
+### 5. Reparo determinístico de pagamento duplicado
+
+Esta etapa só aparece quando a auditoria encontra uma materialização antiga sem
+`payment_transaction_id` e uma única linha canônica com a mesma fatura, data,
+valor, origem, arquivo e número de linha.
+
+1. Registrar a quantidade de transações antes do reparo.
+2. Clicar em **Reparar duplicidade com snapshot** e conferir a confirmação.
+3. Confirmar que a mensagem informa exatamente quantas materializações serão removidas.
+4. Após o reparo, conferir que a quantidade de transações não mudou.
+5. Registrar o novo resumo e checksum da auditoria automática.
+6. Confirmar que o evento duplicado e o pagamento órfão desapareceram.
+7. Testar **Desfazer último reparo** e repetir a auditoria antes de qualquer ativação.
+8. Executar o reparo novamente somente após confirmar que o rollback restaurou o diagnóstico anterior.
+
+O reparo não exclui `transactions`, itens da fatura, lotes ou metadados do
+extrato. O banco recusa revisão desatualizada, mais de uma contraparte canônica,
+proveniência divergente e qualquer remoção parcial.
+
 ## Rollback
 
 - Preview: retornar ao deployment anterior; staging não compartilha dados com produção.
 - Migration 063: remover apenas a função nova com
   `drop function public.activate_credit_card_projection_atomic_v2(uuid,text,text,jsonb,jsonb,jsonb);`.
+- Migration 064: usar `064_sprint_2c_deterministic_payment_repair_down.sql`; primeiro
+  desfazer qualquer snapshot de reparo ainda aplicável, depois remover os dois RPCs
+  e a tabela de snapshots específica.
 - A função v1 e a migration 062 permanecem intactas.
 - Nenhum rollback de dados é necessário para a auditoria, pois ela não grava dados.

@@ -44,6 +44,9 @@ import {
 import {
   creditCardAtomicRebuildService,
   type AtomicCardActivationResult,
+  type AtomicCardPaymentRepairResult,
+  type AtomicCardPaymentRepairRollbackAvailability,
+  type AtomicCardPaymentRepairRollbackResult,
   type AtomicCardRebuildAuditResult,
   type AtomicCardRollbackAvailability,
   type AtomicCardRollbackResult,
@@ -364,6 +367,17 @@ interface AppState {
   ) => Promise<AtomicCardRollbackAvailability | null>;
   getAtomicCardRebuildFeatureState: () => Promise<boolean>;
   rollbackAtomicCardRebuild: (snapshotId: string) => Promise<AtomicCardRollbackResult>;
+  repairAtomicCardPaymentDuplicates: (
+    accountId: string,
+    cycles: ImportHistoryRebuildCycle[],
+    expectedAudit: AtomicCardRebuildAuditResult
+  ) => Promise<AtomicCardPaymentRepairResult>;
+  getLatestAtomicCardPaymentRepairRollback: (
+    accountId: string
+  ) => Promise<AtomicCardPaymentRepairRollbackAvailability | null>;
+  rollbackAtomicCardPaymentRepair: (
+    snapshotId: string
+  ) => Promise<AtomicCardPaymentRepairRollbackResult>;
   syncCreditCardHistoryFromAccount: (accountId: string) => Promise<{ message: string; origins: number; processed: number }>;
   saveCardImportLotClassification: (
     origin: string,
@@ -1019,6 +1033,46 @@ export const useAppStore = create<AppState>((set, get) => ({
     const result = await creditCardAtomicRebuildService.rollback(snapshotId);
     await get().fetchTransactions();
     await get().fetchImportLogs();
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+    return result;
+  },
+
+  repairAtomicCardPaymentDuplicates: async (accountId, cycles, expectedAudit) => {
+    const { user, accounts, transactions, importLogs } = get();
+    if (!user) throw new Error('Usuário não autenticado.');
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) throw new Error('Conta não encontrada.');
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      throw new Error('A conta selecionada não é cartão de crédito.');
+    }
+    if (!isCreditCardEngineEnabled(user)) {
+      throw new Error('O motor de cartão não está habilitado para esta conta.');
+    }
+
+    const result = await creditCardAtomicRebuildService.repairDeterministicPaymentDuplicates(
+      {
+        account,
+        cycles,
+        transactions,
+        importLogs,
+        rules: engineClassifierRulesFromUser(user),
+      },
+      expectedAudit
+    );
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+    return result;
+  },
+
+  getLatestAtomicCardPaymentRepairRollback: async (accountId) => {
+    if (!get().user) return null;
+    return creditCardAtomicRebuildService.latestPaymentRepairRollback(accountId);
+  },
+
+  rollbackAtomicCardPaymentRepair: async (snapshotId) => {
+    if (!get().user) throw new Error('Usuário não autenticado.');
+    const result = await creditCardAtomicRebuildService.rollbackPaymentRepair(snapshotId);
     get().bumpCreditCardEngineRevision();
     await get().refreshCreditCardShadowDashboard();
     return result;

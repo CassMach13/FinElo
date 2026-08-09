@@ -8,6 +8,7 @@ import { comparableImportOriginKey } from '../../utils/importOriginKey';
 import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
 import type {
+  AtomicCardPaymentRepairRollbackAvailability,
   AtomicCardRebuildAuditResult,
   AtomicCardRollbackAvailability,
 } from '../../services/creditCardAtomicRebuildService';
@@ -433,6 +434,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     (s) => s.getAtomicCardRebuildFeatureState
   );
   const rollbackAtomicCardRebuild = useAppStore((s) => s.rollbackAtomicCardRebuild);
+  const repairAtomicCardPaymentDuplicates = useAppStore(
+    (s) => s.repairAtomicCardPaymentDuplicates
+  );
+  const getLatestAtomicCardPaymentRepairRollback = useAppStore(
+    (s) => s.getLatestAtomicCardPaymentRepairRollback
+  );
+  const rollbackAtomicCardPaymentRepair = useAppStore(
+    (s) => s.rollbackAtomicCardPaymentRepair
+  );
 
   const creditCardAccounts = useMemo(
     () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
@@ -445,10 +455,14 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const [rows, setRows] = useState<CreditCardInvoiceCycleRow[]>([]);
   const [invoiceDueDayStr, setInvoiceDueDayStr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [operation, setOperation] = useState<'save' | 'audit' | 'rebuild' | 'rollback' | null>(null);
+  const [operation, setOperation] = useState<
+    'save' | 'audit' | 'repair' | 'repairRollback' | 'rebuild' | 'rollback' | null
+  >(null);
   const [applyProgress, setApplyProgress] = useState<string | null>(null);
   const [shadowAudit, setShadowAudit] = useState<AtomicCardRebuildAuditResult | null>(null);
   const [latestRollback, setLatestRollback] = useState<AtomicCardRollbackAvailability | null>(null);
+  const [latestPaymentRepairRollback, setLatestPaymentRepairRollback] =
+    useState<AtomicCardPaymentRepairRollbackAvailability | null>(null);
   const [atomicActivationEnabled, setAtomicActivationEnabled] = useState(false);
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
@@ -656,6 +670,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       setApplyProgress(null);
       setShadowAudit(null);
       setLatestRollback(null);
+      setLatestPaymentRepairRollback(null);
       setAtomicActivationEnabled(false);
       return;
     }
@@ -744,6 +759,33 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       active = false;
     };
   }, [isOpen, effectiveFilterAccountId, getLatestAtomicCardRollback]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || !effectiveFilterAccountId) {
+      setLatestPaymentRepairRollback(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void getLatestAtomicCardPaymentRepairRollback(effectiveFilterAccountId)
+      .then((snapshot) => {
+        if (active) setLatestPaymentRepairRollback(snapshot);
+      })
+      .catch((error) => {
+        console.error('[CreditCardInvoiceCyclesModal][LatestPaymentRepairRollback]', error);
+        if (active) setLatestPaymentRepairRollback(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    isOpen,
+    effectiveFilterAccountId,
+    getLatestAtomicCardPaymentRepairRollback,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -1108,6 +1150,119 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     activateCreditCardRebuildFromImportHistory,
   ]);
 
+  const handleDeterministicPaymentRepair = useCallback(async () => {
+    if (!effectiveFilterAccountId || !shadowAudit) return;
+    const repairRows = shadowAudit.comparison.repairablePersistedPaymentRowIds;
+    if (repairRows.length === 0) return;
+
+    const confirmed = await appConfirm(
+      [
+        `A auditoria encontrou ${repairRows.length} materialização(ões) antiga(s) de pagamento sem identidade.`,
+        'O banco removera somente essas linhas redundantes, preservando as linhas vinculadas as transacoes originais.',
+        'Nenhuma transacao, fatura, importacao ou metadado do extrato sera apagado.',
+        'Um snapshot individual será criado antes da remoção para permitir rollback exato.',
+      ].join('\n'),
+      'Reparar pagamento duplicado',
+      'Criar snapshot e reparar',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    const cycles = rows.map((row) => {
+      const { referenceMonth, dueDate } = rowIsoValues(row);
+      return { fileName: row.displayOrigin, referenceMonth, dueDate };
+    });
+
+    setBusy(true);
+    setOperation('repair');
+    setApplyProgress('Reauditando, bloqueando a revisão e criando o snapshot do reparo...');
+    try {
+      const result = await repairAtomicCardPaymentDuplicates(
+        effectiveFilterAccountId,
+        cycles,
+        shadowAudit
+      );
+      setShadowAudit(result.postRepairAudit);
+      setLatestRollback(null);
+      setLatestPaymentRepairRollback({
+        snapshotId: result.snapshotId,
+        accountId: effectiveFilterAccountId,
+        appliedAt: new Date().toISOString(),
+      });
+      await appAlert(
+        [
+          `${result.deletedPayments} materialização(ões) redundante(s) removida(s).`,
+          'As transacoes e as linhas canonicas foram preservadas.',
+          `Snapshot para rollback: ${result.snapshotId}.`,
+          'A auditoria foi executada novamente automaticamente; confira o novo resultado antes de qualquer ativacao.',
+        ].join('\n'),
+        'Reparo atômico concluído',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][PaymentRepair]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'O reparo foi recusado. Nenhuma remoção parcial é aceita pelo banco.'
+        ),
+        'Reparo não concluído',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [
+    effectiveFilterAccountId,
+    shadowAudit,
+    rows,
+    rowIsoValues,
+    repairAtomicCardPaymentDuplicates,
+  ]);
+
+  const handlePaymentRepairRollback = useCallback(async () => {
+    if (!latestPaymentRepairRollback) return;
+    const confirmed = await appConfirm(
+      'Restaurar exatamente as linhas removidas pelo último reparo? O banco recusará o rollback se a projeção tiver mudado depois dele.',
+      'Desfazer reparo de pagamento',
+      'Restaurar snapshot',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setOperation('repairRollback');
+    setApplyProgress('Validando a revisão e restaurando o snapshot do reparo...');
+    try {
+      const result = await rollbackAtomicCardPaymentRepair(
+        latestPaymentRepairRollback.snapshotId
+      );
+      setLatestPaymentRepairRollback(null);
+      setShadowAudit(null);
+      await appAlert(
+        `${result.restoredPayments} pagamento(s) materializado(s) restaurado(s). Execute uma nova auditoria para confirmar o estado.`,
+        'Rollback do reparo concluido',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][PaymentRepairRollback]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'O rollback foi recusado. Nenhuma restauracao parcial foi aceita.'
+        ),
+        'Rollback do reparo não concluído',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [latestPaymentRepairRollback, rollbackAtomicCardPaymentRepair]);
+
   const handleRollback = useCallback(async () => {
     if (!latestRollback) return;
     const confirmed = await appConfirm(
@@ -1334,6 +1489,29 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           >
             {operation === 'audit' ? 'Auditando…' : 'Auditar sem alterar dados'}
           </Button>
+          {latestPaymentRepairRollback && (
+            <Button variant="secondary" disabled={busy} onClick={handlePaymentRepairRollback}>
+              {operation === 'repairRollback'
+                ? 'Restaurando reparo...'
+                : 'Desfazer último reparo'}
+            </Button>
+          )}
+          {Boolean(shadowAudit?.comparison.repairablePersistedPaymentRowIds.length) && (
+            <Button
+              variant="secondary"
+              disabled={busy || !atomicActivationEnabled || !effectiveFilterAccountId}
+              onClick={handleDeterministicPaymentRepair}
+              title={
+                atomicActivationEnabled
+                  ? 'Remove somente materializações antigas com contraparte canônica e cria snapshot para rollback.'
+                  : 'Reparo desligado pelo kill switch individual da Sprint 2C.'
+              }
+            >
+              {operation === 'repair'
+                ? 'Reparando duplicidade...'
+                : 'Reparar duplicidade com snapshot'}
+            </Button>
+          )}
           {latestRollback && (
             <Button variant="secondary" disabled={busy} onClick={handleRollback}>
               {operation === 'rollback' ? 'Restaurando…' : 'Desfazer última ativação'}

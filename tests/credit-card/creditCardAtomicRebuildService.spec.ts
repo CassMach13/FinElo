@@ -20,6 +20,7 @@ vi.mock('../../src/supabaseClient', () => ({
 import {
   creditCardAtomicRebuildService,
   prepareAtomicCardShadowSource,
+  type AtomicCardRebuildAuditResult,
 } from '../../src/services/creditCardAtomicRebuildService';
 
 const account: Account = {
@@ -294,5 +295,59 @@ describe('creditCardAtomicRebuildService.audit', () => {
         transactions: [],
       })
     ).rejects.toThrow('mudou durante a auditoria');
+  });
+
+  it('envia somente as candidatas reauditas ao RPC atomico de reparo', async () => {
+    const baseAudit = {
+      shadow: { checksum: 'shadow-v1-05712d54' },
+      persistedRevision: 'a'.repeat(32),
+      comparison: {
+        repairablePersistedPaymentRowIds: ['obsolete-payment-row'],
+      },
+    } as unknown as AtomicCardRebuildAuditResult;
+    const postRepairAudit = {
+      ...baseAudit,
+      persistedRevision: 'b'.repeat(32),
+      comparison: {
+        ...baseAudit.comparison,
+        repairablePersistedPaymentRowIds: [],
+      },
+    } as unknown as AtomicCardRebuildAuditResult;
+
+    vi.spyOn(creditCardAtomicRebuildService, 'isActivationEnabled').mockResolvedValue(true);
+    vi.spyOn(creditCardAtomicRebuildService, 'audit')
+      .mockResolvedValueOnce(baseAudit)
+      .mockResolvedValueOnce(postRepairAudit);
+    mocks.rpc.mockResolvedValueOnce({
+      data: {
+        snapshot_id: 'repair-snapshot',
+        before_revision: 'a'.repeat(32),
+        after_revision: 'b'.repeat(32),
+        deleted_payments: 1,
+      },
+      error: null,
+    });
+
+    const result = await creditCardAtomicRebuildService.repairDeterministicPaymentDuplicates(
+      { account, cycles: [], transactions: [] },
+      baseAudit
+    );
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'repair_credit_card_payment_duplicates_atomic_v1',
+      {
+        p_account_id: account.id,
+        p_expected_revision: 'a'.repeat(32),
+        p_payment_row_ids: ['obsolete-payment-row'],
+      }
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        snapshotId: 'repair-snapshot',
+        deletedPayments: 1,
+        postRepairAudit,
+      })
+    );
+    expect(mocks.remove).not.toHaveBeenCalled();
   });
 });
