@@ -366,7 +366,7 @@ export function buildAtomicCardLineageReport(
   if (rowCountConserved) {
     recommendationCodes.push('row-count-conserved-not-deleted');
   }
-  if (missingBalancedByDuplicateSurplus) {
+  if (missingIdentityCount > 0 && missingBalancedByDuplicateSurplus) {
     recommendationCodes.push('identity-surplus-balances-missing');
   }
   if (missingIdentityCount > 0 && unmatchedCount === 0) {

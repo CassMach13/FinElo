@@ -1873,7 +1873,11 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   <div className="rounded border border-white/10 bg-white/[0.03] p-2">
                     <p className="text-slate-400">Balanço de identidade</p>
                     <p className={`mt-1 text-base font-semibold ${shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? 'text-emerald-300' : 'text-amber-300'}`}>
-                      {shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? 'compensado exatamente' : 'ainda não compensado'}
+                      {shadowAuditLineage.conservation.missingIdentityCount === 0 && shadowAuditLineage.conservation.duplicateExcessRowCount === 0
+                        ? 'sem déficit'
+                        : shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus
+                          ? 'compensado exatamente'
+                          : 'ainda não compensado'}
                     </p>
                   </div>
                 </div>

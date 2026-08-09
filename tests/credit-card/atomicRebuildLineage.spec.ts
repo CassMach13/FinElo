@@ -53,6 +53,35 @@ const persistedProjection = (
 });
 
 describe('buildAtomicCardLineageReport', () => {
+  it('não descreve compensação quando não existe déficit de identidade', () => {
+    const shadow = shadowProjection([
+      shadowEntry('owner', 'invoice.csv', 'hash-owner', '2026-01', '2026-01-01', -1000),
+    ]);
+    const persisted = persistedProjection([
+      {
+        rowId: 'row-owner',
+        transactionId: 'owner',
+        statementKey: '2026-01',
+        postedDate: '2026-01-01',
+        amountCents: -1000,
+        entryType: 'purchase',
+      },
+    ]);
+    const comparison = compareAtomicCardProjections(shadow, persisted);
+
+    const report = buildAtomicCardLineageReport(shadow, persisted, comparison);
+
+    expect(report.status).toBe('clean');
+    expect(report.conservation).toMatchObject({
+      missingIdentityCount: 0,
+      duplicateExcessRowCount: 0,
+      missingBalancedByDuplicateSurplus: true,
+    });
+    expect(report.recommendationCodes).not.toContain(
+      'identity-surplus-balances-missing'
+    );
+  });
+
   it('explica identidades ausentes por excedente duplicado sem expor dados privados', () => {
     const shadow = shadowProjection([
       shadowEntry(
