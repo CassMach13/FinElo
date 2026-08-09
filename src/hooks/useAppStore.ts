@@ -64,6 +64,8 @@ import {
   type InitialDataLoadStatus,
 } from '../utils/initialDataLoad';
 import { resolveCardImportCycleCoordinates } from '../utils/cardImportReference';
+import { withCardImportCycleMetadata } from '../utils/cardImportCycleMetadata';
+import { unknownErrorMessage } from '../utils/unknownError';
 
 const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
   resolveAtomicImportEnabled(user, async () => {
@@ -358,7 +360,7 @@ interface AppState {
       paymentTransactionIds?: string[];
       refundTransactionIds?: string[];
     }
-  ) => Promise<{ updatedLogs: number; message: string }>;
+  ) => Promise<{ updatedLogs: number; message: string; errors?: string[] }>;
   /** Reidrata `imported_details` + `imported_count` nas importações onde o JSON não bate com o ledger (ex.: só metadados de cartão). Opcional: só um registro (`logId`). */
   repairImportLogsImportedDetailsFromLedger: (logId?: string | null) => Promise<{ updated: number; message: string }>;
 
@@ -1223,8 +1225,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     let updatedLogs = 0;
-    const paymentTransactionIds = Array.from(new Set((options?.paymentTransactionIds || []).filter(Boolean)));
-    const refundTransactionIds = Array.from(new Set((options?.refundTransactionIds || []).filter(Boolean)));
+    const errors: string[] = [];
+    const cycleMetadata = {
+      accountId,
+      referenceLabel,
+      dueDate,
+      paymentTransactionIds:
+        options?.paymentTransactionIds === undefined
+          ? undefined
+          : Array.from(new Set(options.paymentTransactionIds.filter(Boolean))),
+      refundTransactionIds:
+        options?.refundTransactionIds === undefined
+          ? undefined
+          : Array.from(new Set(options.refundTransactionIds.filter(Boolean))),
+    };
     for (const log of targetLogs) {
       const details = Array.isArray(log.imported_details) ? [...log.imported_details] : [];
       let touched = false;
@@ -1242,7 +1256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (txsForOrigin.length > 0) {
           txsForOrigin.sort((a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime());
           txsForOrigin.forEach((tx) => {
-            details.push({
+            details.push(withCardImportCycleMetadata({
               ID_Transacao: tx.ID_Transacao,
               Origem: tx.Origem,
               Data: tx.Data,
@@ -1252,22 +1266,10 @@ export const useAppStore = create<AppState>((set, get) => ({
               Categoria: tx.Categoria,
               ID_Conta: tx.ID_Conta,
               Conta_Nome: accountLabel || null,
-              Card_Cycle_Mode: 'manual',
-              Card_Reference_Label: referenceLabel,
-              Card_Due_Date: dueDate,
-              Card_Payment_Tx_Ids: paymentTransactionIds,
-              Card_Refund_Tx_Ids: refundTransactionIds,
-            });
+            }, cycleMetadata));
           });
         } else {
-          details.push({
-            ID_Conta: accountId,
-            Card_Cycle_Mode: 'manual',
-            Card_Reference_Label: referenceLabel,
-            Card_Due_Date: dueDate,
-            Card_Payment_Tx_Ids: paymentTransactionIds,
-            Card_Refund_Tx_Ids: refundTransactionIds,
-          });
+          details.push(withCardImportCycleMetadata({}, cycleMetadata));
         }
         touched = true;
       } else {
@@ -1282,15 +1284,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
           if (!shouldUpdateRow) continue;
 
-          details[i] = {
-            ...row,
-            ID_Conta: row.ID_Conta || accountId,
-            Card_Cycle_Mode: 'manual',
-            Card_Reference_Label: referenceLabel,
-            Card_Due_Date: dueDate,
-            Card_Payment_Tx_Ids: paymentTransactionIds,
-            Card_Refund_Tx_Ids: refundTransactionIds,
-          };
+          details[i] = withCardImportCycleMetadata(row, cycleMetadata);
           touched = true;
           updatedAnyRow = true;
         }
@@ -1298,15 +1292,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         // Alguns lotes legados possuem detalhes sem conta vinculada ao cartão.
         // Nesses casos, persistimos uma linha de metadados para não bloquear classificação.
         if (!updatedAnyRow) {
-          details.push({
-            ID_Conta: accountId,
-            Card_Cycle_Mode: 'manual',
-            Card_Reference_Label: referenceLabel,
-            Card_Due_Date: dueDate,
-            Card_Payment_Tx_Ids: paymentTransactionIds,
-            Card_Refund_Tx_Ids: refundTransactionIds,
+          details.push(withCardImportCycleMetadata({
             _meta_only: true,
-          });
+          }, cycleMetadata));
           touched = true;
         }
       }
@@ -1325,15 +1313,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const { error } = await supabase.from('import_logs').update(updatePayload).eq('id', log.id);
-      if (!error) updatedLogs += 1;
+      if (!error) {
+        updatedLogs += 1;
+      } else {
+        errors.push(`${log.file_name}: ${unknownErrorMessage(error, 'Falha ao atualizar o histórico.')}`);
+      }
     }
 
     if (updatedLogs > 0) {
       await get().fetchImportLogs();
-      return { updatedLogs, message: `Classificação salva em ${updatedLogs} lote(s).` };
+      return {
+        updatedLogs,
+        message: `Classificação salva em ${updatedLogs} lote(s).`,
+        errors: errors.length > 0 ? errors : undefined,
+      };
     }
 
-    return { updatedLogs: 0, message: 'Nenhum lote foi atualizado.' };
+    return {
+      updatedLogs: 0,
+      message: errors[0] || 'Nenhum lote foi atualizado.',
+      errors: errors.length > 0 ? errors : undefined,
+    };
   },
 
   repairImportLogsImportedDetailsFromLedger: async (onlyLogId?: string | null) => {

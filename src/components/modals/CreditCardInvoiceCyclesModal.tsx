@@ -11,6 +11,7 @@ import type { AtomicCardRebuildAuditResult } from '../../services/creditCardAtom
 import { formatCurrency } from '../../utils/formatters';
 import type { Account, ImportLog, Transaction } from '../../types';
 import Select from '../ui/Select';
+import { unknownErrorMessage } from '../../utils/unknownError';
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 function parseBRDateToIso(value: string): string | null {
@@ -419,6 +420,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const transactions = useAppStore((s) => s.transactions);
   const importLogs = useAppStore((s) => s.importLogs);
   const user = useAppStore((s) => s.user);
+  const saveCardImportLotClassification = useAppStore((s) => s.saveCardImportLotClassification);
   const rebuildCreditCardFromImportHistory = useAppStore((s) => s.rebuildCreditCardFromImportHistory);
   const auditCreditCardRebuildFromImportHistory = useAppStore((s) => s.auditCreditCardRebuildFromImportHistory);
 
@@ -433,7 +435,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const [rows, setRows] = useState<CreditCardInvoiceCycleRow[]>([]);
   const [invoiceDueDayStr, setInvoiceDueDayStr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [operation, setOperation] = useState<'audit' | 'rebuild' | null>(null);
+  const [operation, setOperation] = useState<'save' | 'audit' | 'rebuild' | null>(null);
   const [applyProgress, setApplyProgress] = useState<string | null>(null);
   const [shadowAudit, setShadowAudit] = useState<AtomicCardRebuildAuditResult | null>(null);
   const prevIsOpenRef = useRef(false);
@@ -762,6 +764,154 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     [invoiceDueDayStr, accounts]
   );
 
+  const handleSaveCycleMetadata = useCallback(async () => {
+    if (!user) {
+      await appAlert('Faça login para continuar.', 'Sessão', 'warning');
+      return;
+    }
+    if (!effectiveFilterAccountId) {
+      await appAlert('Selecione o cartão de crédito.', 'Cartão', 'warning');
+      return;
+    }
+    if (rows.length === 0) {
+      await appAlert('Não há arquivos deste cartão no histórico de importações.', 'Histórico', 'warning');
+      return;
+    }
+
+    for (const row of rows) {
+      const error = validateRow(row);
+      if (error) {
+        await appAlert(error, 'Validação', 'warning');
+        return;
+      }
+    }
+
+    const stateBeforeSave = useAppStore.getState();
+    const persistedRows = buildRowsFromStore({
+      accounts: stateBeforeSave.accounts,
+      transactions: stateBeforeSave.transactions,
+      importLogs: stateBeforeSave.importLogs,
+      filterAccountId: effectiveFilterAccountId,
+    });
+    const persistedByKey = new Map(persistedRows.map((row) => [row.key, row]));
+    const changes = rows
+      .map((row) => {
+        const previousRow = persistedByKey.get(row.key);
+        const next = rowIsoValues(row);
+        let previous: ReturnType<typeof rowIsoValues> | null = null;
+        if (previousRow) {
+          try {
+            previous = rowIsoValues(previousRow);
+          } catch {
+            previous = null;
+          }
+        }
+        if (
+          previous &&
+          previous.referenceMonth === next.referenceMonth &&
+          previous.dueDate === next.dueDate
+        ) {
+          return null;
+        }
+        return { row, previous, next };
+      })
+      .filter((change): change is NonNullable<typeof change> => change !== null);
+
+    if (changes.length === 0) {
+      await appAlert('Nenhuma competência ou vencimento foi alterado.', 'Histórico', 'warning');
+      return;
+    }
+
+    const confirmed = await appConfirm(
+      `Salvar ${changes.length} ajuste(s) de competência no histórico? Esta ação não move, exclui ou recria transações, itens, pagamentos ou faturas.`,
+      'Salvar competências sem reconstruir',
+      'Salvar ajustes',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setOperation('save');
+    setApplyProgress(`Salvando ${changes.length} ajuste(s) somente nos metadados do histórico…`);
+    const attempted: typeof changes = [];
+
+    try {
+      for (const change of changes) {
+        attempted.push(change);
+        const result = await saveCardImportLotClassification(
+          change.row.displayOrigin,
+          effectiveFilterAccountId,
+          change.next.referenceMonth,
+          change.next.dueDate
+        );
+        if (result.updatedLogs < 1 || (result.errors?.length || 0) > 0) {
+          throw new Error(result.errors?.join(' ') || result.message);
+        }
+      }
+
+      const refreshed = useAppStore.getState();
+      setRows(
+        buildRowsFromStore({
+          accounts: refreshed.accounts,
+          transactions: refreshed.transactions,
+          importLogs: refreshed.importLogs,
+          filterAccountId: effectiveFilterAccountId,
+        })
+      );
+      setShadowAudit(null);
+      await appAlert(
+        `${changes.length} ajuste(s) salvo(s). As transações, faturas e pagamentos permaneceram intactos. Execute a auditoria antes de qualquer reconstrução.`,
+        'Competências salvas com segurança',
+        'success'
+      );
+    } catch (error: unknown) {
+      const rollbackFailures: string[] = [];
+      for (const change of [...attempted].reverse()) {
+        if (!change.previous) {
+          rollbackFailures.push(`${change.row.displayOrigin}: não havia metadado anterior para restaurar.`);
+          continue;
+        }
+        try {
+          const rollback = await saveCardImportLotClassification(
+            change.row.displayOrigin,
+            effectiveFilterAccountId,
+            change.previous.referenceMonth,
+            change.previous.dueDate
+          );
+          if (rollback.updatedLogs < 1 || (rollback.errors?.length || 0) > 0) {
+            rollbackFailures.push(
+              rollback.errors?.join(' ') || `${change.row.displayOrigin}: ${rollback.message}`
+            );
+          }
+        } catch (rollbackError: unknown) {
+          rollbackFailures.push(
+            `${change.row.displayOrigin}: ${unknownErrorMessage(rollbackError, 'falha ao restaurar')}`
+          );
+        }
+      }
+
+      const baseMessage = unknownErrorMessage(error, 'Falha ao salvar as competências.');
+      await appAlert(
+        rollbackFailures.length === 0
+          ? `${baseMessage}\n\nOs metadados anteriores foram restaurados. Nenhuma transação, fatura ou pagamento foi alterado.`
+          : `${baseMessage}\n\nA restauração dos metadados não foi concluída: ${rollbackFailures.join(' ')}`,
+        rollbackFailures.length === 0 ? 'Ajustes não salvos' : 'Atenção: restauração incompleta',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [
+    user,
+    effectiveFilterAccountId,
+    rows,
+    validateRow,
+    rowIsoValues,
+    saveCardImportLotClassification,
+  ]);
+
   const handleApplyWithConfirm = useCallback(async () => {
     if (!user) {
       await appAlert('Faça login para continuar.', 'Sessão', 'warning');
@@ -781,6 +931,14 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     }
     if (rows.length === 0) {
       await appAlert('Não há arquivos deste cartão no histórico de importações.', 'Histórico', 'warning');
+      return;
+    }
+    if (!shadowAudit?.comparison.safeToActivate) {
+      await appAlert(
+        'A reconstrução está bloqueada porque a auditoria atual ainda não declarou a troca segura. Salve apenas as competências e investigue as diferenças antes de reconstruir.',
+        'Reconstrução protegida',
+        'warning'
+      );
       return;
     }
 
@@ -837,7 +995,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       setBusy(false);
       setOperation(null);
       setApplyProgress(null);
-      const raw = e instanceof Error ? e.message : String(e);
+      const raw = unknownErrorMessage(e, 'Falha ao reconstruir faturas.');
       const isNetwork =
         /failed to fetch|network|connection closed|err_connection/i.test(raw) ||
         (e instanceof TypeError && raw.includes('fetch'));
@@ -854,6 +1012,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     engineOn,
     effectiveFilterAccountId,
     rows,
+    shadowAudit,
     validateRow,
     rowIsoValues,
     rebuildCreditCardFromImportHistory,
@@ -941,7 +1100,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       console.error('[CreditCardInvoiceCyclesModal][ShadowAudit]', error);
       setShadowAudit(null);
       await appAlert(
-        error instanceof Error ? error.message : 'Falha ao auditar a projeção do cartão.',
+        unknownErrorMessage(error, 'Falha ao auditar a projeção do cartão.'),
         'Auditoria não concluída',
         'danger'
       );
@@ -1027,14 +1186,32 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           </Button>
           <Button
             variant="secondary"
+            disabled={busy || !effectiveFilterAccountId || rows.length === 0}
+            onClick={handleSaveCycleMetadata}
+          >
+            {operation === 'save' ? 'Salvando…' : 'Salvar competências'}
+          </Button>
+          <Button
+            variant="secondary"
             disabled={busy || !effectiveFilterAccountId || !hasAuditSource}
             onClick={handleShadowAudit}
           >
             {operation === 'audit' ? 'Auditando…' : 'Auditar sem alterar dados'}
           </Button>
           <Button
-            disabled={busy || !engineOn || !effectiveFilterAccountId || rows.length === 0}
+            disabled={
+              busy ||
+              !engineOn ||
+              !effectiveFilterAccountId ||
+              rows.length === 0 ||
+              !shadowAudit?.comparison.safeToActivate
+            }
             onClick={handleApplyWithConfirm}
+            title={
+              shadowAudit?.comparison.safeToActivate
+                ? 'A auditoria atual permite a reconstrução.'
+                : 'A reconstrução só é liberada após uma auditoria segura dos valores atuais.'
+            }
           >
             {operation === 'rebuild' ? 'Processando…' : 'Reconstruir faturas deste cartão'}
           </Button>
@@ -1046,7 +1223,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           Lista os arquivos do <strong className="text-white">histórico de importações</strong> do cartão escolhido (ex.: Cartão XP).
           Para cada arquivo, confira ou informe a <strong className="text-white">competência</strong> (<strong className="text-white">MM/AAAA</strong>) e o{' '}
           <strong className="text-white">vencimento</strong> (o valor confirmado no histórico é preservado; o cálculo automático só preenche datas ausentes).
-          Ao aplicar, o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e as{' '}
+          Use <strong className="text-white">Salvar competências</strong> para registrar apenas esses metadados, sem alterar lançamentos ou conciliação.
+          Uma reconstrução só é liberada depois de uma auditoria segura; nesse caso o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e as{' '}
           <strong className="text-white">estornos</strong> na competência do arquivo; <strong className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong className="text-white">anterior</strong> (padrão N+1 do extrato).
         </p>
 
