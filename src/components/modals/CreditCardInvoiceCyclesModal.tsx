@@ -1224,7 +1224,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           Para cada arquivo, confira ou informe a <strong className="text-white">competência</strong> (<strong className="text-white">MM/AAAA</strong>) e o{' '}
           <strong className="text-white">vencimento</strong> (o valor confirmado no histórico é preservado; o cálculo automático só preenche datas ausentes).
           Use <strong className="text-white">Salvar competências</strong> para registrar apenas esses metadados, sem alterar lançamentos ou conciliação.
-          Uma reconstrução só é liberada depois de uma auditoria segura; nesse caso o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e as{' '}
+          Uma reconstrução só é liberada depois de uma auditoria segura; nesse caso o sistema <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e os{' '}
           <strong className="text-white">estornos</strong> na competência do arquivo; <strong className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong className="text-white">anterior</strong> (padrão N+1 do extrato).
         </p>
 
@@ -1391,7 +1391,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           A prévia usa as linhas já importadas (aba Transações). Por arquivo, a coluna Pagamentos mostra o valor do CSV; no histórico por competência, esse valor abate a fatura do mês anterior.
         </p>
         <p className="text-[11px] text-amber-300/80 leading-snug">
-          <strong>Auditar sem alterar dados</strong> apenas lê e compara importações e lançamentos manuais. O botão <strong>Reconstruir faturas deste cartão</strong> continua sendo o fluxo operacional atual e altera a projeção do cartão.
+          <strong>Auditar sem alterar dados</strong> apenas lê e compara importações e lançamentos manuais. <strong>Reconstruir faturas deste cartão</strong> altera a projeção e permanece bloqueado até a auditoria declarar a troca segura.
         </p>
       </div>
     </Modal>
