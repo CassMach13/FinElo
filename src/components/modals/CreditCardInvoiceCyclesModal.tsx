@@ -481,6 +481,24 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       );
     });
 
+    const repairableEntryRows = new Set(comparison.repairablePersistedEntryRowIds);
+    comparison.duplicatePersistedTransactionIds.forEach((transactionId) => {
+      const duplicatedRows = persisted.entries.filter(
+        (entry) => entry.transactionId === transactionId
+      );
+      const repairableRows = duplicatedRows.filter(
+        (entry) => entry.rowId && repairableEntryRows.has(entry.rowId)
+      );
+      const isConflicting = comparison.conflictingDuplicatePersistedTransactionIds.includes(
+        transactionId
+      );
+      lines.push(
+        isConflicting
+          ? `Duplicidade ambígua de item: ${transactionName(transactionId)} aparece ${duplicatedRows.length} vezes e nenhuma linha canônica coincide de forma inequívoca com a fonte. Nenhuma remoção foi executada.`
+          : `Plano de reparo somente leitura: ${transactionName(transactionId)} aparece ${duplicatedRows.length} vezes; ${repairableRows.length} linha(s) materializada(s) é(são) candidata(s) segura(s) à remoção, preservando a linha que coincide com a fonte. Nenhuma remoção foi executada.`
+      );
+    });
+
     comparison.changedTransactionIds.forEach((transactionId) => {
       const current = persisted.entries.find((entry) => entry.transactionId === transactionId);
       const expected = shadow.entries.find((entry) => entry.transactionId === transactionId);
@@ -1190,7 +1208,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           `Fonte atual: ${persisted.source}.`,
           `Sombra: ${shadow.sourceTransactionCount} transações, ${shadow.projectedEntryCount} itens, ${shadow.projectedPaymentCount} pagamentos e ${shadow.statements.length} faturas.`,
           `Diferenças: ${comparison.differenceCount}. Bloqueios: ${shadow.blockers.length}. Alertas: ${shadow.warnings.length}.`,
-          `Duplicidades atuais: ${comparison.duplicatePersistedTransactionIds.length} transação(ões), ${comparison.duplicatePersistedPaymentTransactionIds.length} pagamento(s) por ID, ${comparison.suspiciousPersistedPaymentEventKeys.length} evento(s) de pagamento sem identidade e ${comparison.duplicatePersistedStatementKeys.length} competência(s).`,
+          `Duplicidades atuais: ${comparison.duplicatePersistedTransactionIds.length} transação(ões) (${comparison.repairablePersistedEntryRowIds.length} linha(s) com reparo determinístico; ${comparison.conflictingDuplicatePersistedTransactionIds.length} ID(s) ambíguo(s)), ${comparison.duplicatePersistedPaymentTransactionIds.length} pagamento(s) por ID, ${comparison.suspiciousPersistedPaymentEventKeys.length} evento(s) de pagamento sem identidade e ${comparison.duplicatePersistedStatementKeys.length} competência(s).`,
           `Ausentes na projeção atual: ${comparison.missingTransactionIds.length} transação(ões), ${comparison.missingPaymentKeys.length} pagamento(s) e ${comparison.missingStatementKeys.length} fatura(s).`,
           `Órfãos na projeção atual: ${comparison.orphanTransactionIds.length} transação(ões), ${comparison.orphanPaymentKeys.length} pagamento(s) e ${comparison.orphanStatementKeys.length} fatura(s).`,
           `Alterados: ${comparison.changedTransactionIds.length} transação(ões), ${comparison.changedPaymentTransactionIds.length} pagamento(s) e ${comparison.changedStatementKeys.length} fatura(s).`,

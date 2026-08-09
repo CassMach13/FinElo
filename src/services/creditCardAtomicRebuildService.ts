@@ -285,6 +285,7 @@ export async function readPersistedAtomicCardProjection(
   const entries: PersistedAtomicCardEntry[] =
     source === 'engine'
       ? engineRows.map((row) => ({
+          rowId: row.id,
           transactionId: String(row.transaction_id || `engine-row:${row.id}`),
           statementKey: statementKeyById.get(String(row.statement_id || '')) || 'sem-competencia',
           postedDate: row.posted_date || null,
@@ -292,6 +293,7 @@ export async function readPersistedAtomicCardProjection(
           entryType: row.entry_type || 'needs_review',
         }))
       : legacyRows.map((row) => ({
+          rowId: row.id,
           transactionId: String(row.transaction_id || `legacy-row:${row.id}`),
           statementKey: statementKeyById.get(row.statement_id) || 'sem-competencia',
           postedDate: row.posted_date || null,
@@ -377,6 +379,29 @@ const buildAudit = (
   persistedRevision,
 });
 
+/**
+ * Preserva somente classificações com uma identidade atual inequívoca.
+ * IDs duplicados ficam fora do mapa: a auditoria deve expor a ambiguidade em
+ * vez de escolher silenciosamente uma das linhas históricas.
+ */
+const persistedEntryTypesForShadow = (
+  persisted: PersistedAtomicCardProjection
+): ReadonlyMap<string, string> => {
+  const rowsByTransactionId = new Map<string, PersistedAtomicCardEntry[]>();
+  persisted.entries.forEach((entry) => {
+    if (/^(engine|legacy)-row:/.test(entry.transactionId)) return;
+    const rows = rowsByTransactionId.get(entry.transactionId) || [];
+    rows.push(entry);
+    rowsByTransactionId.set(entry.transactionId, rows);
+  });
+
+  return new Map(
+    Array.from(rowsByTransactionId.entries())
+      .filter(([, rows]) => rows.length === 1)
+      .map(([transactionId, rows]) => [transactionId, rows[0].entryType])
+  );
+};
+
 const toActivationPayload = (shadow: AtomicCardShadowProjection) => ({
   statements: shadow.statements.map((statement) => ({
     statementKey: statement.statementKey,
@@ -432,13 +457,14 @@ export const creditCardAtomicRebuildService = {
    */
   async audit(input: AtomicAuditInput): Promise<AtomicCardRebuildAuditResult> {
     const prepared = prepareAtomicCardShadowSource(input);
+    const revisionBefore = await readProjectionRevision(input.account.id);
+    const persisted = await readPersistedAtomicCardProjection(input.account.id);
     const shadow = buildAtomicCardRebuildShadow({
       ...input,
       cycles: prepared.cycles,
       transactions: prepared.transactions,
+      persistedEntryTypesByTransactionId: persistedEntryTypesForShadow(persisted),
     });
-    const revisionBefore = await readProjectionRevision(input.account.id);
-    const persisted = await readPersistedAtomicCardProjection(input.account.id);
     const revisionAfter = await readProjectionRevision(input.account.id);
     if (revisionBefore !== revisionAfter) {
       throw new Error(
@@ -475,7 +501,7 @@ export const creditCardAtomicRebuildService = {
     }
 
     const payload = toActivationPayload(freshAudit.shadow);
-    const { data, error } = await supabase.rpc('activate_credit_card_projection_atomic', {
+    const { data, error } = await supabase.rpc('activate_credit_card_projection_atomic_v2', {
       p_account_id: input.account.id,
       p_expected_revision: freshAudit.persistedRevision,
       p_shadow_checksum: freshAudit.shadow.checksum,

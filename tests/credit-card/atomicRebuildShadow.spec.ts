@@ -86,8 +86,8 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     expect(shadow.sourceTransactionCount).toBe(3);
     expect(shadow.projectedEntryCount).toBe(3);
 
-    const julyDue = shadow.statements.find((statement) => statement.statementKey === '2026-08');
-    const augustDue = shadow.statements.find((statement) => statement.statementKey === '2026-09');
+    const julyDue = shadow.statements.find((statement) => statement.statementKey === '2026-07');
+    const augustDue = shadow.statements.find((statement) => statement.statementKey === '2026-08');
     expect(julyDue).toMatchObject({
       statementTotalCents: 39990,
       totalPaymentsCents: 39990,
@@ -236,15 +236,29 @@ describe('Sprint 2A — projeção sombra atômica', () => {
 
   it('preserva classificação de pagamento confirmada pelo usuário no lote', () => {
     const paymentId = 'user-confirmed-payment';
+    const previousCycle = {
+      fileName: '09_xp_cartao_fatura_junho_2026.csv',
+      referenceMonth: '2026-06',
+      dueDate: '2026-07-28',
+    };
     const shadow = buildAtomicCardRebuildShadow({
       account,
+      persistedEntryTypesByTransactionId: new Map([[paymentId, 'fee']]),
       cycles: [
+        previousCycle,
         {
           ...cycles[0],
           paymentTransactionIds: [paymentId],
         },
       ],
       transactions: [
+        transaction({
+          id: 'purchase-before-confirmed-payment',
+          origin: previousCycle.fileName,
+          date: '2026-06-20',
+          amount: -100,
+          description: 'COMPRA ANTERIOR',
+        }),
         transaction({
           id: paymentId,
           origin: cycles[0].fileName,
@@ -257,10 +271,38 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     });
 
     expect(shadow.blockers).toEqual([]);
-    expect(shadow.entries[0].entryType).toBe('invoice_payment');
+    expect(
+      shadow.entries.find((entry) => entry.transactionId === paymentId)?.entryType
+    ).toBe('invoice_payment');
     expect(shadow.payments[0]).toEqual(
       expect.objectContaining({ transactionId: paymentId, source: 'imported_statement' })
     );
+  });
+
+  it('preserva classificação histórica inequívoca pela identidade imutável', () => {
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: [cycles[0]],
+      persistedEntryTypesByTransactionId: new Map([
+        ['historical-classification', 'adjustment'],
+      ]),
+      transactions: [
+        transaction({
+          id: 'historical-classification',
+          origin: cycles[0].fileName,
+          date: '2026-07-10',
+          amount: 10,
+          description: 'CRÉDITO HISTÓRICO CONFIRMADO',
+          type: 'Renda',
+        }),
+      ],
+    });
+
+    expect(shadow.entries[0]).toMatchObject({
+      transactionId: 'historical-classification',
+      statementKey: '2026-07',
+      entryType: 'adjustment',
+    });
   });
 
   it('preserva datas civis nos limites do mês', () => {
@@ -315,7 +357,7 @@ describe('Sprint 2A — projeção sombra atômica', () => {
         transactionId: 'manual-day-31',
         sourceFileName: 'manual:2026-07',
         postedDate: '2026-07-31',
-        statementKey: '2026-08',
+        statementKey: '2026-07',
         amountCents: -3131,
       })
     );
@@ -363,12 +405,12 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     });
 
     expect(shadow.blockers).toEqual([]);
-    expect(shadow.statements.find((statement) => statement.statementKey === '2026-07')).toMatchObject({
+    expect(shadow.statements.find((statement) => statement.statementKey === '2026-06')).toMatchObject({
       statementTotalCents: 10000,
       totalPaymentsCents: 0,
       openBalanceCents: 10000,
     });
-    expect(shadow.statements.find((statement) => statement.statementKey === '2026-08')).toMatchObject({
+    expect(shadow.statements.find((statement) => statement.statementKey === '2026-07')).toMatchObject({
       statementTotalCents: 5000,
       totalPaymentsCents: 5000,
       openBalanceCents: 0,
@@ -378,7 +420,7 @@ describe('Sprint 2A — projeção sombra atômica', () => {
     expect(shadow.payments).toContainEqual(
       expect.objectContaining({
         transactionId: 'manual-july-payment',
-        statementKey: '2026-08',
+        statementKey: '2026-07',
         amountCents: 5000,
         source: 'manual',
       })
@@ -901,5 +943,68 @@ describe('Sprint 2A — projeção sombra atômica', () => {
       'hold · 11_xp_cartao_fatura_agosto_2026.csv · linha 5 · Outro pagamento';
     const ambiguous = compareAtomicCardProjections(shadow, persisted);
     expect(ambiguous.repairablePersistedPaymentRowIds).toEqual([]);
+  });
+
+  it('separa duplicidade de item reparável de duplicidade ambígua', () => {
+    const shadow = buildAtomicCardRebuildShadow({
+      account,
+      cycles: [cycles[0]],
+      transactions: [
+        transaction({
+          id: 'duplicated-entry-repair',
+          origin: cycles[0].fileName,
+          date: '2026-07-10',
+          amount: -10,
+          description: 'COMPRA ÚNICA',
+        }),
+      ],
+    });
+    const expected = shadow.entries[0];
+    const persisted: PersistedAtomicCardProjection = {
+      source: 'engine',
+      statements: shadow.statements.map((statement) => ({
+        statementKey: statement.statementKey,
+        dueDate: statement.dueDate,
+        entryCount: 2,
+        statementTotalCents: statement.statementTotalCents,
+        totalPaymentsCents: statement.totalPaymentsCents,
+        openBalanceCents: statement.openBalanceCents,
+      })),
+      entries: [
+        {
+          rowId: 'canonical-row',
+          transactionId: expected.transactionId,
+          statementKey: expected.statementKey,
+          postedDate: expected.postedDate,
+          amountCents: expected.amountCents,
+          entryType: expected.entryType,
+        },
+        {
+          rowId: 'obsolete-row',
+          transactionId: expected.transactionId,
+          statementKey: '2026-08',
+          postedDate: expected.postedDate,
+          amountCents: expected.amountCents,
+          entryType: expected.entryType,
+        },
+      ],
+      payments: [],
+    };
+
+    const repairable = compareAtomicCardProjections(shadow, persisted);
+    expect(repairable.duplicatePersistedTransactionIds).toEqual([
+      'duplicated-entry-repair',
+    ]);
+    expect(repairable.repairablePersistedEntryRowIds).toEqual(['obsolete-row']);
+    expect(repairable.conflictingDuplicatePersistedTransactionIds).toEqual([]);
+    expect(repairable.changedTransactionIds).toEqual([]);
+    expect(repairable.safeToActivate).toBe(false);
+
+    persisted.entries[0].statementKey = '2026-06';
+    const ambiguous = compareAtomicCardProjections(shadow, persisted);
+    expect(ambiguous.repairablePersistedEntryRowIds).toEqual([]);
+    expect(ambiguous.conflictingDuplicatePersistedTransactionIds).toEqual([
+      'duplicated-entry-repair',
+    ]);
   });
 });

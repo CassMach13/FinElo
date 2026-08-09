@@ -119,6 +119,8 @@ export interface PersistedAtomicCardStatement {
 }
 
 export interface PersistedAtomicCardEntry {
+  /** Identidade da linha materializada, usada apenas para auditoria/reparo seguro. */
+  rowId?: string;
   transactionId: string;
   statementKey: string;
   postedDate: string | null;
@@ -153,6 +155,10 @@ export interface AtomicCardProjectionComparison {
    */
   safeToActivate: boolean;
   duplicatePersistedTransactionIds: string[];
+  /** Duplicidades em que uma linha coincide com a fonte e as demais podem ser removidas. */
+  repairablePersistedEntryRowIds: string[];
+  /** Duplicidades sem uma linha canônica inequívoca; exigem investigação manual. */
+  conflictingDuplicatePersistedTransactionIds: string[];
   duplicatePersistedStatementKeys: string[];
   duplicatePersistedPaymentTransactionIds: string[];
   suspiciousPersistedPaymentEventKeys: string[];
@@ -209,7 +215,20 @@ const normalizeTransactionAmount = (transaction: Transaction): number => {
   return raw >= 0 ? raw : Math.abs(raw);
 };
 
-const statementKeyFromDueDate = (dueDate: string): string => dueDate.slice(0, 7);
+const VALID_ENTRY_TYPES = new Set<CreditCardImportEntry['entryType']>([
+  'purchase',
+  'installment_purchase',
+  'fee',
+  'interest',
+  'refund',
+  'invoice_payment',
+  'adjustment',
+  'ignored',
+  'needs_review',
+]);
+
+const isEntryType = (value: string | undefined): value is CreditCardImportEntry['entryType'] =>
+  Boolean(value && VALID_ENTRY_TYPES.has(value as CreditCardImportEntry['entryType']));
 
 const canonicalProjection = (
   accountId: string,
@@ -265,8 +284,20 @@ export function buildAtomicCardRebuildShadow(input: {
   cycles: AtomicCardRebuildCycle[];
   transactions: Transaction[];
   rules?: ClassificationRules;
+  /**
+   * Classificações já materializadas para IDs imutáveis e não ambíguos.
+   * A reconstrução preserva essas decisões; confirmações explícitas do lote
+   * (pagamento/estorno) continuam tendo prioridade.
+   */
+  persistedEntryTypesByTransactionId?: ReadonlyMap<string, string>;
 }): AtomicCardShadowProjection {
-  const { account, cycles, transactions, rules } = input;
+  const {
+    account,
+    cycles,
+    transactions,
+    rules,
+    persistedEntryTypesByTransactionId,
+  } = input;
   const issues: AtomicCardShadowIssue[] = [];
 
   if (account.Tipo_Conta !== 'Cartão de Crédito') {
@@ -285,7 +316,8 @@ export function buildAtomicCardRebuildShadow(input: {
   }
 
   const cyclesByOrigin = new Map<string, AtomicCardRebuildCycle>();
-  const statementKeyByReferenceMonth = new Map<string, string>();
+  const dueDateByReferenceMonth = new Map<string, string>();
+  const referenceMonthByDueDate = new Map<string, string>();
   const statementSeeds = new Map<string, CreditCardStatement>();
   const sourceFilesByStatement = new Map<string, Set<string>>();
   const entriesByStatement = new Map<string, CreditCardImportEntry[]>();
@@ -356,19 +388,37 @@ export function buildAtomicCardRebuildShadow(input: {
       continue;
     }
 
-    const [dueYear, dueMonth] = cycle.dueDate.slice(0, 7).split('-').map(Number);
-    const statementKey = statementKeyFromDueDate(cycle.dueDate);
-    const priorStatementKey = statementKeyByReferenceMonth.get(cycle.referenceMonth);
-    if (priorStatementKey && priorStatementKey !== statementKey) {
+    const [referenceYear, referenceMonth] = cycle.referenceMonth.split('-').map(Number);
+    // A identidade da fatura no FinElo é a competência confirmada pelo usuário.
+    // O vencimento costuma cair no mês seguinte e não pode deslocar os lançamentos.
+    const statementKey = cycle.referenceMonth;
+    const priorDueDate = dueDateByReferenceMonth.get(cycle.referenceMonth);
+    if (priorDueDate && priorDueDate !== cycle.dueDate) {
+      const changedDueMonth = priorDueDate.slice(0, 7) !== cycle.dueDate.slice(0, 7);
       issues.push({
-        code: 'conflicting-reference-due-date',
+        code: changedDueMonth
+          ? 'conflicting-reference-due-date'
+          : 'conflicting-statement-due-date',
         severity: 'blocker',
         fileName: cycle.fileName,
-        message: `A competência ${cycle.referenceMonth} aponta para vencimentos em meses diferentes.`,
+        message: changedDueMonth
+          ? `A competência ${cycle.referenceMonth} aponta para vencimentos em meses diferentes.`
+          : `A competência ${cycle.referenceMonth} aponta para dias de vencimento diferentes.`,
       });
       continue;
     }
-    statementKeyByReferenceMonth.set(cycle.referenceMonth, statementKey);
+    dueDateByReferenceMonth.set(cycle.referenceMonth, cycle.dueDate);
+    const priorReferenceMonth = referenceMonthByDueDate.get(cycle.dueDate);
+    if (priorReferenceMonth && priorReferenceMonth !== cycle.referenceMonth) {
+      issues.push({
+        code: 'conflicting-statement-due-date',
+        severity: 'blocker',
+        fileName: cycle.fileName,
+        message: `O vencimento ${cycle.dueDate} foi associado a mais de uma competência.`,
+      });
+      continue;
+    }
+    referenceMonthByDueDate.set(cycle.dueDate, cycle.referenceMonth);
     const statementId = `shadow:${statementKey}`;
     const priorStatement = statementSeeds.get(statementKey);
     if (priorStatement && priorStatement.purchaseReferenceLabel !== cycle.referenceMonth) {
@@ -397,8 +447,8 @@ export function buildAtomicCardRebuildShadow(input: {
         cardId: `shadow-card:${account.id}`,
         accountId: account.id,
         purchaseReferenceLabel: cycle.referenceMonth,
-        dueYear,
-        dueMonth,
+        dueYear: referenceYear,
+        dueMonth: referenceMonth,
         dueDate: cycle.dueDate,
         status: 'open',
         sourceImportLotIds: [],
@@ -503,8 +553,8 @@ export function buildAtomicCardRebuildShadow(input: {
       cardId: `shadow-card:${account.id}`,
       accountId: account.id,
       sourceFileName: cycle.fileName,
-      statementDueYear: dueYear,
-      statementDueMonth: dueMonth,
+      statementDueYear: referenceYear,
+      statementDueMonth: referenceMonth,
       statementDueDate: cycle.dueDate,
       purchaseReferenceLabel: cycle.referenceMonth,
       rows: validRows,
@@ -514,6 +564,12 @@ export function buildAtomicCardRebuildShadow(input: {
     const bySourceRowHash: Record<string, CreditCardImportEntry['entryType']> = {};
     normalized.entries.forEach((entry) => {
       const row = validRows.find((candidate) => candidate.sourceRowIndex === entry.sourceRowIndex);
+      const persistedEntryType = row?.transactionId
+        ? persistedEntryTypesByTransactionId?.get(row.transactionId)
+        : undefined;
+      if (isEntryType(persistedEntryType)) {
+        bySourceRowHash[entry.sourceRowHash] = persistedEntryType;
+      }
       if (row?.transactionId && paymentOverrides.has(row.transactionId)) {
         bySourceRowHash[entry.sourceRowHash] = 'invoice_payment';
       }
@@ -775,29 +831,54 @@ export function compareAtomicCardProjections(
   shadow: AtomicCardShadowProjection,
   persisted: PersistedAtomicCardProjection
 ): AtomicCardProjectionComparison {
-  const persistedTransactionFrequency = new Map<string, number>();
+  const desiredEntries = new Map(shadow.entries.map((entry) => [entry.transactionId, entry]));
+  const persistedEntriesByTransactionId = new Map<string, PersistedAtomicCardEntry[]>();
   persisted.entries.forEach((entry) => {
-    persistedTransactionFrequency.set(
-      entry.transactionId,
-      (persistedTransactionFrequency.get(entry.transactionId) || 0) + 1
-    );
+    const rows = persistedEntriesByTransactionId.get(entry.transactionId) || [];
+    rows.push(entry);
+    persistedEntriesByTransactionId.set(entry.transactionId, rows);
   });
-  const duplicatePersistedTransactionIds = Array.from(persistedTransactionFrequency.entries())
-    .filter(([, count]) => count > 1)
+  const duplicatePersistedTransactionIds = Array.from(persistedEntriesByTransactionId.entries())
+    .filter(([, entries]) => entries.length > 1)
     .map(([id]) => id)
     .sort();
-  const desiredEntries = new Map(shadow.entries.map((entry) => [entry.transactionId, entry]));
-  const currentEntries = new Map(persisted.entries.map((entry) => [entry.transactionId, entry]));
+  const repairablePersistedEntryRowIds: string[] = [];
+  const conflictingDuplicatePersistedTransactionIds: string[] = [];
+  duplicatePersistedTransactionIds.forEach((transactionId) => {
+    const expected = desiredEntries.get(transactionId);
+    const rows = persistedEntriesByTransactionId.get(transactionId) || [];
+    if (!expected) {
+      conflictingDuplicatePersistedTransactionIds.push(transactionId);
+      return;
+    }
+    const matchingRows = rows
+      .filter((row) => entrySignature(row) === entrySignature(expected))
+      .sort((left, right) => String(left.rowId || '').localeCompare(String(right.rowId || '')));
+    const canonical = matchingRows[0];
+    const obsoleteRows = canonical ? rows.filter((row) => row !== canonical) : [];
+    if (!canonical || obsoleteRows.some((row) => !row.rowId)) {
+      conflictingDuplicatePersistedTransactionIds.push(transactionId);
+      return;
+    }
+    repairablePersistedEntryRowIds.push(
+      ...obsoleteRows.map((row) => String(row.rowId)).filter(Boolean)
+    );
+  });
+  repairablePersistedEntryRowIds.sort();
+  conflictingDuplicatePersistedTransactionIds.sort();
   const missingTransactionIds = Array.from(desiredEntries.keys())
-    .filter((id) => !currentEntries.has(id))
+    .filter((id) => !persistedEntriesByTransactionId.has(id))
     .sort();
-  const orphanTransactionIds = Array.from(currentEntries.keys())
+  const orphanTransactionIds = Array.from(persistedEntriesByTransactionId.keys())
     .filter((id) => !desiredEntries.has(id))
     .sort();
   const changedTransactionIds = Array.from(desiredEntries.keys())
     .filter((id) => {
-      const current = currentEntries.get(id);
-      return current ? entrySignature(desiredEntries.get(id)!) !== entrySignature(current) : false;
+      const currentRows = persistedEntriesByTransactionId.get(id) || [];
+      const expected = desiredEntries.get(id)!;
+      return currentRows.length > 0 && !currentRows.some(
+        (current) => entrySignature(expected) === entrySignature(current)
+      );
     })
     .sort();
 
@@ -973,6 +1054,8 @@ export function compareAtomicCardProjections(
     safeToActivate:
       shadow.safeToStage && !hasUnsafePersistedProjection && activationChangeCount > 0,
     duplicatePersistedTransactionIds,
+    repairablePersistedEntryRowIds,
+    conflictingDuplicatePersistedTransactionIds,
     duplicatePersistedStatementKeys,
     duplicatePersistedPaymentTransactionIds,
     suspiciousPersistedPaymentEventKeys,
