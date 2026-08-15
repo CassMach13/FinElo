@@ -191,7 +191,7 @@ describe('creditCardAtomicRebuildService.audit', () => {
     });
 
     expect(result.persisted.entries).toHaveLength(1001);
-    expect(result.persisted.entries[0]).toMatchObject({
+    expect(result.persisted.entries.find((entry) => entry.rowId === 'entry-0')).toMatchObject({
       rowId: 'entry-0',
       sourceFileName: 'fatura-julho.csv',
       sourceRowIndex: 1,

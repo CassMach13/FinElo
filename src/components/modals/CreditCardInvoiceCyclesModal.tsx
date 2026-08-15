@@ -33,6 +33,13 @@ import {
   type AtomicCardProvenanceRecommendationCode,
   type AtomicCardProvenanceStatus,
 } from '../../domain/credit-card/atomicRebuildProvenance';
+import {
+  buildAtomicCardIdentityDryRunReport,
+  type AtomicCardIdentityDryRunBlockerCode,
+  type AtomicCardIdentityDryRunChangeCode,
+  type AtomicCardIdentityDryRunRecommendationCode,
+  type AtomicCardIdentityDryRunStatus,
+} from '../../domain/credit-card/atomicRebuildIdentityDryRun';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -130,6 +137,49 @@ const PROVENANCE_RECOMMENDATION_LABELS: Record<AtomicCardProvenanceRecommendatio
   'no-write-without-snapshot': 'Qualquer etapa futura de escrita exigirá snapshot individual e rollback previamente testado.',
   'do-not-reimport': 'Não reimportar arquivos para corrigir a identidade; isso pode ampliar as duplicidades.',
   'keep-activation-blocked': 'Manter projeção e reparos bloqueados nesta etapa somente leitura.',
+};
+
+const IDENTITY_DRY_RUN_STATUS_LABELS: Record<AtomicCardIdentityDryRunStatus, string> = {
+  'not-needed': 'nenhuma reconstrução de identidade é necessária',
+  ready: 'simulação completa e rastreável para revisão',
+  blocked: 'simulação bloqueada por evidência insuficiente ou inconsistente',
+};
+
+const IDENTITY_DRY_RUN_CHANGE_LABELS: Record<AtomicCardIdentityDryRunChangeCode, string> = {
+  'identity-only': 'somente identidade',
+  'identity-and-competence': 'identidade e competência',
+  'identity-and-type': 'identidade e tipo',
+  'identity-competence-and-type': 'identidade, competência e tipo',
+};
+
+const IDENTITY_DRY_RUN_BLOCKER_LABELS: Record<AtomicCardIdentityDryRunBlockerCode, string> = {
+  'persisted-source-not-engine': 'a fonte atual não é o motor persistido',
+  'provenance-report-not-eligible': 'a proveniência ainda não autorizou uma simulação',
+  'row-count-not-conserved': 'a quantidade de linhas não foi conservada',
+  'orphan-identity-present': 'existem identidades órfãs fora do pareamento',
+  'repairable-deletion-path-present': 'há um reparo de exclusão separado que deve ser resolvido antes',
+  'missing-provenance': 'faltou proveniência para localizar uma linha',
+  'ambiguous-provenance': 'a mesma proveniência aponta para mais de uma linha',
+  'missing-row-identity': 'uma linha localizada não possui identidade persistida',
+  'owner-not-duplicated': 'a identidade atual não possui a duplicidade esperada',
+  'owner-anchor-missing': 'a âncora que deveria ser preservada não foi encontrada',
+  'owner-anchor-ambiguous': 'mais de uma âncora poderia ser preservada',
+  'economic-content-mismatch': 'data ou valor diverge do conteúdo econômico esperado',
+  'candidate-reused': 'uma linha candidata seria reutilizada',
+  'unrelated-duplicate-group': 'há grupos duplicados sem explicação neste plano',
+  'simulation-did-not-close-identity-gap': 'a simulação não eliminou todas as lacunas de identidade',
+};
+
+const IDENTITY_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardIdentityDryRunRecommendationCode, string> = {
+  'no-identity-reconstruction-needed': 'Nenhuma reconstrução de identidade é necessária.',
+  'review-individual-dry-run': 'Revisar os grupos simulados antes de desenvolver qualquer execução futura.',
+  'preserve-confirmed-anchors': 'Preservar todas as âncoras confirmadas; nenhuma delas integra a troca simulada.',
+  'review-competence-changes': 'Confirmar as competências propostas antes de considerar uma etapa de escrita.',
+  'review-type-changes': 'Confirmar as mudanças de tipo antes de considerar uma etapa de escrita.',
+  'residual-structural-differences-remain': 'A simulação de identidade não resolve todas as diferenças estruturais da projeção.',
+  'snapshot-before-future-execution': 'Uma eventual execução futura exigirá snapshot individual e rollback validado.',
+  'keep-writes-disabled': 'Manter reparos e ativações desabilitados nesta etapa.',
+  'investigate-dry-run-blockers': 'Investigar todos os bloqueios antes de gerar uma nova simulação.',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -616,6 +666,19 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           )
         : null,
     [shadowAudit]
+  );
+
+  const shadowAuditIdentityDryRun = useMemo(
+    () =>
+      shadowAudit && shadowAuditProvenance
+        ? buildAtomicCardIdentityDryRunReport(
+            shadowAudit.shadow,
+            shadowAudit.persisted,
+            shadowAudit.comparison,
+            shadowAuditProvenance
+          )
+        : null,
+    [shadowAudit, shadowAuditProvenance]
   );
 
   const shadowAuditDiagnosticLines = useMemo(() => {
@@ -2107,6 +2170,118 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     </ul>
                   )}
                 </div>
+              </div>
+            )}
+            {shadowAuditIdentityDryRun && (
+              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2G — simulação individual de identidade</p>
+                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                    zero escritas · sem payload de banco
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado: <strong className="text-white">{IDENTITY_DRY_RUN_STATUS_LABELS[shadowAuditIdentityDryRun.status]}</strong>.
+                  A prévia usa um clone em memória, preserva as âncoras e recalcula a auditoria sem expor IDs, hashes, lotes ou nomes de arquivos.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Identidades ausentes</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditIdentityDryRun.before.missingIdentityCount} → {shadowAuditIdentityDryRun.after.missingIdentityCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos duplicados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditIdentityDryRun.before.duplicateIdentityGroupCount} → {shadowAuditIdentityDryRun.after.duplicateIdentityGroupCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Diferenças estruturais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditIdentityDryRun.before.structuralDifferenceCount} → {shadowAuditIdentityDryRun.after.structuralDifferenceCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas antes / depois</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditIdentityDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {shadowAuditIdentityDryRun.rowCountBefore} / {shadowAuditIdentityDryRun.rowCountAfter}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Escopo hipotético</p>
+                    <p className="mt-1 text-slate-300">
+                      {shadowAuditIdentityDryRun.hypotheticalUpdateCount} linha(s) simulada(s) ·{' '}
+                      {shadowAuditIdentityDryRun.confirmedAnchorCount} âncora(s) preservada(s) ·{' '}
+                      {shadowAuditIdentityDryRun.unresolvedCount} pendência(s).
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Operações reais executadas: <strong className="text-emerald-300">{shadowAuditIdentityDryRun.actualWriteOperationCount}</strong>.
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Depois da simulação</p>
+                    <p className="mt-1 text-slate-300">
+                      Identidades ainda alteradas: <strong className="text-white">{shadowAuditIdentityDryRun.after.changedIdentityCount}</strong> ·{' '}
+                      diferenças residuais: <strong className="text-white">{shadowAuditIdentityDryRun.residualDifferenceCount}</strong>.
+                    </p>
+                    <p className="mt-1 text-slate-400">A simulação de identidade não equivale à ativação integral da projeção.</p>
+                  </div>
+                </div>
+
+                {shadowAuditIdentityDryRun.changeProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Mudanças simuladas por grupo</p>
+                    <ul className="mt-1 space-y-1.5">
+                      {shadowAuditIdentityDryRun.changeProfiles.slice(0, 12).map((profile) => (
+                        <li
+                          key={`${profile.code}-${profile.fromStatementKey}-${profile.toStatementKey}-${profile.fromEntryType}-${profile.toEntryType}`}
+                          className="flex flex-wrap justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5"
+                        >
+                          <span>
+                            {profile.fromStatementKey} → {profile.toStatementKey} · {IDENTITY_DRY_RUN_CHANGE_LABELS[profile.code]}
+                            {profile.fromEntryType !== profile.toEntryType
+                              ? ` · ${profile.fromEntryType} → ${profile.toEntryType}`
+                              : ''}
+                          </span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    {shadowAuditIdentityDryRun.changeProfiles.length > 12 && (
+                      <p className="mt-1 text-slate-500">
+                        Mais {shadowAuditIdentityDryRun.changeProfiles.length - 12} grupo(s) permanecem no resumo agregado.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {shadowAuditIdentityDryRun.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-400/25 bg-amber-500/5 p-2">
+                    <p className="font-semibold text-amber-100">Bloqueios da simulação</p>
+                    <ul className="mt-1 space-y-1 text-amber-100/90">
+                      {shadowAuditIdentityDryRun.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{IDENTITY_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
+                          <strong>{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {shadowAuditIdentityDryRun.recommendationCodes.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditIdentityDryRun.recommendationCodes.map((code) => (
+                      <li key={code}>{IDENTITY_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (
