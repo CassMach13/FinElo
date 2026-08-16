@@ -47,6 +47,13 @@ import {
   type AtomicCardCompetenceForensicStatus,
   type AtomicCardCompetenceRecommendationCode,
 } from '../../domain/credit-card/atomicRebuildCompetenceForensics';
+import {
+  buildAtomicCardCompetenceDryRunReport,
+  type AtomicCardCompetenceDryRunBlockerCode,
+  type AtomicCardCompetenceDryRunExclusionCode,
+  type AtomicCardCompetenceDryRunRecommendationCode,
+  type AtomicCardCompetenceDryRunStatus,
+} from '../../domain/credit-card/atomicRebuildCompetenceDryRun';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -221,6 +228,43 @@ const COMPETENCE_RECOMMENDATION_LABELS: Record<AtomicCardCompetenceRecommendatio
   'review-type-coupled-exceptions': 'Revisar separadamente as poucas linhas em que competência e tipo divergem juntos.',
   'develop-read-only-competence-dry-run': 'A evidência permite desenvolver uma futura simulação de competência, ainda sem escrita.',
   'investigate-unmatched-rows': 'Resolver linhas sem pareamento único antes de concluir a regra.',
+  'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
+};
+
+const COMPETENCE_DRY_RUN_STATUS_LABELS: Record<AtomicCardCompetenceDryRunStatus, string> = {
+  'not-needed': 'nenhuma correção de competência necessária',
+  ready: 'simulação completa pronta para revisão',
+  partial: 'simulação parcial; exceções estruturais isoladas',
+  blocked: 'simulação bloqueada por evidência insuficiente',
+};
+
+const COMPETENCE_DRY_RUN_EXCLUSION_LABELS: Record<AtomicCardCompetenceDryRunExclusionCode, string> = {
+  'missing-row-identity': 'linha atual sem identidade persistida',
+  'identity-mismatch': 'identidade atual diverge da linha confirmada',
+  'duplicate-current-identity': 'identidade atual pertence a grupo duplicado',
+  'type-mismatch': 'tipo do lançamento também diverge',
+  'duplicate-statement-key': 'competência possui fatura duplicada',
+  'unconfirmed-competence-evidence': 'competência sem evidência confirmada',
+};
+
+const COMPETENCE_DRY_RUN_BLOCKER_LABELS: Record<AtomicCardCompetenceDryRunBlockerCode, string> = {
+  'persisted-source-not-engine': 'a fonte atual não é o motor persistido',
+  'forensic-report-not-eligible': 'a auditoria 2H ainda não autorizou a simulação',
+  'row-count-not-conserved': 'a quantidade de linhas não foi conservada',
+  'unmatched-row': 'há linha projetada sem correspondência única',
+  'ambiguous-row': 'há mais de uma linha atual possível para a mesma origem',
+  'economic-content-mismatch': 'data ou valor diverge do conteúdo confirmado',
+  'no-safe-candidates': 'nenhuma divergência pode ser simulada com todas as garantias',
+};
+
+const COMPETENCE_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardCompetenceDryRunRecommendationCode, string> = {
+  'no-competence-change-needed': 'Nenhuma mudança de competência precisa ser planejada.',
+  'review-competence-only-simulation': 'Revisar a simulação agregada antes de desenvolver qualquer escrita.',
+  'preserve-identity-date-value-and-type': 'Preservar identidade, data, valor, tipo e proveniência de cada linha.',
+  'resolve-excluded-structural-anomalies': 'Resolver as exceções estruturais isoladas em fluxo separado.',
+  'preserve-protected-statement-metadata': 'Preservar integralmente os metadados protegidos das faturas envolvidas.',
+  'investigate-dry-run-blockers': 'Investigar todos os bloqueios antes de gerar uma nova simulação.',
+  'future-execution-requires-snapshot': 'Uma eventual execução futura exigirá snapshot individual e rollback validado.',
   'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
 };
 
@@ -778,6 +822,46 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     });
   }, [
     shadowAudit,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
+
+  const shadowAuditCompetenceDryRun = useMemo(() => {
+    if (
+      !shadowAudit ||
+      !shadowAuditCompetenceForensics ||
+      !effectiveFilterAccountId
+    ) {
+      return null;
+    }
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return buildAtomicCardCompetenceDryRunReport({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      comparison: shadowAudit.comparison,
+      forensics: shadowAuditCompetenceForensics,
+      cycles,
+      closingDay: account?.dia_fechamento,
+    });
+  }, [
+    shadowAudit,
+    shadowAuditCompetenceForensics,
     effectiveFilterAccountId,
     rows,
     invoiceDueDayStr,
@@ -2510,6 +2594,140 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     ))}
                   </ul>
                 </div>
+              </div>
+            )}
+            {engineOn && shadowAuditCompetenceDryRun && (
+              <div className="mt-3 rounded-lg border border-teal-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2I — simulação individual de competência</p>
+                  <span className="rounded-full border border-teal-300/30 bg-teal-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-100">
+                    clone em memória · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {COMPETENCE_DRY_RUN_STATUS_LABELS[shadowAuditCompetenceDryRun.status]}
+                  </strong>.
+                  {' '}Somente a competência das linhas inequivocamente comprovadas é alterada no clone; o relatório não contém IDs, hashes, nomes de arquivos ou payload de banco.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Divergências antes / depois</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceDryRun.competenceMismatchBefore} → {shadowAuditCompetenceDryRun.competenceMismatchAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Mudanças simuladas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceDryRun.hypotheticalUpdateCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Exceções isoladas</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditCompetenceDryRun.excludedRowCount === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {shadowAuditCompetenceDryRun.excludedRowCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas antes / depois</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditCompetenceDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {shadowAuditCompetenceDryRun.rowCountBefore} / {shadowAuditCompetenceDryRun.rowCountAfter}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Invariantes preservados</p>
+                    <p className="mt-1 text-slate-300">
+                      Identidade / data / valor / tipo / origem:{' '}
+                      <strong className="text-emerald-300">
+                        {shadowAuditCompetenceDryRun.identityMutationCount} / {shadowAuditCompetenceDryRun.dateMutationCount} / {shadowAuditCompetenceDryRun.amountMutationCount} / {shadowAuditCompetenceDryRun.typeMutationCount} / {shadowAuditCompetenceDryRun.sourceMutationCount}
+                      </strong> alteração(ões).
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Faturas / pagamentos alterados: {shadowAuditCompetenceDryRun.statementRecordMutationCount} / {shadowAuditCompetenceDryRun.paymentRecordMutationCount}. Operações reais: <strong className="text-emerald-300">{shadowAuditCompetenceDryRun.actualWriteOperationCount}</strong>.
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Depois da simulação</p>
+                    <p className="mt-1 text-slate-300">
+                      Transações alteradas: {shadowAuditCompetenceDryRun.before.changedTransactionCount} → {shadowAuditCompetenceDryRun.after.changedTransactionCount} · diferenças estruturais: {shadowAuditCompetenceDryRun.before.structuralDifferenceCount} → {shadowAuditCompetenceDryRun.after.structuralDifferenceCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Linhas envolvendo metadados protegidos: {shadowAuditCompetenceDryRun.protectedMetadataTouchCount}.
+                    </p>
+                    <p className="mt-1">
+                      Elegível para futura execução restrita:{' '}
+                      <strong className={shadowAuditCompetenceDryRun.eligibleForFutureScopedExecution ? 'text-emerald-300' : 'text-amber-300'}>
+                        {shadowAuditCompetenceDryRun.eligibleForFutureScopedExecution ? 'sim' : 'não'}
+                      </strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {shadowAuditCompetenceDryRun.changeProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Mudanças simuladas por competência</p>
+                    <ul className="mt-1 space-y-1.5">
+                      {shadowAuditCompetenceDryRun.changeProfiles.slice(0, 12).map((profile) => (
+                        <li
+                          key={`${profile.fromStatementKey}-${profile.toStatementKey}-${profile.evidenceSource}`}
+                          className="flex flex-wrap justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5"
+                        >
+                          <span>
+                            {profile.fromStatementKey} → {profile.toStatementKey} · {COMPETENCE_EVIDENCE_LABELS[profile.evidenceSource]}
+                          </span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    {shadowAuditCompetenceDryRun.changeProfiles.length > 12 && (
+                      <p className="mt-1 text-slate-500">
+                        Mais {shadowAuditCompetenceDryRun.changeProfiles.length - 12} grupo(s) permanecem no resumo agregado.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {shadowAuditCompetenceDryRun.exclusionProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-400/25 bg-amber-500/5 p-2">
+                    <p className="font-semibold text-amber-100">Exceções fora da simulação</p>
+                    <ul className="mt-1 space-y-1 text-amber-100/90">
+                      {shadowAuditCompetenceDryRun.exclusionProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{COMPETENCE_DRY_RUN_EXCLUSION_LABELS[profile.code]}</span>
+                          <strong>{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {shadowAuditCompetenceDryRun.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-rose-400/25 bg-rose-500/5 p-2">
+                    <p className="font-semibold text-rose-100">Bloqueios da simulação</p>
+                    <ul className="mt-1 space-y-1 text-rose-100/90">
+                      {shadowAuditCompetenceDryRun.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{COMPETENCE_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
+                          <strong>{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {shadowAuditCompetenceDryRun.recommendationCodes.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditCompetenceDryRun.recommendationCodes.map((code) => (
+                      <li key={code}>{COMPETENCE_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (
