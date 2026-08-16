@@ -54,6 +54,12 @@ import {
   type AtomicCardCompetenceDryRunRecommendationCode,
   type AtomicCardCompetenceDryRunStatus,
 } from '../../domain/credit-card/atomicRebuildCompetenceDryRun';
+import {
+  buildAtomicCardCompetenceExceptionForensicReport,
+  type AtomicCardCompetenceExceptionForensicStatus,
+  type AtomicCardCompetenceExceptionLaneCode,
+  type AtomicCardCompetenceExceptionRecommendationCode,
+} from '../../domain/credit-card/atomicRebuildCompetenceExceptionForensics';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -267,6 +273,50 @@ const COMPETENCE_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardCompetenceDryRu
   'future-execution-requires-snapshot': 'Uma eventual execução futura exigirá snapshot individual e rollback validado.',
   'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
 };
+
+const COMPETENCE_EXCEPTION_STATUS_LABELS: Record<AtomicCardCompetenceExceptionForensicStatus, string> = {
+  'no-exceptions': 'nenhuma exceção precisa ser classificada',
+  'dependencies-isolated': 'dependências isoladas em uma sequência verificável',
+  'review-needed': 'classificação parcial; ainda há dependências para investigar',
+  blocked: 'classificação bloqueada por contagens ou evidências inconsistentes',
+};
+
+const COMPETENCE_EXCEPTION_LANE_LABELS: Record<AtomicCardCompetenceExceptionLaneCode, string> = {
+  'identity-reconstruction-prerequisite': 'reconstruir identidade antes da competência',
+  'duplicate-identity-anchor-prerequisite': 'preservar âncoras de identidades duplicadas',
+  'statement-structure-prerequisite': 'conciliar registros duplicados de fatura',
+  'entry-type-review': 'revisar tipo do lançamento',
+  'persisted-row-identity-review': 'recuperar identidade persistida da linha',
+  'competence-evidence-review': 'confirmar evidência da competência',
+};
+
+const COMPETENCE_EXCEPTION_RECOMMENDATION_LABELS: Record<AtomicCardCompetenceExceptionRecommendationCode, string> = {
+  'preserve-all-current-rows': 'Preservar todas as linhas atuais; esta etapa não autoriza exclusão nem substituição.',
+  'run-identity-dry-run-before-competence': 'Executar primeiro a simulação de identidade; competência depende desse pareamento.',
+  'preserve-confirmed-identity-anchors': 'Preservar as âncoras confirmadas dos grupos de identidade duplicada.',
+  'reconcile-statement-records-before-competence': 'Explicar os registros duplicados de fatura antes de mover qualquer competência.',
+  'protect-statement-metadata': 'Preservar totais oficiais, pagamentos e demais metadados protegidos das faturas.',
+  'review-type-coupled-exceptions': 'Revisar separadamente as linhas em que o tipo também diverge.',
+  'restore-persisted-row-identity': 'Recuperar a identidade persistida da linha antes de qualquer simulação adicional.',
+  'confirm-competence-evidence': 'Confirmar a origem da competência antes de tratá-la como fonte de verdade.',
+  'rerun-competence-dry-run-after-prerequisites': 'Reexecutar a simulação de competência somente depois de resolver os pré-requisitos.',
+  'investigate-unclassified-exceptions': 'Investigar a diferença de contagem antes de considerar a classificação completa.',
+  'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
+};
+
+const COMPETENCE_IDENTITY_PREREQUISITE_LABELS = {
+  'not-needed': 'não necessária',
+  'covered-by-ready-dry-run': 'coberta pela simulação de identidade',
+  partial: 'cobertura parcial',
+  blocked: 'bloqueada',
+} as const;
+
+const COMPETENCE_STATEMENT_PREREQUISITE_LABELS = {
+  'not-needed': 'não necessária',
+  isolated: 'estrutura duplicada isolada',
+  'review-needed': 'duplicidade conflitante ou protegida',
+  blocked: 'estrutura não localizada',
+} as const;
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 function parseBRDateToIso(value: string): string | null {
@@ -867,6 +917,19 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     invoiceDueDayStr,
     accounts,
   ]);
+
+  const shadowAuditCompetenceExceptionForensics = useMemo(
+    () =>
+      shadowAudit && shadowAuditIdentityDryRun && shadowAuditCompetenceDryRun
+        ? buildAtomicCardCompetenceExceptionForensicReport({
+            persisted: shadowAudit.persisted,
+            comparison: shadowAudit.comparison,
+            identityDryRun: shadowAuditIdentityDryRun,
+            competenceDryRun: shadowAuditCompetenceDryRun,
+          })
+        : null,
+    [shadowAudit, shadowAuditIdentityDryRun, shadowAuditCompetenceDryRun]
+  );
 
   const shadowAuditDiagnosticLines = useMemo(() => {
     if (!shadowAudit) return [];
@@ -2728,6 +2791,109 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     ))}
                   </ul>
                 )}
+              </div>
+            )}
+            {engineOn && shadowAuditCompetenceExceptionForensics && (
+              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2J — dependências das exceções</p>
+                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                    auditoria agregada · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {COMPETENCE_EXCEPTION_STATUS_LABELS[shadowAuditCompetenceExceptionForensics.status]}
+                  </strong>.
+                  {' '}A classificação determina somente a ordem dos pré-requisitos e não contém linhas, IDs, competências, arquivos ou payload executável.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Exceções recebidas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceExceptionForensics.totalExceptionCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Classificadas</p>
+                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                      {shadowAuditCompetenceExceptionForensics.classifiedExceptionCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Sem classificação</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditCompetenceExceptionForensics.unclassifiedExceptionCount === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {shadowAuditCompetenceExceptionForensics.unclassifiedExceptionCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Operações reais</p>
+                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                      {shadowAuditCompetenceExceptionForensics.actualWriteOperationCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p className="font-semibold text-sky-100">Pré-requisito de identidade</p>
+                    <p className="mt-1 text-slate-300">
+                      {COMPETENCE_IDENTITY_PREREQUISITE_LABELS[shadowAuditCompetenceExceptionForensics.identityPrerequisite.status]} · {shadowAuditCompetenceExceptionForensics.identityPrerequisite.exceptionCount} exceção(ões).
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Identidades divergentes: {shadowAuditCompetenceExceptionForensics.identityPrerequisite.identityMismatchCount} · âncoras em grupos duplicados: {shadowAuditCompetenceExceptionForensics.identityPrerequisite.duplicateIdentityAnchorCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Simulação anterior: {shadowAuditCompetenceExceptionForensics.identityPrerequisite.hypotheticalIdentityChangeCount} troca(s), {shadowAuditCompetenceExceptionForensics.identityPrerequisite.confirmedAnchorCount} âncora(s), {shadowAuditCompetenceExceptionForensics.identityPrerequisite.unresolvedIdentityCount} não resolvida(s).
+                    </p>
+                  </div>
+                  <div className="rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p className="font-semibold text-amber-100">Pré-requisito das faturas</p>
+                    <p className="mt-1 text-slate-300">
+                      {COMPETENCE_STATEMENT_PREREQUISITE_LABELS[shadowAuditCompetenceExceptionForensics.statementPrerequisite.status]} · {shadowAuditCompetenceExceptionForensics.statementPrerequisite.affectedEntryCount} lançamento(s) afetado(s).
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Grupos duplicados: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.duplicateGroupCount} · idênticos: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.identicalGroupCount} · conflitantes: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.conflictingGroupCount} · protegidos: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.protectedGroupCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Outras revisões isoladas: {shadowAuditCompetenceExceptionForensics.otherReviewCount}.
+                    </p>
+                  </div>
+                </div>
+
+                {shadowAuditCompetenceExceptionForensics.laneProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Ordem forense dos pré-requisitos</p>
+                    <ol className="mt-1 space-y-1.5">
+                      {shadowAuditCompetenceExceptionForensics.laneProfiles.map((profile) => (
+                        <li
+                          key={profile.code}
+                          className="flex flex-wrap justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5"
+                        >
+                          <span>{profile.order}. {COMPETENCE_EXCEPTION_LANE_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                <div className="mt-2 rounded border border-violet-300/20 bg-violet-400/5 p-2">
+                  <p>
+                    Elegível para desenvolver uma futura simulação sequencial:{' '}
+                    <strong className={shadowAuditCompetenceExceptionForensics.eligibleForFutureSequencedDryRun ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditCompetenceExceptionForensics.eligibleForFutureSequencedDryRun ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditCompetenceExceptionForensics.recommendationCodes.map((code) => (
+                      <li key={code}>{COMPETENCE_EXCEPTION_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (
