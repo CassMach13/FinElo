@@ -1,3 +1,4 @@
+import { buildAtomicCardAffectedEntryReconciliationReport } from './atomicRebuildAffectedEntryReconciliation';
 import type { AtomicCardCompetenceExceptionForensicReport } from './atomicRebuildCompetenceExceptionForensics';
 import type {
   AtomicCardProjectionComparison,
@@ -167,6 +168,7 @@ export function buildAtomicCardStatementConflictForensicReport(input: {
   competenceExceptions: AtomicCardCompetenceExceptionForensicReport;
 }): AtomicCardStatementConflictForensicReport {
   const { shadow, persisted, comparison, competenceExceptions } = input;
+  const affectedEntryReconciliation = buildAtomicCardAffectedEntryReconciliationReport(input);
   const duplicateKeys = new Set(comparison.duplicatePersistedStatementKeys);
   const protectedKeys = new Set(comparison.protectedMetadataStatementKeys);
   const groups = new Map<string, PersistedAtomicCardStatement[]>();
@@ -182,7 +184,7 @@ export function buildAtomicCardStatementConflictForensicReport(input: {
   const locatedGroupCount = locatedGroups.length;
   const unclassifiedGroupCount = Math.max(0, duplicateGroupCount - locatedGroupCount);
   const duplicateRecordCount = locatedGroups.reduce((total, [, group]) => total + group.length, 0);
-  const affectedEntryCount = persisted.entries.filter((entry) => duplicateKeys.has(entry.statementKey)).length;
+  const affectedEntryCount = affectedEntryReconciliation.reconciledAffectedEntryCount;
 
   const fieldCounts = new Map<AtomicCardStatementConflictFieldCode, number>();
   const shadowMatchCounts = new Map<AtomicCardStatementShadowMatchCode, number>();
@@ -277,7 +279,9 @@ export function buildAtomicCardStatementConflictForensicReport(input: {
   const upstream = competenceExceptions.statementPrerequisite;
   const upstreamCountsAgree =
     upstream.duplicateGroupCount === duplicateGroupCount &&
-    upstream.affectedEntryCount === affectedEntryCount;
+    affectedEntryReconciliation.duplicateGroupCount === duplicateGroupCount &&
+    affectedEntryReconciliation.upstreamAffectedEntryCount === upstream.affectedEntryCount &&
+    affectedEntryReconciliation.eligibleForConflictForensics;
   const eligibleForFutureConservationDryRun =
     duplicateGroupCount > 0 &&
     locatedGroupCount === duplicateGroupCount &&

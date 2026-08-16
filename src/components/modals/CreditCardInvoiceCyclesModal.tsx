@@ -67,6 +67,11 @@ import {
   type AtomicCardStatementConflictRecommendationCode,
   type AtomicCardStatementShadowMatchCode,
 } from '../../domain/credit-card/atomicRebuildStatementConflictForensics';
+import {
+  buildAtomicCardAffectedEntryReconciliationReport,
+  type AtomicCardAffectedEntryReconciliationRecommendationCode,
+  type AtomicCardAffectedEntryReconciliationStatus,
+} from '../../domain/credit-card/atomicRebuildAffectedEntryReconciliation';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -360,6 +365,23 @@ const STATEMENT_CONFLICT_RECOMMENDATION_LABELS: Record<AtomicCardStatementConfli
   'simulate-metadata-conservation-before-any-merge': 'A próxima etapa permitida é somente uma simulação de conservação, ainda sem gravar ou mesclar registros.',
   'investigate-unclassified-statement-groups': 'Investigar a divergência de contagens antes de avançar.',
   'keep-writes-disabled': 'Manter exclusões, reparos, ativações e migrations desabilitados.',
+};
+
+const AFFECTED_ENTRY_RECONCILIATION_STATUS_LABELS: Record<AtomicCardAffectedEntryReconciliationStatus, string> = {
+  'no-duplicates': 'nenhuma duplicidade para reconciliar',
+  'no-pending-competence-shift': 'duplicidade existente, sem troca de competência pendente',
+  'explained-by-current-attachment': 'contagem explicada pelas vinculações atuais',
+  'explained-by-projected-target': 'contagem explicada pelo destino projetado',
+  'explained-on-both-sides': 'contagem confirmada nos dois lados da comparação',
+  blocked: 'proveniência da contagem ainda inconsistente',
+};
+
+const AFFECTED_ENTRY_RECONCILIATION_RECOMMENDATION_LABELS: Record<AtomicCardAffectedEntryReconciliationRecommendationCode, string> = {
+  'treat-upstream-count-as-competence-exceptions': 'Interpretar a contagem reconciliada como exceções de competência, não como linhas necessariamente vinculadas hoje à fatura duplicada.',
+  'distinguish-current-attachment-from-projected-target': 'Manter separadas a vinculação física atual e a competência pretendida pela reconstrução sombra.',
+  'preserve-all-statement-records': 'Preservar integralmente os registros duplicados durante esta investigação.',
+  'investigate-count-provenance': 'Investigar a proveniência das contagens antes de liberar a análise de conflitos.',
+  'keep-writes-disabled': 'Manter reparos, ativações, exclusões e migrations desabilitados.',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -973,6 +995,19 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           })
         : null,
     [shadowAudit, shadowAuditIdentityDryRun, shadowAuditCompetenceDryRun]
+  );
+
+  const shadowAuditAffectedEntryReconciliation = useMemo(
+    () =>
+      shadowAudit && shadowAuditCompetenceExceptionForensics
+        ? buildAtomicCardAffectedEntryReconciliationReport({
+            shadow: shadowAudit.shadow,
+            persisted: shadowAudit.persisted,
+            comparison: shadowAudit.comparison,
+            competenceExceptions: shadowAuditCompetenceExceptionForensics,
+          })
+        : null,
+    [shadowAudit, shadowAuditCompetenceExceptionForensics]
   );
 
   const shadowAuditStatementConflictForensics = useMemo(
@@ -2953,6 +2988,65 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 </div>
               </div>
             )}
+            {engineOn && shadowAuditAffectedEntryReconciliation && (
+              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2L — reconciliação da contagem afetada</p>
+                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                    somente contagens agregadas · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {AFFECTED_ENTRY_RECONCILIATION_STATUS_LABELS[shadowAuditAffectedEntryReconciliation.status]}
+                  </strong>.
+                  {' '}Esta etapa separa o vínculo físico atual, o destino pretendido pela sombra e as exceções já classificadas pela auditoria de competência.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Vinculadas hoje</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditAffectedEntryReconciliation.currentAttachedEntryCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Destino projetado</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditAffectedEntryReconciliation.projectedTargetEntryCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Exceções de competência</p>
+                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                      {shadowAuditAffectedEntryReconciliation.upstreamAffectedEntryCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Diferença sem explicação</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditAffectedEntryReconciliation.unexplainedCountDelta === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {shadowAuditAffectedEntryReconciliation.unexplainedCountDelta}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                  <p>
+                    Contagem liberada para a análise forense da Sprint 2K:{' '}
+                    <strong className={shadowAuditAffectedEntryReconciliation.eligibleForConflictForensics ? 'text-emerald-300' : 'text-rose-300'}>
+                      {shadowAuditAffectedEntryReconciliation.eligibleForConflictForensics ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditAffectedEntryReconciliation.actualWriteOperationCount}</strong>.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditAffectedEntryReconciliation.recommendationCodes.map((code) => (
+                      <li key={code}>{AFFECTED_ENTRY_RECONCILIATION_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
             {engineOn && shadowAuditStatementConflictForensics && (
               <div className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2977,7 +3071,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     </p>
                   </div>
                   <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Lançamentos afetados</p>
+                    <p className="text-slate-400">Exceções reconciliadas</p>
                     <p className="mt-1 text-base font-semibold text-white">
                       {shadowAuditStatementConflictForensics.affectedEntryCount}
                     </p>
