@@ -72,6 +72,12 @@ import {
   type AtomicCardAffectedEntryReconciliationRecommendationCode,
   type AtomicCardAffectedEntryReconciliationStatus,
 } from '../../domain/credit-card/atomicRebuildAffectedEntryReconciliation';
+import {
+  buildAtomicCardStatementConservationDryRunReport,
+  type AtomicCardStatementConservationBlockerCode,
+  type AtomicCardStatementConservationDryRunStatus,
+  type AtomicCardStatementConservationRecommendationCode,
+} from '../../domain/credit-card/atomicRebuildStatementConservationDryRun';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -382,6 +388,35 @@ const AFFECTED_ENTRY_RECONCILIATION_RECOMMENDATION_LABELS: Record<AtomicCardAffe
   'preserve-all-statement-records': 'Preservar integralmente os registros duplicados durante esta investigação.',
   'investigate-count-provenance': 'Investigar a proveniência das contagens antes de liberar a análise de conflitos.',
   'keep-writes-disabled': 'Manter reparos, ativações, exclusões e migrations desabilitados.',
+};
+
+const STATEMENT_CONSERVATION_STATUS_LABELS: Record<AtomicCardStatementConservationDryRunStatus, string> = {
+  'no-duplicates': 'nenhuma duplicidade para simular',
+  'simulation-complete': 'conservação simulada sem perda de metadados',
+  'review-needed': 'simulação parcial; há evidências que exigem revisão',
+  blocked: 'simulação bloqueada por pré-requisitos inconsistentes',
+};
+
+const STATEMENT_CONSERVATION_BLOCKER_LABELS: Record<AtomicCardStatementConservationBlockerCode, string> = {
+  'upstream-report-mismatch': 'relatórios upstream não pertencem à mesma reconstrução sombra',
+  'count-reconciliation-blocked': 'a contagem afetada ainda não foi reconciliada',
+  'unclassified-duplicate-group': 'grupo duplicado não localizado integralmente',
+  'missing-shadow-statement': 'fatura correspondente ausente na sombra',
+  'multiple-manual-payloads': 'mais de um payload manual no mesmo grupo',
+  'conflicting-official-statement-totals': 'totais oficiais de fatura conflitantes',
+  'conflicting-official-payment-totals': 'totais oficiais de pagamento conflitantes',
+  'unknown-protected-metadata': 'metadado protegido sem origem classificável',
+};
+
+const STATEMENT_CONSERVATION_RECOMMENDATION_LABELS: Record<AtomicCardStatementConservationRecommendationCode, string> = {
+  'derive-operational-fields-from-shadow': 'Usar a sombra somente para simular os campos operacionais derivados da fatura.',
+  'preserve-protected-metadata-without-row-selection': 'Conservar os metadados protegidos do grupo completo sem eleger uma linha como vencedora.',
+  'keep-all-duplicate-records-unchanged': 'Manter todos os registros duplicados fisicamente inalterados durante a simulação.',
+  'review-ambiguous-protected-metadata': 'Revisar payloads ou totais protegidos ambíguos antes de desenhar um plano executável.',
+  'review-missing-shadow-statements': 'Reconstruir a fatura sombra ausente antes de repetir a simulação.',
+  'investigate-upstream-prerequisites': 'Resolver as divergências dos relatórios anteriores antes de avançar.',
+  'design-reversible-conservation-plan-next': 'A próxima etapa pode desenhar um plano reversível, ainda separado de qualquer escrita.',
+  'keep-writes-disabled': 'Manter seleção, exclusão, mescla, reparo, ativação e migration desabilitados.',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -1021,6 +1056,26 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           })
         : null,
     [shadowAudit, shadowAuditCompetenceExceptionForensics]
+  );
+
+  const shadowAuditStatementConservationDryRun = useMemo(
+    () =>
+      shadowAudit &&
+      shadowAuditStatementConflictForensics &&
+      shadowAuditAffectedEntryReconciliation
+        ? buildAtomicCardStatementConservationDryRunReport({
+            shadow: shadowAudit.shadow,
+            persisted: shadowAudit.persisted,
+            comparison: shadowAudit.comparison,
+            conflictForensics: shadowAuditStatementConflictForensics,
+            affectedEntryReconciliation: shadowAuditAffectedEntryReconciliation,
+          })
+        : null,
+    [
+      shadowAudit,
+      shadowAuditStatementConflictForensics,
+      shadowAuditAffectedEntryReconciliation,
+    ]
   );
 
   const shadowAuditDiagnosticLines = useMemo(() => {
@@ -3145,6 +3200,100 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditStatementConflictForensics.recommendationCodes.map((code) => (
                       <li key={code}>{STATEMENT_CONFLICT_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            {engineOn && shadowAuditStatementConservationDryRun && (
+              <div className="mt-3 rounded-lg border border-emerald-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2M — simulação de conservação dos metadados</p>
+                  <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                    clone em memória · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {STATEMENT_CONSERVATION_STATUS_LABELS[shadowAuditStatementConservationDryRun.status]}
+                  </strong>.
+                  {' '}A simulação combina campos derivados da sombra com a presença dos metadados protegidos do grupo completo, sem produzir uma alteração executável.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos simulados / em revisão</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStatementConservationDryRun.simulatedGroupCount} / {shadowAuditStatementConservationDryRun.reviewGroupCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Registros antes → depois</p>
+                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                      {shadowAuditStatementConservationDryRun.duplicateRecordCountBefore} → {shadowAuditStatementConservationDryRun.duplicateRecordCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Payloads manuais antes → depois</p>
+                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                      {shadowAuditStatementConservationDryRun.manualPayloadRecordCountBefore} → {shadowAuditStatementConservationDryRun.manualPayloadRecordCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Divergências derivadas antes → clone</p>
+                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                      {shadowAuditStatementConservationDryRun.simulatedDerivedMismatchCountBefore} → {shadowAuditStatementConservationDryRun.simulatedDerivedMismatchCountAfter}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p className="font-semibold text-emerald-100">Invariantes de conservação</p>
+                    <p className="mt-1 text-slate-300">
+                      Registros com metadados protegidos: {shadowAuditStatementConservationDryRun.protectedMetadataRecordCountBefore} → {shadowAuditStatementConservationDryRun.protectedMetadataRecordCountAfter}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Valores oficiais contabilizados: {shadowAuditStatementConservationDryRun.officialMetadataValueCountBefore} → {shadowAuditStatementConservationDryRun.officialMetadataValueCountAfter} · perdas detectadas: {shadowAuditStatementConservationDryRun.protectedMetadataLossCount}.
+                    </p>
+                  </div>
+                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p className="font-semibold text-sky-100">Limites deliberados da simulação</p>
+                    <p className="mt-1 text-slate-300">
+                      Linhas selecionadas: {shadowAuditStatementConservationDryRun.selectedRecordCount} · exclusões: {shadowAuditStatementConservationDryRun.recordDeletionCount} · mesclas: {shadowAuditStatementConservationDryRun.recordMergeCount}.
+                    </p>
+                    <p className="mt-1 font-semibold text-white">
+                      Nenhuma linha foi escolhida, removida ou mesclada.
+                    </p>
+                  </div>
+                </div>
+
+                {shadowAuditStatementConservationDryRun.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p className="font-semibold text-amber-100">Evidências que impedem uma simulação completa</p>
+                    <ul className="mt-1 space-y-1 text-slate-300">
+                      {shadowAuditStatementConservationDryRun.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{STATEMENT_CONSERVATION_BLOCKER_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.groupCount}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                  <p>
+                    Elegível para desenhar um futuro plano reversível:{' '}
+                    <strong className={shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationDryRun.actualWriteOperationCount}</strong>.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditStatementConservationDryRun.recommendationCodes.map((code) => (
+                      <li key={code}>{STATEMENT_CONSERVATION_RECOMMENDATION_LABELS[code]}</li>
                     ))}
                   </ul>
                 </div>
