@@ -60,6 +60,13 @@ import {
   type AtomicCardCompetenceExceptionLaneCode,
   type AtomicCardCompetenceExceptionRecommendationCode,
 } from '../../domain/credit-card/atomicRebuildCompetenceExceptionForensics';
+import {
+  buildAtomicCardStatementConflictForensicReport,
+  type AtomicCardStatementConflictFieldCode,
+  type AtomicCardStatementConflictForensicStatus,
+  type AtomicCardStatementConflictRecommendationCode,
+  type AtomicCardStatementShadowMatchCode,
+} from '../../domain/credit-card/atomicRebuildStatementConflictForensics';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -317,6 +324,43 @@ const COMPETENCE_STATEMENT_PREREQUISITE_LABELS = {
   'review-needed': 'duplicidade conflitante ou protegida',
   blocked: 'estrutura não localizada',
 } as const;
+
+const STATEMENT_CONFLICT_STATUS_LABELS: Record<AtomicCardStatementConflictForensicStatus, string> = {
+  'no-duplicates': 'nenhuma fatura duplicada encontrada',
+  'conflict-isolated': 'conflito isolado e conservação classificada',
+  'review-needed': 'metadados protegidos ainda exigem revisão',
+  blocked: 'auditoria bloqueada por contagens inconsistentes',
+};
+
+const STATEMENT_CONFLICT_FIELD_LABELS: Record<AtomicCardStatementConflictFieldCode, string> = {
+  'due-date': 'vencimento',
+  'entry-count': 'quantidade de lançamentos',
+  'statement-total': 'total materializado da fatura',
+  'payment-total': 'total materializado de pagamentos',
+  'open-balance': 'saldo materializado',
+  'protected-metadata-presence': 'presença de metadados protegidos',
+  'manual-totals-presence': 'presença de ajuste manual',
+  'file-statement-total': 'total oficial do arquivo',
+  'file-payment-total': 'pagamento oficial do arquivo',
+};
+
+const STATEMENT_SHADOW_MATCH_LABELS: Record<AtomicCardStatementShadowMatchCode, string> = {
+  'unique-shadow-compatible-record': 'um único registro coincide com os campos derivados da sombra',
+  'multiple-shadow-compatible-records': 'mais de um registro coincide com os campos derivados da sombra',
+  'no-shadow-compatible-record': 'nenhum registro coincide integralmente com a sombra',
+  'missing-shadow-statement': 'a fatura correspondente não existe na sombra',
+};
+
+const STATEMENT_CONFLICT_RECOMMENDATION_LABELS: Record<AtomicCardStatementConflictRecommendationCode, string> = {
+  'preserve-all-current-statement-records': 'Preservar os registros atuais; esta auditoria não seleciona nem remove uma fatura.',
+  'preserve-manual-payload-verbatim': 'Conservar integralmente o conteúdo manual protegido, sem reinterpretar ou descartar campos.',
+  'preserve-official-file-totals': 'Conservar os totais oficiais provenientes dos arquivos e separá-los dos valores derivados.',
+  'review-conflicting-protected-values': 'Revisar os metadados protegidos conflitantes antes de qualquer simulação de consolidação.',
+  'use-shadow-only-for-derived-field-comparison': 'Usar a sombra apenas para confrontar campos derivados; ela não substitui evidência manual ou oficial.',
+  'simulate-metadata-conservation-before-any-merge': 'A próxima etapa permitida é somente uma simulação de conservação, ainda sem gravar ou mesclar registros.',
+  'investigate-unclassified-statement-groups': 'Investigar a divergência de contagens antes de avançar.',
+  'keep-writes-disabled': 'Manter exclusões, reparos, ativações e migrations desabilitados.',
+};
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 function parseBRDateToIso(value: string): string | null {
@@ -929,6 +973,19 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           })
         : null,
     [shadowAudit, shadowAuditIdentityDryRun, shadowAuditCompetenceDryRun]
+  );
+
+  const shadowAuditStatementConflictForensics = useMemo(
+    () =>
+      shadowAudit && shadowAuditCompetenceExceptionForensics
+        ? buildAtomicCardStatementConflictForensicReport({
+            shadow: shadowAudit.shadow,
+            persisted: shadowAudit.persisted,
+            comparison: shadowAudit.comparison,
+            competenceExceptions: shadowAuditCompetenceExceptionForensics,
+          })
+        : null,
+    [shadowAudit, shadowAuditCompetenceExceptionForensics]
   );
 
   const shadowAuditDiagnosticLines = useMemo(() => {
@@ -2891,6 +2948,109 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditCompetenceExceptionForensics.recommendationCodes.map((code) => (
                       <li key={code}>{COMPETENCE_EXCEPTION_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            {engineOn && shadowAuditStatementConflictForensics && (
+              <div className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2K — conflito das faturas duplicadas</p>
+                  <span className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-100">
+                    comparação em memória · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {STATEMENT_CONFLICT_STATUS_LABELS[shadowAuditStatementConflictForensics.status]}
+                  </strong>.
+                  {' '}O relatório compara os registros campo a campo, mas mostra apenas contagens agregadas: nenhuma competência, identidade, origem ou valor financeiro é exposto.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos / registros duplicados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStatementConflictForensics.duplicateGroupCount} / {shadowAuditStatementConflictForensics.duplicateRecordCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Lançamentos afetados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStatementConflictForensics.affectedEntryCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos conflitantes</p>
+                    <p className="mt-1 text-base font-semibold text-amber-300">
+                      {shadowAuditStatementConflictForensics.conflictingGroupCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos não classificados</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditStatementConflictForensics.unclassifiedGroupCount === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {shadowAuditStatementConflictForensics.unclassifiedGroupCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p className="font-semibold text-amber-100">Metadados que precisam ser conservados</p>
+                    <p className="mt-1 text-slate-300">
+                      Grupos protegidos: {shadowAuditStatementConflictForensics.protectedMetadata.protectedGroupCount} · payloads manuais: {shadowAuditStatementConflictForensics.protectedMetadata.manualPayloadRecordCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Com total oficial da fatura: {shadowAuditStatementConflictForensics.protectedMetadata.officialStatementTotalGroupCount} · com pagamento oficial: {shadowAuditStatementConflictForensics.protectedMetadata.officialPaymentTotalGroupCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Conservação inequívoca / ambígua: {shadowAuditStatementConflictForensics.protectedMetadata.unambiguousConservationGroupCount} / {shadowAuditStatementConflictForensics.protectedMetadata.ambiguousConservationGroupCount}.
+                    </p>
+                  </div>
+                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p className="font-semibold text-sky-100">Confronto com a reconstrução sombra</p>
+                    {shadowAuditStatementConflictForensics.shadowMatchProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1 text-slate-300">
+                        {shadowAuditStatementConflictForensics.shadowMatchProfiles.map((profile) => (
+                          <li key={profile.code} className="flex justify-between gap-2">
+                            <span>{STATEMENT_SHADOW_MATCH_LABELS[profile.code]}</span>
+                            <strong className="text-white">{profile.groupCount}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhum grupo duplicado precisa ser confrontado.</p>
+                    )}
+                  </div>
+                </div>
+
+                {shadowAuditStatementConflictForensics.fieldProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Campos divergentes entre os registros</p>
+                    <ul className="mt-1 grid gap-1 sm:grid-cols-2">
+                      {shadowAuditStatementConflictForensics.fieldProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5">
+                          <span>{STATEMENT_CONFLICT_FIELD_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.conflictingGroupCount}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="mt-2 rounded border border-fuchsia-300/20 bg-fuchsia-400/5 p-2">
+                  <p>
+                    Elegível para uma futura simulação de conservação:{' '}
+                    <strong className={shadowAuditStatementConflictForensics.eligibleForFutureConservationDryRun ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditStatementConflictForensics.eligibleForFutureConservationDryRun ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditStatementConflictForensics.actualWriteOperationCount}</strong>.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditStatementConflictForensics.recommendationCodes.map((code) => (
+                      <li key={code}>{STATEMENT_CONFLICT_RECOMMENDATION_LABELS[code]}</li>
                     ))}
                   </ul>
                 </div>

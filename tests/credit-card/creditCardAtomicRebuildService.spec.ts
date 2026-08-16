@@ -224,6 +224,100 @@ describe('creditCardAtomicRebuildService.audit', () => {
     });
   });
 
+  it('conta lançamentos por registro físico ao auditar faturas de competência duplicada', async () => {
+    const rowsByTable: Record<string, unknown[]> = {
+      credit_card_statements: [
+        {
+          id: 'statement-a',
+          card_id: 'card-1',
+          reference_label: '2026-08',
+          due_year: 2026,
+          due_month: 8,
+          due_date: '2026-08-28',
+          statement_total: 20,
+          total_payments: 0,
+          open_balance: 20,
+        },
+        {
+          id: 'statement-b',
+          card_id: 'card-1',
+          reference_label: '2026-08',
+          due_year: 2026,
+          due_month: 8,
+          due_date: '2026-08-28',
+          statement_total: 10,
+          total_payments: 0,
+          open_balance: 10,
+        },
+      ],
+      credit_card_entries: [
+        {
+          id: 'entry-a1',
+          statement_id: 'statement-a',
+          transaction_id: 'tx-a1',
+          posted_date: '2026-07-10',
+          amount: -10,
+          entry_type: 'purchase',
+        },
+        {
+          id: 'entry-a2',
+          statement_id: 'statement-a',
+          transaction_id: 'tx-a2',
+          posted_date: '2026-07-11',
+          amount: -10,
+          entry_type: 'purchase',
+        },
+        {
+          id: 'entry-b1',
+          statement_id: 'statement-b',
+          transaction_id: 'tx-b1',
+          posted_date: '2026-07-12',
+          amount: -10,
+          entry_type: 'purchase',
+        },
+      ],
+      credit_card_statement_items: [],
+      credit_card_payments: [],
+    };
+
+    mocks.from.mockImplementation((table: string) => {
+      const builder: Record<string, unknown> = {};
+      builder.select = vi.fn(() => builder);
+      builder.eq = vi.fn(() => builder);
+      builder.in = vi.fn(() => builder);
+      builder.order = vi.fn(() => builder);
+      builder.insert = mocks.insert;
+      builder.update = mocks.update;
+      builder.upsert = mocks.upsert;
+      builder.delete = mocks.remove;
+      builder.range = vi.fn(async (from: number, to: number) => ({
+        data: (rowsByTable[table] || []).slice(from, to + 1),
+        error: null,
+      }));
+      return builder;
+    });
+
+    const result = await creditCardAtomicRebuildService.audit({
+      account,
+      cycles: [
+        {
+          fileName: 'fatura-julho.csv',
+          referenceMonth: '2026-07',
+          dueDate: '2026-08-28',
+        },
+      ],
+      transactions: [transaction],
+    });
+
+    expect(result.persisted.statements).toHaveLength(2);
+    expect(result.persisted.statements.map((item) => item.entryCount).sort()).toEqual([1, 2]);
+    expect(result.comparison.duplicatePersistedStatementKeys).toHaveLength(1);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
   it('aborta a auditoria inteira se uma página de leitura falhar', async () => {
     const statementRows = [
       {

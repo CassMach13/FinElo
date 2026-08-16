@@ -338,11 +338,17 @@ export async function readPersistedAtomicCardProjection(
           entryType: legacyItemTypeToEngine(row.item_type),
         }));
 
-  const entryCountByStatement = new Map<string, number>();
-  entries.forEach((entry) => {
-    entryCountByStatement.set(
-      entry.statementKey,
-      (entryCountByStatement.get(entry.statementKey) || 0) + 1
+  // Keep the count tied to the physical statement row. Grouping by competence
+  // would assign the combined count to every duplicate record and hide which
+  // one actually owns the persisted entries during the read-only audit.
+  const entryCountByStatementId = new Map<string, number>();
+  const persistedEntryRows = source === 'engine' ? engineRows : legacyRows;
+  persistedEntryRows.forEach((row) => {
+    const statementId = String(row.statement_id || '');
+    if (!statementId) return;
+    entryCountByStatementId.set(
+      statementId,
+      (entryCountByStatementId.get(statementId) || 0) + 1
     );
   });
 
@@ -352,7 +358,7 @@ export async function readPersistedAtomicCardProjection(
     return {
       statementKey,
       dueDate: row.due_date || null,
-      entryCount: entryCountByStatement.get(statementKey) || 0,
+      entryCount: entryCountByStatementId.get(row.id) || 0,
       statementTotalCents: toCents(source === 'engine' ? row.statement_total : legacyTotal),
       totalPaymentsCents: toCents(row.total_payments),
       openBalanceCents: toCents(source === 'engine' ? row.open_balance : row.open_amount),
