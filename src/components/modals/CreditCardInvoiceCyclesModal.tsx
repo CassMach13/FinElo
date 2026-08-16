@@ -40,6 +40,13 @@ import {
   type AtomicCardIdentityDryRunRecommendationCode,
   type AtomicCardIdentityDryRunStatus,
 } from '../../domain/credit-card/atomicRebuildIdentityDryRun';
+import {
+  buildAtomicCardCompetenceForensicReport,
+  type AtomicCardCompetenceCauseCode,
+  type AtomicCardCompetenceEvidenceSource,
+  type AtomicCardCompetenceForensicStatus,
+  type AtomicCardCompetenceRecommendationCode,
+} from '../../domain/credit-card/atomicRebuildCompetenceForensics';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -182,6 +189,41 @@ const IDENTITY_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardIdentityDryRunRec
   'investigate-dry-run-blockers': 'Investigar todos os bloqueios antes de gerar uma nova simulação.',
 };
 
+const COMPETENCE_FORENSIC_STATUS_LABELS: Record<AtomicCardCompetenceForensicStatus, string> = {
+  aligned: 'competências já alinhadas',
+  'root-cause-isolated': 'causa dominante isolada com alta confiança',
+  'review-needed': 'padrão encontrado, mas ainda com exceções para revisar',
+  blocked: 'diagnóstico bloqueado por pareamento ou conteúdo inconsistente',
+};
+
+const COMPETENCE_CAUSE_LABELS: Record<AtomicCardCompetenceCauseCode, string> = {
+  'current-keyed-by-due-month': 'projeção atual usa o mês do vencimento como competência',
+  'current-keyed-by-posted-month': 'projeção atual usa o mês da data do lançamento',
+  'current-keyed-by-other-month': 'projeção atual usa outra competência',
+  'type-only': 'somente o tipo diverge',
+  'already-aligned': 'competência e tipo já alinhados',
+};
+
+const COMPETENCE_EVIDENCE_LABELS: Record<AtomicCardCompetenceEvidenceSource, string> = {
+  'confirmed-import-history': 'competência confirmada no histórico da importação',
+  'session-confirmed': 'competência revisada nesta sessão',
+  'persisted-import-history': 'competência persistida no histórico legado',
+  'suggested-automatic': 'competência sugerida automaticamente',
+  'manual-transaction-rule': 'competência de lançamento manual',
+  unknown: 'origem da competência não identificada',
+};
+
+const COMPETENCE_RECOMMENDATION_LABELS: Record<AtomicCardCompetenceRecommendationCode, string> = {
+  'honor-confirmed-import-competence': 'Tratar a competência confirmada no histórico como fonte prioritária.',
+  'separate-reference-competence-from-due-month': 'Separar definitivamente a competência da chave técnica do mês de vencimento.',
+  'use-closing-day-only-as-fallback': 'Usar o dia de fechamento apenas como fallback quando não houver competência confirmada.',
+  'preserve-explicit-manual-competence': 'Preservar a competência explícita dos lançamentos manuais.',
+  'review-type-coupled-exceptions': 'Revisar separadamente as poucas linhas em que competência e tipo divergem juntos.',
+  'develop-read-only-competence-dry-run': 'A evidência permite desenvolver uma futura simulação de competência, ainda sem escrita.',
+  'investigate-unmatched-rows': 'Resolver linhas sem pareamento único antes de concluir a regra.',
+  'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
+};
+
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 function parseBRDateToIso(value: string): string | null {
   const s = value.trim().replace(/\s/g, '');
@@ -260,6 +302,8 @@ export interface CreditCardInvoiceCycleRow {
   competenciaBR: string;
   /** Vencimento em DD/MM/AAAA */
   vencimentoBR: string;
+  /** Origem da competência usada apenas pela auditoria agregada da Sprint 2H. */
+  competenceEvidenceSource?: AtomicCardCompetenceEvidenceSource;
   /** Ordenação: instante do último registro em «Histórico de importações» para esta origem; fallback: transação mais recente. */
   sortUploadMs: number;
 }
@@ -383,13 +427,29 @@ function latestLogForCardOrigin(
 }
 
 /** Lê competência/vencimento já persistidos no histórico (saveCardImportLotClassification). */
-function cardCycleMetaFromImportedLog(log: ImportLog | undefined, accountId: string): { competenciaBR: string; vencimentoBR: string } {
-  if (!log) return { competenciaBR: '', vencimentoBR: '' };
+function cardCycleMetaFromImportedLog(log: ImportLog | undefined, accountId: string): {
+  competenciaBR: string;
+  vencimentoBR: string;
+  competenceEvidenceSource: AtomicCardCompetenceEvidenceSource;
+} {
+  if (!log) {
+    return {
+      competenciaBR: '',
+      vencimentoBR: '',
+      competenceEvidenceSource: 'unknown',
+    };
+  }
   const det = Array.isArray(log.imported_details) ? log.imported_details : [];
   const accountRows = det.filter((d: any) => d?.ID_Conta === accountId);
   const pool = accountRows.length > 0 ? accountRows : det;
   const metaWithRef = pool.find((d: any) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(d?.Card_Reference_Label || '')));
-  if (!metaWithRef?.Card_Reference_Label) return { competenciaBR: '', vencimentoBR: '' };
+  if (!metaWithRef?.Card_Reference_Label) {
+    return {
+      competenciaBR: '',
+      vencimentoBR: '',
+      competenceEvidenceSource: 'unknown',
+    };
+  }
   const ref = String(metaWithRef.Card_Reference_Label);
   const yyyy = ref.slice(0, 4);
   const mm = ref.slice(5, 7);
@@ -400,7 +460,11 @@ function cardCycleMetaFromImportedLog(log: ImportLog | undefined, accountId: str
     const [y, m, d] = due.split('-');
     vencimentoBR = `${d}/${m}/${y}`;
   }
-  return { competenciaBR, vencimentoBR };
+  const competenceEvidenceSource: AtomicCardCompetenceEvidenceSource =
+    String(metaWithRef.Card_Cycle_Mode || '').trim().toLowerCase() === 'manual'
+      ? 'confirmed-import-history'
+      : 'persisted-import-history';
+  return { competenciaBR, vencimentoBR, competenceEvidenceSource };
 }
 
 function buildRowsFromStore(params: {
@@ -472,6 +536,7 @@ function buildRowsFromStore(params: {
       txCount: agg.txCount,
       competenciaBR: persisted.competenciaBR,
       vencimentoBR: persisted.vencimentoBR,
+      competenceEvidenceSource: persisted.competenceEvidenceSource,
       sortUploadMs,
     });
   });
@@ -490,6 +555,7 @@ function buildRowsFromStore(params: {
       const logMs = new Date(log.import_date || 0).getTime();
       const persisted = cardCycleMetaFromImportedLog(log, accountId);
       let competenciaBR = persisted.competenciaBR;
+      let competenceEvidenceSource = persisted.competenceEvidenceSource;
       if (!competenciaBR.trim()) {
         const suggested = creditCardRebuildFromImportHistoryService.suggestReferenceMonth(
           log.file_name,
@@ -497,6 +563,7 @@ function buildRowsFromStore(params: {
         );
         if (suggested) {
           competenciaBR = `${suggested.slice(5, 7)}/${suggested.slice(0, 4)}`;
+          competenceEvidenceSource = 'suggested-automatic';
         }
       }
       let vencimentoBR = persisted.vencimentoBR;
@@ -515,6 +582,7 @@ function buildRowsFromStore(params: {
         txCount: 0,
         competenciaBR,
         vencimentoBR,
+        competenceEvidenceSource,
         sortUploadMs: Number.isNaN(logMs) ? 0 : logMs,
       });
     });
@@ -565,6 +633,10 @@ function mergeRowsPreserveInputs(
       ...r,
       competenciaBR,
       vencimentoBR,
+      competenceEvidenceSource:
+        p.competenciaBR.trim() !== ''
+          ? p.competenceEvidenceSource || 'unknown'
+          : r.competenceEvidenceSource || 'unknown',
     };
   });
   return sortRowsByVencimentoDesc(merged);
@@ -680,6 +752,37 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         : null,
     [shadowAudit, shadowAuditProvenance]
   );
+
+  const shadowAuditCompetenceForensics = useMemo(() => {
+    if (!shadowAudit || !effectiveFilterAccountId) return null;
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return buildAtomicCardCompetenceForensicReport({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      cycles,
+      closingDay: account?.dia_fechamento,
+    });
+  }, [
+    shadowAudit,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
 
   const shadowAuditDiagnosticLines = useMemo(() => {
     if (!shadowAudit) return [];
@@ -1652,7 +1755,12 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
             const iso = parseMMAAAAToIsoMonth(value.trim());
             const day = effectiveDueDayForAccount(r.accountId, invoiceDueDayStr, accounts);
             const ven = iso && day != null ? computeVencimentoBRFromCompetenceIsoMonth(iso, day) : '';
-            return { ...r, competenciaBR: value, vencimentoBR: ven };
+            return {
+              ...r,
+              competenciaBR: value,
+              vencimentoBR: ven,
+              competenceEvidenceSource: 'session-confirmed',
+            };
           })
         )
       );
@@ -2282,6 +2390,126 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     ))}
                   </ul>
                 )}
+              </div>
+            )}
+            {shadowAuditCompetenceForensics && (
+              <div className="mt-3 rounded-lg border border-sky-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2H — causa das divergências de competência</p>
+                  <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
+                    agregado · somente leitura · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Diagnóstico:{' '}
+                  <strong className="text-white">
+                    {COMPETENCE_FORENSIC_STATUS_LABELS[shadowAuditCompetenceForensics.status]}
+                  </strong>
+                  {' '}· confiança {shadowAuditCompetenceForensics.confidence === 'high'
+                    ? 'alta'
+                    : shadowAuditCompetenceForensics.confidence === 'medium'
+                      ? 'média'
+                      : shadowAuditCompetenceForensics.confidence === 'low'
+                        ? 'baixa'
+                        : 'não aplicável'}.
+                  {' '}O relatório não contém IDs, hashes, nomes de arquivos ou payload de banco.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas pareadas / projetadas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceForensics.matchedRowCount} / {shadowAuditCompetenceForensics.rowCountProjected}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Divergências de competência</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceForensics.competenceMismatchCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Só competência / competência + tipo</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceForensics.competenceOnlyMismatchCount} / {shadowAuditCompetenceForensics.competenceAndTypeMismatchCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Com evidência confirmada</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditCompetenceForensics.confirmedEvidenceMismatchCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Causas agregadas</p>
+                    <ul className="mt-1 space-y-1">
+                      {shadowAuditCompetenceForensics.causeProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{COMPETENCE_CAUSE_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="font-semibold text-white">Fonte da competência divergente</p>
+                    {shadowAuditCompetenceForensics.evidenceProfiles.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {shadowAuditCompetenceForensics.evidenceProfiles.map((profile) => (
+                          <li key={profile.source} className="flex justify-between gap-2">
+                            <span>{COMPETENCE_EVIDENCE_LABELS[profile.source]}</span>
+                            <strong className="text-white">{profile.count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">Nenhuma competência divergente.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p className="font-semibold text-white">Conservação e regra de fechamento</p>
+                  <p className="mt-1 text-slate-300">
+                    Linhas projetadas / atuais: {shadowAuditCompetenceForensics.rowCountProjected} / {shadowAuditCompetenceForensics.rowCountPersisted}
+                    {' '}· não pareadas: {shadowAuditCompetenceForensics.unmatchedProjectedRowCount}
+                    {' '}· ambíguas: {shadowAuditCompetenceForensics.ambiguousMatchCount}
+                    {' '}· conteúdo econômico divergente: {shadowAuditCompetenceForensics.economicMismatchCount}.
+                  </p>
+                  {shadowAuditCompetenceForensics.closingDayConfigured ? (
+                    <p className="mt-1 text-slate-300">
+                      A regra configurada de fechamento apoia {shadowAuditCompetenceForensics.closingRuleSupportsExpectedCount} competência(s) divergente(s) e conflita com {shadowAuditCompetenceForensics.closingRuleConflictsExpectedCount}; ela permanece apenas como fallback.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-slate-400">Dia de fechamento não configurado; nenhuma inferência automática foi promovida a fonte de verdade.</p>
+                  )}
+                  {shadowAuditCompetenceForensics.shiftProfiles.length > 0 && (
+                    <p className="mt-1 text-slate-400">
+                      Deslocamentos (atual → sombra):{' '}
+                      {shadowAuditCompetenceForensics.shiftProfiles
+                        .map((profile) => `${profile.monthsFromCurrentToExpected == null ? 'indefinido' : `${profile.monthsFromCurrentToExpected} mês(es)`}: ${profile.count}`)
+                        .join(' · ')}.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-2 rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                  <p>
+                    Elegível para desenvolver uma futura simulação de competência:{' '}
+                    <strong className={shadowAuditCompetenceForensics.eligibleForFutureCompetenceDryRun ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditCompetenceForensics.eligibleForFutureCompetenceDryRun ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Operações reais executadas: <strong className="text-emerald-300">{shadowAuditCompetenceForensics.actualWriteOperationCount}</strong>.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditCompetenceForensics.recommendationCodes.map((code) => (
+                      <li key={code}>{COMPETENCE_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (
