@@ -3,6 +3,7 @@ import { buildAtomicCardAffectedEntryReconciliationReport } from '../../src/doma
 import type { AtomicCardCompetenceExceptionForensicReport } from '../../src/domain/credit-card/atomicRebuildCompetenceExceptionForensics';
 import {
   buildAtomicCardStatementConservationDryRunReport,
+  isAtomicCardActivationBlockedByStatementConservation,
 } from '../../src/domain/credit-card/atomicRebuildStatementConservationDryRun';
 import { buildAtomicCardStatementConflictForensicReport } from '../../src/domain/credit-card/atomicRebuildStatementConflictForensics';
 import type {
@@ -370,5 +371,24 @@ describe('buildAtomicCardStatementConservationDryRunReport', () => {
     expect(serialized).not.toContain('private-transaction');
     expect(serialized).not.toContain('44990');
     expect(serialized).not.toContain('39990');
+  });
+});
+
+describe('isAtomicCardActivationBlockedByStatementConservation', () => {
+  it('bloqueia a ativação quando o relatório atual declara escrita não elegível', () => {
+    expect(
+      isAtomicCardActivationBlockedByStatementConservation(buildReport())
+    ).toBe(true);
+  });
+
+  it('falha fechado enquanto o relatório ainda não existe', () => {
+    expect(isAtomicCardActivationBlockedByStatementConservation(null)).toBe(true);
+    expect(isAtomicCardActivationBlockedByStatementConservation(undefined)).toBe(true);
+  });
+
+  it('só libera uma futura versão que autorize escrita explicitamente', () => {
+    expect(
+      isAtomicCardActivationBlockedByStatementConservation({ eligibleForWrite: true })
+    ).toBe(false);
   });
 });

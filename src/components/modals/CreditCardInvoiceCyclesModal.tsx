@@ -74,6 +74,7 @@ import {
 } from '../../domain/credit-card/atomicRebuildAffectedEntryReconciliation';
 import {
   buildAtomicCardStatementConservationDryRunReport,
+  isAtomicCardActivationBlockedByStatementConservation,
   type AtomicCardStatementConservationBlockerCode,
   type AtomicCardStatementConservationDryRunStatus,
   type AtomicCardStatementConservationRecommendationCode,
@@ -1078,6 +1079,11 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     ]
   );
 
+  const statementConservationBlocksActivation =
+    isAtomicCardActivationBlockedByStatementConservation(
+      shadowAuditStatementConservationDryRun
+    );
+
   const shadowAuditDiagnosticLines = useMemo(() => {
     if (!shadowAudit) return [];
 
@@ -1665,6 +1671,16 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       );
       return;
     }
+    if (statementConservationBlocksActivation) {
+      await appAlert(
+        shadowAuditStatementConservationDryRun
+          ? 'A ativação permanece bloqueada porque o relatório da Sprint 2M declarou “Elegível para escrita: não”. A simulação continua disponível somente para auditoria, sem alterar dados.'
+          : 'A ativação permanece bloqueada até que uma auditoria gere o relatório de conservação da Sprint 2M e ele autorize explicitamente a escrita.',
+        'Ativação bloqueada pela Sprint 2M',
+        'warning'
+      );
+      return;
+    }
     if (!shadowAudit?.comparison.safeToActivate) {
       await appAlert(
         'A reconstrução está bloqueada porque a auditoria atual ainda não declarou a troca segura. Salve apenas as competências e investigue as diferenças antes de reconstruir.',
@@ -1753,6 +1769,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     user,
     engineOn,
     atomicActivationEnabled,
+    statementConservationBlocksActivation,
+    shadowAuditStatementConservationDryRun,
     effectiveFilterAccountId,
     rows,
     shadowAudit,
@@ -2138,6 +2156,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               busy ||
               !engineOn ||
               !atomicActivationEnabled ||
+              statementConservationBlocksActivation ||
               !effectiveFilterAccountId ||
               rows.length === 0 ||
               !shadowAudit?.comparison.safeToActivate
@@ -2146,12 +2165,20 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
             title={
               !atomicActivationEnabled
                 ? 'Ativação desligada pelo kill switch individual da Sprint 2C.'
+                : !shadowAuditStatementConservationDryRun
+                  ? 'Ativação bloqueada até a auditoria gerar o relatório de conservação da Sprint 2M.'
+                  : statementConservationBlocksActivation
+                    ? 'Ativação bloqueada: o relatório da Sprint 2M declara “Elegível para escrita: não”.'
                 : shadowAudit?.comparison.safeToActivate
                 ? 'A auditoria atual permite atualizar as linhas existentes atomicamente.'
                 : 'A ativação só é liberada após uma auditoria segura e sem criação ou exclusão de linhas.'
             }
           >
-            {operation === 'rebuild' ? 'Ativando…' : 'Ativar projeção com snapshot'}
+            {operation === 'rebuild'
+              ? 'Ativando…'
+              : shadowAuditStatementConservationDryRun && statementConservationBlocksActivation
+                ? 'Ativação bloqueada pela Sprint 2M'
+                : 'Ativar projeção com snapshot'}
           </Button>
         </div>
       }
@@ -3289,7 +3316,10 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     <strong className={shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'sim' : 'não'}
                     </strong>.
-                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationDryRun.actualWriteOperationCount}</strong>.
+                    {' '}Elegível para escrita:{' '}
+                    <strong className={shadowAuditStatementConservationDryRun.eligibleForWrite ? 'text-emerald-300' : 'text-rose-300'}>
+                      {shadowAuditStatementConservationDryRun.eligibleForWrite ? 'sim' : 'não'}
+                    </strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationDryRun.actualWriteOperationCount}</strong>.
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditStatementConservationDryRun.recommendationCodes.map((code) => (

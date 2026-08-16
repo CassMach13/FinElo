@@ -73,6 +73,18 @@ export interface AtomicCardStatementConservationDryRunReport {
   recommendationCodes: AtomicCardStatementConservationRecommendationCode[];
 }
 
+/**
+ * Keeps atomic activation fail-closed until the latest conservation report
+ * explicitly authorizes writes. The broader boolean input deliberately leaves
+ * room for a future report version to opt in without weakening the current
+ * Sprint 2M contract, whose report always returns `false`.
+ */
+export function isAtomicCardActivationBlockedByStatementConservation(
+  report: { eligibleForWrite: boolean } | null | undefined
+): boolean {
+  return report?.eligibleForWrite !== true;
+}
+
 const BLOCKER_ORDER: AtomicCardStatementConservationBlockerCode[] = [
   'upstream-report-mismatch',
   'count-reconciliation-blocked',
