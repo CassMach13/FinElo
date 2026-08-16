@@ -79,6 +79,12 @@ import {
   type AtomicCardStatementConservationDryRunStatus,
   type AtomicCardStatementConservationRecommendationCode,
 } from '../../domain/credit-card/atomicRebuildStatementConservationDryRun';
+import {
+  buildAtomicCardStatementConservationPlanReport,
+  type AtomicCardStatementConservationPlanBlockerCode,
+  type AtomicCardStatementConservationPlanRecommendationCode,
+  type AtomicCardStatementConservationPlanStatus,
+} from '../../domain/credit-card/atomicRebuildStatementConservationPlan';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -418,6 +424,37 @@ const STATEMENT_CONSERVATION_RECOMMENDATION_LABELS: Record<AtomicCardStatementCo
   'investigate-upstream-prerequisites': 'Resolver as divergências dos relatórios anteriores antes de avançar.',
   'design-reversible-conservation-plan-next': 'A próxima etapa pode desenhar um plano reversível, ainda separado de qualquer escrita.',
   'keep-writes-disabled': 'Manter seleção, exclusão, mescla, reparo, ativação e migration desabilitados.',
+};
+
+const STATEMENT_CONSERVATION_PLAN_STATUS_LABELS: Record<AtomicCardStatementConservationPlanStatus, string> = {
+  'no-duplicates': 'nenhuma duplicidade exige plano',
+  'plan-ready': 'plano reversível desenhado e conferido',
+  'review-needed': 'plano suspenso; há evidências que exigem revisão',
+  blocked: 'plano bloqueado por pré-requisitos inconsistentes',
+};
+
+const STATEMENT_CONSERVATION_PLAN_BLOCKER_LABELS: Record<AtomicCardStatementConservationPlanBlockerCode, string> = {
+  'upstream-report-mismatch': 'o relatório da Sprint 2M não pertence à mesma reconstrução sombra',
+  'conservation-simulation-not-complete': 'a simulação de conservação da Sprint 2M não foi concluída',
+  'conservation-plan-not-eligible': 'a Sprint 2M não autorizou o desenho do plano reversível',
+  'persisted-revision-missing': 'a revisão opaca da projeção atual não foi vinculada ao plano',
+  'duplicate-group-cardinality-mismatch': 'a quantidade de grupos duplicados não fecha com as linhas localizadas',
+  'missing-shadow-statement': 'uma fatura duplicada não possui correspondente na sombra',
+  'protected-metadata-conservation-failed': 'a simulação não comprovou a conservação integral dos metadados protegidos',
+  'derived-mismatch-remains': 'a simulação ainda contém divergências nos campos derivados',
+  'invalid-replacement-cardinality': 'a substituição proposta não reduziria a duplicidade de forma determinística',
+};
+
+const STATEMENT_CONSERVATION_PLAN_RECOMMENDATION_LABELS: Record<AtomicCardStatementConservationPlanRecommendationCode, string> = {
+  'snapshot-complete-duplicate-groups': 'Fotografar integralmente as faturas duplicadas e todos os vínculos afetados antes de qualquer escrita futura.',
+  'create-new-composite-without-winner-selection': 'Criar futuramente uma fatura composta nova, sem eleger arbitrariamente uma linha antiga como vencedora.',
+  'relink-entries-and-payments-atomically': 'Religar itens e pagamentos na mesma transação de banco; qualquer divergência deve cancelar tudo.',
+  'verify-projection-revision-and-checksum': 'Exigir a mesma revisão persistida e o mesmo checksum da auditoria imediatamente antes da execução.',
+  'verify-counts-and-metadata-before-commit': 'Conferir cardinalidade, totais derivados e metadados protegidos antes do commit.',
+  'rollback-only-if-after-revision-matches': 'Permitir rollback somente se nenhuma alteração posterior tiver mudado a revisão da projeção.',
+  'review-upstream-conservation-evidence': 'Revisar as evidências anteriores antes de transformar este desenho em implementação transacional.',
+  'implement-transactional-rpc-in-later-sprint': 'Uma Sprint posterior poderá implementar a operação no banco, ainda com migration e piloto separados.',
+  'keep-writes-disabled': 'Manter reparos, ativações, exclusões, mesclas e migrations desabilitados nesta Sprint.',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -1077,6 +1114,20 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       shadowAuditStatementConflictForensics,
       shadowAuditAffectedEntryReconciliation,
     ]
+  );
+
+  const shadowAuditStatementConservationPlan = useMemo(
+    () =>
+      shadowAudit && shadowAuditStatementConservationDryRun
+        ? buildAtomicCardStatementConservationPlanReport({
+            shadow: shadowAudit.shadow,
+            persisted: shadowAudit.persisted,
+            comparison: shadowAudit.comparison,
+            conservationDryRun: shadowAuditStatementConservationDryRun,
+            persistedRevision: shadowAudit.persistedRevision,
+          })
+        : null,
+    [shadowAudit, shadowAuditStatementConservationDryRun]
   );
 
   const statementConservationBlocksActivation =
@@ -3324,6 +3375,108 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditStatementConservationDryRun.recommendationCodes.map((code) => (
                       <li key={code}>{STATEMENT_CONSERVATION_RECOMMENDATION_LABELS[code]}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            {engineOn && shadowAuditStatementConservationPlan && (
+              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2N — plano reversível de conservação</p>
+                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                    desenho agregado · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {STATEMENT_CONSERVATION_PLAN_STATUS_LABELS[shadowAuditStatementConservationPlan.status]}
+                  </strong>.
+                  {' '}O plano substitui cada grupo duplicado por uma futura fatura composta nova, sem escolher uma linha antiga como vencedora e sem gerar payload executável.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos localizados / duplicados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStatementConservationPlan.locatedGroupCount} / {shadowAuditStatementConservationPlan.duplicateGroupCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Faturas afetadas → compostas</p>
+                    <p className="mt-1 text-base font-semibold text-violet-200">
+                      {shadowAuditStatementConservationPlan.sourceStatementRecordCount} → {shadowAuditStatementConservationPlan.plannedCompositeStatementCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Vínculos de itens / pagamentos</p>
+                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                      {shadowAuditStatementConservationPlan.affectedEntryLinkCount} / {shadowAuditStatementConservationPlan.affectedPaymentLinkCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Travas desenhadas / executáveis</p>
+                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                      {shadowAuditStatementConservationPlan.designedGuardCount} / {shadowAuditStatementConservationPlan.executableGuardCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-violet-300/20 bg-violet-400/5 p-2">
+                    <p className="font-semibold text-violet-100">Escopo obrigatório do snapshot futuro</p>
+                    <p className="mt-1 text-slate-300">
+                      Faturas: {shadowAuditStatementConservationPlan.snapshotStatementRecordCount} · vínculos de itens: {shadowAuditStatementConservationPlan.snapshotEntryLinkCount} · vínculos de pagamentos: {shadowAuditStatementConservationPlan.snapshotPaymentLinkCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Grupos com metadados protegidos: {shadowAuditStatementConservationPlan.protectedMetadataGroupCount} · perdas projetadas: {shadowAuditStatementConservationPlan.protectedMetadataLossCount}.
+                    </p>
+                  </div>
+                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p className="font-semibold text-sky-100">Contrato do rollback futuro</p>
+                    <p className="mt-1 text-slate-300">
+                      Remover compostas: {shadowAuditStatementConservationPlan.rollbackRemoveCompositeCount} · restaurar faturas: {shadowAuditStatementConservationPlan.rollbackRestoreStatementRecordCount} · restaurar vínculos: {shadowAuditStatementConservationPlan.rollbackRestoreEntryLinkCount + shadowAuditStatementConservationPlan.rollbackRestorePaymentLinkCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Cardinalidade reversível: {shadowAuditStatementConservationPlan.rollbackCardinalityBalanced ? 'sim' : 'não'} · revisão vinculada: {shadowAuditStatementConservationPlan.revisionGuardBound ? 'sim' : 'não'}.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                  <p className="font-semibold text-emerald-100">Invariantes que permanecem intocadas</p>
+                  <p className="mt-1 text-slate-300">
+                    Alterações planejadas em valores financeiros: {shadowAuditStatementConservationPlan.plannedFinancialValueChangeCount} · alterações em transações do usuário: {shadowAuditStatementConservationPlan.plannedTransactionRecordChangeCount} · operações reais nesta Sprint: {shadowAuditStatementConservationPlan.actualWriteOperationCount}.
+                  </p>
+                </div>
+
+                {shadowAuditStatementConservationPlan.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p className="font-semibold text-amber-100">Evidências que suspendem o plano</p>
+                    <ul className="mt-1 space-y-1 text-slate-300">
+                      {shadowAuditStatementConservationPlan.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{STATEMENT_CONSERVATION_PLAN_BLOCKER_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.groupCount}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="mt-2 rounded border border-violet-300/20 bg-violet-400/5 p-2">
+                  <p>
+                    Elegível para futura implementação transacional:{' '}
+                    <strong className={shadowAuditStatementConservationPlan.eligibleForFutureTransactionalImplementation ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditStatementConservationPlan.eligibleForFutureTransactionalImplementation ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Elegível para escrita agora:{' '}
+                    <strong className="text-rose-300">não</strong>.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    {shadowAuditStatementConservationPlan.recommendationCodes.map((code) => (
+                      <li key={code}>{STATEMENT_CONSERVATION_PLAN_RECOMMENDATION_LABELS[code]}</li>
                     ))}
                   </ul>
                 </div>
