@@ -2392,7 +2392,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 )}
               </div>
             )}
-            {shadowAuditCompetenceForensics && (
+            {engineOn && shadowAuditCompetenceForensics && (
               <div className="mt-3 rounded-lg border border-sky-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-white">Sprint 2H — causa das divergências de competência</p>
