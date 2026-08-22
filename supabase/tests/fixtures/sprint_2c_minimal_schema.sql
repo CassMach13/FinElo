@@ -91,6 +91,7 @@ create table public.credit_card_statements (
   due_year integer,
   due_month integer,
   due_date date,
+  close_date date,
   closing_date date,
   source_import_lot_ids jsonb not null default '[]'::jsonb,
   total_purchases numeric(15,2) not null default 0,
@@ -103,6 +104,7 @@ create table public.credit_card_statements (
   total_charges numeric(15,2) not null default 0,
   total_credits numeric(15,2) not null default 0,
   open_amount numeric(15,2) not null default 0,
+  source_origin text,
   status text not null default 'open',
   manual_totals_json jsonb,
   statement_total_from_file numeric(15,2),
@@ -157,6 +159,20 @@ create table public.credit_card_payments (
   amount numeric(15,2) not null,
   source text not null,
   notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.credit_card_statement_items (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id),
+  account_id uuid not null references public.contas(id),
+  statement_id uuid not null references public.credit_card_statements(id) on delete cascade,
+  transaction_id uuid references public.transactions("ID_Transacao"),
+  entry_id uuid references public.credit_card_entries(id),
+  item_type text not null,
+  amount numeric(15,2) not null default 0,
+  posted_date date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

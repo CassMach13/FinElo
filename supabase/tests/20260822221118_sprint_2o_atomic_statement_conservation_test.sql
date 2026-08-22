@@ -1,0 +1,475 @@
+\set ON_ERROR_STOP on
+
+begin;
+
+insert into auth.users (id, email, raw_app_meta_data) values
+  (
+    '19000000-0000-0000-0000-000000000001',
+    'sprint2o@example.invalid',
+    '{"atomic_card_statement_conservation_enabled":true}'
+  ),
+  (
+    '19000000-0000-0000-0000-000000000002',
+    'other-sprint2o@example.invalid',
+    '{"atomic_card_statement_conservation_enabled":true}'
+  );
+
+insert into public.contas (id, user_id, "Nome_Conta", "Tipo_Conta") values
+  (
+    '29000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    'Cartão Sprint 2O', 'Cartão de Crédito'
+  );
+
+insert into public.credit_cards (id, user_id, account_id, name, closing_day, due_day) values
+  (
+    '39000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    'Cartão Sprint 2O', 3, 28
+  );
+
+insert into public.credit_card_import_lots (
+  id, user_id, card_id, account_id, source_file_name,
+  statement_due_year, statement_due_month, statement_due_date,
+  purchase_reference_label
+) values
+  (
+    '49000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    '39000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    'lote-a.csv', 2026, 8, '2026-08-28', '2026-08'
+  ),
+  (
+    '49000000-0000-0000-0000-000000000002',
+    '19000000-0000-0000-0000-000000000001',
+    '39000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    'lote-b.csv', 2026, 8, '2026-08-28', '2026-08'
+  );
+
+insert into public.transactions (
+  "ID_Transacao", user_id, "ID_Conta", "Data", "Valor"
+) values
+  (
+    '59000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '2026-08-02T12:00:00Z', -329.90
+  ),
+  (
+    '59000000-0000-0000-0000-000000000002',
+    '19000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '2026-08-05T12:00:00Z', -120.00
+  ),
+  (
+    '59000000-0000-0000-0000-000000000003',
+    '19000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '2026-08-20T12:00:00Z', 399.90
+  );
+
+insert into public.credit_card_statements (
+  id, user_id, card_id, account_id, reference_label, purchase_reference_label,
+  due_year, due_month, due_date, source_import_lot_ids,
+  total_purchases, statement_total, total_payments, open_balance,
+  total_charges, total_credits, open_amount, status,
+  manual_totals_json, statement_total_from_file,
+  total_payments_from_file, lines_computed_total
+) values
+  (
+    '69000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    '39000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    'legacy-2026-08-a', '2026-08', 2026, 8, '2026-08-28',
+    '["49000000-0000-0000-0000-000000000001"]',
+    329.90, 329.90, 399.90, 0, 329.90, 0, 0, 'paid',
+    '{"use_manual":true,"statement_total":449.90,"user_note":"preservar"}',
+    449.90, 399.90, 449.90
+  ),
+  (
+    '69000000-0000-0000-0000-000000000002',
+    '19000000-0000-0000-0000-000000000001',
+    '39000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    'legacy-2026-08-b', '2026-08', 2026, 8, '2026-08-28',
+    '["49000000-0000-0000-0000-000000000002"]',
+    120.00, 120.00, 0, 120.00, 120.00, 0, 120.00, 'open',
+    null, null, null, null
+  );
+
+insert into public.credit_card_entries (
+  id, user_id, card_id, account_id, import_lot_id, source_file_name,
+  source_row_index, source_row_hash, transaction_id, statement_id,
+  posted_date, amount, abs_amount, direction, entry_type
+) values
+  (
+    '79000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    '39000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '49000000-0000-0000-0000-000000000001', 'lote-a.csv', 1, 'hash-a',
+    '59000000-0000-0000-0000-000000000001',
+    '69000000-0000-0000-0000-000000000001',
+    '2026-08-02', -329.90, 329.90, 'debit', 'purchase'
+  ),
+  (
+    '79000000-0000-0000-0000-000000000002',
+    '19000000-0000-0000-0000-000000000001',
+    '39000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '49000000-0000-0000-0000-000000000002', 'lote-b.csv', 1, 'hash-b',
+    '59000000-0000-0000-0000-000000000002',
+    '69000000-0000-0000-0000-000000000002',
+    '2026-08-05', -120.00, 120.00, 'debit', 'purchase'
+  );
+
+insert into public.credit_card_statement_items (
+  id, user_id, account_id, statement_id, transaction_id, entry_id,
+  item_type, amount, posted_date
+) values
+  (
+    '89000000-0000-0000-0000-000000000001',
+    '19000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '69000000-0000-0000-0000-000000000001',
+    '59000000-0000-0000-0000-000000000001',
+    '79000000-0000-0000-0000-000000000001',
+    'charge', 329.90, '2026-08-02'
+  ),
+  (
+    '89000000-0000-0000-0000-000000000002',
+    '19000000-0000-0000-0000-000000000001',
+    '29000000-0000-0000-0000-000000000001',
+    '69000000-0000-0000-0000-000000000002',
+    '59000000-0000-0000-0000-000000000002',
+    '79000000-0000-0000-0000-000000000002',
+    'charge', 120.00, '2026-08-05'
+  );
+
+insert into public.credit_card_payments (
+  id, user_id, card_id, statement_id, payment_transaction_id,
+  payment_date, amount, source, notes
+) values (
+  '99000000-0000-0000-0000-000000000001',
+  '19000000-0000-0000-0000-000000000001',
+  '39000000-0000-0000-0000-000000000001',
+  '69000000-0000-0000-0000-000000000001',
+  '59000000-0000-0000-0000-000000000003',
+  '2026-08-20', 399.90, 'imported_statement', 'pagamento preservado'
+);
+
+select set_config('request.jwt.claim.sub', '19000000-0000-0000-0000-000000000001', true);
+
+do $$
+declare
+  before_revision text;
+  after_revision text;
+  conservation_result jsonb;
+  rollback_result jsonb;
+  snapshot_id uuid;
+  composite_id uuid;
+  correct_composite jsonb := jsonb_build_object(
+    'statementKey', '2026-08',
+    'purchaseReferenceMonth', '2026-08',
+    'dueDate', '2026-08-28',
+    'dueYear', 2026,
+    'dueMonth', 8,
+    'status', 'paid',
+    'entryCount', 2,
+    'totalPurchasesCents', 44990,
+    'totalFeesCents', 0,
+    'totalInterestCents', 0,
+    'totalRefundsCents', 0,
+    'statementTotalCents', 44990,
+    'totalPaymentsCents', 39990,
+    'openBalanceCents', 5000,
+    'manualTotalsJson', jsonb_build_object(
+      'use_manual', true,
+      'statement_total', 449.90,
+      'user_note', 'preservar'
+    ),
+    'statementTotalFromFileCents', 44990,
+    'totalPaymentsFromFileCents', 39990,
+    'linesComputedTotalCents', 44990
+  );
+begin
+  before_revision := public.get_credit_card_projection_revision(
+    '29000000-0000-0000-0000-000000000001'
+  );
+
+  -- A flag dedicada nasce fail-closed e não herda a flag antiga da Sprint 2C.
+  update auth.users
+  set raw_app_meta_data = '{}'
+  where id = '19000000-0000-0000-0000-000000000001';
+  begin
+    perform public.conserve_credit_card_statement_duplicates_atomic_v1(
+      '29000000-0000-0000-0000-000000000001', before_revision,
+      'shadow-v1-05712d54', '2026-08',
+      array[
+        '69000000-0000-0000-0000-000000000001'::uuid,
+        '69000000-0000-0000-0000-000000000002'::uuid
+      ], 2, 1, correct_composite
+    );
+    raise exception 'A função ignorou a flag dedicada.';
+  exception when others then
+    if sqlerrm = 'A função ignorou a flag dedicada.' then raise; end if;
+  end;
+  update auth.users
+  set raw_app_meta_data = '{"atomic_card_statement_conservation_enabled":true}'
+  where id = '19000000-0000-0000-0000-000000000001';
+
+  -- Revisão obsoleta, grupo incompleto e metadado divergente falham sem escrita.
+  begin
+    perform public.conserve_credit_card_statement_duplicates_atomic_v1(
+      '29000000-0000-0000-0000-000000000001', repeat('b', 32),
+      'shadow-v1-05712d54', '2026-08',
+      array[
+        '69000000-0000-0000-0000-000000000001'::uuid,
+        '69000000-0000-0000-0000-000000000002'::uuid
+      ], 2, 1, correct_composite
+    );
+    raise exception 'A função aceitou revisão obsoleta.';
+  exception when others then
+    if sqlerrm = 'A função aceitou revisão obsoleta.' then raise; end if;
+  end;
+
+  begin
+    perform public.conserve_credit_card_statement_duplicates_atomic_v1(
+      '29000000-0000-0000-0000-000000000001', before_revision,
+      'shadow-v1-05712d54', '2026-08',
+      array[
+        '69000000-0000-0000-0000-000000000001'::uuid,
+        '69000000-0000-0000-0000-000000000002'::uuid
+      ], 2, 1,
+      jsonb_set(correct_composite, '{statementTotalFromFileCents}', '44991'::jsonb)
+    );
+    raise exception 'A função aceitou metadado protegido divergente.';
+  exception when others then
+    if sqlerrm = 'A função aceitou metadado protegido divergente.' then raise; end if;
+  end;
+
+  if (select count(*) from public.credit_card_statements
+      where account_id = '29000000-0000-0000-0000-000000000001') <> 2
+     or (select count(*) from public.credit_card_statement_conservation_snapshots
+         where account_id = '29000000-0000-0000-0000-000000000001') <> 0 then
+    raise exception 'Uma tentativa recusada deixou estado parcial.';
+  end if;
+
+  -- Falha induzida depois do INSERT do snapshot deve reverter a subtransação toda.
+  create or replace function public.sprint2o_forced_failure()
+  returns trigger language plpgsql as $trigger$
+  begin
+    if new.source_origin = 'atomic_statement_conservation' then
+      raise exception 'falha induzida sprint 2o';
+    end if;
+    return new;
+  end;
+  $trigger$;
+  create trigger sprint2o_forced_failure_trigger
+  before insert on public.credit_card_statements
+  for each row execute procedure public.sprint2o_forced_failure();
+
+  begin
+    perform public.conserve_credit_card_statement_duplicates_atomic_v1(
+      '29000000-0000-0000-0000-000000000001', before_revision,
+      'shadow-v1-05712d54', '2026-08',
+      array[
+        '69000000-0000-0000-0000-000000000001'::uuid,
+        '69000000-0000-0000-0000-000000000002'::uuid
+      ], 2, 1, correct_composite
+    );
+    raise exception 'A falha induzida não interrompeu a função.';
+  exception when others then
+    if sqlerrm = 'A falha induzida não interrompeu a função.' then raise; end if;
+  end;
+  drop trigger sprint2o_forced_failure_trigger on public.credit_card_statements;
+  drop function public.sprint2o_forced_failure();
+
+  if (select count(*) from public.credit_card_statements
+      where account_id = '29000000-0000-0000-0000-000000000001') <> 2
+     or (select count(*) from public.credit_card_statement_conservation_snapshots
+         where account_id = '29000000-0000-0000-0000-000000000001') <> 0
+     or public.get_credit_card_projection_revision(
+       '29000000-0000-0000-0000-000000000001'
+     ) <> before_revision then
+    raise exception 'A falha induzida não foi atômica.';
+  end if;
+
+  conservation_result := public.conserve_credit_card_statement_duplicates_atomic_v1(
+    '29000000-0000-0000-0000-000000000001', before_revision,
+    'shadow-v1-05712d54', '2026-08',
+    array[
+      '69000000-0000-0000-0000-000000000001'::uuid,
+      '69000000-0000-0000-0000-000000000002'::uuid
+    ], 2, 1, correct_composite
+  );
+  snapshot_id := (conservation_result->>'snapshot_id')::uuid;
+  select s.composite_statement_id into composite_id
+  from public.credit_card_statement_conservation_snapshots s
+  where s.id = snapshot_id;
+  after_revision := conservation_result->>'after_revision';
+
+  if (conservation_result->>'source_statements')::integer <> 2
+     or (conservation_result->>'entries_relinked')::integer <> 2
+     or (conservation_result->>'legacy_items_relinked')::integer <> 2
+     or (conservation_result->>'payments_relinked')::integer <> 1 then
+    raise exception 'A conservação não confirmou todas as cardinalidades.';
+  end if;
+  if (select count(*) from public.credit_card_statements
+      where account_id = '29000000-0000-0000-0000-000000000001') <> 1
+     or (select count(*) from public.transactions
+         where "ID_Conta" = '29000000-0000-0000-0000-000000000001') <> 3
+     or (select count(*) from public.credit_card_entries
+         where statement_id = composite_id) <> 2
+     or (select count(*) from public.credit_card_statement_items
+         where statement_id = composite_id) <> 2
+     or (select count(*) from public.credit_card_payments
+         where statement_id = composite_id) <> 1 then
+    raise exception 'A conservação alterou cardinalidades financeiras.';
+  end if;
+  if not exists (
+    select 1 from public.credit_card_statements s
+    where s.id = composite_id
+      and s.statement_total = 449.90
+      and s.total_payments = 399.90
+      and s.open_balance = 50.00
+      and s.manual_totals_json =
+        '{"use_manual":true,"statement_total":449.90,"user_note":"preservar"}'::jsonb
+      and s.statement_total_from_file = 449.90
+      and s.total_payments_from_file = 399.90
+      and s.lines_computed_total = 449.90
+      and jsonb_array_length(s.source_import_lot_ids) = 2
+  ) then
+    raise exception 'A fatura composta não conservou valores e metadados.';
+  end if;
+
+  -- Idempotência: reaplicar o mesmo plano não pode produzir outra composta.
+  begin
+    perform public.conserve_credit_card_statement_duplicates_atomic_v1(
+      '29000000-0000-0000-0000-000000000001', before_revision,
+      'shadow-v1-05712d54', '2026-08',
+      array[
+        '69000000-0000-0000-0000-000000000001'::uuid,
+        '69000000-0000-0000-0000-000000000002'::uuid
+      ], 2, 1, correct_composite
+    );
+    raise exception 'A função permitiu reaplicação do mesmo plano.';
+  exception when others then
+    if sqlerrm = 'A função permitiu reaplicação do mesmo plano.' then raise; end if;
+  end;
+  if (select count(*) from public.credit_card_statements
+      where account_id = '29000000-0000-0000-0000-000000000001') <> 1 then
+    raise exception 'A reaplicação recusada alterou a cardinalidade.';
+  end if;
+
+  -- Isolamento: outro usuário não pode usar o snapshot.
+  perform set_config('request.jwt.claim.sub', '19000000-0000-0000-0000-000000000002', true);
+  begin
+    perform public.rollback_credit_card_statement_conservation_atomic_v1(snapshot_id);
+    raise exception 'Outro usuário conseguiu usar o snapshot.';
+  exception when others then
+    if sqlerrm = 'Outro usuário conseguiu usar o snapshot.' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', '19000000-0000-0000-0000-000000000001', true);
+
+  -- Uma mudança posterior bloqueia rollback; desfazê-la permite o rollback exato.
+  update public.credit_card_statements set status = 'closed' where id = composite_id;
+  begin
+    perform public.rollback_credit_card_statement_conservation_atomic_v1(snapshot_id);
+    raise exception 'Rollback ignorou uma revisão posterior.';
+  exception when others then
+    if sqlerrm = 'Rollback ignorou uma revisão posterior.' then raise; end if;
+  end;
+  update public.credit_card_statements set status = 'paid' where id = composite_id;
+  if public.get_credit_card_projection_revision(
+       '29000000-0000-0000-0000-000000000001'
+     ) <> after_revision then
+    raise exception 'A revisão posterior não retornou ao estado conservado.';
+  end if;
+
+  rollback_result := public.rollback_credit_card_statement_conservation_atomic_v1(snapshot_id);
+  if not (rollback_result->>'rolled_back')::boolean
+     or (rollback_result->>'restored_statements')::integer <> 2
+     or (rollback_result->>'restored_entries')::integer <> 2
+     or (rollback_result->>'restored_legacy_items')::integer <> 2
+     or (rollback_result->>'restored_payments')::integer <> 1 then
+    raise exception 'O rollback não confirmou a restauração integral.';
+  end if;
+  if public.get_credit_card_projection_revision(
+       '29000000-0000-0000-0000-000000000001'
+     ) <> before_revision then
+    raise exception 'O rollback não restaurou a revisão exata.';
+  end if;
+  if (select count(*) from public.credit_card_statements
+      where id in (
+        '69000000-0000-0000-0000-000000000001',
+        '69000000-0000-0000-0000-000000000002'
+      )) <> 2
+     or exists (select 1 from public.credit_card_statements where id = composite_id)
+     or not exists (
+       select 1 from public.credit_card_entries
+       where id = '79000000-0000-0000-0000-000000000001'
+         and statement_id = '69000000-0000-0000-0000-000000000001'
+     )
+     or not exists (
+       select 1 from public.credit_card_statement_items
+       where id = '89000000-0000-0000-0000-000000000002'
+         and statement_id = '69000000-0000-0000-0000-000000000002'
+     )
+     or not exists (
+       select 1 from public.credit_card_payments
+       where id = '99000000-0000-0000-0000-000000000001'
+         and statement_id = '69000000-0000-0000-0000-000000000001'
+     ) then
+    raise exception 'O rollback não restaurou as identidades físicas exatas.';
+  end if;
+
+  begin
+    perform public.rollback_credit_card_statement_conservation_atomic_v1(snapshot_id);
+    raise exception 'O mesmo snapshot foi revertido duas vezes.';
+  exception when others then
+    if sqlerrm = 'O mesmo snapshot foi revertido duas vezes.' then raise; end if;
+  end;
+end;
+$$;
+
+do $$
+begin
+  if not (select relrowsecurity from pg_class
+          where oid = 'public.credit_card_statement_conservation_snapshots'::regclass) then
+    raise exception 'RLS não está habilitada no snapshot.';
+  end if;
+  if has_table_privilege(
+       'authenticated', 'public.credit_card_statement_conservation_snapshots', 'INSERT'
+     ) then
+    raise exception 'Authenticated recebeu escrita direta no snapshot.';
+  end if;
+  if has_function_privilege(
+       'anon',
+       'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)',
+       'EXECUTE'
+     ) then
+    raise exception 'Anon recebeu execução do RPC de conservação.';
+  end if;
+  if not has_function_privilege(
+       'authenticated',
+       'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)',
+       'EXECUTE'
+     ) then
+    raise exception 'Authenticated não recebeu execução controlada do RPC.';
+  end if;
+  if position(
+       'pg_advisory_xact_lock' in pg_get_functiondef(
+         'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure
+       )
+     ) = 0 then
+    raise exception 'O RPC não contém lock transacional por conta.';
+  end if;
+end;
+$$;
+
+rollback;

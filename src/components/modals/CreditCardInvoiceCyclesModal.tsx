@@ -85,6 +85,11 @@ import {
   type AtomicCardStatementConservationPlanRecommendationCode,
   type AtomicCardStatementConservationPlanStatus,
 } from '../../domain/credit-card/atomicRebuildStatementConservationPlan';
+import {
+  prepareAtomicCardStatementConservationExecution,
+  type AtomicCardStatementConservationExecutionBlockerCode,
+  type AtomicCardStatementConservationExecutionStatus,
+} from '../../domain/credit-card/atomicRebuildStatementConservationExecution';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -455,6 +460,31 @@ const STATEMENT_CONSERVATION_PLAN_RECOMMENDATION_LABELS: Record<AtomicCardStatem
   'review-upstream-conservation-evidence': 'Revisar as evidências anteriores antes de transformar este desenho em implementação transacional.',
   'implement-transactional-rpc-in-later-sprint': 'Uma Sprint posterior poderá implementar a operação no banco, ainda com migration e piloto separados.',
   'keep-writes-disabled': 'Manter reparos, ativações, exclusões, mesclas e migrations desabilitados nesta Sprint.',
+};
+
+const STATEMENT_CONSERVATION_EXECUTION_STATUS_LABELS: Record<AtomicCardStatementConservationExecutionStatus, string> = {
+  'no-duplicates': 'nenhuma duplicidade exige consolidação',
+  'contract-ready': 'contrato transacional preparado para homologação',
+  blocked: 'contrato bloqueado por evidências incompletas ou conflitantes',
+};
+
+const STATEMENT_CONSERVATION_EXECUTION_BLOCKER_LABELS: Record<AtomicCardStatementConservationExecutionBlockerCode, string> = {
+  'upstream-plan-not-ready': 'o plano reversível anterior não está pronto ou pertence a outra auditoria',
+  'invalid-persisted-revision': 'a revisão opaca persistida não possui formato válido',
+  'invalid-shadow-checksum': 'o checksum da reconstrução sombra não possui formato válido',
+  'multiple-groups-require-separate-audits': 'há mais de uma competência duplicada; cada grupo exige auditoria e transação separadas',
+  'duplicate-group-cardinality-mismatch': 'a quantidade de faturas físicas não coincide com o plano revisado',
+  'missing-source-identities': 'uma fatura física não possui identidade única verificável',
+  'mixed-card-group': 'as linhas duplicadas não pertencem inequivocamente ao mesmo cartão',
+  'missing-shadow-statement': 'a competência duplicada não possui fatura correspondente na sombra',
+  'ambiguous-shadow-statement': 'a sombra possui mais de uma fatura para a mesma competência',
+  'multiple-manual-payloads': 'mais de uma linha contém payload manual protegido',
+  'missing-manual-payload': 'há indicação de metadado manual, mas o conteúdo protegido não foi recuperado',
+  'conflicting-official-statement-totals': 'os totais oficiais de fatura entram em conflito',
+  'conflicting-official-payment-totals': 'os totais oficiais de pagamento entram em conflito',
+  'conflicting-computed-line-totals': 'os totais calculados das linhas entram em conflito',
+  'unknown-protected-metadata': 'há metadado protegido cuja origem não pode ser conservada com segurança',
+  'upstream-link-count-mismatch': 'as contagens atuais de vínculos não coincidem com o plano revisado',
 };
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
@@ -1128,6 +1158,20 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           })
         : null,
     [shadowAudit, shadowAuditStatementConservationDryRun]
+  );
+
+  const shadowAuditStatementConservationExecution = useMemo(
+    () =>
+      shadowAudit && shadowAuditStatementConservationPlan
+        ? prepareAtomicCardStatementConservationExecution({
+            shadow: shadowAudit.shadow,
+            persisted: shadowAudit.persisted,
+            comparison: shadowAudit.comparison,
+            conservationPlan: shadowAuditStatementConservationPlan,
+            persistedRevision: shadowAudit.persistedRevision,
+          }).report
+        : null,
+    [shadowAudit, shadowAuditStatementConservationPlan]
   );
 
   const statementConservationBlocksActivation =
@@ -3479,6 +3523,92 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                       <li key={code}>{STATEMENT_CONSERVATION_PLAN_RECOMMENDATION_LABELS[code]}</li>
                     ))}
                   </ul>
+                </div>
+              </div>
+            )}
+            {engineOn && shadowAuditStatementConservationExecution && (
+              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2O — contrato transacional de conservação</p>
+                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                    prévia agregada · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {STATEMENT_CONSERVATION_EXECUTION_STATUS_LABELS[shadowAuditStatementConservationExecution.status]}
+                  </strong>.
+                  {' '}Este painel não contém identidades, não chama o executor e não altera dados. A operação de banco exige flag dedicada, revisão e checksum válidos, snapshot integral e uma única competência por transação.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos preparados / duplicados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStatementConservationExecution.preparedGroupCount} / {shadowAuditStatementConservationExecution.duplicateGroupCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Faturas físicas de origem</p>
+                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                      {shadowAuditStatementConservationExecution.sourceStatementCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Vínculos de itens / pagamentos</p>
+                    <p className="mt-1 text-base font-semibold text-violet-200">
+                      {shadowAuditStatementConservationExecution.expectedEntryLinkCount} / {shadowAuditStatementConservationExecution.expectedPaymentLinkCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Travas de banco preparadas</p>
+                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                      {shadowAuditStatementConservationExecution.preparedDatabaseGuardCount} / {shadowAuditStatementConservationExecution.requiredDatabaseGuardCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                    <p className="font-semibold text-cyan-100">Conservação e isolamento</p>
+                    <p className="mt-1 text-slate-300">
+                      Metadados protegidos localizados: {shadowAuditStatementConservationExecution.protectedMetadataSourceCount} · revisão vinculada: {shadowAuditStatementConservationExecution.revisionBound ? 'sim' : 'não'} · checksum vinculado: {shadowAuditStatementConservationExecution.checksumBound ? 'sim' : 'não'}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Cada usuário e cartão são novamente validados dentro da transação protegida por lock.
+                    </p>
+                  </div>
+                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p className="font-semibold text-sky-100">Snapshot e rollback</p>
+                    <p className="mt-1 text-slate-300">
+                      Vínculos legados incluídos no snapshot: {shadowAuditStatementConservationExecution.snapshotIncludesLegacyItemLinks ? 'sim' : 'não'} · rollback condicionado à revisão posterior: {shadowAuditStatementConservationExecution.rollbackRequiresAfterRevision ? 'sim' : 'não'}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      A recuperação permanece disponível mesmo com a flag de aplicação desligada.
+                    </p>
+                  </div>
+                </div>
+
+                {shadowAuditStatementConservationExecution.blockerCodes.length > 0 && (
+                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p className="font-semibold text-amber-100">Travas que impedem a homologação transacional</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4 text-slate-300">
+                      {shadowAuditStatementConservationExecution.blockerCodes.map((code) => (
+                        <li key={code}>{STATEMENT_CONSERVATION_EXECUTION_BLOCKER_LABELS[code]}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                  <p>
+                    Apta para validar a migration no staging:{' '}
+                    <strong className={shadowAuditStatementConservationExecution.eligibleForStagingMigrationValidation ? 'text-emerald-300' : 'text-amber-300'}>
+                      {shadowAuditStatementConservationExecution.eligibleForStagingMigrationValidation ? 'sim' : 'não'}
+                    </strong>.
+                    {' '}Elegível para escrita por este painel: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationExecution.actualWriteOperationCount}</strong>.
+                  </p>
                 </div>
               </div>
             )}

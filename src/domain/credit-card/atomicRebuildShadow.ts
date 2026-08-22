@@ -106,6 +106,12 @@ export interface AtomicCardShadowProjection {
 }
 
 export interface PersistedAtomicCardStatement {
+  /** Identidade física usada somente pelo contrato privado de conservação. */
+  rowId?: string;
+  /** Um grupo só pode ser conservado quando todas as linhas pertencem ao mesmo cartão. */
+  cardId?: string | null;
+  /** Rótulo físico preservado apenas para snapshot/rollback. */
+  referenceLabel?: string | null;
   statementKey: string;
   dueDate: string | null;
   entryCount: number;
@@ -114,8 +120,11 @@ export interface PersistedAtomicCardStatement {
   openBalanceCents: number;
   hasProtectedMetadata?: boolean;
   manualTotalsPresent?: boolean;
+  /** Payload protegido, mantido em memória apenas para o RPC transacional. */
+  manualTotalsJson?: unknown;
   statementTotalFromFileCents?: number | null;
   totalPaymentsFromFileCents?: number | null;
+  linesComputedTotalCents?: number | null;
 }
 
 export interface PersistedAtomicCardEntry {

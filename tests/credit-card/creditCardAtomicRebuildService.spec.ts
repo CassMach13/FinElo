@@ -22,6 +22,7 @@ import {
   prepareAtomicCardShadowSource,
   type AtomicCardRebuildAuditResult,
 } from '../../src/services/creditCardAtomicRebuildService';
+import type { AtomicCardStatementConservationPlanReport } from '../../src/domain/credit-card/atomicRebuildStatementConservationPlan';
 
 const account: Account = {
   id: 'account-card',
@@ -46,6 +47,174 @@ const transaction: Transaction = {
   Origem: 'fatura-julho.csv',
   Fonte: 'Teste',
 };
+
+const statementConservationAudit = (
+  overrides: Partial<AtomicCardRebuildAuditResult> = {}
+): AtomicCardRebuildAuditResult => ({
+  shadow: {
+    version: 1,
+    accountId: account.id,
+    sourceCycleCount: 1,
+    sourceTransactionCount: 2,
+    projectedEntryCount: 1,
+    projectedPaymentCount: 1,
+    statements: [{
+      statementKey: '2026-08',
+      purchaseReferenceMonth: '2026-08',
+      dueDate: '2026-08-28',
+      dueYear: 2026,
+      dueMonth: 8,
+      status: 'paid',
+      sourceFiles: ['private.csv'],
+      entryCount: 1,
+      totalPurchasesCents: 44_990,
+      totalFeesCents: 0,
+      totalInterestCents: 0,
+      totalRefundsCents: 0,
+      statementTotalCents: 44_990,
+      totalPaymentsCents: 39_990,
+      openBalanceCents: 5_000,
+    }],
+    entries: [{
+      transactionId: 'private-entry-transaction',
+      sourceFileName: 'private.csv',
+      sourceRowHash: 'private-entry-hash',
+      statementKey: '2026-08',
+      postedDate: '2026-08-10',
+      amountCents: -44_990,
+      entryType: 'purchase',
+    }],
+    payments: [{
+      transactionId: 'private-payment-transaction',
+      sourceFileName: 'private.csv',
+      sourceRowHash: 'private-payment-hash',
+      statementKey: '2026-08',
+      paymentDate: '2026-08-20',
+      amountCents: 39_990,
+      source: 'imported_statement',
+    }],
+    issues: [],
+    blockers: [],
+    warnings: [],
+    safeToStage: false,
+    checksum: 'shadow-v1-05712d54',
+  },
+  persisted: {
+    source: 'engine',
+    statements: [
+      {
+        rowId: 'private-statement-a',
+        cardId: 'private-card',
+        referenceLabel: 'legacy-a',
+        statementKey: '2026-08',
+        dueDate: '2026-08-28',
+        entryCount: 1,
+        statementTotalCents: 44_990,
+        totalPaymentsCents: 39_990,
+        openBalanceCents: 5_000,
+        hasProtectedMetadata: true,
+        manualTotalsPresent: true,
+        manualTotalsJson: { use_manual: true },
+        statementTotalFromFileCents: 44_990,
+        totalPaymentsFromFileCents: 39_990,
+        linesComputedTotalCents: 44_990,
+      },
+      {
+        rowId: 'private-statement-b',
+        cardId: 'private-card',
+        referenceLabel: 'legacy-b',
+        statementKey: '2026-08',
+        dueDate: '2026-08-28',
+        entryCount: 0,
+        statementTotalCents: 44_990,
+        totalPaymentsCents: 0,
+        openBalanceCents: 44_990,
+      },
+    ],
+    entries: [{
+      rowId: 'private-entry-row',
+      transactionId: 'private-entry-transaction',
+      statementKey: '2026-08',
+      postedDate: '2026-08-10',
+      amountCents: -44_990,
+      entryType: 'purchase',
+    }],
+    payments: [{
+      rowId: 'private-payment-row',
+      transactionId: 'private-payment-transaction',
+      statementKey: '2026-08',
+      paymentDate: '2026-08-20',
+      amountCents: 39_990,
+      source: 'imported_statement',
+    }],
+  },
+  comparison: {
+    status: 'different',
+    safeToActivate: false,
+    duplicatePersistedTransactionIds: [],
+    repairablePersistedEntryRowIds: [],
+    conflictingDuplicatePersistedTransactionIds: [],
+    duplicatePersistedStatementKeys: ['2026-08'],
+    duplicatePersistedPaymentTransactionIds: [],
+    suspiciousPersistedPaymentEventKeys: [],
+    repairablePersistedPaymentRowIds: [],
+    protectedMetadataStatementKeys: ['2026-08'],
+    missingTransactionIds: [],
+    orphanTransactionIds: [],
+    changedTransactionIds: [],
+    missingStatementKeys: [],
+    orphanStatementKeys: [],
+    changedStatementKeys: [],
+    missingPaymentKeys: [],
+    orphanPaymentKeys: [],
+    changedPaymentTransactionIds: [],
+    structuralDifferenceCount: 1,
+    activationChangeCount: 0,
+    differenceCount: 1,
+  },
+  persistedRevision: 'a'.repeat(32),
+  ...overrides,
+});
+
+const statementConservationPlan = (): AtomicCardStatementConservationPlanReport => ({
+  version: 1,
+  privacy: 'aggregated-no-identifiers',
+  nonAuthoritative: true,
+  executable: false,
+  mutationPayloadIncluded: false,
+  actualWriteOperationCount: 0,
+  checksum: 'shadow-v1-05712d54',
+  status: 'plan-ready',
+  duplicateGroupCount: 1,
+  locatedGroupCount: 1,
+  sourceStatementRecordCount: 2,
+  plannedCompositeStatementCount: 1,
+  plannedStatementReplacementCount: 2,
+  plannedDuplicateExcessResolutionCount: 1,
+  expectedStatementRecordCountAfter: 1,
+  affectedEntryLinkCount: 1,
+  affectedPaymentLinkCount: 1,
+  snapshotStatementRecordCount: 2,
+  snapshotEntryLinkCount: 1,
+  snapshotPaymentLinkCount: 1,
+  rollbackRemoveCompositeCount: 1,
+  rollbackRestoreStatementRecordCount: 2,
+  rollbackRestoreEntryLinkCount: 1,
+  rollbackRestorePaymentLinkCount: 1,
+  protectedMetadataGroupCount: 1,
+  protectedMetadataLossCount: 0,
+  plannedFinancialValueChangeCount: 0,
+  plannedTransactionRecordChangeCount: 0,
+  requiredGuardCount: 6,
+  designedGuardCount: 6,
+  executableGuardCount: 0,
+  revisionGuardBound: true,
+  rollbackCardinalityBalanced: true,
+  eligibleForFutureTransactionalImplementation: true,
+  eligibleForWrite: false,
+  blockerProfiles: [],
+  recommendationCodes: ['implement-transactional-rpc-in-later-sprint', 'keep-writes-disabled'],
+});
 
 describe('creditCardAtomicRebuildService.audit', () => {
   beforeEach(() => {
@@ -463,6 +632,141 @@ describe('creditCardAtomicRebuildService.audit', () => {
         postRepairAudit,
       })
     );
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
+  it('conserva somente o grupo duplicado re-auditado e verifica a cardinalidade posterior', async () => {
+    const expectedAudit = statementConservationAudit();
+    const compositeStatement = {
+      ...expectedAudit.persisted.statements[0],
+      rowId: 'private-composite',
+      referenceLabel: '2026-08',
+    };
+    const postAudit = statementConservationAudit({
+      persisted: {
+        ...expectedAudit.persisted,
+        statements: [compositeStatement],
+      },
+      comparison: {
+        ...expectedAudit.comparison,
+        duplicatePersistedStatementKeys: [],
+      },
+      persistedRevision: 'b'.repeat(32),
+    });
+
+    vi.spyOn(
+      creditCardAtomicRebuildService,
+      'isStatementConservationEnabled'
+    ).mockResolvedValue(true);
+    vi.spyOn(creditCardAtomicRebuildService, 'audit')
+      .mockResolvedValueOnce(expectedAudit)
+      .mockResolvedValueOnce(postAudit);
+    mocks.rpc.mockResolvedValueOnce({
+      data: {
+        snapshot_id: 'private-snapshot',
+        before_revision: 'a'.repeat(32),
+        after_revision: 'b'.repeat(32),
+        source_statements: 2,
+        entries_relinked: 1,
+        legacy_items_relinked: 1,
+        payments_relinked: 1,
+      },
+      error: null,
+    });
+
+    const result = await creditCardAtomicRebuildService.conserveDuplicateStatementGroup(
+      { account, cycles: [], transactions: [] },
+      expectedAudit,
+      statementConservationPlan()
+    );
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'conserve_credit_card_statement_duplicates_atomic_v1',
+      expect.objectContaining({
+        p_account_id: account.id,
+        p_expected_revision: 'a'.repeat(32),
+        p_shadow_checksum: 'shadow-v1-05712d54',
+        p_statement_key: '2026-08',
+        p_source_statement_ids: ['private-statement-a', 'private-statement-b'],
+        p_expected_entry_link_count: 1,
+        p_expected_payment_link_count: 1,
+        p_composite: expect.objectContaining({
+          statementKey: '2026-08',
+          statementTotalCents: 44_990,
+          totalPaymentsCents: 39_990,
+          manualTotalsJson: { use_manual: true },
+        }),
+      })
+    );
+    expect(result).toEqual(expect.objectContaining({
+      snapshotId: 'private-snapshot',
+      sourceStatements: 2,
+      compositeStatements: 1,
+      entriesRelinked: 1,
+      legacyItemsRelinked: 1,
+      paymentsRelinked: 1,
+      postConservationAudit: postAudit,
+    }));
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
+  it('falha fechado antes do RPC quando a revisão mudou depois da auditoria exibida', async () => {
+    const expectedAudit = statementConservationAudit();
+    const changedAudit = statementConservationAudit({
+      persistedRevision: 'b'.repeat(32),
+    });
+    vi.spyOn(
+      creditCardAtomicRebuildService,
+      'isStatementConservationEnabled'
+    ).mockResolvedValue(true);
+    vi.spyOn(creditCardAtomicRebuildService, 'audit').mockResolvedValueOnce(changedAudit);
+
+    await expect(
+      creditCardAtomicRebuildService.conserveDuplicateStatementGroup(
+        { account, cycles: [], transactions: [] },
+        expectedAudit,
+        statementConservationPlan()
+      )
+    ).rejects.toThrow('mudou depois da auditoria exibida');
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('mapeia o rollback de conservação sem executar mutações pelo cliente', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: {
+        snapshot_id: 'private-snapshot',
+        account_id: account.id,
+        restored_revision: 'a'.repeat(32),
+        restored_statements: 2,
+        restored_entries: 3,
+        restored_legacy_items: 2,
+        restored_payments: 1,
+        rolled_back: true,
+      },
+      error: null,
+    });
+
+    await expect(
+      creditCardAtomicRebuildService.rollbackStatementConservation('private-snapshot')
+    ).resolves.toEqual({
+      snapshotId: 'private-snapshot',
+      accountId: account.id,
+      restoredRevision: 'a'.repeat(32),
+      restoredStatements: 2,
+      restoredEntries: 3,
+      restoredLegacyItems: 2,
+      restoredPayments: 1,
+      rolledBack: true,
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'rollback_credit_card_statement_conservation_atomic_v1',
+      { p_snapshot_id: 'private-snapshot' }
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 });
