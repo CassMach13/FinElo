@@ -51,9 +51,13 @@ try {
     }
 
     $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-    $directoryAcl = [System.Security.AccessControl.DirectorySecurity]::new()
-    $directoryAcl.SetOwner($currentSid)
-    $directoryAcl.SetAccessRuleProtection($true, $false)
+    $directoryAcl = Get-Acl -LiteralPath $parent
+    $directoryOwnerSid = $directoryAcl.GetOwner(
+        [System.Security.Principal.SecurityIdentifier]
+    )
+    if (-not $directoryOwnerSid.Equals($currentSid)) {
+        throw 'A pasta protegida não pertence à conta Windows atual.'
+    }
     $directoryRule = [System.Security.AccessControl.FileSystemAccessRule]::new(
         $currentSid,
         [System.Security.AccessControl.FileSystemRights]::FullControl,
@@ -61,8 +65,31 @@ try {
         [System.Security.AccessControl.PropagationFlags]::None,
         [System.Security.AccessControl.AccessControlType]::Allow
     )
-    $null = $directoryAcl.AddAccessRule($directoryRule)
-    Set-Acl -LiteralPath $parent -AclObject $directoryAcl
+    $directoryRules = @($directoryAcl.Access)
+    $directoryAclIsCompliant =
+        $directoryAcl.AreAccessRulesProtected -and
+        $directoryRules.Count -eq 1 -and
+        $directoryRules[0].IdentityReference.Translate(
+            [System.Security.Principal.SecurityIdentifier]
+        ).Equals($currentSid) -and
+        $directoryRules[0].AccessControlType -eq
+            [System.Security.AccessControl.AccessControlType]::Allow -and
+        $directoryRules[0].FileSystemRights -eq
+            [System.Security.AccessControl.FileSystemRights]::FullControl -and
+        $directoryRules[0].InheritanceFlags -eq
+            [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit' -and
+        $directoryRules[0].PropagationFlags -eq
+            [System.Security.AccessControl.PropagationFlags]::None -and
+        -not $directoryRules[0].IsInherited
+
+    if (-not $directoryAclIsCompliant) {
+        $directoryAcl.SetAccessRuleProtection($true, $false)
+        foreach ($existingRule in @($directoryAcl.Access)) {
+            $null = $directoryAcl.RemoveAccessRuleSpecific($existingRule)
+        }
+        $null = $directoryAcl.AddAccessRule($directoryRule)
+        Set-Acl -LiteralPath $parent -AclObject $directoryAcl
+    }
 
     $partial = $destination + '.partial'
     if (Test-Path -LiteralPath $partial) {
@@ -73,9 +100,17 @@ try {
         $cipherText = ConvertFrom-SecureString -SecureString $DatabaseUrl
         [IO.File]::WriteAllText($partial, ($cipherText + [Environment]::NewLine), [System.Text.UTF8Encoding]::new($false))
 
-        $fileAcl = [System.Security.AccessControl.FileSecurity]::new()
-        $fileAcl.SetOwner($currentSid)
+        $fileAcl = Get-Acl -LiteralPath $partial
+        $fileOwnerSid = $fileAcl.GetOwner(
+            [System.Security.Principal.SecurityIdentifier]
+        )
+        if (-not $fileOwnerSid.Equals($currentSid)) {
+            throw 'O arquivo parcial protegido não pertence à conta Windows atual.'
+        }
         $fileAcl.SetAccessRuleProtection($true, $false)
+        foreach ($existingRule in @($fileAcl.Access)) {
+            $null = $fileAcl.RemoveAccessRuleSpecific($existingRule)
+        }
         $fileRule = [System.Security.AccessControl.FileSystemAccessRule]::new(
             $currentSid,
             [System.Security.AccessControl.FileSystemRights]::FullControl,
