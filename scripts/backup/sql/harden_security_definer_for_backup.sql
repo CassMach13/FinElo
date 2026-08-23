@@ -4,19 +4,19 @@
 -- backup não será membro de anon/authenticated e, portanto, ficará sem acesso.
 
 revoke execute on function public.get_admin_crm_users() from public;
-grant execute on function public.get_admin_crm_users() to authenticated;
+grant execute on function public.get_admin_crm_users() to anon, authenticated, service_role;
 
 revoke execute on function public.get_admin_metrics() from public;
-grant execute on function public.get_admin_metrics() to authenticated;
+grant execute on function public.get_admin_metrics() to anon, authenticated, service_role;
 
 revoke execute on function public.get_founder_count() from public;
-grant execute on function public.get_founder_count() to anon, authenticated;
+grant execute on function public.get_founder_count() to anon, authenticated, service_role;
 
 revoke execute on function public.has_family_access(uuid) from public;
-grant execute on function public.has_family_access(uuid) to authenticated;
+grant execute on function public.has_family_access(uuid) to anon, authenticated, service_role;
 
 revoke execute on function public.is_premium(uuid) from public;
-grant execute on function public.is_premium(uuid) to authenticated;
+grant execute on function public.is_premium(uuid) to anon, authenticated, service_role;
 
 -- Critério pós-aplicação para o papel de backup:
 -- select count(*) = 0

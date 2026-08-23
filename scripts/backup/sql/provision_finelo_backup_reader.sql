@@ -11,24 +11,10 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'finelo_backup_reader') then
     create role finelo_backup_reader
       login
-      inherit
-      nosuperuser
-      nocreatedb
-      nocreaterole
-      noreplication
-      nobypassrls;
+      inherit;
   end if;
 end
 $provision$;
-
-alter role finelo_backup_reader
-  login
-  inherit
-  nosuperuser
-  nocreatedb
-  nocreaterole
-  noreplication
-  nobypassrls;
 
 alter role finelo_backup_reader set default_transaction_read_only = on;
 alter role finelo_backup_reader set statement_timeout = '15min';

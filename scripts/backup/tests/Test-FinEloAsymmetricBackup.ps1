@@ -58,6 +58,7 @@ $productionRecipientOutput = Join-Path $testRoot 'production-recipient-output'
 $protectedFingerprintFile = Join-Path $testRoot 'protected-source/recipient-fingerprint.sha256'
 $protectedFingerprintOutput = Join-Path $testRoot 'protected-fingerprint-output'
 $protectedDatabaseUrlFile = Join-Path $testRoot 'protected-credentials/readonly-db-url.dpapi'
+$protectedCredentialFile = Join-Path $testRoot 'protected-generated-credential/readonly-db-url.dpapi'
 $backupId = 'FinElo-Synthetic-20000101-000000-age-v1'
 
 try {
@@ -237,6 +238,32 @@ try {
     }
     $replacementSecureUrl.Dispose()
     $syntheticDatabaseUrl = ''
+
+    $syntheticGeneratedPasswordText = 'A' * 43
+    $syntheticGeneratedPassword = ConvertTo-SecureString `
+        -String $syntheticGeneratedPasswordText `
+        -AsPlainText `
+        -Force
+    $credentialInstall = & (Join-Path $backupRoot 'Install-FinEloProtectedReadOnlyCredential.ps1') `
+        -ProjectRef 'sxmmrnwbxntccscojmfh' `
+        -Password $syntheticGeneratedPassword `
+        -DestinationFile $protectedCredentialFile `
+        -RepositoryRoot $repositoryRoot
+    Assert-True -Condition ([bool]$credentialInstall.Installed) -Message 'instalador da credencial gerada falhou'
+    Assert-True -Condition (-not [bool]$credentialInstall.PasswordPrinted) -Message 'instalador declarou exposição da senha'
+    Assert-True -Condition (Test-Path -LiteralPath $protectedCredentialFile -PathType Leaf) -Message 'credencial gerada protegida ausente'
+    $generatedCredentialRoundTrip = Get-FinEloCurrentUserProtectedText `
+        -ProtectedFile $protectedCredentialFile `
+        -RepositoryRoot $repositoryRoot
+    try {
+        $expectedGeneratedUrl = 'postgresql://finelo_backup_reader.sxmmrnwbxntccscojmfh:{0}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require' -f $syntheticGeneratedPasswordText
+        Assert-True -Condition ($generatedCredentialRoundTrip -ceq $expectedGeneratedUrl) -Message 'URL montada pelo instalador diverge'
+    }
+    finally {
+        $generatedCredentialRoundTrip = ''
+        $expectedGeneratedUrl = ''
+        $syntheticGeneratedPasswordText = ''
+    }
 
     $invalidPreflight = [pscustomobject]@{
         current_user = 'finelo_backup_reader'

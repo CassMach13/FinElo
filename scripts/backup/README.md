@@ -14,9 +14,13 @@ integrado, ainda não ativado em produção e sem identidade privada no reposit�
 - `Install-FinEloAgeTool.ps1`: instala o `age` oficial com checksum pinado;
 - `Install-FinEloProtectedRecipientFingerprint.ps1`: cria a segunda fonte fora do Git;
 - `Set-FinEloProtectedReadOnlyDatabaseUrl.ps1`: guarda a URL leitora via DPAPI;
+- `Install-FinEloProtectedReadOnlyCredential.ps1`: recebe a senha de uso único,
+  monta a URL e a guarda via DPAPI sem imprimi-la;
 - `FinElo.Backup.psm1`: validações fail-closed;
 - `sql/provision_finelo_backup_reader.sql`: instalação manual do papel dedicado;
 - `sql/rollback_finelo_backup_installation.sql`: retorno ao estado anterior;
+- `sql/set_finelo_backup_reader_password_once.sql`: senha aleatória sem literal
+  sensível no histórico da consulta;
 - `tests/Test-FinEloAsymmetricBackup.ps1`: teste ponta a ponta sintético.
 
 ## Teste local
