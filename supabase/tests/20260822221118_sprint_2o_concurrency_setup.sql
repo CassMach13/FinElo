@@ -6,10 +6,12 @@ insert into auth.users (id, email, raw_app_meta_data) values (
   '{"atomic_card_statement_conservation_enabled":true}'
 );
 
-insert into public.contas (id, user_id, "Nome_Conta", "Tipo_Conta") values (
+insert into public.contas (
+  id, user_id, "Nome_Conta", "Tipo_Conta", "Saldo_Inicial", "Data_Saldo_Inicial"
+) values (
   '2a000000-0000-0000-0000-000000000001',
   '1a000000-0000-0000-0000-000000000001',
-  'Cartão Concorrência 2O', 'Cartão de Crédito'
+  'Cartão Concorrência 2O', 'Cartão de Crédito', 0, '2026-01-01'
 );
 
 insert into public.credit_cards (id, user_id, account_id, name, closing_day, due_day) values (

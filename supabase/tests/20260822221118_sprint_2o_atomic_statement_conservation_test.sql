@@ -14,11 +14,13 @@ insert into auth.users (id, email, raw_app_meta_data) values
     '{"atomic_card_statement_conservation_enabled":true}'
   );
 
-insert into public.contas (id, user_id, "Nome_Conta", "Tipo_Conta") values
+insert into public.contas (
+  id, user_id, "Nome_Conta", "Tipo_Conta", "Saldo_Inicial", "Data_Saldo_Inicial"
+) values
   (
     '29000000-0000-0000-0000-000000000001',
     '19000000-0000-0000-0000-000000000001',
-    'Cartão Sprint 2O', 'Cartão de Crédito'
+    'Cartão Sprint 2O', 'Cartão de Crédito', 0, '2026-01-01'
   );
 
 insert into public.credit_cards (id, user_id, account_id, name, closing_day, due_day) values
@@ -50,25 +52,25 @@ insert into public.credit_card_import_lots (
   );
 
 insert into public.transactions (
-  "ID_Transacao", user_id, "ID_Conta", "Data", "Valor"
+  "ID_Transacao", user_id, "ID_Conta", "Data", "Nome_Fantasia", "Valor"
 ) values
   (
     '59000000-0000-0000-0000-000000000001',
     '19000000-0000-0000-0000-000000000001',
     '29000000-0000-0000-0000-000000000001',
-    '2026-08-02T12:00:00Z', -329.90
+    '2026-08-02T12:00:00Z', 'Compra Sprint 2O A', -329.90
   ),
   (
     '59000000-0000-0000-0000-000000000002',
     '19000000-0000-0000-0000-000000000001',
     '29000000-0000-0000-0000-000000000001',
-    '2026-08-05T12:00:00Z', -120.00
+    '2026-08-05T12:00:00Z', 'Compra Sprint 2O B', -120.00
   ),
   (
     '59000000-0000-0000-0000-000000000003',
     '19000000-0000-0000-0000-000000000001',
     '29000000-0000-0000-0000-000000000001',
-    '2026-08-20T12:00:00Z', 399.90
+    '2026-08-20T12:00:00Z', 'Pagamento Sprint 2O', 399.90
   );
 
 insert into public.credit_card_statements (
