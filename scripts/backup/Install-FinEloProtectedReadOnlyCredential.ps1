@@ -26,11 +26,21 @@ if ($null -eq $Password) {
     $prompted = $true
 }
 
-$plainPassword = [System.Net.NetworkCredential]::new('', $Password).Password
+$plainPassword = [System.Net.NetworkCredential]::new('', $Password).Password.Trim()
 $secureDatabaseUrl = $null
 try {
+    if ($prompted) {
+        Set-Clipboard -Value 'clipboard-limpa'
+    }
+
+    if ($plainPassword.Length -eq 45 -and
+        (($plainPassword.StartsWith('"') -and $plainPassword.EndsWith('"')) -or
+         ($plainPassword.StartsWith("'") -and $plainPassword.EndsWith("'")))) {
+        $plainPassword = $plainPassword.Substring(1, 43)
+    }
+
     if ($plainPassword -notmatch '^[A-Za-z0-9_-]{43}$') {
-        throw 'A senha não corresponde ao formato de 43 caracteres da cerimônia.'
+        throw "O conteúdo recebido possui $($plainPassword.Length) caractere(s), mas a senha deve ter exatamente 43 caracteres alfanuméricos, '-' ou '_'. O conteúdo não foi exibido e o clipboard foi limpo."
     }
 
     $encodedPassword = [Uri]::EscapeDataString($plainPassword)
@@ -40,10 +50,6 @@ try {
         $PoolerHost,
         $Port
     $secureDatabaseUrl = ConvertTo-SecureString -String $databaseUrl -AsPlainText -Force
-
-    if ($prompted) {
-        Set-Clipboard -Value 'clipboard-limpa'
-    }
 
     $result = & (Join-Path $PSScriptRoot 'Set-FinEloProtectedReadOnlyDatabaseUrl.ps1') `
         -ExpectedProjectRef $ProjectRef `
