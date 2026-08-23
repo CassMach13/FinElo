@@ -292,7 +292,13 @@ function Get-FinEloDatabaseConnectionInfo {
         throw 'A conexão de backup deve usar o esquema postgresql://.'
     }
 
-    if (-not $uri.Host.EndsWith('.supabase.com', [StringComparison]::OrdinalIgnoreCase)) {
+    $isDirectSupabaseHost = $uri.Host.Equals(
+        "db.$ExpectedProjectRef.supabase.co",
+        [StringComparison]::OrdinalIgnoreCase
+    )
+    $isSharedPoolerHost = $uri.Host -match
+        '^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$'
+    if (-not $isDirectSupabaseHost -and -not $isSharedPoolerHost) {
         throw 'A conexão de backup deve apontar para um host oficial do Supabase.'
     }
 

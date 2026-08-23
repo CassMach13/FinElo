@@ -193,7 +193,7 @@ try {
         Get-FinEloRecipientInfo -RecipientFile $classicRecipientPath -CanonicalSha256 (Get-FinEloSha256Hex -Text $classicLine) | Out-Null
     }
     Assert-Throws -Pattern 'privilegiada' -Action {
-        Get-FinEloDatabaseConnectionInfo -DatabaseUrl 'postgresql://postgres:secret@db.sxmmrnwbxntccscojmfh.supabase.com:5432/postgres?sslmode=require' -ExpectedProjectRef 'sxmmrnwbxntccscojmfh' | Out-Null
+        Get-FinEloDatabaseConnectionInfo -DatabaseUrl 'postgresql://postgres:secret@db.sxmmrnwbxntccscojmfh.supabase.co:5432/postgres?sslmode=require' -ExpectedProjectRef 'sxmmrnwbxntccscojmfh' | Out-Null
     }
 
     $connection = Get-FinEloDatabaseConnectionInfo -DatabaseUrl 'postgresql://finelo_backup_reader.sxmmrnwbxntccscojmfh:secret@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require' -ExpectedProjectRef 'sxmmrnwbxntccscojmfh'
@@ -261,7 +261,7 @@ try {
         -ProtectedFile $protectedCredentialFile `
         -RepositoryRoot $repositoryRoot
     try {
-        $expectedGeneratedUrl = 'postgresql://finelo_backup_reader.sxmmrnwbxntccscojmfh:{0}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require' -f $syntheticGeneratedPasswordText
+        $expectedGeneratedUrl = 'postgresql://finelo_backup_reader:{0}@db.sxmmrnwbxntccscojmfh.supabase.co:5432/postgres?sslmode=require' -f $syntheticGeneratedPasswordText
         Assert-True -Condition ($generatedCredentialRoundTrip -ceq $expectedGeneratedUrl) -Message 'URL montada pelo instalador diverge'
     }
     finally {

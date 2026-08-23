@@ -8,8 +8,8 @@ param(
 
     [switch]$ReadFromClipboard,
 
-    [ValidatePattern('^aws-[0-9]+-sa-east-1\.pooler\.supabase\.com$')]
-    [string]$PoolerHost = 'aws-0-sa-east-1.pooler.supabase.com',
+    [ValidatePattern('^db\.[a-z0-9]{20}\.supabase\.co$')]
+    [string]$DatabaseHost = '',
 
     [ValidateRange(1, 65535)]
     [int]$Port = 5432,
@@ -24,6 +24,13 @@ $ErrorActionPreference = 'Stop'
 $prompted = $false
 $clipboardMode = $false
 $clipboardText = ''
+
+if ([string]::IsNullOrWhiteSpace($DatabaseHost)) {
+    $DatabaseHost = "db.$ProjectRef.supabase.co"
+}
+if ($DatabaseHost -cne "db.$ProjectRef.supabase.co") {
+    throw 'O host direto não corresponde ao project ref permitido.'
+}
 
 if ($ReadFromClipboard -and $null -ne $Password) {
     throw 'Use Password ou ReadFromClipboard, nunca os dois ao mesmo tempo.'
@@ -73,10 +80,9 @@ try {
     }
 
     $encodedPassword = [Uri]::EscapeDataString($plainPassword)
-    $databaseUrl = 'postgresql://finelo_backup_reader.{0}:{1}@{2}:{3}/postgres?sslmode=require' -f `
-        $ProjectRef,
+    $databaseUrl = 'postgresql://finelo_backup_reader:{0}@{1}:{2}/postgres?sslmode=require' -f `
         $encodedPassword,
-        $PoolerHost,
+        $DatabaseHost,
         $Port
     $secureDatabaseUrl = ConvertTo-SecureString -String $databaseUrl -AsPlainText -Force
 
@@ -91,7 +97,7 @@ try {
         File = [string]$result.File
         ProjectRef = $ProjectRef
         Role = 'finelo_backup_reader'
-        Host = $PoolerHost
+        Host = $DatabaseHost
         Port = $Port
         Storage = [string]$result.Storage
         PasswordPrinted = $false

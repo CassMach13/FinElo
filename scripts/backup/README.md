@@ -111,3 +111,6 @@ O instalador primeiro grava um marcador no clipboard e aguarda. Nesse momento,
 copie no SQL Editor a célula completa com o código agrupado, volte ao terminal e
 pressione Enter **sem colar**. O conteúdo é lido diretamente, convertido em
 `SecureString` e o clipboard é limpo antes da validação e da gravação DPAPI.
+O endereço gerado usa a conexão direta `db.<project-ref>.supabase.co:5432`,
+recomendada para `pg_dump`; o pooler compartilhado não é usado para autenticar
+o papel personalizado de backup.
