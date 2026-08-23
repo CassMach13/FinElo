@@ -1,5 +1,3 @@
-\set ON_ERROR_STOP on
-
 -- Cerimônia de uso único no SQL Editor do Supabase.
 -- A senha não aparece no texto da consulta nem é persistida em tabela.
 -- O resultado a mostra uma única vez para instalação imediata no DPAPI local.
