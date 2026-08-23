@@ -114,3 +114,7 @@ pressione Enter **sem colar**. O conteúdo é lido diretamente, convertido em
 O endereço gerado usa a conexão direta `db.<project-ref>.supabase.co:5432`,
 recomendada para `pg_dump`; o pooler compartilhado não é usado para autenticar
 o papel personalizado de backup.
+Quando o Docker Desktop não possui rota IPv6, o wrapper cria automaticamente
+um relay TLS opaco e efêmero, preso exclusivamente a `127.0.0.1`. Os containers
+acessam esse relay por `host.docker.internal`; nenhuma porta é aberta na LAN,
+nenhum segredo é registrado e o processo é encerrado no `finally`.

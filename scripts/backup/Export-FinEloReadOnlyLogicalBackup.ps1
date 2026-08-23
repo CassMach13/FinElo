@@ -20,6 +20,12 @@ param(
 
     [string[]]$SupabaseArgumentPrefix = @('--yes', 'supabase@2.115.0'),
 
+    [ValidatePattern('^(?:|host\.docker\.internal)$')]
+    [string]$TransportHost = '',
+
+    [ValidateRange(0, 65535)]
+    [int]$TransportPort = 0,
+
     [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
 
     [string]$StorageObjectExportDirectory = ''
@@ -60,10 +66,32 @@ if (-not (Test-Path -LiteralPath $PsqlPath -PathType Leaf)) {
 }
 
 $connectionInfo = Get-FinEloDatabaseConnectionInfo -DatabaseUrl $DatabaseUrl -ExpectedProjectRef $ProjectRef -ExpectedRole $ExpectedRole
-$redactionValues = @($DatabaseUrl, $connectionInfo.Password)
+$transportDatabaseUrl = $DatabaseUrl
+$preflightConnectionInfo = $connectionInfo
+if ([string]::IsNullOrWhiteSpace($TransportHost) -ne ($TransportPort -eq 0)) {
+    throw 'TransportHost e TransportPort devem ser informados juntos.'
+}
+if (-not [string]::IsNullOrWhiteSpace($TransportHost)) {
+    $transportDatabaseUrl = 'postgresql://{0}:{1}@{2}:{3}/{4}?sslmode=require' -f `
+        [Uri]::EscapeDataString($connectionInfo.UserName),
+        [Uri]::EscapeDataString($connectionInfo.Password),
+        $TransportHost,
+        $TransportPort,
+        [Uri]::EscapeDataString($connectionInfo.Database)
+    $preflightConnectionInfo = [pscustomobject]@{
+        Host = $TransportHost
+        Port = $TransportPort
+        Database = $connectionInfo.Database
+        UserName = $connectionInfo.UserName
+        Password = $connectionInfo.Password
+        ProjectRef = $connectionInfo.ProjectRef
+        OriginalUrl = $transportDatabaseUrl
+    }
+}
+$redactionValues = @($DatabaseUrl, $transportDatabaseUrl, $connectionInfo.Password)
 $preflight = Invoke-FinEloReadOnlyPreflight `
     -PsqlPath $PsqlPath `
-    -ConnectionInfo $connectionInfo `
+    -ConnectionInfo $preflightConnectionInfo `
     -ExpectedRole $ExpectedRole `
     -PsqlArgumentPrefix $PsqlArgumentPrefix
 Assert-FinEloStorageRecoveryReady -StorageObjectCount $preflight.StorageObjectCount -StorageObjectExportDirectory $StorageObjectExportDirectory
@@ -92,24 +120,24 @@ try {
     $authStorageChangesPath = Join-Path $databaseDirectory 'auth_storage_changes.sql'
 
     $null = Invoke-SupabaseBackupCommand -Operation 'Dump de papéis' -Arguments @(
-        'db', 'dump', '--db-url', $DatabaseUrl, '--file', $rolesPath, '--role-only'
+        'db', 'dump', '--db-url', $transportDatabaseUrl, '--file', $rolesPath, '--role-only'
     )
     $null = Invoke-SupabaseBackupCommand -Operation 'Dump de schema' -Arguments @(
-        'db', 'dump', '--db-url', $DatabaseUrl, '--file', $schemaPath
+        'db', 'dump', '--db-url', $transportDatabaseUrl, '--file', $schemaPath
     )
     $null = Invoke-SupabaseBackupCommand -Operation 'Dump de dados' -Arguments @(
-        'db', 'dump', '--db-url', $DatabaseUrl, '--file', $dataPath, '--use-copy', '--data-only',
+        'db', 'dump', '--db-url', $transportDatabaseUrl, '--file', $dataPath, '--use-copy', '--data-only',
         '--exclude', 'storage.buckets_vectors', '--exclude', 'storage.vector_indexes', '--exclude', 'vault.secrets'
     )
     $null = Invoke-SupabaseBackupCommand -Operation 'Dump do schema de histórico de migrations' -Arguments @(
-        'db', 'dump', '--db-url', $DatabaseUrl, '--file', $historySchemaPath, '--schema', 'supabase_migrations'
+        'db', 'dump', '--db-url', $transportDatabaseUrl, '--file', $historySchemaPath, '--schema', 'supabase_migrations'
     )
     $null = Invoke-SupabaseBackupCommand -Operation 'Dump dos dados de histórico de migrations' -Arguments @(
-        'db', 'dump', '--db-url', $DatabaseUrl, '--file', $historyDataPath, '--use-copy', '--data-only', '--schema', 'supabase_migrations'
+        'db', 'dump', '--db-url', $transportDatabaseUrl, '--file', $historyDataPath, '--use-copy', '--data-only', '--schema', 'supabase_migrations'
     )
 
     $authStorageDiff = Invoke-SupabaseBackupCommand -Operation 'Diff somente leitura de auth e storage' -Arguments @(
-        'db', 'diff', '--db-url', $DatabaseUrl, '--schema', 'auth,storage'
+        'db', 'diff', '--db-url', $transportDatabaseUrl, '--schema', 'auth,storage'
     )
     $diffText = $authStorageDiff.StdOut
     if ([string]::IsNullOrWhiteSpace($diffText)) {
@@ -161,9 +189,15 @@ try {
 }
 finally {
     $DatabaseUrl = ''
+    $transportDatabaseUrl = ''
     $redactionValues = @()
     if ($null -ne $connectionInfo) {
         $connectionInfo.Password = ''
         $connectionInfo.OriginalUrl = ''
+    }
+    if ($null -ne $preflightConnectionInfo -and
+        -not [object]::ReferenceEquals($preflightConnectionInfo, $connectionInfo)) {
+        $preflightConnectionInfo.Password = ''
+        $preflightConnectionInfo.OriginalUrl = ''
     }
 }

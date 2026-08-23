@@ -35,6 +35,12 @@ param(
 
     [string[]]$SupabaseArgumentPrefix = @('--yes', 'supabase@2.115.0'),
 
+    [ValidatePattern('^(?:|host\.docker\.internal)$')]
+    [string]$TransportHost = '',
+
+    [ValidateRange(0, 65535)]
+    [int]$TransportPort = 0,
+
     [string]$StorageObjectExportDirectory = '',
 
     [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -76,6 +82,8 @@ try {
         SupabaseArgumentPrefix = $SupabaseArgumentPrefix
         RepositoryRoot = $RepositoryRoot
         StorageObjectExportDirectory = $StorageObjectExportDirectory
+        TransportHost = $TransportHost
+        TransportPort = $TransportPort
     }
     $exportResult = & (Join-Path $PSScriptRoot 'Export-FinEloReadOnlyLogicalBackup.ps1') @exportParameters
     if ($exportResult.ReadOnlyPreflight -cne 'passed') {
