@@ -15,7 +15,8 @@ integrado, ainda não ativado em produção e sem identidade privada no reposit�
 - `Install-FinEloProtectedRecipientFingerprint.ps1`: cria a segunda fonte fora do Git;
 - `Set-FinEloProtectedReadOnlyDatabaseUrl.ps1`: guarda a URL leitora via DPAPI;
 - `Install-FinEloProtectedReadOnlyCredential.ps1`: recebe a senha de uso único,
-  monta a URL e a guarda via DPAPI sem imprimi-la;
+  inclusive pelo modo assistido de clipboard, monta a URL e a guarda via DPAPI
+  sem imprimi-la;
 - `FinElo.Backup.psm1`: validações fail-closed;
 - `sql/provision_finelo_backup_reader.sql`: instalação manual do papel dedicado;
 - `sql/rollback_finelo_backup_installation.sql`: retorno ao estado anterior;
@@ -97,6 +98,16 @@ A URL do papel leitor pode ser fornecida por variável apenas na primeira
 homologação ou instalada uma única vez em
 `%LOCALAPPDATA%\FinElo\Backup\readonly-db-url.dpapi`. O arquivo usa DPAPI da
 conta Windows atual, ACL sem herança e nunca é enviado ao Git, logs ou receipt.
-A senha do papel nunca é passada como argumento de processo: a instalação
-administrativa termina com `\password finelo_backup_reader` no prompt oculto do
-`psql`, e só depois a URL resultante é instalada por `SecureString` no DPAPI.
+A senha do papel nunca é passada como argumento de processo. Quando o terminal
+não permite colar corretamente em um prompt protegido, use o modo assistido:
+
+```powershell
+pwsh -NoProfile -File scripts/backup/Install-FinEloProtectedReadOnlyCredential.ps1 `
+  -ProjectRef '<project-ref permitido>' `
+  -ReadFromClipboard
+```
+
+O instalador primeiro grava um marcador no clipboard e aguarda. Nesse momento,
+copie no SQL Editor a célula completa com o código agrupado, volte ao terminal e
+pressione Enter **sem colar**. O conteúdo é lido diretamente, convertido em
+`SecureString` e o clipboard é limpo antes da validação e da gravação DPAPI.

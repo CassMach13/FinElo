@@ -6,6 +6,8 @@ param(
 
     [Security.SecureString]$Password,
 
+    [switch]$ReadFromClipboard,
+
     [ValidatePattern('^aws-[0-9]+-sa-east-1\.pooler\.supabase\.com$')]
     [string]$PoolerHost = 'aws-0-sa-east-1.pooler.supabase.com',
 
@@ -20,8 +22,31 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $prompted = $false
+$clipboardMode = $false
+$clipboardText = ''
 
-if ($null -eq $Password) {
+if ($ReadFromClipboard -and $null -ne $Password) {
+    throw 'Use Password ou ReadFromClipboard, nunca os dois ao mesmo tempo.'
+}
+
+if ($ReadFromClipboard) {
+    $clipboardMode = $true
+    Set-Clipboard -Value 'FINELO-AGUARDANDO-CODIGO'
+    try {
+        $null = Read-Host 'Agora vá ao SQL Editor, copie a célula completa, volte aqui e pressione Enter sem colar nada'
+        $clipboardText = Get-Clipboard -Raw
+        if ([string]::IsNullOrWhiteSpace($clipboardText) -or $clipboardText -ceq 'FINELO-AGUARDANDO-CODIGO') {
+            throw 'Nenhum código novo foi copiado do SQL Editor.'
+        }
+        $Password = ConvertTo-SecureString -String $clipboardText -AsPlainText -Force
+    }
+    finally {
+        Set-Clipboard -Value 'clipboard-limpa'
+        $clipboardText = ''
+    }
+    $prompted = $true
+}
+elseif ($null -eq $Password) {
     $Password = Read-Host 'Cole o código agrupado de 46 caracteres exibido pelo SQL Editor' -AsSecureString
     $prompted = $true
 }
@@ -71,12 +96,14 @@ try {
         Storage = [string]$result.Storage
         PasswordPrinted = $false
         ClipboardCleared = $prompted
+        ClipboardMode = $clipboardMode
     }
 }
 finally {
     $plainPassword = ''
     $encodedPassword = ''
     $databaseUrl = ''
+    $clipboardText = ''
     if ($null -ne $secureDatabaseUrl) {
         $secureDatabaseUrl.Dispose()
     }
