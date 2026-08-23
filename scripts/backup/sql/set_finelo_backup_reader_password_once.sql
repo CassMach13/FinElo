@@ -34,7 +34,12 @@ begin
 end
 $set_password$;
 
-select password as "COPIE_E_INSTALE_IMEDIATAMENTE_NO_DPAPI"
+select concat(
+  substr(password, 1, 11), '.',
+  substr(password, 12, 11), '.',
+  substr(password, 23, 11), '.',
+  substr(password, 34, 10)
+) as "CODIGO_AGRUPADO_COPIE_A_LINHA_COMPLETA"
 from finelo_reader_password_once;
 
 commit;

@@ -240,8 +240,13 @@ try {
     $syntheticDatabaseUrl = ''
 
     $syntheticGeneratedPasswordText = 'A' * 43
+    $syntheticGroupedPasswordText = '{0}.{1}.{2}.{3}' -f `
+        $syntheticGeneratedPasswordText.Substring(0, 11), `
+        $syntheticGeneratedPasswordText.Substring(11, 11), `
+        $syntheticGeneratedPasswordText.Substring(22, 11), `
+        $syntheticGeneratedPasswordText.Substring(33, 10)
     $syntheticGeneratedPassword = ConvertTo-SecureString `
-        -String $syntheticGeneratedPasswordText `
+        -String $syntheticGroupedPasswordText `
         -AsPlainText `
         -Force
     $credentialInstall = & (Join-Path $backupRoot 'Install-FinEloProtectedReadOnlyCredential.ps1') `
@@ -263,6 +268,7 @@ try {
         $generatedCredentialRoundTrip = ''
         $expectedGeneratedUrl = ''
         $syntheticGeneratedPasswordText = ''
+        $syntheticGroupedPasswordText = ''
     }
 
     $invalidPreflight = [pscustomobject]@{

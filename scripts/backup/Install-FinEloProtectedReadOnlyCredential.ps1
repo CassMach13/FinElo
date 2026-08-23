@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 $prompted = $false
 
 if ($null -eq $Password) {
-    $Password = Read-Host 'Cole somente a senha de 43 caracteres exibida pelo SQL Editor' -AsSecureString
+    $Password = Read-Host 'Cole o código agrupado de 46 caracteres exibido pelo SQL Editor' -AsSecureString
     $prompted = $true
 }
 
@@ -39,8 +39,12 @@ try {
         $plainPassword = $plainPassword.Substring(1, 43)
     }
 
+    if ($plainPassword -match '^[A-Za-z0-9_-]{11}\.[A-Za-z0-9_-]{11}\.[A-Za-z0-9_-]{11}\.[A-Za-z0-9_-]{10}$') {
+        $plainPassword = $plainPassword.Replace('.', '')
+    }
+
     if ($plainPassword -notmatch '^[A-Za-z0-9_-]{43}$') {
-        throw "O conteúdo recebido possui $($plainPassword.Length) caractere(s), mas a senha deve ter exatamente 43 caracteres alfanuméricos, '-' ou '_'. O conteúdo não foi exibido e o clipboard foi limpo."
+        throw "O conteúdo recebido possui $($plainPassword.Length) caractere(s). Era esperado o código agrupado de 46 caracteres com três pontos, ou a senha normalizada de 43 caracteres. O conteúdo não foi exibido e o clipboard foi limpo."
     }
 
     $encodedPassword = [Uri]::EscapeDataString($plainPassword)
