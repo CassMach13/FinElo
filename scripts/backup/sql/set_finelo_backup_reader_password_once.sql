@@ -6,10 +6,10 @@ begin;
 set local password_encryption = 'scram-sha-256';
 
 create temporary table finelo_reader_password_once (
-  password text not null
+  secret_value text not null
 ) on commit drop;
 
-insert into finelo_reader_password_once(password)
+insert into finelo_reader_password_once(secret_value)
 select translate(
   rtrim(encode(extensions.gen_random_bytes(32), 'base64'), '='),
   '+/',
@@ -20,7 +20,7 @@ do $set_password$
 declare
   generated_password text;
 begin
-  select password into strict generated_password
+  select secret_value into strict generated_password
   from finelo_reader_password_once;
 
   if generated_password !~ '^[A-Za-z0-9_-]{43}$' then
@@ -35,10 +35,10 @@ end
 $set_password$;
 
 select concat(
-  substr(password, 1, 11), '.',
-  substr(password, 12, 11), '.',
-  substr(password, 23, 11), '.',
-  substr(password, 34, 10)
+  substr(secret_value, 1, 11), '.',
+  substr(secret_value, 12, 11), '.',
+  substr(secret_value, 23, 11), '.',
+  substr(secret_value, 34, 10)
 ) as "CODIGO_AGRUPADO_COPIE_A_LINHA_COMPLETA"
 from finelo_reader_password_once;
 
