@@ -399,8 +399,18 @@ function Invoke-FinEloProcess {
         [string[]]$SensitiveValues = @()
     )
 
+    $resolvedFilePath = $FilePath
+    if (-not [IO.Path]::IsPathFullyQualified($resolvedFilePath)) {
+        $resolvedCommand = Get-Command `
+            -Name $resolvedFilePath `
+            -CommandType Application `
+            -ErrorAction Stop |
+            Select-Object -First 1
+        $resolvedFilePath = $resolvedCommand.Source
+    }
+
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $FilePath
+    $startInfo.FileName = $resolvedFilePath
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
