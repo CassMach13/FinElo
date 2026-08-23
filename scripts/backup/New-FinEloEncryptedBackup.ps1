@@ -15,6 +15,8 @@ param(
 
     [string]$CanonicalRecipientSha256 = $env:FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL,
 
+    [string]$CanonicalRecipientSha256File = $env:FINELO_BACKUP_RECIPIENT_SHA256_FILE,
+
     [Parameter(Mandatory)]
     [string]$AgePath,
 
@@ -89,9 +91,10 @@ if (-not (Test-Path -LiteralPath $AgeInspectPath -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $SevenZipPath -PathType Leaf)) {
     throw '7-Zip não foi encontrado.'
 }
-if ([string]::IsNullOrWhiteSpace($CanonicalRecipientSha256)) {
-    throw 'O fingerprint canônico deve vir de uma segunda fonte protegida; ele não pode ser inferido do repositório.'
-}
+$CanonicalRecipientSha256 = Get-FinEloCanonicalRecipientSha256 `
+    -ExplicitSha256 $CanonicalRecipientSha256 `
+    -ProtectedSha256File $CanonicalRecipientSha256File `
+    -RepositoryRoot $RepositoryRoot
 
 $requiredRelativePaths = @(
     'database/roles.sql',

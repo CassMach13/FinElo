@@ -1,7 +1,9 @@
 # Cerimônia da chave privada de backup
 
-Esta é a única etapa do novo fluxo que exige participação do responsável. Ela
-será executada somente depois da aprovação da branch e dos testes sintéticos.
+Status em 2026-08-23: concluída pelo responsável. Duas cópias independentes em
+cofres VeraCrypt foram testadas, a identidade privada permaneceu exclusivamente
+offline e não foi disponibilizada ao agente. O recipient público foi integrado
+sem acesso à chave privada.
 
 ## Preparação
 
@@ -21,8 +23,8 @@ age-keygen.exe -y -o finelo-production-recipient.txt `
   X:\FinElo-Custodia\finelo-backup-identity.txt
 ```
 
-O primeiro arquivo é privado. O segundo é público e será revisado antes de ir
-para `scripts/backup/recipients/`.
+O primeiro arquivo é privado. O segundo é público e, após revisão, passa a ser
+`security/backup/finelo-backup-recipient.txt`.
 
 Não abrir, colar, enviar ou registrar a linha `AGE-SECRET-KEY-PQ-1...` no chat.
 Copiar a identidade para a segunda mídia por operação local, validar as duas
@@ -33,8 +35,7 @@ cópias e guardar em locais físicos separados.
 Calcular o SHA-256 canônico sobre a linha pública normalizada usando o módulo do
 runner. Guardar o mesmo valor em:
 
-1. configuração protegida `FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL` da
-   automação de backup;
+1. segunda fonte protegida da automação, fora do Git e com ACL exclusiva;
 2. registro offline sob custódia do responsável.
 
 O Git contém apenas o recipient público. O fingerprint não será adicionado ao

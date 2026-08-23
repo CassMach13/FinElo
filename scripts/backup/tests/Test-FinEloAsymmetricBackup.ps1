@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
     [string]$AgeBinDirectory = $env:FINELO_TEST_AGE_BIN,
-    [string]$SevenZipPath = 'C:\Program Files\7-Zip\7z.exe'
+    [string]$SevenZipPath = 'C:\Program Files\7-Zip\7z.exe',
+    [string]$ProductionRecipientFile = '',
+    [string]$ExpectedProductionRecipientSha256 = $env:FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL,
+    [string]$ProductionRecipientSha256File = $env:FINELO_BACKUP_RECIPIENT_SHA256_FILE
 )
 
 Set-StrictMode -Version Latest
@@ -9,10 +12,12 @@ $ErrorActionPreference = 'Stop'
 $backupRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $repositoryRoot = (Resolve-Path (Join-Path $backupRoot '..\..')).Path
 Import-Module (Join-Path $backupRoot 'FinElo.Backup.psm1') -Force
+$script:AssertionCount = 0
 
 function Assert-True {
     param([Parameter(Mandatory)][bool]$Condition, [Parameter(Mandatory)][string]$Message)
     if (-not $Condition) { throw "ASSERTION FAILED: $Message" }
+    $script:AssertionCount++
 }
 
 function Assert-Throws {
@@ -25,6 +30,7 @@ function Assert-Throws {
         }
     }
     if (-not $thrown) { throw "ASSERTION FAILED: era esperada uma exceção contendo '$Pattern'." }
+    $script:AssertionCount++
 }
 
 if ([string]::IsNullOrWhiteSpace($AgeBinDirectory)) {
@@ -48,6 +54,10 @@ $outputRoot = Join-Path $testRoot 'encrypted-output'
 $restoreRoot = Join-Path $testRoot 'restore'
 $decryptedArchive = Join-Path $testRoot 'decrypted.7z'
 $recoveryEvidence = Join-Path $testRoot 'recovery-evidence.json'
+$productionRecipientOutput = Join-Path $testRoot 'production-recipient-output'
+$protectedFingerprintFile = Join-Path $testRoot 'protected-source/recipient-fingerprint.sha256'
+$protectedFingerprintOutput = Join-Path $testRoot 'protected-fingerprint-output'
+$protectedDatabaseUrlFile = Join-Path $testRoot 'protected-credentials/readonly-db-url.dpapi'
 $backupId = 'FinElo-Synthetic-20000101-000000-age-v1'
 
 try {
@@ -59,6 +69,24 @@ try {
 
     $recipientLine = (Get-Content -LiteralPath $recipientPath | Where-Object { $_ -and -not $_.StartsWith('#') } | Select-Object -First 1).Trim()
     $canonicalSha = Get-FinEloSha256Hex -Text $recipientLine
+
+    $protectedInstallParameters = @{
+        RecipientFile = $recipientPath
+        ExpectedSha256 = $canonicalSha
+        DestinationFile = $protectedFingerprintFile
+        RepositoryRoot = $repositoryRoot
+    }
+    $protectedInstall = & (Join-Path $backupRoot 'Install-FinEloProtectedRecipientFingerprint.ps1') @protectedInstallParameters
+    Assert-True -Condition ([bool]$protectedInstall.Installed) -Message 'fonte protegida não foi instalada'
+    Assert-True -Condition (Test-Path -LiteralPath $protectedFingerprintFile -PathType Leaf) -Message 'arquivo protegido ausente'
+    $protectedCanonical = Get-FinEloCanonicalRecipientSha256 -ProtectedSha256File $protectedFingerprintFile -RepositoryRoot $repositoryRoot
+    Assert-True -Condition ($protectedCanonical -ceq $canonicalSha) -Message 'fonte protegida diverge do fingerprint esperado'
+    Assert-Throws -Pattern 'já existe' -Action {
+        & (Join-Path $backupRoot 'Install-FinEloProtectedRecipientFingerprint.ps1') @protectedInstallParameters | Out-Null
+    }
+    Assert-Throws -Pattern 'duas fontes protegidas' -Action {
+        Get-FinEloCanonicalRecipientSha256 -ExplicitSha256 ('0' * 64) -ProtectedSha256File $protectedFingerprintFile -RepositoryRoot $repositoryRoot | Out-Null
+    }
 
     $databaseRoot = Join-Path $sourceRoot 'database'
     $recoveryRoot = Join-Path $sourceRoot 'recovery'
@@ -88,6 +116,7 @@ try {
         RecipientFile = $recipientPath
         ProjectRef = 'sxmmrnwbxntccscojmfh'
         CanonicalRecipientSha256 = $canonicalSha
+        CanonicalRecipientSha256File = ''
         AgePath = $agePath
         AgeInspectPath = $ageInspectPath
         SevenZipPath = $SevenZipPath
@@ -96,6 +125,15 @@ try {
         RepositoryRoot = $repositoryRoot
     }
     $packageResult = & (Join-Path $backupRoot 'New-FinEloEncryptedBackup.ps1') @packageParameters
+
+    $protectedPackageParameters = @{} + $packageParameters
+    $protectedPackageParameters.OutputDirectory = $protectedFingerprintOutput
+    $protectedPackageParameters.CanonicalRecipientSha256 = ''
+    $protectedPackageParameters.CanonicalRecipientSha256File = $protectedFingerprintFile
+    $protectedPackageParameters.BackupId = 'FinElo-Synthetic-20000101-000003-protected-fingerprint'
+    $protectedPackageResult = & (Join-Path $backupRoot 'New-FinEloEncryptedBackup.ps1') @protectedPackageParameters
+    Assert-True -Condition (Test-Path -LiteralPath $protectedPackageResult.Archive -PathType Leaf) -Message 'fonte protegida não autorizou criptografia válida'
+    Assert-True -Condition ($protectedPackageResult.RecipientSha256 -ceq $canonicalSha) -Message 'pacote não preservou fingerprint protegido'
 
     Assert-True -Condition (Test-Path -LiteralPath $packageResult.Archive -PathType Leaf) -Message 'artefato criptografado ausente'
     Assert-True -Condition (Test-Path -LiteralPath $packageResult.Receipt -PathType Leaf) -Message 'receipt ausente'
@@ -115,6 +153,7 @@ try {
         IdentityFile = $identityPath
         ExpectedProjectRef = 'sxmmrnwbxntccscojmfh'
         CanonicalRecipientSha256 = $canonicalSha
+        CanonicalRecipientSha256File = ''
         AgePath = $agePath
         AgeInspectPath = $ageInspectPath
         SevenZipPath = $SevenZipPath
@@ -160,6 +199,44 @@ try {
     Assert-True -Condition ($connection.UserName -ceq 'finelo_backup_reader.sxmmrnwbxntccscojmfh') -Message 'papel de backup válido foi recusado'
     $connection.Password = ''
     $connection.OriginalUrl = ''
+
+    $syntheticDatabaseUrl = [string]::Concat(
+        'postgresql://finelo_backup_reader.sxmmrnwbxntccscojmfh:',
+        'synthetic-secret-never-used',
+        '@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require'
+    )
+    $syntheticSecureUrl = ConvertTo-SecureString -String $syntheticDatabaseUrl -AsPlainText -Force
+    $protectedUrlInstall = & (Join-Path $backupRoot 'Set-FinEloProtectedReadOnlyDatabaseUrl.ps1') `
+        -ExpectedProjectRef 'sxmmrnwbxntccscojmfh' `
+        -DatabaseUrl $syntheticSecureUrl `
+        -DestinationFile $protectedDatabaseUrlFile `
+        -RepositoryRoot $repositoryRoot
+    Assert-True -Condition ([bool]$protectedUrlInstall.Installed) -Message 'URL leitora protegida não foi instalada'
+    Assert-True -Condition ($protectedUrlInstall.Storage -ceq 'Windows-DPAPI-CurrentUser') -Message 'URL leitora não usou DPAPI do usuário atual'
+    Assert-True -Condition (-not [bool]$protectedUrlInstall.SecretPrinted) -Message 'instalador declarou exposição do segredo'
+    Assert-True -Condition (Test-Path -LiteralPath $protectedDatabaseUrlFile -PathType Leaf) -Message 'arquivo DPAPI da URL leitora ausente'
+    Assert-True -Condition (-not (Test-Path -LiteralPath ($protectedDatabaseUrlFile + '.partial'))) -Message 'instalação da URL leitora deixou arquivo parcial'
+
+    $protectedUrlRoundTrip = Get-FinEloCurrentUserProtectedText `
+        -ProtectedFile $protectedDatabaseUrlFile `
+        -RepositoryRoot $repositoryRoot
+    try {
+        Assert-True -Condition ($protectedUrlRoundTrip -ceq $syntheticDatabaseUrl) -Message 'roundtrip DPAPI da URL leitora diverge'
+    }
+    finally {
+        $protectedUrlRoundTrip = ''
+    }
+
+    $replacementSecureUrl = ConvertTo-SecureString -String $syntheticDatabaseUrl -AsPlainText -Force
+    Assert-Throws -Pattern 'já existe' -Action {
+        & (Join-Path $backupRoot 'Set-FinEloProtectedReadOnlyDatabaseUrl.ps1') `
+            -ExpectedProjectRef 'sxmmrnwbxntccscojmfh' `
+            -DatabaseUrl $replacementSecureUrl `
+            -DestinationFile $protectedDatabaseUrlFile `
+            -RepositoryRoot $repositoryRoot | Out-Null
+    }
+    $replacementSecureUrl.Dispose()
+    $syntheticDatabaseUrl = ''
 
     $invalidPreflight = [pscustomobject]@{
         current_user = 'finelo_backup_reader'
@@ -213,6 +290,42 @@ try {
         & (Join-Path $backupRoot 'New-FinEloEncryptedBackup.ps1') @packageParameters | Out-Null
     }
 
+    $inspectionFailureId = 'FinElo-Synthetic-20000101-000001-inspection-failure'
+    $inspectionFailureParameters = @{} + $packageParameters
+    $inspectionFailureParameters.BackupId = $inspectionFailureId
+    $inspectionFailureParameters.AgeInspectPath = $agePath
+    Assert-Throws -Pattern 'Validação estrutural age-inspect' -Action {
+        & (Join-Path $backupRoot 'New-FinEloEncryptedBackup.ps1') @inspectionFailureParameters | Out-Null
+    }
+    foreach ($suffix in @('.7z.age', '.receipt.json', '.7z.age.partial', '.receipt.json.partial')) {
+        Assert-True -Condition (-not (Test-Path -LiteralPath (Join-Path $outputRoot ($inspectionFailureId + $suffix)))) -Message "falha deixou artefato $suffix"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ProductionRecipientFile)) {
+        $productionExpectedSha = Get-FinEloCanonicalRecipientSha256 `
+            -ExplicitSha256 $ExpectedProductionRecipientSha256 `
+            -ProtectedSha256File $ProductionRecipientSha256File `
+            -RepositoryRoot $repositoryRoot
+        $productionRecipientInfo = Get-FinEloRecipientInfo `
+            -RecipientFile $ProductionRecipientFile `
+            -CanonicalSha256 $productionExpectedSha
+        Assert-True -Condition ($productionRecipientInfo.Type -ceq 'mlkem768x25519') -Message 'recipient definitivo não é híbrido PQ'
+        Assert-True -Condition ($productionRecipientInfo.Sha256 -ceq $productionExpectedSha) -Message 'fingerprint definitivo diverge'
+
+        $productionPackageParameters = @{} + $packageParameters
+        $productionPackageParameters.OutputDirectory = $productionRecipientOutput
+        $productionPackageParameters.RecipientFile = $ProductionRecipientFile
+        $productionPackageParameters.CanonicalRecipientSha256 = $ExpectedProductionRecipientSha256
+        $productionPackageParameters.CanonicalRecipientSha256File = $ProductionRecipientSha256File
+        $productionPackageParameters.BackupId = 'FinElo-Synthetic-20000101-000002-production-recipient'
+        $productionPackageResult = & (Join-Path $backupRoot 'New-FinEloEncryptedBackup.ps1') @productionPackageParameters
+        $productionReceipt = Get-Content -LiteralPath $productionPackageResult.Receipt -Raw | ConvertFrom-Json
+        Assert-True -Condition (Test-Path -LiteralPath $productionPackageResult.Archive -PathType Leaf) -Message 'recipient definitivo não produziu artefato'
+        Assert-True -Condition ($productionReceipt.validation.age_inspect -ceq 'passed') -Message 'artefato definitivo não passou no age-inspect'
+        Assert-True -Condition (-not [bool]$productionReceipt.validation.recovery_tested) -Message 'artefato sem chave privada foi marcado como recuperado'
+        Assert-True -Condition (@(Get-ChildItem -LiteralPath $productionRecipientOutput -File -Filter '*.partial').Count -eq 0) -Message 'recipient definitivo deixou arquivo parcial'
+    }
+
     $inventoryPath = Join-Path $testRoot 'generated-dr-inventory.json'
     $inventoryParameters = @{
         RepositoryRoot = $repositoryRoot
@@ -230,12 +343,13 @@ try {
 
     [pscustomobject]@{
         Passed = $true
-        Assertions = 34
+        Assertions = $script:AssertionCount
         Encryption = 'age-pq-hybrid'
         StructuralInspection = 'passed'
         SyntheticDecryption = 'passed'
         SyntheticArchiveRestore = 'passed'
         PrivateKeyUsed = 'ephemeral-test-only'
+        ProductionRecipientValidated = (-not [string]::IsNullOrWhiteSpace($ProductionRecipientFile))
     }
 }
 finally {

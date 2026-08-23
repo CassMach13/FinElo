@@ -36,11 +36,18 @@ O arquivo versionado contém apenas uma linha `age1pq1...`. Seu fingerprint é:
 SHA-256(UTF-8(recipient sem quebra de linha e sem BOM))
 ```
 
-O valor canônico não é salvo ao lado dessa chave. O runner exige
-`FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL`, vindo de configuração protegida da
-automação, e o responsável mantém outra cópia offline. A comparação é feita em
-tempo constante. Alterar simultaneamente a chave e um hash no repositório não é
-suficiente para produzir um backup.
+O valor canônico não é salvo ao lado dessa chave. O runner exige uma segunda
+fonte: `FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL` em configuração protegida ou
+o arquivo indicado por `FINELO_BACKUP_RECIPIENT_SHA256_FILE`, fora do Git, com
+owner e ACL exclusivos. O responsável mantém outra cópia offline. A comparação
+é feita em tempo constante. Alterar simultaneamente a chave e um hash no
+repositório não é suficiente para produzir um backup.
+
+O recipient aprovado está em
+`security/backup/finelo-backup-recipient.txt`. A integração confirmou conteúdo
+único, prefixo híbrido, ausência de material privado e correspondência com a
+validação offline informada pelo responsável. O fingerprint canônico continua
+deliberadamente fora do Git.
 
 ## Isolamento da credencial de produção
 
@@ -61,7 +68,10 @@ deploy, merge ou alteração de configuração.
 O SQL de criação do papel fica em
 `scripts/backup/sql/provision_finelo_backup_reader.sql`. Ele não é migration e
 deve ser validado primeiro em staging. Aplicá-lo em produção continua sendo uma
-fronteira protegida e exigirá aprovação específica.
+fronteira protegida e exigirá aprovação específica. A senha não é aceita por
+argumento ou arquivo: ela é definida no prompt oculto `\password` do `psql` e a
+URL dedicada é então guardada localmente por DPAPI. O rollback explícito está
+em `scripts/backup/sql/rollback_finelo_backup_installation.sql`.
 
 ## Conteúdo criptografado
 
@@ -104,8 +114,9 @@ como não executada; isso evita transformar um teste local em uma alegação mai
 
 ## Migração gradual
 
-Os backups v5–v8 continuam intocados, com as senhas correspondentes preservadas.
-O v9 interrompido também não é convertido automaticamente.
+Todos os backups legados, inclusive v5–v9, continuam intocados, com seus
+mecanismos de recuperação preservados. Nenhum deles é convertido
+automaticamente.
 
 O fluxo antigo só poderá ser aposentado depois de:
 

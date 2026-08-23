@@ -2,13 +2,9 @@
 
 -- Operação administrativa de instalação. Não é migration automática.
 -- Execute primeiro em staging. Produção exige autorização separada.
--- Uso: psql --variable finelo_backup_password='...' --file provision_finelo_backup_reader.sql
-
-\if :{?finelo_backup_password}
-\else
-  \echo 'Variável finelo_backup_password ausente.'
-  \quit 3
-\endif
+-- Este arquivo nunca recebe senha por argumento, variável SQL ou Git.
+-- Depois da validação administrativa, defina-a por prompt oculto no psql:
+--   \password finelo_backup_reader
 
 do $provision$
 begin
@@ -32,8 +28,7 @@ alter role finelo_backup_reader
   nocreatedb
   nocreaterole
   noreplication
-  nobypassrls
-  password :'finelo_backup_password';
+  nobypassrls;
 
 alter role finelo_backup_reader set default_transaction_read_only = on;
 alter role finelo_backup_reader set statement_timeout = '15min';
@@ -65,3 +60,5 @@ select
   rolconfig
 from pg_roles
 where rolname = 'finelo_backup_reader';
+
+\echo 'Papel preparado sem expor senha. No psql interativo, execute: \password finelo_backup_reader'

@@ -15,6 +15,8 @@ param(
 
     [string]$CanonicalRecipientSha256 = $env:FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL,
 
+    [string]$CanonicalRecipientSha256File = $env:FINELO_BACKUP_RECIPIENT_SHA256_FILE,
+
     [Parameter(Mandatory)]
     [string]$AgePath,
 
@@ -37,9 +39,10 @@ foreach ($path in @($EncryptedArchive, $ReceiptFile, $IdentityFile, $AgePath, $A
         throw 'Um arquivo obrigatório para o ensaio de recuperação não foi encontrado.'
     }
 }
-if ($CanonicalRecipientSha256 -notmatch '^[0-9a-fA-F]{64}$') {
-    throw 'O fingerprint canônico protegido não foi fornecido.'
-}
+$CanonicalRecipientSha256 = Get-FinEloCanonicalRecipientSha256 `
+    -ExplicitSha256 $CanonicalRecipientSha256 `
+    -ProtectedSha256File $CanonicalRecipientSha256File `
+    -RepositoryRoot $RepositoryRoot
 
 $repository = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $RepositoryRoot).Path)
 $repositoryWithSeparator = $repository.TrimEnd(

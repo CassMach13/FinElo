@@ -14,6 +14,8 @@ param(
     [Parameter(Mandatory)]
     [string]$PsqlPath,
 
+    [string[]]$PsqlArgumentPrefix = @(),
+
     [string]$SupabaseExecutable = 'npx.cmd',
 
     [string[]]$SupabaseArgumentPrefix = @('--yes', 'supabase@2.115.0'),
@@ -59,7 +61,11 @@ if (-not (Test-Path -LiteralPath $PsqlPath -PathType Leaf)) {
 
 $connectionInfo = Get-FinEloDatabaseConnectionInfo -DatabaseUrl $DatabaseUrl -ExpectedProjectRef $ProjectRef -ExpectedRole $ExpectedRole
 $redactionValues = @($DatabaseUrl, $connectionInfo.Password)
-$preflight = Invoke-FinEloReadOnlyPreflight -PsqlPath $PsqlPath -ConnectionInfo $connectionInfo -ExpectedRole $ExpectedRole
+$preflight = Invoke-FinEloReadOnlyPreflight `
+    -PsqlPath $PsqlPath `
+    -ConnectionInfo $connectionInfo `
+    -ExpectedRole $ExpectedRole `
+    -PsqlArgumentPrefix $PsqlArgumentPrefix
 Assert-FinEloStorageRecoveryReady -StorageObjectCount $preflight.StorageObjectCount -StorageObjectExportDirectory $StorageObjectExportDirectory
 
 $databaseDirectory = Join-Path $OutputDirectory 'database'

@@ -14,8 +14,12 @@ param(
 
     [string]$CanonicalRecipientSha256 = $env:FINELO_BACKUP_RECIPIENT_SHA256_CANONICAL,
 
+    [string]$CanonicalRecipientSha256File = $env:FINELO_BACKUP_RECIPIENT_SHA256_FILE,
+
     [Parameter(Mandatory)]
     [string]$PsqlPath,
+
+    [string[]]$PsqlArgumentPrefix = @(),
 
     [Parameter(Mandatory)]
     [string]$AgePath,
@@ -67,6 +71,7 @@ try {
         DatabaseUrl = $DatabaseUrl
         ExpectedRole = $ExpectedRole
         PsqlPath = $PsqlPath
+        PsqlArgumentPrefix = $PsqlArgumentPrefix
         SupabaseExecutable = $SupabaseExecutable
         SupabaseArgumentPrefix = $SupabaseArgumentPrefix
         RepositoryRoot = $RepositoryRoot
@@ -83,6 +88,7 @@ try {
         RecipientFile = $RecipientFile
         ProjectRef = $ProjectRef
         CanonicalRecipientSha256 = $CanonicalRecipientSha256
+        CanonicalRecipientSha256File = $CanonicalRecipientSha256File
         AgePath = $AgePath
         AgeInspectPath = $AgeInspectPath
         SevenZipPath = $SevenZipPath

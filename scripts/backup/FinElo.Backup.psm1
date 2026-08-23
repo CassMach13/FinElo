@@ -95,6 +95,176 @@ function Get-FinEloRecipientInfo {
     }
 }
 
+function Get-FinEloCanonicalRecipientSha256 {
+    [CmdletBinding()]
+    param(
+        [string]$ExplicitSha256 = '',
+
+        [string]$ProtectedSha256File = '',
+
+        [Parameter(Mandatory)]
+        [string]$RepositoryRoot
+    )
+
+    $fileSha256 = ''
+    if (-not [string]::IsNullOrWhiteSpace($ProtectedSha256File)) {
+        if (-not (Test-Path -LiteralPath $ProtectedSha256File -PathType Leaf)) {
+            throw 'A fonte protegida do fingerprint não foi encontrada.'
+        }
+
+        $fileItem = Get-Item -LiteralPath $ProtectedSha256File -Force
+        if ($fileItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'A fonte protegida do fingerprint não pode ser um link ou reparse point.'
+        }
+
+        $repository = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $RepositoryRoot).Path)
+        $repositoryWithSeparator = $repository.TrimEnd(
+            [IO.Path]::DirectorySeparatorChar,
+            [IO.Path]::AltDirectorySeparatorChar
+        ) + [IO.Path]::DirectorySeparatorChar
+        $protectedFile = [IO.Path]::GetFullPath($fileItem.FullName)
+        if ($protectedFile.StartsWith($repositoryWithSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'O fingerprint canônico deve permanecer fora do repositório.'
+        }
+
+        if ($IsWindows) {
+            $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+            $acl = Get-Acl -LiteralPath $protectedFile
+            $ownerSid = try {
+                ([System.Security.Principal.NTAccount]$acl.Owner).Translate(
+                    [System.Security.Principal.SecurityIdentifier]
+                ).Value
+            }
+            catch {
+                [string]$acl.Owner
+            }
+            if (-not $acl.AreAccessRulesProtected -or $ownerSid -cne $currentSid.Value) {
+                throw 'A fonte do fingerprint não possui owner e herança protegidos para o usuário atual.'
+            }
+            foreach ($rule in $acl.Access) {
+                $ruleSid = try {
+                    $rule.IdentityReference.Translate(
+                        [System.Security.Principal.SecurityIdentifier]
+                    ).Value
+                }
+                catch {
+                    [string]$rule.IdentityReference.Value
+                }
+                if ($ruleSid -cne $currentSid.Value -or
+                    $rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) {
+                    throw 'A fonte do fingerprint possui uma regra de acesso não aprovada.'
+                }
+            }
+        }
+
+        $lines = @(
+            Get-Content -LiteralPath $protectedFile |
+                ForEach-Object { $_.Trim() } |
+                Where-Object { $_ -and -not $_.StartsWith('#') }
+        )
+        if ($lines.Count -ne 1 -or $lines[0] -notmatch '^[0-9a-fA-F]{64}$') {
+            throw 'A fonte protegida deve conter exatamente um SHA-256 hexadecimal.'
+        }
+        $fileSha256 = $lines[0].ToLowerInvariant()
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitSha256)) {
+        if ($ExplicitSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw 'O fingerprint explícito deve ser um SHA-256 hexadecimal.'
+        }
+        $explicitNormalized = $ExplicitSha256.ToLowerInvariant()
+        if (-not [string]::IsNullOrWhiteSpace($fileSha256) -and
+            -not (Test-FinEloFixedTimeHexEqual -Left $explicitNormalized -Right $fileSha256)) {
+            throw 'As duas fontes protegidas do fingerprint divergem.'
+        }
+        return $explicitNormalized
+    }
+
+    if ([string]::IsNullOrWhiteSpace($fileSha256)) {
+        throw 'O fingerprint canônico deve vir de uma segunda fonte protegida fora do Git.'
+    }
+
+    return $fileSha256
+}
+
+function Get-FinEloCurrentUserProtectedText {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProtectedFile,
+
+        [Parameter(Mandatory)]
+        [string]$RepositoryRoot
+    )
+
+    if (-not $IsWindows) {
+        throw 'A leitura DPAPI está disponível somente no host Windows da automação.'
+    }
+    if (-not (Test-Path -LiteralPath $ProtectedFile -PathType Leaf)) {
+        throw 'O arquivo protegido por DPAPI não foi encontrado.'
+    }
+
+    $fileItem = Get-Item -LiteralPath $ProtectedFile -Force
+    if ($fileItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw 'O arquivo protegido por DPAPI não pode ser um link ou reparse point.'
+    }
+
+    $repository = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $RepositoryRoot).Path)
+    $repositoryWithSeparator = $repository.TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar
+    ) + [IO.Path]::DirectorySeparatorChar
+    $protectedPath = [IO.Path]::GetFullPath($fileItem.FullName)
+    if ($protectedPath.StartsWith($repositoryWithSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'O segredo DPAPI deve permanecer fora do repositório.'
+    }
+
+    $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    $acl = Get-Acl -LiteralPath $protectedPath
+    $ownerSid = try {
+        ([System.Security.Principal.NTAccount]$acl.Owner).Translate(
+            [System.Security.Principal.SecurityIdentifier]
+        ).Value
+    }
+    catch {
+        [string]$acl.Owner
+    }
+    if (-not $acl.AreAccessRulesProtected -or $ownerSid -cne $currentSid.Value) {
+        throw 'O segredo DPAPI não possui owner e herança protegidos para o usuário atual.'
+    }
+    foreach ($rule in $acl.Access) {
+        $ruleSid = try {
+            $rule.IdentityReference.Translate(
+                [System.Security.Principal.SecurityIdentifier]
+            ).Value
+        }
+        catch {
+            [string]$rule.IdentityReference.Value
+        }
+        if ($ruleSid -cne $currentSid.Value -or
+            $rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) {
+            throw 'O segredo DPAPI possui uma regra de acesso não aprovada.'
+        }
+    }
+
+    $cipherText = (Get-Content -LiteralPath $protectedPath -Raw).Trim()
+    if ([string]::IsNullOrWhiteSpace($cipherText)) {
+        throw 'O segredo DPAPI está vazio.'
+    }
+
+    $secureText = ConvertTo-SecureString -String $cipherText
+    try {
+        return [System.Net.NetworkCredential]::new('', $secureText).Password
+    }
+    catch {
+        throw 'O segredo DPAPI não pôde ser aberto pela conta Windows atual.'
+    }
+    finally {
+        $secureText.Dispose()
+        $cipherText = ''
+    }
+}
+
 function Get-FinEloDatabaseConnectionInfo {
     [CmdletBinding()]
     param(
@@ -279,7 +449,9 @@ function Invoke-FinEloReadOnlyPreflight {
         [Parameter(Mandatory)]
         [object]$ConnectionInfo,
 
-        [string]$ExpectedRole = 'finelo_backup_reader'
+        [string]$ExpectedRole = 'finelo_backup_reader',
+
+        [string[]]$PsqlArgumentPrefix = @()
     )
 
     $sql = @"
@@ -329,9 +501,10 @@ select json_build_object(
     }
 
     try {
-        $result = Invoke-FinEloProcess -FilePath $PsqlPath -ArgumentList @(
+        $psqlArguments = @($PsqlArgumentPrefix) + @(
             '--no-psqlrc', '--tuples-only', '--no-align', '--set', 'ON_ERROR_STOP=1', '--command', $sql
-        ) -Operation 'Preflight somente leitura' -Environment $environment
+        )
+        $result = Invoke-FinEloProcess -FilePath $PsqlPath -ArgumentList $psqlArguments -Operation 'Preflight somente leitura' -Environment $environment
         $parsed = $result.StdOut.Trim() | ConvertFrom-Json
         return Test-FinEloReadOnlyPreflightResult -Result $parsed -ExpectedRole $ExpectedRole -ExpectedProjectRef $ConnectionInfo.ProjectRef
     }
@@ -453,6 +626,8 @@ Export-ModuleMember -Function @(
     'Get-FinEloSha256Hex',
     'Test-FinEloFixedTimeHexEqual',
     'Get-FinEloRecipientInfo',
+    'Get-FinEloCanonicalRecipientSha256',
+    'Get-FinEloCurrentUserProtectedText',
     'Get-FinEloDatabaseConnectionInfo',
     'Test-FinEloReadOnlyPreflightResult',
     'Invoke-FinEloProcess',

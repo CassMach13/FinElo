@@ -10,7 +10,7 @@ Alterações executadas: nenhuma
 
 - buckets do Storage: 0;
 - objetos do Storage: 0;
-- funções `public.SECURITY DEFINER`: 15;
+- funções não sistêmicas `SECURITY DEFINER`: 18 na revalidação de 2026-08-23;
 - funções desse tipo ainda executáveis via `PUBLIC`: 5.
 
 As cinco assinaturas são:
@@ -52,3 +52,9 @@ prova descartável. Dentro da transação, o resultado foi:
 Após o rollback, foi confirmado que o papel de prova não existe, o grant
 original de `PUBLIC` foi restaurado e a contagem do Storage permaneceu zero.
 Nenhuma alteração persistiu no staging.
+
+A revalidação de 2026-08-23 repetiu o ensaio com o estado atual do staging:
+zero privilégio DML, zero `SECURITY DEFINER` executável pelo papel de prova e
+preservação dos acessos explícitos de `anon`/`authenticated`. O rollback foi
+novamente confirmado; `finelo_backup_reader` ainda não existe e nenhuma mudança
+foi persistida.

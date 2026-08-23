@@ -1,7 +1,8 @@
 # Recipient público de backup
 
-Esta pasta receberá, após a cerimônia de chaves, somente o recipient público
-híbrido `age1pq1...` usado nos backups do FinElo.
+O recipient público aprovado está em
+`security/backup/finelo-backup-recipient.txt`. Esta pasta permanece somente como
+documentação de compatibilidade.
 
 Regras:
 
@@ -15,4 +16,4 @@ Regras:
 - trocar o recipient exige uma cerimônia explícita e um teste real de
   descriptografia/restauração.
 
-Nenhuma chave real foi criada nesta branch.
+A identidade privada correspondente permanece exclusivamente offline.
