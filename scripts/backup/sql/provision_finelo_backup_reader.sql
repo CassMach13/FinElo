@@ -20,6 +20,7 @@ alter role finelo_backup_reader set default_transaction_read_only = on;
 alter role finelo_backup_reader set statement_timeout = '15min';
 alter role finelo_backup_reader set idle_in_transaction_session_timeout = '60s';
 alter role finelo_backup_reader set search_path = pg_catalog;
+alter role finelo_backup_reader bypassrls;
 
 revoke all on database postgres from finelo_backup_reader;
 grant connect on database postgres to finelo_backup_reader;
@@ -34,7 +35,7 @@ grant pg_read_all_data to finelo_backup_reader;
 revoke execute on all functions in schema public from finelo_backup_reader;
 
 comment on role finelo_backup_reader is
-  'Credencial exclusiva do backup lógico FinElo; sem deploy, migration ou escrita de aplicação.';
+  'Credencial exclusiva do backup lógico FinElo; leitura integral inclusive sob RLS, sem deploy, migration ou escrita de aplicação.';
 
 select
   rolname,

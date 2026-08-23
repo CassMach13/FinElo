@@ -81,7 +81,7 @@ O arquivo compactado contém:
 - `database/schema.sql`;
 - `database/data.sql`;
 - `database/history_schema.sql` e `history_data.sql`;
-- `database/auth_storage_changes.sql`;
+- `database/auth_storage_schema_snapshot.sql`;
 - `recovery/dr-inventory.json`;
 - `manifest.json` com tamanho e SHA-256 de cada arquivo, project ref e commit.
 
@@ -90,6 +90,12 @@ exclui `vault.secrets`. Se houver objetos no Storage, o runner para com
 `STORAGE_OBJECT_EXPORT_REQUIRED` até receber um export binário somente leitura
 com inventário correspondente; metadados SQL de `storage.objects` não substituem
 os arquivos binários.
+
+O snapshot de schema de `auth` e `storage` é evidência forense integral e não
+é aplicado automaticamente em uma restauração. Ele independe do histórico
+local de migrations; em um projeto Supabase novo, deve ser comparado com o
+schema gerenciado pela plataforma e somente customizações confirmadas devem
+ser reaplicadas.
 
 ## Validações e significado do receipt
 

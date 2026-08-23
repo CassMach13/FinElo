@@ -12,6 +12,7 @@ select case when exists (
 \gset
 
 \if :finelo_backup_reader_exists
+  alter role finelo_backup_reader nobypassrls;
   revoke pg_read_all_data from finelo_backup_reader;
   revoke all on database postgres from finelo_backup_reader;
   drop role finelo_backup_reader;

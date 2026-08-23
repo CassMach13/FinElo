@@ -21,6 +21,8 @@ param(
 
     [string[]]$PsqlArgumentPrefix = @(),
 
+    [string[]]$PgToolsArgumentPrefix = @(),
+
     [Parameter(Mandatory)]
     [string]$AgePath,
 
@@ -30,10 +32,6 @@ param(
     [string]$SevenZipPath = 'C:\Program Files\7-Zip\7z.exe',
 
     [string]$ExpectedRole = 'finelo_backup_reader',
-
-    [string]$SupabaseExecutable = 'npx.cmd',
-
-    [string[]]$SupabaseArgumentPrefix = @('--yes', 'supabase@2.115.0'),
 
     [ValidatePattern('^(?:|host\.docker\.internal)$')]
     [string]$TransportHost = '',
@@ -78,8 +76,7 @@ try {
         ExpectedRole = $ExpectedRole
         PsqlPath = $PsqlPath
         PsqlArgumentPrefix = $PsqlArgumentPrefix
-        SupabaseExecutable = $SupabaseExecutable
-        SupabaseArgumentPrefix = $SupabaseArgumentPrefix
+        PgToolsArgumentPrefix = $PgToolsArgumentPrefix
         RepositoryRoot = $RepositoryRoot
         StorageObjectExportDirectory = $StorageObjectExportDirectory
         TransportHost = $TransportHost

@@ -6,7 +6,7 @@
 |---|---|---|
 | Banco e dados | dumps lógicos validados | sim |
 | Histórico de migrations | schema e dados de `supabase_migrations` | sim |
-| Customizações `auth`/`storage` | diff gerado pelo Supabase CLI | sim |
+| Schemas `auth`/`storage` | snapshot forense integral via `pg_dump` | sim |
 | Objetos do Storage | export binário separado, com hashes | sim, somente quando configurado |
 | Edge Functions | fonte versionada e hashes por commit | fonte no Git; inventário no backup |
 | APIs Vercel | fonte versionada e hashes por commit | fonte no Git; inventário no backup |
@@ -46,7 +46,9 @@ executado contra produção sem nova aprovação.
    `--variable ON_ERROR_STOP=1`, na ordem oficial `roles.sql`, `schema.sql`,
    `SET session_replication_role = replica` e `data.sql`.
 8. Restaurar `history_schema.sql` e `history_data.sql` em uma transação separada.
-9. Revisar e aplicar apenas as customizações necessárias de `auth`/`storage`.
+9. Comparar `auth_storage_schema_snapshot.sql` com os schemas gerenciados do
+   projeto novo e aplicar apenas customizações confirmadas; nunca reaplicar o
+   snapshot integral automaticamente.
 10. Restaurar objetos binários do Storage e comparar quantidade, caminho,
     tamanho e hash.
 11. Reimplantar Edge Functions a partir do commit registrado e reconfigurar

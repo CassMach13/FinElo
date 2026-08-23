@@ -65,7 +65,8 @@ O processo real requer:
 
 1. cerimônia da chave e recipient público versionado;
 2. fingerprint canônico na configuração protegida;
-3. `finelo_backup_reader` aprovado no preflight;
+3. `finelo_backup_reader` aprovado no preflight, com `pg_read_all_data`,
+   `BYPASSRLS` para cobrir Auth e zero privilégio DML;
 4. `psql`, Docker e Supabase CLI 2.115.0 validados;
 5. destino de backup e cópia offline;
 6. export de Storage separado quando `storage.objects > 0`.
@@ -118,3 +119,9 @@ Quando o Docker Desktop não possui rota IPv6, o wrapper cria automaticamente
 um relay TLS opaco e efêmero, preso exclusivamente a `127.0.0.1`. Os containers
 acessam esse relay por `host.docker.internal`; nenhuma porta é aberta na LAN,
 nenhum segredo é registrado e o processo é encerrado no `finally`.
+Os dumps usam os scripts e filtros do Supabase CLI v2.115.0 dentro da imagem
+PostgreSQL pinada, mas removem o `--role postgres`: o papel dedicado nunca pode
+nem precisa elevar a sessão para gerar o backup.
+O schema de `auth` e `storage` é preservado como snapshot forense via `pg_dump`;
+o backup não executa `supabase db diff`, não reconstrói migrations locais e não
+depende de containers auxiliares da stack Supabase.

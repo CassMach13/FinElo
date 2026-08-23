@@ -102,7 +102,7 @@ $requiredRelativePaths = @(
     'database/data.sql',
     'database/history_schema.sql',
     'database/history_data.sql',
-    'database/auth_storage_changes.sql',
+    'database/auth_storage_schema_snapshot.sql',
     'recovery/dr-inventory.json'
 )
 foreach ($relativePath in $requiredRelativePaths) {

@@ -366,7 +366,7 @@ function Test-FinEloReadOnlyPreflightResult {
     if ([bool]$Result.can_create_db) { $failures.Add('papel pode criar bancos') }
     if ([bool]$Result.can_create_role) { $failures.Add('papel pode criar papéis') }
     if ([bool]$Result.can_replicate) { $failures.Add('papel possui replication') }
-    if ([bool]$Result.can_bypass_rls) { $failures.Add('papel pode ignorar RLS') }
+    if (-not [bool]$Result.can_bypass_rls) { $failures.Add('papel não possui BYPASSRLS exigido para o dump integral') }
     if ([int]$Result.writable_table_count -ne 0) { $failures.Add('papel possui privilégios DML') }
     if ([int]$Result.executable_security_definer_count -ne 0) { $failures.Add('papel executa funções SECURITY DEFINER não aprovadas') }
 
@@ -396,7 +396,9 @@ function Invoke-FinEloProcess {
 
         [hashtable]$Environment = @{},
 
-        [string[]]$SensitiveValues = @()
+        [string[]]$SensitiveValues = @(),
+
+        [string]$StandardOutputFile = ''
     )
 
     $resolvedFilePath = $FilePath
@@ -425,12 +427,40 @@ function Invoke-FinEloProcess {
 
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
+    $outputFileStream = $null
     try {
+        if (-not [string]::IsNullOrWhiteSpace($StandardOutputFile)) {
+            if (Test-Path -LiteralPath $StandardOutputFile) {
+                throw "$Operation recusou sobrescrever a saída existente."
+            }
+            $outputParent = Split-Path -Parent $StandardOutputFile
+            if (-not (Test-Path -LiteralPath $outputParent -PathType Container)) {
+                throw "$Operation não encontrou o diretório da saída."
+            }
+            $outputFileStream = [IO.FileStream]::new(
+                $StandardOutputFile,
+                [IO.FileMode]::CreateNew,
+                [IO.FileAccess]::Write,
+                [IO.FileShare]::Read
+            )
+        }
         $null = $process.Start()
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stdoutTask = if ($null -eq $outputFileStream) {
+            $process.StandardOutput.ReadToEndAsync()
+        }
+        else {
+            $process.StandardOutput.BaseStream.CopyToAsync($outputFileStream)
+        }
         $stderrTask = $process.StandardError.ReadToEndAsync()
         $process.WaitForExit()
-        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        if ($null -eq $outputFileStream) {
+            $stdout = $stdoutTask.GetAwaiter().GetResult()
+        }
+        else {
+            $stdoutTask.GetAwaiter().GetResult()
+            $outputFileStream.Flush($true)
+            $stdout = ''
+        }
         $stderr = $stderrTask.GetAwaiter().GetResult()
 
         foreach ($sensitiveValue in $SensitiveValues) {
@@ -452,6 +482,9 @@ function Invoke-FinEloProcess {
         }
     }
     finally {
+        if ($null -ne $outputFileStream) {
+            $outputFileStream.Dispose()
+        }
         $process.Dispose()
     }
 }

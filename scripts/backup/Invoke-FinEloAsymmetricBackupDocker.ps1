@@ -140,6 +140,7 @@ try {
     CanonicalRecipientSha256File = $ProtectedRecipientSha256File
     PsqlPath = $DockerPath
     PsqlArgumentPrefix = $psqlPrefix
+    PgToolsArgumentPrefix = @($psqlPrefix[0..($psqlPrefix.Count - 2)])
     AgePath = $agePath
     AgeInspectPath = $ageInspectPath
     SevenZipPath = $SevenZipPath

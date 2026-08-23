@@ -100,7 +100,7 @@ try {
         'data.sql' = "COPY public.fixture (id, amount) FROM stdin;`n1`t10.01`n\."
         'history_schema.sql' = 'create schema if not exists supabase_migrations;'
         'history_data.sql' = "-- synthetic migration history`nselect 1;"
-        'auth_storage_changes.sql' = '-- no synthetic changes'
+        'auth_storage_schema_snapshot.sql' = 'create schema if not exists auth; create schema if not exists storage;'
     }
     foreach ($entry in $fixtures.GetEnumerator()) {
         [IO.File]::WriteAllText((Join-Path $databaseRoot $entry.Key), $entry.Value, [System.Text.UTF8Encoding]::new($false))
@@ -280,7 +280,7 @@ try {
         can_create_db = $false
         can_create_role = $false
         can_replicate = $false
-        can_bypass_rls = $false
+        can_bypass_rls = $true
         writable_table_count = 1
         executable_security_definer_count = 0
         storage_object_count = 0
@@ -293,6 +293,11 @@ try {
     $invalidPreflight.writable_table_count = 0
     $invalidPreflight.executable_security_definer_count = 1
     Assert-Throws -Pattern 'SECURITY DEFINER' -Action {
+        Test-FinEloReadOnlyPreflightResult -Result $invalidPreflight -ExpectedRole 'finelo_backup_reader' -ExpectedProjectRef 'sxmmrnwbxntccscojmfh' | Out-Null
+    }
+    $invalidPreflight.executable_security_definer_count = 0
+    $invalidPreflight.can_bypass_rls = $false
+    Assert-Throws -Pattern 'BYPASSRLS' -Action {
         Test-FinEloReadOnlyPreflightResult -Result $invalidPreflight -ExpectedRole 'finelo_backup_reader' -ExpectedProjectRef 'sxmmrnwbxntccscojmfh' | Out-Null
     }
     Assert-Throws -Pattern 'STORAGE_OBJECT_EXPORT_REQUIRED' -Action {
