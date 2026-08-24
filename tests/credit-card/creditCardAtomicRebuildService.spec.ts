@@ -376,6 +376,9 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_row_hash');
     expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_row_index');
     expect(selectedColumnsByTable.get('credit_card_entries')).toContain('import_lot_id');
+    expect(selectedColumnsByTable.get('credit_card_statements')).toContain(
+      'purchase_reference_label'
+    );
     expect(mocks.from).toHaveBeenCalledWith('credit_card_statements');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_entries');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_statement_items');
@@ -487,15 +490,96 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
-  it('preserva a competência legada explícita antes de recorrer ao mês do vencimento', async () => {
+  it('recupera a classificação somente quando uma duplicidade coincide unicamente com a transação-fonte', async () => {
+    const rowsByTable: Record<string, unknown[]> = {
+      credit_card_statements: [
+        {
+          id: 'statement-1',
+          card_id: 'card-1',
+          reference_label: '2026-08',
+          purchase_reference_label: '2026-07',
+          due_year: 2026,
+          due_month: 8,
+          due_date: '2026-08-28',
+          statement_total: 10,
+          total_payments: 0,
+          open_balance: 10,
+        },
+      ],
+      credit_card_entries: [
+        {
+          id: 'canonical-row',
+          statement_id: 'statement-1',
+          transaction_id: transaction.ID_Transacao,
+          posted_date: '2026-07-10',
+          amount: -10,
+          entry_type: 'fee',
+        },
+        {
+          id: 'obsolete-row',
+          statement_id: 'statement-1',
+          transaction_id: transaction.ID_Transacao,
+          posted_date: '2026-07-11',
+          amount: -99,
+          entry_type: 'purchase',
+        },
+      ],
+      credit_card_statement_items: [],
+      credit_card_payments: [],
+    };
+
+    mocks.from.mockImplementation((table: string) => {
+      const builder: Record<string, unknown> = {};
+      builder.select = vi.fn(() => builder);
+      builder.eq = vi.fn(() => builder);
+      builder.in = vi.fn(() => builder);
+      builder.order = vi.fn(() => builder);
+      builder.range = vi.fn(async (from: number, to: number) => ({
+        data: (rowsByTable[table] || []).slice(from, to + 1),
+        error: null,
+      }));
+      return builder;
+    });
+
+    const result = await creditCardAtomicRebuildService.audit({
+      account,
+      cycles: [
+        {
+          fileName: 'fatura-julho.csv',
+          referenceMonth: '2026-07',
+          dueDate: '2026-08-28',
+        },
+      ],
+      transactions: [transaction],
+    });
+
+    expect(result.shadow.entries).toHaveLength(1);
+    expect(result.shadow.entries[0]).toMatchObject({
+      transactionId: transaction.ID_Transacao,
+      statementKey: '2026-07',
+      postedDate: '2026-07-10',
+      amountCents: -1000,
+      entryType: 'fee',
+    });
+    expect(result.comparison.repairablePersistedEntryRowIds).toEqual(['obsolete-row']);
+    expect(result.comparison.conflictingDuplicatePersistedTransactionIds).toEqual([]);
+    expect(result.comparison.changedTransactionIds).toEqual([]);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
+  it('usa a competência de compra confirmada e não esconde duplicidade física legada', async () => {
     const rowsByTable: Record<string, unknown[]> = {
       credit_card_statements: [
         {
           id: 'statement-current-december',
           card_id: 'card-1',
           reference_label: '2024-12',
-          due_year: 2024,
-          due_month: 12,
+          purchase_reference_label: '2024-11',
+          due_year: 2025,
+          due_month: 1,
           due_date: '2025-01-10',
           statement_total: 60,
           total_payments: 58,
@@ -540,9 +624,9 @@ describe('creditCardAtomicRebuildService.audit', () => {
 
     expect(result.persisted.statements.map((item) => item.statementKey)).toEqual([
       '2024-11',
-      '2024-12',
+      '2024-11',
     ]);
-    expect(result.comparison.duplicatePersistedStatementKeys).toEqual([]);
+    expect(result.comparison.duplicatePersistedStatementKeys).toEqual(['2024-11']);
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.upsert).not.toHaveBeenCalled();
