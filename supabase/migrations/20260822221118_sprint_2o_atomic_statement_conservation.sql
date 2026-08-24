@@ -6,8 +6,89 @@
 -- remove as duplicadas na mesma transação. A função permanece desligada por
 -- padrão por uma flag dedicada em auth.raw_app_meta_data.
 
+begin;
+
+-- Compatibilidade com a primeira revisão aplicada somente em staging. O papel
+-- intermediário nunca existiu em produção; se estiver presente, a função da
+-- flag volta para postgres e o papel é removido na mesma transação.
+do $finelo_remove_intermediate_flag_reader$
+begin
+  if exists (
+    select 1
+    from pg_catalog.pg_roles r
+    where r.rolname = 'finelo_statement_conservation_flag_reader'
+  ) then
+    execute 'grant finelo_statement_conservation_flag_reader to postgres';
+    if pg_catalog.to_regprocedure(
+      'finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()'
+    ) is not null then
+      execute 'alter function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl() owner to postgres';
+    end if;
+    execute 'drop owned by finelo_statement_conservation_flag_reader';
+    execute 'revoke finelo_statement_conservation_flag_reader from postgres';
+    execute 'drop role finelo_statement_conservation_flag_reader';
+  end if;
+end;
+$finelo_remove_intermediate_flag_reader$;
+
+-- O executor é dedicado, sem login, sem memberships efetivos e com grants
+-- limitados às tabelas desta operação. BYPASSRLS é necessário porque os
+-- papéis gerenciados pelo Supabase não podem conceder USAGE no schema auth ao
+-- novo owner; todas as consultas mantêm filtros explícitos pelo JWT original.
+do $finelo_roles$
+begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_roles r
+    where r.rolname = 'finelo_statement_conservation_executor'
+  ) then
+    create role finelo_statement_conservation_executor;
+  end if;
+end;
+$finelo_roles$;
+
+alter role finelo_statement_conservation_executor
+  nologin noinherit connection limit 0;
+alter role finelo_statement_conservation_executor bypassrls;
+
+-- CREATE ROLE nasce sem SUPERUSER/CREATEDB/CREATEROLE/REPLICATION. Nesta
+-- operação o executor precisa atravessar as policies existentes sem receber
+-- acesso ao schema gerenciado auth. A superfície fica limitada pelos grants
+-- explícitos abaixo e pelos filtros de user_id/account_id dentro das funções.
+do $finelo_role_assertions$
+begin
+  if exists (
+    select 1
+    from pg_catalog.pg_roles r
+    where r.rolname = 'finelo_statement_conservation_executor'
+      and (
+        r.rolcanlogin or r.rolsuper or r.rolcreatedb or r.rolcreaterole
+        or r.rolreplication or not r.rolbypassrls
+      )
+  ) then
+    raise exception 'O papel executor possui atributos incompatíveis.';
+  end if;
+end;
+$finelo_role_assertions$;
+
+-- PostgreSQL exige que quem transfere ownership possa SET ROLE para o novo
+-- owner. A membership existe somente dentro desta transação e é revogada antes
+-- do COMMIT; se qualquer etapa falhar, todo o bloco é revertido.
+grant finelo_statement_conservation_executor to postgres;
+
+create schema if not exists finelo_internal authorization postgres;
+alter schema finelo_internal owner to postgres;
+revoke all on schema finelo_internal from public;
+revoke all on schema finelo_internal from anon;
+revoke all on schema finelo_internal from authenticated;
+revoke all on schema finelo_internal from service_role;
+revoke all on schema finelo_internal from finelo_statement_conservation_executor;
+grant usage on schema finelo_internal to authenticated;
+grant usage on schema finelo_internal to finelo_statement_conservation_executor;
+grant usage on schema public to finelo_statement_conservation_executor;
+
 create table if not exists public.credit_card_statement_conservation_snapshots (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default pg_catalog.gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
   account_id uuid references public.contas(id) on delete cascade not null,
   card_id uuid references public.credit_cards(id) on delete cascade not null,
@@ -26,10 +107,10 @@ create table if not exists public.credit_card_statement_conservation_snapshots (
   entry_link_count integer not null check (entry_link_count between 0 and 50000),
   legacy_item_link_count integer not null check (legacy_item_link_count between 0 and 50000),
   payment_link_count integer not null check (payment_link_count between 0 and 50000),
-  applied_at timestamptz not null default now(),
+  applied_at timestamptz not null default pg_catalog.now(),
   rolled_back_at timestamptz,
   rollback_revision text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default pg_catalog.now()
 );
 
 create index if not exists idx_cc_statement_conservation_account_applied
@@ -49,15 +130,51 @@ create policy "Users can view own statement conservation snapshots"
   to authenticated
   using ((select auth.uid()) = user_id);
 
+drop policy if exists "Conservation executor can manage own snapshots"
+  on public.credit_card_statement_conservation_snapshots;
+-- Não há policy para o executor: o papel é BYPASSRLS por desenho e só é
+-- alcançável pelas funções privadas. Manter uma policy inoperante criaria uma
+-- falsa sensação de proteção e um alerta de performance no advisor.
+
 revoke all on table public.credit_card_statement_conservation_snapshots from public;
 revoke all on table public.credit_card_statement_conservation_snapshots from anon;
 revoke all on table public.credit_card_statement_conservation_snapshots from authenticated;
 grant select on table public.credit_card_statement_conservation_snapshots to authenticated;
 
+-- BYPASSRLS não ignora ACL: os grants abaixo continuam definindo o teto de
+-- acesso do executor. Toda consulta privilegiada repete filtros explícitos do
+-- usuário extraído do JWT. UPDATE de id existe apenas para row locks FOR
+-- UPDATE; o código não altera identidades.
+grant select on table public.contas to finelo_statement_conservation_executor;
+grant select on table public.credit_cards to finelo_statement_conservation_executor;
+grant update (id) on table public.credit_cards
+  to finelo_statement_conservation_executor;
+grant select, insert, delete on table public.credit_card_statements
+  to finelo_statement_conservation_executor;
+grant update (id) on table public.credit_card_statements
+  to finelo_statement_conservation_executor;
+grant select on table public.credit_card_entries
+  to finelo_statement_conservation_executor;
+grant update (statement_id) on table public.credit_card_entries
+  to finelo_statement_conservation_executor;
+grant select on table public.credit_card_statement_items
+  to finelo_statement_conservation_executor;
+grant update (statement_id) on table public.credit_card_statement_items
+  to finelo_statement_conservation_executor;
+grant select on table public.credit_card_payments
+  to finelo_statement_conservation_executor;
+grant update (statement_id) on table public.credit_card_payments
+  to finelo_statement_conservation_executor;
+grant select, insert on table public.credit_card_statement_conservation_snapshots
+  to finelo_statement_conservation_executor;
+grant update (after_revision, rolled_back_at, rollback_revision)
+  on table public.credit_card_statement_conservation_snapshots
+  to finelo_statement_conservation_executor;
+
 comment on table public.credit_card_statement_conservation_snapshots is
   'Snapshot reversível das faturas físicas e vínculos substituídos por uma fatura composta na Sprint 2O.';
 
-create or replace function public.get_atomic_card_statement_conservation_feature_state()
+create or replace function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
 returns text
 language sql
 stable
@@ -72,18 +189,137 @@ as $$
     else 'unset'
   end
   from auth.users u
-  where u.id = (select auth.uid());
+  where u.id = coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.sub', true), ''),
+    nullif(
+      pg_catalog.current_setting('request.jwt.claims', true), ''
+    )::jsonb ->> 'sub'
+  )::uuid;
 $$;
 
-revoke all on function public.get_atomic_card_statement_conservation_feature_state() from public;
-revoke all on function public.get_atomic_card_statement_conservation_feature_state() from anon;
-grant execute on function public.get_atomic_card_statement_conservation_feature_state()
+revoke all on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
+  from public;
+revoke all on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
+  from anon;
+revoke all on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
+  from authenticated;
+revoke all on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
+  from service_role;
+grant execute on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
   to authenticated;
+grant execute on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()
+  to finelo_statement_conservation_executor;
 
-comment on function public.get_atomic_card_statement_conservation_feature_state() is
-  'Kill switch dedicado da Sprint 2O. Unset e disabled mantêm toda conservação desligada.';
+comment on function finelo_internal.get_atomic_card_statement_conservation_feature_state_impl() is
+  'Ponte privada mínima para o kill switch Sprint 2O. Owner postgres é necessário apenas para ler a flag do usuário autenticado no schema auth gerenciado.';
 
-create or replace function public.conserve_credit_card_statement_duplicates_atomic_v1(
+-- Variante privada do checksum da projeção. Ela recebe a identidade já
+-- autenticada pelo RPC pai e não depende de auth.uid(), evitando conceder ao
+-- executor qualquer acesso ao schema auth. SECURITY INVOKER preserva o mesmo
+-- executor e o mesmo teto de ACL do chamador privilegiado.
+create or replace function finelo_internal.get_credit_card_projection_revision_for_user(
+  p_account_id uuid,
+  p_user_id uuid
+)
+returns text
+language plpgsql
+stable
+security invoker
+set search_path = ''
+as $$
+declare
+  v_revision text;
+begin
+  if p_user_id is null then
+    raise exception 'Autenticação obrigatória.' using errcode = '28000';
+  end if;
+  if not exists (
+    select 1
+    from public.contas c
+    where c.id = p_account_id
+      and c.user_id = p_user_id
+  ) then
+    raise exception 'Conta de cartão não encontrada.' using errcode = '42501';
+  end if;
+
+  select pg_catalog.md5(
+    pg_catalog.jsonb_build_object(
+      'statements', coalesce((
+        select pg_catalog.jsonb_agg(
+          pg_catalog.jsonb_build_array(
+            s.id, s.card_id, s.reference_label, s.purchase_reference_label,
+            s.due_year, s.due_month, s.due_date, s.closing_date,
+            s.source_import_lot_ids, s.total_purchases, s.total_fees,
+            s.total_interest, s.total_refunds, s.statement_total,
+            s.total_payments, s.open_balance, s.total_charges,
+            s.total_credits, s.open_amount, s.status,
+            s.manual_totals_json, s.statement_total_from_file,
+            s.total_payments_from_file, s.lines_computed_total,
+            s.atomic_projection_version, s.atomic_projection_checksum,
+            s.atomic_projection_snapshot_id
+          ) order by s.id
+        )
+        from public.credit_card_statements s
+        where s.user_id = p_user_id
+          and s.account_id = p_account_id
+      ), '[]'::jsonb),
+      'entries', coalesce((
+        select pg_catalog.jsonb_agg(
+          pg_catalog.jsonb_build_array(
+            e.id, e.card_id, e.import_lot_id, e.source_file_name,
+            e.source_row_index, e.source_row_hash, e.transaction_id,
+            e.statement_id, e.posted_date, e.amount, e.abs_amount,
+            e.direction, e.entry_type, e.description_raw,
+            e.description_normalized, e.merchant_name, e.holder_name,
+            e.installment_current, e.installment_total, e.category_id,
+            e.classification_source, e.classification_confidence
+          ) order by e.id
+        )
+        from public.credit_card_entries e
+        where e.user_id = p_user_id
+          and e.account_id = p_account_id
+      ), '[]'::jsonb),
+      'payments', coalesce((
+        select pg_catalog.jsonb_agg(
+          pg_catalog.jsonb_build_array(
+            p.id, p.card_id, p.statement_id, p.payment_account_id,
+            p.payment_transaction_id, p.payment_date, p.amount,
+            p.source, p.notes
+          ) order by p.id
+        )
+        from public.credit_card_payments p
+        join public.credit_card_statements s on s.id = p.statement_id
+        where p.user_id = p_user_id
+          and s.account_id = p_account_id
+      ), '[]'::jsonb)
+    )::text
+  ) into v_revision;
+
+  return v_revision;
+end;
+$$;
+
+grant create on schema finelo_internal
+  to finelo_statement_conservation_executor;
+alter function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
+  owner to finelo_statement_conservation_executor;
+revoke create on schema finelo_internal
+  from finelo_statement_conservation_executor;
+revoke all on function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
+  from public;
+revoke all on function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
+  from anon;
+revoke all on function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
+  from authenticated;
+revoke all on function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
+  from service_role;
+grant execute on function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
+  to finelo_statement_conservation_executor;
+
+comment on function finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid) is
+  'Checksum privado SECURITY INVOKER; recebe user_id já validado pelo RPC pai e não acessa auth.';
+
+create or replace function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
   p_account_id uuid,
   p_expected_revision text,
   p_shadow_checksum text,
@@ -101,13 +337,18 @@ set lock_timeout = '5s'
 set statement_timeout = '30s'
 as $$
 declare
-  v_user_id uuid := (select auth.uid());
+  v_user_id uuid := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.sub', true), ''),
+    nullif(
+      pg_catalog.current_setting('request.jwt.claims', true), ''
+    )::jsonb ->> 'sub'
+  )::uuid;
   v_feature_state text;
   v_card_id uuid;
   v_before_revision text;
   v_after_revision text;
-  v_snapshot_id uuid := gen_random_uuid();
-  v_composite_id uuid := gen_random_uuid();
+  v_snapshot_id uuid := pg_catalog.gen_random_uuid();
+  v_composite_id uuid := pg_catalog.gen_random_uuid();
   v_requested_count integer;
   v_group_count integer;
   v_entry_count integer;
@@ -157,16 +398,8 @@ begin
     raise exception 'Autenticação obrigatória.' using errcode = '28000';
   end if;
 
-  select case
-    when u.raw_app_meta_data ->> 'atomic_card_statement_conservation_disabled' = 'true'
-      then 'disabled'
-    when u.raw_app_meta_data ->> 'atomic_card_statement_conservation_enabled' = 'true'
-      then 'enabled'
-    else 'unset'
-  end
-  into v_feature_state
-  from auth.users u
-  where u.id = v_user_id;
+  v_feature_state :=
+    finelo_internal.get_atomic_card_statement_conservation_feature_state_impl();
 
   if coalesce(v_feature_state, 'unset') <> 'enabled' then
     raise exception 'A conservação atômica de faturas não está habilitada para esta conta.'
@@ -312,7 +545,11 @@ begin
   -- Uma transação concorrente da mesma conta nunca passa deste ponto em paralelo.
   perform pg_advisory_xact_lock(hashtextextended(p_account_id::text, 202602));
 
-  v_before_revision := public.get_credit_card_projection_revision(p_account_id);
+  v_before_revision :=
+    finelo_internal.get_credit_card_projection_revision_for_user(
+      p_account_id,
+      v_user_id
+    );
   if v_before_revision <> p_expected_revision then
     raise exception 'A projeção mudou depois da auditoria. Audite novamente; nenhuma linha foi alterada.'
       using errcode = '40001';
@@ -605,7 +842,11 @@ begin
     raise exception 'A conferência posterior dos vínculos divergiu.' using errcode = '40001';
   end if;
 
-  v_after_revision := public.get_credit_card_projection_revision(p_account_id);
+  v_after_revision :=
+    finelo_internal.get_credit_card_projection_revision_for_user(
+      p_account_id,
+      v_user_id
+    );
   if v_after_revision = v_before_revision then
     raise exception 'A revisão não registrou a conservação.' using errcode = '40001';
   end if;
@@ -627,22 +868,35 @@ begin
 end;
 $$;
 
-revoke all on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+grant create on schema finelo_internal
+  to finelo_statement_conservation_executor;
+alter function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) owner to finelo_statement_conservation_executor;
+revoke create on schema finelo_internal
+  from finelo_statement_conservation_executor;
+revoke all on function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
   uuid, text, text, text, uuid[], integer, integer, jsonb
 ) from public;
-revoke all on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+revoke all on function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
   uuid, text, text, text, uuid[], integer, integer, jsonb
 ) from anon;
-grant execute on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+revoke all on function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) from authenticated;
+revoke all on function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) from service_role;
+grant execute on function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
   uuid, text, text, text, uuid[], integer, integer, jsonb
 ) to authenticated;
 
-comment on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+comment on function finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
   uuid, text, text, text, uuid[], integer, integer, jsonb
 ) is
-  'Sprint 2O: substitui um grupo completo de faturas físicas por uma composta sob lock, com snapshot e rollback exatos.';
+  'Implementação privada Sprint 2O: owner NOLOGIN/BYPASSRLS com ACL estreita substitui um grupo completo por uma fatura composta sob lock e filtros explícitos de usuário.';
 
-create or replace function public.rollback_credit_card_statement_conservation_atomic_v1(
+create or replace function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(
   p_snapshot_id uuid
 )
 returns jsonb
@@ -653,7 +907,12 @@ set lock_timeout = '5s'
 set statement_timeout = '30s'
 as $$
 declare
-  v_user_id uuid := (select auth.uid());
+  v_user_id uuid := coalesce(
+    nullif(pg_catalog.current_setting('request.jwt.claim.sub', true), ''),
+    nullif(
+      pg_catalog.current_setting('request.jwt.claims', true), ''
+    )::jsonb ->> 'sub'
+  )::uuid;
   v_snapshot public.credit_card_statement_conservation_snapshots%rowtype;
   v_current_revision text;
   v_restored_revision text;
@@ -682,7 +941,11 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(v_snapshot.account_id::text, 202602));
-  v_current_revision := public.get_credit_card_projection_revision(v_snapshot.account_id);
+  v_current_revision :=
+    finelo_internal.get_credit_card_projection_revision_for_user(
+      v_snapshot.account_id,
+      v_user_id
+    );
   if v_current_revision <> v_snapshot.after_revision then
     raise exception 'A projeção mudou depois da conservação. Rollback automático recusado para proteger alterações posteriores.'
       using errcode = '40001';
@@ -805,14 +1068,18 @@ begin
     raise exception 'A fatura composta não pôde ser removida.' using errcode = '40001';
   end if;
 
-  v_restored_revision := public.get_credit_card_projection_revision(v_snapshot.account_id);
+  v_restored_revision :=
+    finelo_internal.get_credit_card_projection_revision_for_user(
+      v_snapshot.account_id,
+      v_user_id
+    );
   if v_restored_revision <> v_snapshot.before_revision then
     raise exception 'A revisão restaurada não coincide com o snapshot. Rollback cancelado integralmente.'
       using errcode = '40001';
   end if;
 
   update public.credit_card_statement_conservation_snapshots
-  set rolled_back_at = now(), rollback_revision = v_restored_revision
+  set rolled_back_at = pg_catalog.now(), rollback_revision = v_restored_revision
   where id = v_snapshot.id and user_id = v_user_id;
 
   return jsonb_build_object(
@@ -828,12 +1095,153 @@ begin
 end;
 $$;
 
+grant create on schema finelo_internal
+  to finelo_statement_conservation_executor;
+alter function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)
+  owner to finelo_statement_conservation_executor;
+revoke create on schema finelo_internal
+  from finelo_statement_conservation_executor;
+revoke all on function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)
+  from public;
+revoke all on function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)
+  from anon;
+revoke all on function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)
+  from authenticated;
+revoke all on function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)
+  from service_role;
+grant execute on function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)
+  to authenticated;
+
+comment on function finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid) is
+  'Implementação privada Sprint 2O: owner NOLOGIN/BYPASSRLS com ACL estreita restaura o snapshot somente quando a revisão e o usuário permanecem intactos.';
+
+-- A Data API expõe somente wrappers SECURITY INVOKER. Eles não carregam
+-- privilégios do owner e encaminham os argumentos sem lógica própria.
+create or replace function public.get_atomic_card_statement_conservation_feature_state()
+returns text
+language sql
+stable
+security invoker
+set search_path = ''
+as $wrapper$
+  select finelo_internal.get_atomic_card_statement_conservation_feature_state_impl();
+$wrapper$;
+
+revoke all on function public.get_atomic_card_statement_conservation_feature_state()
+  from public;
+revoke all on function public.get_atomic_card_statement_conservation_feature_state()
+  from anon;
+revoke all on function public.get_atomic_card_statement_conservation_feature_state()
+  from authenticated;
+revoke all on function public.get_atomic_card_statement_conservation_feature_state()
+  from service_role;
+grant execute on function public.get_atomic_card_statement_conservation_feature_state()
+  to authenticated;
+
+comment on function public.get_atomic_card_statement_conservation_feature_state() is
+  'Wrapper público SECURITY INVOKER do kill switch da Sprint 2O.';
+
+create or replace function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  p_account_id uuid,
+  p_expected_revision text,
+  p_shadow_checksum text,
+  p_statement_key text,
+  p_source_statement_ids uuid[],
+  p_expected_entry_link_count integer,
+  p_expected_payment_link_count integer,
+  p_composite jsonb
+)
+returns jsonb
+language sql
+volatile
+security invoker
+set search_path = ''
+as $wrapper$
+  select finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(
+    p_account_id,
+    p_expected_revision,
+    p_shadow_checksum,
+    p_statement_key,
+    p_source_statement_ids,
+    p_expected_entry_link_count,
+    p_expected_payment_link_count,
+    p_composite
+  );
+$wrapper$;
+
+revoke all on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) from public;
+revoke all on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) from anon;
+revoke all on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) from authenticated;
+revoke all on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) from service_role;
+grant execute on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) to authenticated;
+
+comment on function public.conserve_credit_card_statement_duplicates_atomic_v1(
+  uuid, text, text, text, uuid[], integer, integer, jsonb
+) is
+  'Wrapper público SECURITY INVOKER da conservação atômica Sprint 2O.';
+
+create or replace function public.rollback_credit_card_statement_conservation_atomic_v1(
+  p_snapshot_id uuid
+)
+returns jsonb
+language sql
+volatile
+security invoker
+set search_path = ''
+as $wrapper$
+  select finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(
+    p_snapshot_id
+  );
+$wrapper$;
+
 revoke all on function public.rollback_credit_card_statement_conservation_atomic_v1(uuid)
   from public;
 revoke all on function public.rollback_credit_card_statement_conservation_atomic_v1(uuid)
   from anon;
+revoke all on function public.rollback_credit_card_statement_conservation_atomic_v1(uuid)
+  from authenticated;
+revoke all on function public.rollback_credit_card_statement_conservation_atomic_v1(uuid)
+  from service_role;
 grant execute on function public.rollback_credit_card_statement_conservation_atomic_v1(uuid)
   to authenticated;
 
 comment on function public.rollback_credit_card_statement_conservation_atomic_v1(uuid) is
-  'Sprint 2O: restaura exatamente as faturas e vínculos do snapshot somente quando a revisão posterior permanece intacta.';
+  'Wrapper público SECURITY INVOKER do rollback atômico Sprint 2O.';
+
+revoke finelo_statement_conservation_executor from postgres;
+
+do $finelo_membership_assertions$
+declare
+  v_executor_oid oid :=
+    'finelo_statement_conservation_executor'::pg_catalog.regrole::oid;
+begin
+  if exists (
+    select 1
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where m.member = v_executor_oid
+       or (
+         m.roleid = v_executor_oid
+         and (
+           member_role.rolname <> 'postgres'
+           or m.inherit_option
+           or m.set_option
+         )
+       )
+  ) then
+    raise exception 'Um papel interno recebeu membership efetivo inesperado.';
+  end if;
+end;
+$finelo_membership_assertions$;
+
+commit;

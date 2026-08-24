@@ -166,6 +166,36 @@ insert into public.credit_card_payments (
 
 select set_config('request.jwt.claim.sub', '19000000-0000-0000-0000-000000000001', true);
 
+-- Exercita a fronteira real da Data API: wrapper invoker como authenticated,
+-- implementação privada definer e ACLs entre os dois papéis.
+set local role authenticated;
+do $$
+begin
+  if public.get_atomic_card_statement_conservation_feature_state() <> 'enabled' then
+    raise exception 'O wrapper público não alcançou o leitor privado da flag.';
+  end if;
+
+  begin
+    perform public.conserve_credit_card_statement_duplicates_atomic_v1(
+      null, null, null, null, null, null, null, null
+    );
+    raise exception 'A validação privada não foi alcançada pelo wrapper de conservação.';
+  exception
+    when sqlstate '22023' then null;
+  end;
+
+  begin
+    perform public.rollback_credit_card_statement_conservation_atomic_v1(
+      '00000000-0000-0000-0000-000000000000'
+    );
+    raise exception 'A validação privada não foi alcançada pelo wrapper de rollback.';
+  exception
+    when sqlstate '42501' then null;
+  end;
+end;
+$$;
+reset role;
+
 do $$
 declare
   before_revision text;
@@ -440,10 +470,24 @@ end;
 $$;
 
 do $$
+declare
+  executor_oid oid := 'finelo_statement_conservation_executor'::regrole::oid;
+  postgres_oid oid := 'postgres'::regrole::oid;
 begin
   if not (select relrowsecurity from pg_class
           where oid = 'public.credit_card_statement_conservation_snapshots'::regclass) then
     raise exception 'RLS não está habilitada no snapshot.';
+  end if;
+  if (select count(*) from pg_policy
+      where polrelid = 'public.credit_card_statement_conservation_snapshots'::regclass)
+       <> 1
+     or not exists (
+       select 1 from pg_policy
+       where polrelid = 'public.credit_card_statement_conservation_snapshots'::regclass
+         and polname = 'Users can view own statement conservation snapshots'
+         and polroles = array['authenticated'::regrole::oid]
+     ) then
+    raise exception 'As policies do snapshot não estão no conjunto mínimo esperado.';
   end if;
   if has_table_privilege(
        'authenticated', 'public.credit_card_statement_conservation_snapshots', 'INSERT'
@@ -464,12 +508,147 @@ begin
      ) then
     raise exception 'Authenticated não recebeu execução controlada do RPC.';
   end if;
+  if has_function_privilege(
+       'service_role',
+       'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)',
+       'EXECUTE'
+     ) then
+    raise exception 'Service role recebeu execução não solicitada do RPC.';
+  end if;
+  if not has_function_privilege(
+       'authenticated',
+       'finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(uuid,text,text,text,uuid[],integer,integer,jsonb)',
+       'EXECUTE'
+     ) or has_function_privilege(
+       'anon',
+       'finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(uuid,text,text,text,uuid[],integer,integer,jsonb)',
+       'EXECUTE'
+     ) then
+    raise exception 'A ACL da implementação privada está incorreta.';
+  end if;
+  if has_function_privilege(
+       'authenticated',
+       'finelo_internal.get_credit_card_projection_revision_for_user(uuid,uuid)',
+       'EXECUTE'
+     )
+     or not has_function_privilege(
+       'finelo_statement_conservation_executor',
+       'finelo_internal.get_credit_card_projection_revision_for_user(uuid,uuid)',
+       'EXECUTE'
+     ) then
+    raise exception 'A ACL do helper privado de revisão está incorreta.';
+  end if;
+  if has_schema_privilege('anon', 'finelo_internal', 'USAGE')
+     or has_schema_privilege('authenticated', 'finelo_internal', 'CREATE')
+     or has_schema_privilege(
+       'finelo_statement_conservation_executor', 'finelo_internal', 'CREATE'
+     ) then
+    raise exception 'O schema privado possui privilégios além do necessário.';
+  end if;
+  if not has_schema_privilege('authenticated', 'finelo_internal', 'USAGE') then
+    raise exception 'Authenticated não consegue atravessar o wrapper invoker.';
+  end if;
+
+  if exists (
+    select 1 from pg_roles
+    where rolname = 'finelo_statement_conservation_executor'
+      and (rolcanlogin or rolsuper or rolcreatedb or rolcreaterole
+           or rolreplication or not rolbypassrls)
+  ) then
+    raise exception 'O executor privado não está no perfil NOLOGIN/BYPASSRLS mínimo.';
+  end if;
+  if exists (
+    select 1
+    from pg_auth_members m
+    join pg_roles member_role on member_role.oid = m.member
+    where m.member = executor_oid
+       or (
+         m.roleid = executor_oid
+         and (
+           member_role.rolname <> 'postgres'
+           or m.inherit_option
+           or m.set_option
+         )
+       )
+  ) then
+    raise exception 'Um papel interno recebeu membership efetivo inesperado.';
+  end if;
+  if has_table_privilege(
+       'finelo_statement_conservation_executor', 'auth.users', 'SELECT'
+     ) or has_column_privilege(
+       'finelo_statement_conservation_executor',
+       'auth.users', 'raw_app_meta_data', 'SELECT'
+     ) then
+    raise exception 'O executor recebeu leitura direta de auth.users.';
+  end if;
+  if not has_column_privilege(
+       'finelo_statement_conservation_executor',
+       'public.credit_card_entries', 'statement_id', 'UPDATE'
+     )
+     or has_column_privilege(
+       'finelo_statement_conservation_executor',
+       'public.credit_card_entries', 'amount', 'UPDATE'
+     ) then
+    raise exception 'O UPDATE do executor não está limitado ao vínculo da fatura.';
+  end if;
+
+  if (select prosecdef from pg_proc where oid =
+        'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure)
+     or (select prosecdef from pg_proc where oid =
+        'public.rollback_credit_card_statement_conservation_atomic_v1(uuid)'::regprocedure)
+     or (select prosecdef from pg_proc where oid =
+        'public.get_atomic_card_statement_conservation_feature_state()'::regprocedure) then
+    raise exception 'Um wrapper público ainda é SECURITY DEFINER.';
+  end if;
+  if not (select prosecdef from pg_proc where oid =
+        'finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure)
+     or not (select prosecdef from pg_proc where oid =
+        'finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)'::regprocedure)
+     or not (select prosecdef from pg_proc where oid =
+        'finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()'::regprocedure) then
+    raise exception 'Uma implementação privada não é SECURITY DEFINER.';
+  end if;
+  if (select prosecdef from pg_proc where oid =
+        'finelo_internal.get_credit_card_projection_revision_for_user(uuid,uuid)'::regprocedure) then
+    raise exception 'O helper privado de revisão não é SECURITY INVOKER.';
+  end if;
+  if (select proowner from pg_proc where oid =
+        'finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()'::regprocedure)
+       <> postgres_oid
+     or (select proowner from pg_proc where oid =
+        'finelo_internal.get_credit_card_projection_revision_for_user(uuid,uuid)'::regprocedure)
+       <> executor_oid
+     or (select proowner from pg_proc where oid =
+        'finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure)
+       <> executor_oid
+     or (select proowner from pg_proc where oid =
+        'finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)'::regprocedure)
+       <> executor_oid then
+    raise exception 'O owner de uma implementação privada está incorreto.';
+  end if;
+  if exists (
+    select 1 from pg_proc p
+    where p.oid in (
+      'public.get_atomic_card_statement_conservation_feature_state()'::regprocedure,
+      'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure,
+      'public.rollback_credit_card_statement_conservation_atomic_v1(uuid)'::regprocedure,
+      'finelo_internal.get_atomic_card_statement_conservation_feature_state_impl()'::regprocedure,
+      'finelo_internal.get_credit_card_projection_revision_for_user(uuid,uuid)'::regprocedure,
+      'finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure,
+      'finelo_internal.rollback_credit_card_statement_conservation_atomic_v1_impl(uuid)'::regprocedure
+    ) and not (
+      coalesce(p.proconfig, '{}'::text[]) @> array['search_path=']
+      or coalesce(p.proconfig, '{}'::text[]) @> array['search_path=""']
+    )
+  ) then
+    raise exception 'Uma função da Sprint 2O não possui search_path vazio.';
+  end if;
   if position(
        'pg_advisory_xact_lock' in pg_get_functiondef(
-         'public.conserve_credit_card_statement_duplicates_atomic_v1(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure
+         'finelo_internal.conserve_credit_card_statement_duplicates_atomic_v1_impl(uuid,text,text,text,uuid[],integer,integer,jsonb)'::regprocedure
        )
      ) = 0 then
-    raise exception 'O RPC não contém lock transacional por conta.';
+    raise exception 'A implementação privada não contém lock transacional por conta.';
   end if;
 end;
 $$;
