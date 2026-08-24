@@ -105,6 +105,12 @@ export interface AtomicCardIdentityDryRunReport {
   recommendationCodes: AtomicCardIdentityDryRunRecommendationCode[];
 }
 
+export interface AtomicCardIdentityDryRunSimulation {
+  /** Internal clone used only to compose later in-memory diagnostics. */
+  persisted: PersistedAtomicCardProjection;
+  report: AtomicCardIdentityDryRunReport;
+}
+
 interface InternalCandidate {
   sourceFileName: string;
   current: PersistedAtomicCardEntry;
@@ -201,12 +207,12 @@ const BLOCKER_ORDER: AtomicCardIdentityDryRunBlockerCode[] = [
  * The public result deliberately excludes transaction IDs, row IDs, hashes, source names
  * and mutation payloads. It can explain a future change, but cannot execute one.
  */
-export function buildAtomicCardIdentityDryRunReport(
+export function simulateAtomicCardIdentityDryRun(
   shadow: AtomicCardShadowProjection,
   persisted: PersistedAtomicCardProjection,
   comparison: AtomicCardProjectionComparison,
   provenance: AtomicCardProvenanceReport
-): AtomicCardIdentityDryRunReport {
+): AtomicCardIdentityDryRunSimulation {
   const blockers = new Map<AtomicCardIdentityDryRunBlockerCode, number>();
   const shadowByIdentity = new Map(shadow.entries.map((entry) => [entry.transactionId, entry]));
   const persistedByIdentity = groupBy(persisted.entries, (entry) => entry.transactionId);
@@ -434,7 +440,7 @@ export function buildAtomicCardIdentityDryRunReport(
     recommendationCodes.push('investigate-dry-run-blockers', 'keep-writes-disabled');
   }
 
-  return {
+  const report: AtomicCardIdentityDryRunReport = {
     version: 1,
     privacy: 'aggregated-no-identifiers',
     nonAuthoritative: true,
@@ -460,4 +466,20 @@ export function buildAtomicCardIdentityDryRunReport(
     sourceCohorts,
     recommendationCodes,
   };
+
+  return { persisted: simulatedPersisted, report };
+}
+
+export function buildAtomicCardIdentityDryRunReport(
+  shadow: AtomicCardShadowProjection,
+  persisted: PersistedAtomicCardProjection,
+  comparison: AtomicCardProjectionComparison,
+  provenance: AtomicCardProvenanceReport
+): AtomicCardIdentityDryRunReport {
+  return simulateAtomicCardIdentityDryRun(
+    shadow,
+    persisted,
+    comparison,
+    provenance
+  ).report;
 }

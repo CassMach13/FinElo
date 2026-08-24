@@ -108,6 +108,12 @@ export interface AtomicCardCompetenceDryRunReport {
   recommendationCodes: AtomicCardCompetenceDryRunRecommendationCode[];
 }
 
+export interface AtomicCardCompetenceDryRunSimulation {
+  /** Internal clone used only to compose later in-memory diagnostics. */
+  persisted: PersistedAtomicCardProjection;
+  report: AtomicCardCompetenceDryRunReport;
+}
+
 type MatchResult =
   | { status: 'matched'; current: PersistedAtomicCardEntry }
   | { status: 'ambiguous' }
@@ -230,14 +236,14 @@ const comparisonSummary = (
  * Identidade, data, valor, tipo, proveniÃªncia, faturas e pagamentos permanecem
  * intocados. O relatÃ³rio pÃºblico Ã© agregado e nÃ£o carrega payload executÃ¡vel.
  */
-export function buildAtomicCardCompetenceDryRunReport(input: {
+export function simulateAtomicCardCompetenceDryRun(input: {
   shadow: AtomicCardShadowProjection;
   persisted: PersistedAtomicCardProjection;
   comparison: AtomicCardProjectionComparison;
   forensics: AtomicCardCompetenceForensicReport;
   cycles: AtomicCardCompetenceEvidenceCycle[];
   closingDay?: number | null;
-}): AtomicCardCompetenceDryRunReport {
+}): AtomicCardCompetenceDryRunSimulation {
   const { shadow, persisted, comparison, forensics, cycles } = input;
   const blockers = new Map<AtomicCardCompetenceDryRunBlockerCode, number>();
   const exclusions = new Map<AtomicCardCompetenceDryRunExclusionCode, number>();
@@ -439,7 +445,7 @@ export function buildAtomicCardCompetenceDryRunReport(input: {
     recommendationCodes.push('keep-writes-disabled');
   }
 
-  return {
+  const report: AtomicCardCompetenceDryRunReport = {
     version: 1,
     privacy: 'aggregated-no-identifiers',
     nonAuthoritative: true,
@@ -482,4 +488,17 @@ export function buildAtomicCardCompetenceDryRunReport(input: {
       .filter((profile) => profile.count > 0),
     recommendationCodes,
   };
+
+  return { persisted: simulatedPersisted, report };
+}
+
+export function buildAtomicCardCompetenceDryRunReport(input: {
+  shadow: AtomicCardShadowProjection;
+  persisted: PersistedAtomicCardProjection;
+  comparison: AtomicCardProjectionComparison;
+  forensics: AtomicCardCompetenceForensicReport;
+  cycles: AtomicCardCompetenceEvidenceCycle[];
+  closingDay?: number | null;
+}): AtomicCardCompetenceDryRunReport {
+  return simulateAtomicCardCompetenceDryRun(input).report;
 }

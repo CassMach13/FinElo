@@ -90,6 +90,12 @@ import {
   type AtomicCardStatementConservationExecutionBlockerCode,
   type AtomicCardStatementConservationExecutionStatus,
 } from '../../domain/credit-card/atomicRebuildStatementConservationExecution';
+import {
+  buildAtomicCardSequentialDryRunReport,
+  type AtomicCardSequentialDryRunBlockerCode,
+  type AtomicCardSequentialDryRunRecommendationCode,
+  type AtomicCardSequentialDryRunStatus,
+} from '../../domain/credit-card/atomicRebuildSequentialDryRun';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -331,6 +337,36 @@ const COMPETENCE_EXCEPTION_RECOMMENDATION_LABELS: Record<AtomicCardCompetenceExc
   'confirm-competence-evidence': 'Confirmar a origem da competência antes de tratá-la como fonte de verdade.',
   'rerun-competence-dry-run-after-prerequisites': 'Reexecutar a simulação de competência somente depois de resolver os pré-requisitos.',
   'investigate-unclassified-exceptions': 'Investigar a diferença de contagem antes de considerar a classificação completa.',
+  'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
+};
+
+const SEQUENTIAL_DRY_RUN_STATUS_LABELS: Record<AtomicCardSequentialDryRunStatus, string> = {
+  'not-needed': 'nenhuma mudança sequencial é necessária',
+  complete: 'sequência concluída no clone sem diferenças estruturais',
+  partial: 'sequência concluída; diferenças residuais permanecem isoladas',
+  blocked: 'sequência bloqueada por invariantes ou evidências insuficientes',
+};
+
+const SEQUENTIAL_DRY_RUN_BLOCKER_LABELS: Record<AtomicCardSequentialDryRunBlockerCode, string> = {
+  'identity-step-blocked': 'a reconstrução de identidade não pôde ser comprovada',
+  'competence-step-blocked': 'a simulação de competência não pôde ser concluída',
+  'row-count-not-conserved': 'a quantidade física de linhas mudou no clone',
+  'physical-row-identity-not-conserved': 'a identidade física das linhas não foi conservada',
+  'identity-gap-remains': 'ainda existem identidades ausentes, duplicadas ou órfãs',
+  'economic-content-mutated': 'data ou valor foi alterado indevidamente',
+  'source-provenance-mutated': 'a proveniência histórica foi alterada indevidamente',
+  'statement-records-mutated': 'os registros de fatura foram modificados pelo diagnóstico',
+  'payment-records-mutated': 'os registros de pagamento foram modificados pelo diagnóstico',
+};
+
+const SEQUENTIAL_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardSequentialDryRunRecommendationCode, string> = {
+  'no-sequential-change-needed': 'Nenhuma reconstrução sequencial precisa ser planejada.',
+  'review-sequential-simulation': 'Revisar o resultado conjunto antes de desenhar qualquer operação futura.',
+  'preserve-all-physical-rows': 'Preservar todas as linhas físicas; a sequência não autoriza exclusões.',
+  'preserve-confirmed-identity-anchors': 'Preservar as âncoras confirmadas dos grupos de identidade.',
+  'preserve-economic-content-and-provenance': 'Conservar data, valor e proveniência histórica de cada linha.',
+  'review-residual-statement-and-payment-differences': 'Tratar separadamente as diferenças residuais de faturas, pagamentos ou tipos.',
+  'resolve-sequential-blockers': 'Resolver todos os bloqueios antes de repetir a simulação sequencial.',
   'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
 };
 
@@ -1099,6 +1135,42 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         : null,
     [shadowAudit, shadowAuditIdentityDryRun, shadowAuditCompetenceDryRun]
   );
+
+  const shadowAuditSequentialDryRun = useMemo(() => {
+    if (!shadowAudit || !shadowAuditProvenance || !effectiveFilterAccountId) {
+      return null;
+    }
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return buildAtomicCardSequentialDryRunReport({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      comparison: shadowAudit.comparison,
+      provenance: shadowAuditProvenance,
+      cycles,
+      closingDay: account?.dia_fechamento,
+    });
+  }, [
+    shadowAudit,
+    shadowAuditProvenance,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
 
   const shadowAuditAffectedEntryReconciliation = useMemo(
     () =>
@@ -3610,6 +3682,104 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     {' '}Elegível para escrita por este painel: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationExecution.actualWriteOperationCount}</strong>.
                   </p>
                 </div>
+              </div>
+            )}
+            {engineOn && shadowAuditSequentialDryRun && (
+              <div className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2Q — simulação sequencial de identidade e competência</p>
+                  <span className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-100">
+                    dois clones em memória · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {SEQUENTIAL_DRY_RUN_STATUS_LABELS[shadowAuditSequentialDryRun.status]}
+                  </strong>.
+                  {' '}A sequência aplica primeiro a reconstrução comprovada de identidade e só então recalcula a competência, sem expor IDs, hashes, arquivos ou payload de banco.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Identidades ausentes</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditSequentialDryRun.before.missingIdentityCount} → {shadowAuditSequentialDryRun.afterSequential.missingIdentityCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Grupos duplicados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditSequentialDryRun.before.duplicateIdentityGroupCount} → {shadowAuditSequentialDryRun.afterSequential.duplicateIdentityGroupCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Diferenças estruturais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditSequentialDryRun.before.structuralDifferenceCount} → {shadowAuditSequentialDryRun.afterSequential.structuralDifferenceCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas antes / depois</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditSequentialDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {shadowAuditSequentialDryRun.rowCountBefore} / {shadowAuditSequentialDryRun.rowCountAfter}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-fuchsia-300/20 bg-fuchsia-400/5 p-2">
+                    <p className="font-semibold text-fuchsia-100">Sequência simulada</p>
+                    <p className="mt-1 text-slate-300">
+                      Identidade: {IDENTITY_DRY_RUN_STATUS_LABELS[shadowAuditSequentialDryRun.identityStepStatus]} · {shadowAuditSequentialDryRun.hypotheticalIdentityUpdateCount} linha(s) · {shadowAuditSequentialDryRun.confirmedAnchorCount} âncora(s).
+                    </p>
+                    <p className="mt-1 text-slate-300">
+                      Competência: {COMPETENCE_DRY_RUN_STATUS_LABELS[shadowAuditSequentialDryRun.competenceStepStatus]} · {shadowAuditSequentialDryRun.hypotheticalCompetenceUpdateCount} linha(s).
+                    </p>
+                  </div>
+                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p className="font-semibold text-emerald-100">Invariantes verificadas</p>
+                    <p className="mt-1 text-slate-300">
+                      Data / valor / origem: {shadowAuditSequentialDryRun.dateMutationCount} / {shadowAuditSequentialDryRun.amountMutationCount} / {shadowAuditSequentialDryRun.sourceMutationCount} alteração(ões) indevida(s).
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Faturas preservadas: {shadowAuditSequentialDryRun.statementRecordsPreserved ? 'sim' : 'não'} · pagamentos preservados: {shadowAuditSequentialDryRun.paymentRecordsPreserved ? 'sim' : 'não'}.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p className="font-semibold text-white">Resultado combinado</p>
+                  <p className="mt-1 text-slate-300">
+                    Linhas com identidade reconstruída: {shadowAuditSequentialDryRun.identityMutationCount} · competência reposicionada: {shadowAuditSequentialDryRun.competenceMutationCount} · tipo revisado no clone: {shadowAuditSequentialDryRun.typeMutationCount}.
+                  </p>
+                  <p className="mt-1 text-slate-400">
+                    Transações ainda alteradas: {shadowAuditSequentialDryRun.afterSequential.changedTransactionCount} · faturas: {shadowAuditSequentialDryRun.afterSequential.changedStatementCount} · pagamentos: {shadowAuditSequentialDryRun.afterSequential.changedPaymentCount} · diferenças residuais: {shadowAuditSequentialDryRun.residualDifferenceCount}.
+                  </p>
+                  <p className="mt-1">
+                    Elegível para escrita: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditSequentialDryRun.actualWriteOperationCount}</strong>.
+                  </p>
+                </div>
+
+                {shadowAuditSequentialDryRun.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
+                    <p className="font-semibold text-rose-100">Bloqueios da sequência</p>
+                    <ul className="mt-1 space-y-1 text-slate-300">
+                      {shadowAuditSequentialDryRun.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{SEQUENTIAL_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  {shadowAuditSequentialDryRun.recommendationCodes.map((code) => (
+                    <li key={code}>{SEQUENTIAL_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
+                  ))}
+                </ul>
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (
