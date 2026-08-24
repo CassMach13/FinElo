@@ -376,9 +376,6 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_row_hash');
     expect(selectedColumnsByTable.get('credit_card_entries')).toContain('source_row_index');
     expect(selectedColumnsByTable.get('credit_card_entries')).toContain('import_lot_id');
-    expect(selectedColumnsByTable.get('credit_card_statements')).toContain(
-      'purchase_reference_label'
-    );
     expect(mocks.from).toHaveBeenCalledWith('credit_card_statements');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_entries');
     expect(mocks.from).toHaveBeenCalledWith('credit_card_statement_items');
@@ -496,11 +493,11 @@ describe('creditCardAtomicRebuildService.audit', () => {
         {
           id: 'statement-1',
           card_id: 'card-1',
-          reference_label: '2026-08',
-          purchase_reference_label: '2026-07',
+          reference_label: '2026-07',
+          purchase_reference_label: '2026-06',
           due_year: 2026,
-          due_month: 8,
-          due_date: '2026-08-28',
+          due_month: 7,
+          due_date: '2026-07-28',
           statement_total: 10,
           total_payments: 0,
           open_balance: 10,
@@ -570,16 +567,15 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
-  it('usa a competência de compra confirmada e não esconde duplicidade física legada', async () => {
+  it('preserva a competência legada explícita antes de recorrer ao mês do vencimento', async () => {
     const rowsByTable: Record<string, unknown[]> = {
       credit_card_statements: [
         {
           id: 'statement-current-december',
           card_id: 'card-1',
           reference_label: '2024-12',
-          purchase_reference_label: '2024-11',
-          due_year: 2025,
-          due_month: 1,
+          due_year: 2024,
+          due_month: 12,
           due_date: '2025-01-10',
           statement_total: 60,
           total_payments: 58,
@@ -624,9 +620,9 @@ describe('creditCardAtomicRebuildService.audit', () => {
 
     expect(result.persisted.statements.map((item) => item.statementKey)).toEqual([
       '2024-11',
-      '2024-11',
+      '2024-12',
     ]);
-    expect(result.comparison.duplicatePersistedStatementKeys).toEqual(['2024-11']);
+    expect(result.comparison.duplicatePersistedStatementKeys).toEqual([]);
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.upsert).not.toHaveBeenCalled();

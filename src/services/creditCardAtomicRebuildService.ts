@@ -29,7 +29,6 @@ interface PersistedStatementRow {
   id: string;
   card_id?: string | null;
   reference_label?: string | null;
-  purchase_reference_label?: string | null;
   due_year?: number | null;
   due_month?: number | null;
   due_date?: string | null;
@@ -171,27 +170,18 @@ const toCents = (value: number | string | null | undefined): number =>
   Math.round(Number(value || 0) * 100);
 
 const statementKeyForRow = (row: PersistedStatementRow): string => {
-  // A projeção sombra usa a competência das compras confirmada pelo usuário
-  // como identidade da fatura. `reference_label` e os campos de vencimento
-  // pertencem ao ciclo de cobrança e normalmente apontam para o mês seguinte.
-  // Comparar esses campos antes de `purchase_reference_label` desloca toda a
-  // projeção persistida em um mês e produz diferenças forenses artificiais.
-  const purchaseReferenceLabel = String(row.purchase_reference_label || '').trim();
-  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(purchaseReferenceLabel)) {
-    return purchaseReferenceLabel;
-  }
-
-  // Registros anteriores ao motor atual podem não ter a coluna acima
-  // preenchida. Nesses casos, um reference_label civil válido é evidência mais
-  // forte do que inferir a competência a partir do vencimento.
-  const referenceLabel = String(row.reference_label || '').trim();
-  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(referenceLabel)) return referenceLabel;
-
   const dueYear = Number(row.due_year || 0);
   const dueMonth = Number(row.due_month || 0);
   if (dueYear >= 1900 && dueMonth >= 1 && dueMonth <= 12) {
     return `${dueYear}-${String(dueMonth).padStart(2, '0')}`;
   }
+
+  // Registros legados não possuem due_year/due_month, mas preservam a
+  // competência real em reference_label. O vencimento costuma cair no mês
+  // seguinte e, portanto, só pode ser usado como último recurso; priorizá-lo
+  // aqui cria uma falsa duplicidade entre competências consecutivas.
+  const referenceLabel = String(row.reference_label || '').trim();
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(referenceLabel)) return referenceLabel;
 
   const dueDate = String(row.due_date || '');
   if (/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(dueDate)) return dueDate.slice(0, 7);
@@ -295,7 +285,7 @@ async function readAllStatements(accountId: string): Promise<PersistedStatementR
     const { data, error } = await supabase
       .from('credit_card_statements')
       .select(
-        'id,card_id,reference_label,purchase_reference_label,due_year,due_month,due_date,total_charges,total_credits,total_payments,open_amount,statement_total,open_balance,manual_totals_json,statement_total_from_file,total_payments_from_file,lines_computed_total,atomic_projection_version,atomic_projection_checksum,atomic_projection_snapshot_id'
+        'id,card_id,reference_label,due_year,due_month,due_date,total_charges,total_credits,total_payments,open_amount,statement_total,open_balance,manual_totals_json,statement_total_from_file,total_payments_from_file,lines_computed_total,atomic_projection_version,atomic_projection_checksum,atomic_projection_snapshot_id'
       )
       .eq('account_id', accountId)
       .order('id', { ascending: true })
