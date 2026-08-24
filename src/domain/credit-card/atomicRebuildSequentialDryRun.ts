@@ -91,6 +91,12 @@ export interface AtomicCardSequentialDryRunReport {
   recommendationCodes: AtomicCardSequentialDryRunRecommendationCode[];
 }
 
+export interface AtomicCardSequentialDryRunSimulation {
+  /** Internal clone used only to compose later in-memory diagnostics. */
+  persisted: PersistedAtomicCardProjection;
+  report: AtomicCardSequentialDryRunReport;
+}
+
 const BLOCKER_ORDER: AtomicCardSequentialDryRunBlockerCode[] = [
   'identity-step-blocked',
   'competence-step-blocked',
@@ -138,14 +144,14 @@ const addCount = (
  * Both steps operate on clones. The public report is aggregate-only and never
  * contains row IDs, transaction IDs, hashes, source names or a mutation payload.
  */
-export function buildAtomicCardSequentialDryRunReport(input: {
+export function simulateAtomicCardSequentialDryRun(input: {
   shadow: AtomicCardShadowProjection;
   persisted: PersistedAtomicCardProjection;
   comparison: AtomicCardProjectionComparison;
   provenance: AtomicCardProvenanceReport;
   cycles: AtomicCardCompetenceEvidenceCycle[];
   closingDay?: number | null;
-}): AtomicCardSequentialDryRunReport {
+}): AtomicCardSequentialDryRunSimulation {
   const blockers = new Map<AtomicCardSequentialDryRunBlockerCode, number>();
   const identity = simulateAtomicCardIdentityDryRun(
     input.shadow,
@@ -282,7 +288,7 @@ export function buildAtomicCardSequentialDryRunReport(input: {
   }
   recommendationCodes.push('keep-writes-disabled');
 
-  return {
+  const report: AtomicCardSequentialDryRunReport = {
     version: 1,
     privacy: 'aggregated-no-identifiers',
     nonAuthoritative: true,
@@ -322,4 +328,17 @@ export function buildAtomicCardSequentialDryRunReport(input: {
       .filter((profile) => profile.count > 0),
     recommendationCodes,
   };
+
+  return { persisted: finalPersisted, report };
+}
+
+export function buildAtomicCardSequentialDryRunReport(input: {
+  shadow: AtomicCardShadowProjection;
+  persisted: PersistedAtomicCardProjection;
+  comparison: AtomicCardProjectionComparison;
+  provenance: AtomicCardProvenanceReport;
+  cycles: AtomicCardCompetenceEvidenceCycle[];
+  closingDay?: number | null;
+}): AtomicCardSequentialDryRunReport {
+  return simulateAtomicCardSequentialDryRun(input).report;
 }

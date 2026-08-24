@@ -96,6 +96,13 @@ import {
   type AtomicCardSequentialDryRunRecommendationCode,
   type AtomicCardSequentialDryRunStatus,
 } from '../../domain/credit-card/atomicRebuildSequentialDryRun';
+import {
+  buildAtomicCardResidualStatementDryRunReport,
+  type AtomicCardResidualStatementDryRunBlockerCode,
+  type AtomicCardResidualStatementDryRunRecommendationCode,
+  type AtomicCardResidualStatementDryRunStatus,
+  type AtomicCardResidualStatementFieldCode,
+} from '../../domain/credit-card/atomicRebuildResidualStatementDryRun';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -367,6 +374,43 @@ const SEQUENTIAL_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardSequentialDryRu
   'preserve-economic-content-and-provenance': 'Conservar data, valor e proveniência histórica de cada linha.',
   'review-residual-statement-and-payment-differences': 'Tratar separadamente as diferenças residuais de faturas, pagamentos ou tipos.',
   'resolve-sequential-blockers': 'Resolver todos os bloqueios antes de repetir a simulação sequencial.',
+  'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
+};
+
+const RESIDUAL_STATEMENT_DRY_RUN_STATUS_LABELS: Record<AtomicCardResidualStatementDryRunStatus, string> = {
+  'not-needed': 'nenhuma divergência residual de liquidação precisa ser explicada',
+  explained: 'a origem das divergências de fatura foi isolada no clone',
+  partial: 'parte das divergências foi explicada; resíduos permanecem isolados',
+  blocked: 'a separação foi bloqueada por evidência insuficiente ou invariante',
+};
+
+const RESIDUAL_STATEMENT_FIELD_LABELS: Record<AtomicCardResidualStatementFieldCode, string> = {
+  totalPaymentsCents: 'quitação aplicada à competência',
+  openBalanceCents: 'saldo derivado da fatura',
+};
+
+const RESIDUAL_STATEMENT_DRY_RUN_BLOCKER_LABELS: Record<AtomicCardResidualStatementDryRunBlockerCode, string> = {
+  'sequential-step-blocked': 'a simulação sequencial anterior ainda está bloqueada',
+  'persisted-source-not-engine': 'a projeção atual não veio integralmente do engine',
+  'statement-pair-not-unique': 'uma fatura não possui par único entre projeção atual e sombra',
+  'payment-ledger-not-aligned': 'os vínculos físicos de pagamento ainda divergem da sombra',
+  'non-settlement-statement-difference': 'há diferenças em campos que não pertencem à liquidação',
+  'shadow-payment-total-not-conserved': 'o total de pagamentos da sombra não fecha com seus vínculos',
+  'statement-count-not-conserved': 'a quantidade física de faturas mudou no clone',
+  'protected-metadata-mutated': 'metadados protegidos do arquivo foram modificados',
+  'entry-records-mutated': 'linhas de lançamento foram modificadas por esta etapa',
+  'payment-records-mutated': 'linhas físicas de pagamento foram modificadas por esta etapa',
+  'settlement-difference-remains': 'uma divergência de liquidação permaneceu após a separação',
+};
+
+const RESIDUAL_STATEMENT_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardResidualStatementDryRunRecommendationCode, string> = {
+  'no-residual-statement-rebase-needed': 'Nenhuma separação adicional de liquidação precisa ser planejada.',
+  'separate-file-payment-from-applied-settlement': 'Separar o pagamento informado no próprio arquivo da quitação efetivamente aplicada à competência.',
+  'use-payment-links-for-settlement': 'Usar os vínculos materiais de pagamento para determinar qual fatura foi quitada.',
+  'preserve-protected-file-totals': 'Preservar os totais oficiais do arquivo como evidência histórica, sem tratá-los como quitação da mesma competência.',
+  'retain-outside-window-payment-as-context': 'Manter pagamentos anteriores à janela como contexto histórico, sem forçar um destino inexistente.',
+  'review-non-settlement-statement-fields': 'Revisar separadamente vencimento, contagem ou total quando algum deles também divergir.',
+  'resolve-payment-ledger-before-rebase': 'Alinhar primeiro os vínculos de pagamento antes de simular qualquer campo derivado.',
   'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
 };
 
@@ -1156,6 +1200,42 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     });
     const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
     return buildAtomicCardSequentialDryRunReport({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      comparison: shadowAudit.comparison,
+      provenance: shadowAuditProvenance,
+      cycles,
+      closingDay: account?.dia_fechamento,
+    });
+  }, [
+    shadowAudit,
+    shadowAuditProvenance,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
+
+  const shadowAuditResidualStatementDryRun = useMemo(() => {
+    if (!shadowAudit || !shadowAuditProvenance || !effectiveFilterAccountId) {
+      return null;
+    }
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return buildAtomicCardResidualStatementDryRunReport({
       shadow: shadowAudit.shadow,
       persisted: shadowAudit.persisted,
       comparison: shadowAudit.comparison,
@@ -3778,6 +3858,119 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                   {shadowAuditSequentialDryRun.recommendationCodes.map((code) => (
                     <li key={code}>{SEQUENTIAL_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {engineOn && shadowAuditResidualStatementDryRun && (
+              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2R — separação entre pagamento do arquivo e quitação aplicada</p>
+                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                    faturas clonadas · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {RESIDUAL_STATEMENT_DRY_RUN_STATUS_LABELS[shadowAuditResidualStatementDryRun.status]}
+                  </strong>.
+                  {' '}A prévia conserva os totais informados no CSV como evidência e testa separadamente a quitação derivada dos vínculos de pagamento, sem alterar lançamentos, pagamentos ou faturas reais.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Faturas divergentes</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditResidualStatementDryRun.changedStatementCountBefore} → {shadowAuditResidualStatementDryRun.changedStatementCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Diferenças estruturais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditResidualStatementDryRun.structuralDifferenceCountBefore} → {shadowAuditResidualStatementDryRun.structuralDifferenceCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Vínculos de pagamento divergentes</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditResidualStatementDryRun.changedPaymentCountBefore} → {shadowAuditResidualStatementDryRun.changedPaymentCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Faturas físicas antes / depois</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditResidualStatementDryRun.statementCountBefore === shadowAuditResidualStatementDryRun.statementCountAfter ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {shadowAuditResidualStatementDryRun.statementCountBefore} / {shadowAuditResidualStatementDryRun.statementCountAfter}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                    <p className="font-semibold text-cyan-100">Evidência da causa residual</p>
+                    <p className="mt-1 text-slate-300">
+                      Pagamento do próprio arquivo materializado na mesma competência: <strong className="text-white">{shadowAuditResidualStatementDryRun.sameCycleFilePaymentMaterializationCount}</strong> fatura(s).
+                    </p>
+                    <p className="mt-1 text-slate-300">
+                      Cadeia física de quitação compatível com a sombra: <strong className="text-white">{shadowAuditResidualStatementDryRun.settlementChainSupportedCount}</strong> fatura(s).
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Evidências de pagamento protegido no arquivo: {shadowAuditResidualStatementDryRun.protectedFilePaymentEvidenceCount} · anteriores à janela: {shadowAuditResidualStatementDryRun.outsideWindowPaymentWarningCount}.
+                    </p>
+                  </div>
+                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p className="font-semibold text-emerald-100">Invariantes verificadas</p>
+                    <p className="mt-1 text-slate-300">
+                      Lançamentos preservados: {shadowAuditResidualStatementDryRun.entryRecordsPreserved ? 'sim' : 'não'} · pagamentos preservados: {shadowAuditResidualStatementDryRun.paymentRecordsPreserved ? 'sim' : 'não'}.
+                    </p>
+                    <p className="mt-1 text-slate-300">
+                      Metadados protegidos preservados: {shadowAuditResidualStatementDryRun.protectedMetadataPreserved ? 'sim' : 'não'} · faturas protegidas: {shadowAuditResidualStatementDryRun.protectedStatementCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Diferenças apenas informativas após o clone: {shadowAuditResidualStatementDryRun.informationalDifferenceCountAfter}.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p className="font-semibold text-white">Campos derivados testados no clone</p>
+                  {shadowAuditResidualStatementDryRun.fieldProfiles.length > 0 ? (
+                    <ul className="mt-1 space-y-1 text-slate-300">
+                      {shadowAuditResidualStatementDryRun.fieldProfiles.map((profile) => (
+                        <li key={profile.field} className="flex justify-between gap-2">
+                          <span>{RESIDUAL_STATEMENT_FIELD_LABELS[profile.field]}</span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-slate-400">Nenhum campo derivado precisa ser recalculado.</p>
+                  )}
+                  <p className="mt-2 text-slate-400">
+                    Faturas candidatas: {shadowAuditResidualStatementDryRun.candidateStatementCount} · campos hipotéticos: {shadowAuditResidualStatementDryRun.hypotheticalStatementFieldUpdateCount}.
+                  </p>
+                  <p className="mt-1">
+                    Elegível para escrita: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditResidualStatementDryRun.actualWriteOperationCount}</strong>.
+                  </p>
+                </div>
+
+                {shadowAuditResidualStatementDryRun.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
+                    <p className="font-semibold text-rose-100">Bloqueios da separação residual</p>
+                    <ul className="mt-1 space-y-1 text-slate-300">
+                      {shadowAuditResidualStatementDryRun.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{RESIDUAL_STATEMENT_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  {shadowAuditResidualStatementDryRun.recommendationCodes.map((code) => (
+                    <li key={code}>{RESIDUAL_STATEMENT_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                   ))}
                 </ul>
               </div>
