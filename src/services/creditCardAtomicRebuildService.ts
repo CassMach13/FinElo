@@ -174,9 +174,17 @@ const statementKeyForRow = (row: PersistedStatementRow): string => {
   if (dueYear >= 1900 && dueMonth >= 1 && dueMonth <= 12) {
     return `${dueYear}-${String(dueMonth).padStart(2, '0')}`;
   }
+
+  // Registros legados não possuem due_year/due_month, mas preservam a
+  // competência real em reference_label. O vencimento costuma cair no mês
+  // seguinte e, portanto, só pode ser usado como último recurso; priorizá-lo
+  // aqui cria uma falsa duplicidade entre competências consecutivas.
+  const referenceLabel = String(row.reference_label || '').trim();
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(referenceLabel)) return referenceLabel;
+
   const dueDate = String(row.due_date || '');
   if (/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(dueDate)) return dueDate.slice(0, 7);
-  return String(row.reference_label || 'sem-competencia');
+  return referenceLabel || 'sem-competencia';
 };
 
 const legacyItemTypeToEngine = (itemType?: string | null): string => {

@@ -487,6 +487,68 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
+  it('preserva a competência legada explícita antes de recorrer ao mês do vencimento', async () => {
+    const rowsByTable: Record<string, unknown[]> = {
+      credit_card_statements: [
+        {
+          id: 'statement-current-december',
+          card_id: 'card-1',
+          reference_label: '2024-12',
+          due_year: 2024,
+          due_month: 12,
+          due_date: '2025-01-10',
+          statement_total: 60,
+          total_payments: 58,
+          open_balance: 2,
+        },
+        {
+          id: 'statement-legacy-november',
+          card_id: null,
+          reference_label: '2024-11',
+          due_year: null,
+          due_month: null,
+          due_date: '2024-12-10',
+          total_charges: 73,
+          total_credits: 0,
+          total_payments: 73,
+          open_amount: 0,
+        },
+      ],
+      credit_card_entries: [],
+      credit_card_statement_items: [],
+      credit_card_payments: [],
+    };
+
+    mocks.from.mockImplementation((table: string) => {
+      const builder: Record<string, unknown> = {};
+      builder.select = vi.fn(() => builder);
+      builder.eq = vi.fn(() => builder);
+      builder.in = vi.fn(() => builder);
+      builder.order = vi.fn(() => builder);
+      builder.range = vi.fn(async (from: number, to: number) => ({
+        data: (rowsByTable[table] || []).slice(from, to + 1),
+        error: null,
+      }));
+      return builder;
+    });
+
+    const result = await creditCardAtomicRebuildService.audit({
+      account,
+      cycles: [],
+      transactions: [],
+    });
+
+    expect(result.persisted.statements.map((item) => item.statementKey)).toEqual([
+      '2024-11',
+      '2024-12',
+    ]);
+    expect(result.comparison.duplicatePersistedStatementKeys).toEqual([]);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
   it('aborta a auditoria inteira se uma página de leitura falhar', async () => {
     const statementRows = [
       {
