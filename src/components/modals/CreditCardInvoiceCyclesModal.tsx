@@ -103,6 +103,12 @@ import {
   type AtomicCardResidualStatementDryRunStatus,
   type AtomicCardResidualStatementFieldCode,
 } from '../../domain/credit-card/atomicRebuildResidualStatementDryRun';
+import {
+  buildAtomicCardEndToEndDryRunReport,
+  type AtomicCardEndToEndDryRunBlockerCode,
+  type AtomicCardEndToEndDryRunRecommendationCode,
+  type AtomicCardEndToEndDryRunStatus,
+} from '../../domain/credit-card/atomicRebuildEndToEndDryRun';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -411,6 +417,42 @@ const RESIDUAL_STATEMENT_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardResidua
   'retain-outside-window-payment-as-context': 'Manter pagamentos anteriores à janela como contexto histórico, sem forçar um destino inexistente.',
   'review-non-settlement-statement-fields': 'Revisar separadamente vencimento, contagem ou total quando algum deles também divergir.',
   'resolve-payment-ledger-before-rebase': 'Alinhar primeiro os vínculos de pagamento antes de simular qualquer campo derivado.',
+  'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
+};
+
+const END_TO_END_DRY_RUN_STATUS_LABELS: Record<AtomicCardEndToEndDryRunStatus, string> = {
+  'not-needed': 'a projeção já está estruturalmente alinhada',
+  converged: 'toda a sequência convergiu no clone sem perda de registros',
+  partial: 'a sequência foi executada, mas a convergência ainda é parcial',
+  blocked: 'a certificação ponta a ponta foi bloqueada por uma invariante',
+};
+
+const END_TO_END_DRY_RUN_BLOCKER_LABELS: Record<AtomicCardEndToEndDryRunBlockerCode, string> = {
+  'shadow-not-safe': 'a reconstrução sombra possui bloqueios de origem',
+  'persisted-source-not-engine': 'a projeção atual não veio integralmente do engine',
+  'residual-step-blocked': 'uma etapa anterior da sequência ainda está bloqueada',
+  'checksum-not-conserved': 'o checksum da reconstrução não foi conservado',
+  'entry-count-not-conserved': 'a quantidade de lançamentos físicos mudou',
+  'statement-count-not-conserved': 'a quantidade de faturas físicas mudou',
+  'payment-count-not-conserved': 'a quantidade de pagamentos físicos mudou',
+  'economic-content-mutated': 'data ou valor foi alterado indevidamente',
+  'source-provenance-mutated': 'a proveniência histórica foi alterada indevidamente',
+  'protected-metadata-not-preserved': 'metadados protegidos do arquivo foram alterados',
+  'protected-metadata-coverage-mismatch': 'a cobertura dos metadados protegidos não fechou',
+  'entry-records-not-preserved': 'a etapa residual modificou lançamentos físicos',
+  'payment-records-not-preserved': 'a etapa residual modificou pagamentos físicos',
+  'structural-difference-remains': 'ainda existe diferença estrutural após toda a sequência',
+};
+
+const END_TO_END_DRY_RUN_RECOMMENDATION_LABELS: Record<AtomicCardEndToEndDryRunRecommendationCode, string> = {
+  'no-end-to-end-change-needed': 'Nenhuma mudança ponta a ponta precisa ser planejada.',
+  'review-converged-projection': 'Revisar a projeção convergente antes de desenhar qualquer contrato de execução.',
+  'preserve-all-physical-records': 'Preservar integralmente lançamentos, faturas e pagamentos físicos.',
+  'preserve-economic-content-and-provenance': 'Conservar datas, valores e proveniência histórica de todas as linhas.',
+  'preserve-protected-file-evidence': 'Manter os totais oficiais dos arquivos como evidência protegida.',
+  'treat-protected-metadata-as-informational': 'Tratar os metadados protegidos restantes como diferenças informativas, nunca como dados a descartar.',
+  'design-reversible-execution-contract-next': 'A próxima etapa pode desenhar um contrato reversível, com snapshot e precondições, ainda sem executá-lo.',
+  'resolve-end-to-end-blockers': 'Resolver todos os bloqueios antes de desenhar qualquer execução futura.',
   'keep-writes-disabled': 'Manter reparos, ativações e migrations desabilitados nesta etapa.',
 };
 
@@ -1236,6 +1278,42 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     });
     const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
     return buildAtomicCardResidualStatementDryRunReport({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      comparison: shadowAudit.comparison,
+      provenance: shadowAuditProvenance,
+      cycles,
+      closingDay: account?.dia_fechamento,
+    });
+  }, [
+    shadowAudit,
+    shadowAuditProvenance,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
+
+  const shadowAuditEndToEndDryRun = useMemo(() => {
+    if (!shadowAudit || !shadowAuditProvenance || !effectiveFilterAccountId) {
+      return null;
+    }
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return buildAtomicCardEndToEndDryRunReport({
       shadow: shadowAudit.shadow,
       persisted: shadowAudit.persisted,
       comparison: shadowAudit.comparison,
@@ -3971,6 +4049,107 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                   {shadowAuditResidualStatementDryRun.recommendationCodes.map((code) => (
                     <li key={code}>{RESIDUAL_STATEMENT_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {engineOn && shadowAuditEndToEndDryRun && (
+              <div className="mt-3 rounded-lg border border-emerald-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Sprint 2S — certificação ponta a ponta da reconciliação</p>
+                  <span className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                    cadeia completa · zero escritas
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Resultado:{' '}
+                  <strong className="text-white">
+                    {END_TO_END_DRY_RUN_STATUS_LABELS[shadowAuditEndToEndDryRun.status]}
+                  </strong>.
+                  {' '}O diagnóstico encadeia identidade, competência e liquidação residual no mesmo clone, mantendo a projeção real intocada.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Diferenças estruturais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditEndToEndDryRun.structuralDifferenceCountBefore} → {shadowAuditEndToEndDryRun.structuralDifferenceCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Diferenças informativas finais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditEndToEndDryRun.informationalDifferenceCountAfter}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Campos hipotéticos</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditEndToEndDryRun.hypotheticalTotalUpdateCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Pronta para planejar execução reversível</p>
+                    <p className={`mt-1 text-base font-semibold ${shadowAuditEndToEndDryRun.readyForReversibleExecutionPlanning ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {shadowAuditEndToEndDryRun.readyForReversibleExecutionPlanning ? 'sim' : 'não'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p className="font-semibold text-emerald-100">Registros físicos conservados</p>
+                    <p className="mt-1 text-slate-300">
+                      Lançamentos: {shadowAuditEndToEndDryRun.entryCountBefore} / {shadowAuditEndToEndDryRun.entryCountAfter} · faturas: {shadowAuditEndToEndDryRun.statementCountBefore} / {shadowAuditEndToEndDryRun.statementCountAfter} · pagamentos: {shadowAuditEndToEndDryRun.paymentCountBefore} / {shadowAuditEndToEndDryRun.paymentCountAfter}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Contagens preservadas: {shadowAuditEndToEndDryRun.physicalRecordCountsPreserved ? 'sim' : 'não'} · lançamentos e pagamentos preservados na etapa residual: {shadowAuditEndToEndDryRun.entryRecordsPreservedByResidualStep && shadowAuditEndToEndDryRun.paymentRecordsPreservedByResidualStep ? 'sim' : 'não'}.
+                    </p>
+                  </div>
+                  <div className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                    <p className="font-semibold text-cyan-100">Sequência simulada</p>
+                    <p className="mt-1 text-slate-300">
+                      Identidade: {shadowAuditEndToEndDryRun.hypotheticalIdentityUpdateCount} · competência: {shadowAuditEndToEndDryRun.hypotheticalCompetenceUpdateCount} · campos de fatura: {shadowAuditEndToEndDryRun.hypotheticalStatementFieldUpdateCount}.
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Resíduos finais — transações: {shadowAuditEndToEndDryRun.changedTransactionCountAfter} · faturas: {shadowAuditEndToEndDryRun.changedStatementCountAfter} · pagamentos: {shadowAuditEndToEndDryRun.changedPaymentCountAfter}.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p className="font-semibold text-white">Invariantes de segurança</p>
+                  <p className="mt-1 text-slate-300">
+                    Data / valor / origem alterados indevidamente: {shadowAuditEndToEndDryRun.dateMutationCount} / {shadowAuditEndToEndDryRun.amountMutationCount} / {shadowAuditEndToEndDryRun.sourceMutationCount}.
+                  </p>
+                  <p className="mt-1 text-slate-300">
+                    Metadados protegidos preservados: {shadowAuditEndToEndDryRun.protectedMetadataPreserved ? 'sim' : 'não'} · cobertura completa: {shadowAuditEndToEndDryRun.protectedMetadataCoverageComplete ? 'sim' : 'não'} · faturas protegidas: {shadowAuditEndToEndDryRun.protectedStatementCount}.
+                  </p>
+                  <p className="mt-1 text-slate-400">
+                    Pagamentos anteriores à janela mantidos como contexto: {shadowAuditEndToEndDryRun.outsideWindowPaymentWarningCount}.
+                  </p>
+                  <p className="mt-1">
+                    Elegível para escrita: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditEndToEndDryRun.actualWriteOperationCount}</strong>.
+                  </p>
+                </div>
+
+                {shadowAuditEndToEndDryRun.blockerProfiles.length > 0 && (
+                  <div className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
+                    <p className="font-semibold text-rose-100">Bloqueios da certificação</p>
+                    <ul className="mt-1 space-y-1 text-slate-300">
+                      {shadowAuditEndToEndDryRun.blockerProfiles.map((profile) => (
+                        <li key={profile.code} className="flex justify-between gap-2">
+                          <span>{END_TO_END_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
+                          <strong className="text-white">{profile.count}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  {shadowAuditEndToEndDryRun.recommendationCodes.map((code) => (
+                    <li key={code}>{END_TO_END_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                   ))}
                 </ul>
               </div>

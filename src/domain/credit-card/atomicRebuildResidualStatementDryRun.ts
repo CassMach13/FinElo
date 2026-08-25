@@ -64,6 +64,14 @@ export interface AtomicCardResidualStatementDryRunReport {
   checksum: string;
   status: AtomicCardResidualStatementDryRunStatus;
   sequentialStatus: 'not-needed' | 'complete' | 'partial' | 'blocked';
+  sequentialHypotheticalIdentityUpdateCount: number;
+  sequentialHypotheticalCompetenceUpdateCount: number;
+  sequentialIdentityMutationCount: number;
+  sequentialCompetenceMutationCount: number;
+  sequentialTypeMutationCount: number;
+  sequentialDateMutationCount: number;
+  sequentialAmountMutationCount: number;
+  sequentialSourceMutationCount: number;
   statementCountBefore: number;
   statementCountAfter: number;
   changedStatementCountBefore: number;
@@ -387,6 +395,16 @@ export function simulateAtomicCardResidualStatementDryRun(input: {
     checksum: input.shadow.checksum,
     status,
     sequentialStatus: sequential.report.status,
+    sequentialHypotheticalIdentityUpdateCount:
+      sequential.report.hypotheticalIdentityUpdateCount,
+    sequentialHypotheticalCompetenceUpdateCount:
+      sequential.report.hypotheticalCompetenceUpdateCount,
+    sequentialIdentityMutationCount: sequential.report.identityMutationCount,
+    sequentialCompetenceMutationCount: sequential.report.competenceMutationCount,
+    sequentialTypeMutationCount: sequential.report.typeMutationCount,
+    sequentialDateMutationCount: sequential.report.dateMutationCount,
+    sequentialAmountMutationCount: sequential.report.amountMutationCount,
+    sequentialSourceMutationCount: sequential.report.sourceMutationCount,
     statementCountBefore: sequentialPersisted.statements.length,
     statementCountAfter: simulatedPersisted.statements.length,
     changedStatementCountBefore: before.changedStatementKeys.length,
