@@ -8,6 +8,7 @@ import { comparableImportOriginKey } from '../../utils/importOriginKey';
 import { isCreditCardEngineEnabled } from '../../services/featureFlagService';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
 import type {
+  AtomicCardDerivedSettlementRollbackAvailability,
   AtomicCardPaymentRepairRollbackAvailability,
   AtomicCardRebuildAuditResult,
   AtomicCardRollbackAvailability,
@@ -109,6 +110,7 @@ import {
   type AtomicCardEndToEndDryRunRecommendationCode,
   type AtomicCardEndToEndDryRunStatus,
 } from '../../domain/credit-card/atomicRebuildEndToEndDryRun';
+import { prepareAtomicCardDerivedSettlementExecution } from '../../domain/credit-card/atomicRebuildDerivedSettlementExecution';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -120,6 +122,8 @@ const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementTotalCents: 'total',
   totalPaymentsCents: 'pagamentos',
   openBalanceCents: 'saldo',
+  openAmountCents: 'saldo legado exibido',
+  status: 'estado da fatura',
   paymentDate: 'data',
   source: 'origem',
 };
@@ -393,6 +397,8 @@ const RESIDUAL_STATEMENT_DRY_RUN_STATUS_LABELS: Record<AtomicCardResidualStateme
 const RESIDUAL_STATEMENT_FIELD_LABELS: Record<AtomicCardResidualStatementFieldCode, string> = {
   totalPaymentsCents: 'quitação aplicada à competência',
   openBalanceCents: 'saldo derivado da fatura',
+  openAmountCents: 'saldo legado exibido',
+  status: 'estado derivado da fatura',
 };
 
 const RESIDUAL_STATEMENT_DRY_RUN_BLOCKER_LABELS: Record<AtomicCardResidualStatementDryRunBlockerCode, string> = {
@@ -1065,6 +1071,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const rollbackAtomicCardPaymentRepair = useAppStore(
     (s) => s.rollbackAtomicCardPaymentRepair
   );
+  const reconcileAtomicCardDerivedSettlement = useAppStore(
+    (s) => s.reconcileAtomicCardDerivedSettlement
+  );
+  const getAtomicCardDerivedSettlementFeatureState = useAppStore(
+    (s) => s.getAtomicCardDerivedSettlementFeatureState
+  );
+  const getLatestAtomicCardDerivedSettlementRollback = useAppStore(
+    (s) => s.getLatestAtomicCardDerivedSettlementRollback
+  );
+  const rollbackAtomicCardDerivedSettlement = useAppStore(
+    (s) => s.rollbackAtomicCardDerivedSettlement
+  );
 
   const creditCardAccounts = useMemo(
     () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
@@ -1078,14 +1096,25 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const [invoiceDueDayStr, setInvoiceDueDayStr] = useState('');
   const [busy, setBusy] = useState(false);
   const [operation, setOperation] = useState<
-    'save' | 'audit' | 'repair' | 'repairRollback' | 'rebuild' | 'rollback' | null
+    | 'save'
+    | 'audit'
+    | 'repair'
+    | 'repairRollback'
+    | 'reconcileSettlement'
+    | 'settlementRollback'
+    | 'rebuild'
+    | 'rollback'
+    | null
   >(null);
   const [applyProgress, setApplyProgress] = useState<string | null>(null);
   const [shadowAudit, setShadowAudit] = useState<AtomicCardRebuildAuditResult | null>(null);
   const [latestRollback, setLatestRollback] = useState<AtomicCardRollbackAvailability | null>(null);
   const [latestPaymentRepairRollback, setLatestPaymentRepairRollback] =
     useState<AtomicCardPaymentRepairRollbackAvailability | null>(null);
+  const [latestDerivedSettlementRollback, setLatestDerivedSettlementRollback] =
+    useState<AtomicCardDerivedSettlementRollbackAvailability | null>(null);
   const [atomicActivationEnabled, setAtomicActivationEnabled] = useState(false);
+  const [derivedSettlementEnabled, setDerivedSettlementEnabled] = useState(false);
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
 
@@ -1320,6 +1349,47 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       provenance: shadowAuditProvenance,
       cycles,
       closingDay: account?.dia_fechamento,
+    });
+  }, [
+    shadowAudit,
+    shadowAuditProvenance,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
+
+  const shadowAuditDerivedSettlementExecution = useMemo(() => {
+    if (
+      !shadowAudit ||
+      !shadowAuditProvenance ||
+      !effectiveFilterAccountId
+    ) {
+      return null;
+    }
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return prepareAtomicCardDerivedSettlementExecution({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      comparison: shadowAudit.comparison,
+      provenance: shadowAuditProvenance,
+      cycles,
+      closingDay: account?.dia_fechamento,
+      persistedRevision: shadowAudit.persistedRevision,
     });
   }, [
     shadowAudit,
@@ -1613,7 +1683,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       setShadowAudit(null);
       setLatestRollback(null);
       setLatestPaymentRepairRollback(null);
+      setLatestDerivedSettlementRollback(null);
       setAtomicActivationEnabled(false);
+      setDerivedSettlementEnabled(false);
       return;
     }
 
@@ -1744,6 +1816,43 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       active = false;
     };
   }, [isOpen, user, getAtomicCardRebuildFeatureState]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || !user || !effectiveFilterAccountId) {
+      setDerivedSettlementEnabled(false);
+      setLatestDerivedSettlementRollback(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void Promise.all([
+      getAtomicCardDerivedSettlementFeatureState(),
+      getLatestAtomicCardDerivedSettlementRollback(effectiveFilterAccountId),
+    ])
+      .then(([enabled, snapshot]) => {
+        if (!active) return;
+        setDerivedSettlementEnabled(enabled);
+        setLatestDerivedSettlementRollback(snapshot);
+      })
+      .catch((error) => {
+        console.error('[CreditCardInvoiceCyclesModal][DerivedSettlementState]', error);
+        if (!active) return;
+        setDerivedSettlementEnabled(false);
+        setLatestDerivedSettlementRollback(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    isOpen,
+    user,
+    effectiveFilterAccountId,
+    getAtomicCardDerivedSettlementFeatureState,
+    getLatestAtomicCardDerivedSettlementRollback,
+  ]);
 
   const engineOn = user ? isCreditCardEngineEnabled(user) : false;
 
@@ -2217,6 +2326,124 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     }
   }, [latestPaymentRepairRollback, rollbackAtomicCardPaymentRepair]);
 
+  const handleDerivedSettlementReconciliation = useCallback(async () => {
+    if (
+      !effectiveFilterAccountId ||
+      !shadowAudit ||
+      !shadowAuditDerivedSettlementExecution?.request ||
+      !derivedSettlementEnabled
+    ) return;
+
+    const report = shadowAuditDerivedSettlementExecution.report;
+    const confirmed = await appConfirm(
+      [
+        `Reconciliar ${report.expectedStatementUpdateCount} fatura(s) e ${report.expectedLogicalFieldUpdateCount} campo(s) derivados?`,
+        'O banco alterará somente pagamentos acumulados, saldo aberto, saldo legado exibido e estado da fatura.',
+        'Transações, datas, competências, pagamentos físicos, totais oficiais e metadados protegidos não serão alterados.',
+        'Um snapshot individual será criado e o rollback será recusado se houver qualquer mudança posterior.',
+      ].join('\n'),
+      'Sprint 2T — reconciliação reversível',
+      'Criar snapshot e reconciliar',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    const cycles = rows.map((row) => {
+      const { referenceMonth, dueDate } = rowIsoValues(row);
+      return { fileName: row.displayOrigin, referenceMonth, dueDate };
+    });
+    setBusy(true);
+    setOperation('reconcileSettlement');
+    setApplyProgress('Reauditando, bloqueando a revisão e criando o snapshot Sprint 2T…');
+    try {
+      const result = await reconcileAtomicCardDerivedSettlement(
+        effectiveFilterAccountId,
+        cycles,
+        shadowAudit
+      );
+      setShadowAudit(result.postReconciliationAudit);
+      setLatestDerivedSettlementRollback({
+        snapshotId: result.snapshotId,
+        accountId: effectiveFilterAccountId,
+        shadowChecksum: shadowAudit.shadow.checksum,
+        appliedAt: new Date().toISOString(),
+      });
+      await appAlert(
+        [
+          `${result.statementsUpdated} fatura(s) reconciliada(s) e verificadas automaticamente.`,
+          'Lançamentos alterados: 0. Pagamentos físicos alterados: 0.',
+          `Snapshot para rollback: ${result.snapshotId}.`,
+          'A auditoria posterior confirmou zero diferenças estruturais.',
+        ].join('\n'),
+        'Reconciliação Sprint 2T concluída',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][DerivedSettlement]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'A reconciliação foi recusada. O banco não aceita alteração parcial.'
+        ),
+        'Reconciliação não concluída',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [
+    effectiveFilterAccountId,
+    shadowAudit,
+    shadowAuditDerivedSettlementExecution,
+    derivedSettlementEnabled,
+    rows,
+    rowIsoValues,
+    reconcileAtomicCardDerivedSettlement,
+  ]);
+
+  const handleDerivedSettlementRollback = useCallback(async () => {
+    if (!latestDerivedSettlementRollback) return;
+    const confirmed = await appConfirm(
+      'Restaurar exatamente os campos derivados anteriores? O banco recusará o rollback se a projeção tiver mudado após a reconciliação.',
+      'Desfazer reconciliação Sprint 2T',
+      'Restaurar snapshot',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setOperation('settlementRollback');
+    setApplyProgress('Validando a revisão posterior e restaurando o snapshot Sprint 2T…');
+    try {
+      const result = await rollbackAtomicCardDerivedSettlement(
+        latestDerivedSettlementRollback.snapshotId
+      );
+      setLatestDerivedSettlementRollback(null);
+      setShadowAudit(null);
+      await appAlert(
+        `${result.restoredStatements} fatura(s) restaurada(s). Lançamentos e pagamentos físicos alterados: 0. Execute uma nova auditoria para confirmar o estado.`,
+        'Rollback Sprint 2T concluído',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][DerivedSettlementRollback]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'O rollback foi recusado. Nenhuma restauração parcial foi aceita.'
+        ),
+        'Rollback Sprint 2T não concluído',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [latestDerivedSettlementRollback, rollbackAtomicCardDerivedSettlement]);
+
   const handleRollback = useCallback(async () => {
     if (!latestRollback) return;
     const confirmed = await appConfirm(
@@ -2453,6 +2680,37 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               {operation === 'repairRollback'
                 ? 'Restaurando reparo...'
                 : 'Desfazer último reparo'}
+            </Button>
+          )}
+          {latestDerivedSettlementRollback && (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={handleDerivedSettlementRollback}
+            >
+              {operation === 'settlementRollback'
+                ? 'Restaurando reconciliação…'
+                : 'Desfazer reconciliação Sprint 2T'}
+            </Button>
+          )}
+          {shadowAuditDerivedSettlementExecution?.report.status === 'contract-ready' && (
+            <Button
+              variant="secondary"
+              disabled={
+                busy ||
+                !derivedSettlementEnabled ||
+                !shadowAuditDerivedSettlementExecution.request
+              }
+              onClick={handleDerivedSettlementReconciliation}
+              title={
+                derivedSettlementEnabled
+                  ? 'Altera somente quatro colunas derivadas, com snapshot, locks e rollback.'
+                  : 'Reconciliação desligada pelo kill switch individual da Sprint 2T.'
+              }
+            >
+              {operation === 'reconcileSettlement'
+                ? 'Reconciliando…'
+                : 'Reconciliar campos derivados'}
             </Button>
           )}
           {Boolean(shadowAudit?.comparison.repairablePersistedPaymentRowIds.length) && (
@@ -4152,6 +4410,79 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     <li key={code}>{END_TO_END_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {engineOn && shadowAuditDerivedSettlementExecution && (
+              <div className="mt-3 rounded-lg border border-cyan-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">
+                    Sprint 2T — contrato reversível de reconciliação
+                  </p>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      shadowAuditDerivedSettlementExecution.report.status === 'contract-ready'
+                        ? 'border-emerald-300/35 bg-emerald-300/10 text-emerald-100'
+                        : shadowAuditDerivedSettlementExecution.report.status === 'not-needed'
+                          ? 'border-cyan-300/35 bg-cyan-300/10 text-cyan-100'
+                          : 'border-rose-300/35 bg-rose-300/10 text-rose-100'
+                    }`}
+                  >
+                    {shadowAuditDerivedSettlementExecution.report.status === 'contract-ready'
+                      ? 'contrato pronto'
+                      : shadowAuditDerivedSettlementExecution.report.status === 'not-needed'
+                        ? 'nenhuma correção necessária'
+                        : 'contrato bloqueado'}
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  A escrita foi reduzida aos campos derivados de quitação das faturas existentes.
+                  Identidades, datas, competências, valores de lançamentos, pagamentos físicos e
+                  metadados protegidos não fazem parte do payload.
+                </p>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Faturas candidatas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditDerivedSettlementExecution.report.expectedStatementUpdateCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Campos derivados</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditDerivedSettlementExecution.report.expectedLogicalFieldUpdateCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Guardas preparadas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditDerivedSettlementExecution.report.preparedDatabaseGuardCount} /{' '}
+                      {shadowAuditDerivedSettlementExecution.report.requiredDatabaseGuardCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Kill switch individual</p>
+                    <p className={`mt-1 text-base font-semibold ${derivedSettlementEnabled ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {derivedSettlementEnabled ? 'habilitado' : 'desabilitado'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                  <p className="font-semibold text-emerald-100">Invariantes do contrato</p>
+                  <p className="mt-1 text-slate-300">
+                    Lançamentos preservados: {shadowAuditDerivedSettlementExecution.report.preservesEntries ? 'sim' : 'não'} · pagamentos preservados: {shadowAuditDerivedSettlementExecution.report.preservesPayments ? 'sim' : 'não'} · metadados protegidos preservados: {shadowAuditDerivedSettlementExecution.report.preservesProtectedMetadata ? 'sim' : 'não'}.
+                  </p>
+                  <p className="mt-1 text-slate-400">
+                    Checksum vinculado: {shadowAuditDerivedSettlementExecution.report.checksumBound ? 'sim' : 'não'} · revisão vinculada: {shadowAuditDerivedSettlementExecution.report.revisionBound ? 'sim' : 'não'} · rollback condicionado à revisão posterior: sim.
+                  </p>
+                </div>
+
+                {shadowAuditDerivedSettlementExecution.report.blockerCodes.length > 0 && (
+                  <p className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2 text-rose-100">
+                    Bloqueios: {shadowAuditDerivedSettlementExecution.report.blockerCodes.join(', ')}.
+                  </p>
+                )}
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (

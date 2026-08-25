@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
   remove: vi.fn(),
   rpc: vi.fn(),
+  prepareDerivedSettlement: vi.fn(),
+  buildProvenance: vi.fn(() => ({ version: 1 })),
 }));
 
 vi.mock('../../src/supabaseClient', () => ({
@@ -15,6 +17,20 @@ vi.mock('../../src/supabaseClient', () => ({
     from: mocks.from,
     rpc: mocks.rpc,
   },
+}));
+
+vi.mock(
+  '../../src/domain/credit-card/atomicRebuildDerivedSettlementExecution',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('../../src/domain/credit-card/atomicRebuildDerivedSettlementExecution')
+    >()),
+    prepareAtomicCardDerivedSettlementExecution: mocks.prepareDerivedSettlement,
+  })
+);
+
+vi.mock('../../src/domain/credit-card/atomicRebuildProvenance', () => ({
+  buildAtomicCardProvenanceReport: mocks.buildProvenance,
 }));
 
 import {
@@ -910,5 +926,70 @@ describe('creditCardAtomicRebuildService.audit', () => {
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
+  it('restaura automaticamente o snapshot se a auditoria posterior não puder ser confirmada', async () => {
+    const expectedAudit = {
+      shadow: { checksum: 'shadow-v1-05712d54' },
+      persistedRevision: 'a'.repeat(32),
+      persisted: { statements: [{ rowId: 'statement-1' }], entries: [], payments: [] },
+      comparison: { structuralDifferenceCount: 1 },
+    } as unknown as AtomicCardRebuildAuditResult;
+
+    vi.spyOn(
+      creditCardAtomicRebuildService,
+      'isDerivedSettlementReconciliationEnabled'
+    ).mockResolvedValue(true);
+    vi.spyOn(creditCardAtomicRebuildService, 'audit')
+      .mockResolvedValueOnce(expectedAudit)
+      .mockRejectedValueOnce(new Error('auditoria posterior indisponível'));
+    mocks.prepareDerivedSettlement.mockReturnValue({
+      report: { blockerCodes: [], status: 'contract-ready' },
+      request: {
+        accountId: account.id,
+        expectedRevision: 'a'.repeat(32),
+        shadowChecksum: 'shadow-v1-05712d54',
+        statementUpdates: [{ rowId: 'statement-1' }],
+      },
+    });
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: {
+          snapshot_id: 'derived-snapshot',
+          statements_updated: 1,
+          entry_records_changed: 0,
+          payment_records_changed: 0,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          snapshot_id: 'derived-snapshot',
+          restored_revision: 'a'.repeat(32),
+          statements_restored: 1,
+          entry_records_changed: 0,
+          payment_records_changed: 0,
+          rolled_back: true,
+        },
+        error: null,
+      });
+
+    await expect(
+      creditCardAtomicRebuildService.reconcileDerivedSettlement(
+        { account, cycles: [], transactions: [] },
+        expectedAudit
+      )
+    ).rejects.toThrow('rollback automático restaurou o estado anterior');
+
+    expect(mocks.rpc).toHaveBeenNthCalledWith(
+      1,
+      'reconcile_credit_card_derived_settlement_atomic_v1',
+      expect.objectContaining({ p_account_id: account.id })
+    );
+    expect(mocks.rpc).toHaveBeenNthCalledWith(
+      2,
+      'rollback_credit_card_derived_settlement_atomic_v1',
+      { p_snapshot_id: 'derived-snapshot' }
+    );
   });
 });

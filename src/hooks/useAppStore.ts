@@ -44,6 +44,9 @@ import {
 import {
   creditCardAtomicRebuildService,
   type AtomicCardActivationResult,
+  type AtomicCardDerivedSettlementReconciliationResult,
+  type AtomicCardDerivedSettlementRollbackAvailability,
+  type AtomicCardDerivedSettlementRollbackResult,
   type AtomicCardPaymentRepairResult,
   type AtomicCardPaymentRepairRollbackAvailability,
   type AtomicCardPaymentRepairRollbackResult,
@@ -378,6 +381,18 @@ interface AppState {
   rollbackAtomicCardPaymentRepair: (
     snapshotId: string
   ) => Promise<AtomicCardPaymentRepairRollbackResult>;
+  reconcileAtomicCardDerivedSettlement: (
+    accountId: string,
+    cycles: ImportHistoryRebuildCycle[],
+    expectedAudit: AtomicCardRebuildAuditResult
+  ) => Promise<AtomicCardDerivedSettlementReconciliationResult>;
+  getAtomicCardDerivedSettlementFeatureState: () => Promise<boolean>;
+  getLatestAtomicCardDerivedSettlementRollback: (
+    accountId: string
+  ) => Promise<AtomicCardDerivedSettlementRollbackAvailability | null>;
+  rollbackAtomicCardDerivedSettlement: (
+    snapshotId: string
+  ) => Promise<AtomicCardDerivedSettlementRollbackResult>;
   syncCreditCardHistoryFromAccount: (accountId: string) => Promise<{ message: string; origins: number; processed: number }>;
   saveCardImportLotClassification: (
     origin: string,
@@ -1073,6 +1088,51 @@ export const useAppStore = create<AppState>((set, get) => ({
   rollbackAtomicCardPaymentRepair: async (snapshotId) => {
     if (!get().user) throw new Error('Usuário não autenticado.');
     const result = await creditCardAtomicRebuildService.rollbackPaymentRepair(snapshotId);
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+    return result;
+  },
+
+  reconcileAtomicCardDerivedSettlement: async (accountId, cycles, expectedAudit) => {
+    const { user, accounts, transactions, importLogs } = get();
+    if (!user) throw new Error('Usuário não autenticado.');
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) throw new Error('Conta não encontrada.');
+    if (account.Tipo_Conta !== 'Cartão de Crédito') {
+      throw new Error('A conta selecionada não é cartão de crédito.');
+    }
+    if (!isCreditCardEngineEnabled(user)) {
+      throw new Error('O motor de cartão não está habilitado para esta conta.');
+    }
+
+    const result = await creditCardAtomicRebuildService.reconcileDerivedSettlement(
+      {
+        account,
+        cycles,
+        transactions,
+        importLogs,
+        rules: engineClassifierRulesFromUser(user),
+      },
+      expectedAudit
+    );
+    get().bumpCreditCardEngineRevision();
+    await get().refreshCreditCardShadowDashboard();
+    return result;
+  },
+
+  getAtomicCardDerivedSettlementFeatureState: async () => {
+    if (!get().user) return false;
+    return creditCardAtomicRebuildService.isDerivedSettlementReconciliationEnabled();
+  },
+
+  getLatestAtomicCardDerivedSettlementRollback: async (accountId) => {
+    if (!get().user) return null;
+    return creditCardAtomicRebuildService.latestDerivedSettlementRollback(accountId);
+  },
+
+  rollbackAtomicCardDerivedSettlement: async (snapshotId) => {
+    if (!get().user) throw new Error('Usuário não autenticado.');
+    const result = await creditCardAtomicRebuildService.rollbackDerivedSettlement(snapshotId);
     get().bumpCreditCardEngineRevision();
     await get().refreshCreditCardShadowDashboard();
     return result;

@@ -15,6 +15,8 @@ import {
   prepareAtomicCardStatementConservationExecution,
 } from '../domain/credit-card/atomicRebuildStatementConservationExecution';
 import type { AtomicCardStatementConservationPlanReport } from '../domain/credit-card/atomicRebuildStatementConservationPlan';
+import { buildAtomicCardProvenanceReport } from '../domain/credit-card/atomicRebuildProvenance';
+import { prepareAtomicCardDerivedSettlementExecution } from '../domain/credit-card/atomicRebuildDerivedSettlementExecution';
 import {
   parseDueFromReferenceMonth,
   referenceMonthFromTransaction,
@@ -38,6 +40,7 @@ interface PersistedStatementRow {
   open_amount?: number | string | null;
   statement_total?: number | string | null;
   open_balance?: number | string | null;
+  status?: 'open' | 'closed' | 'partial' | 'paid' | 'overdue' | null;
   manual_totals_json?: unknown;
   statement_total_from_file?: number | string | null;
   total_payments_from_file?: number | string | null;
@@ -166,6 +169,32 @@ export interface AtomicCardStatementConservationRollbackResult {
   rolledBack: boolean;
 }
 
+export interface AtomicCardDerivedSettlementReconciliationResult {
+  snapshotId: string;
+  beforeRevision: string;
+  afterRevision: string;
+  statementsUpdated: number;
+  entryRecordsChanged: 0;
+  paymentRecordsChanged: 0;
+  postReconciliationAudit: AtomicCardRebuildAuditResult;
+}
+
+export interface AtomicCardDerivedSettlementRollbackAvailability {
+  snapshotId: string;
+  accountId: string;
+  shadowChecksum: string;
+  appliedAt: string;
+}
+
+export interface AtomicCardDerivedSettlementRollbackResult {
+  snapshotId: string;
+  restoredRevision: string;
+  restoredStatements: number;
+  entryRecordsChanged: 0;
+  paymentRecordsChanged: 0;
+  rolledBack: boolean;
+}
+
 const toCents = (value: number | string | null | undefined): number =>
   Math.round(Number(value || 0) * 100);
 
@@ -285,7 +314,7 @@ async function readAllStatements(accountId: string): Promise<PersistedStatementR
     const { data, error } = await supabase
       .from('credit_card_statements')
       .select(
-        'id,card_id,reference_label,due_year,due_month,due_date,total_charges,total_credits,total_payments,open_amount,statement_total,open_balance,manual_totals_json,statement_total_from_file,total_payments_from_file,lines_computed_total,atomic_projection_version,atomic_projection_checksum,atomic_projection_snapshot_id'
+        'id,card_id,reference_label,due_year,due_month,due_date,total_charges,total_credits,total_payments,open_amount,statement_total,open_balance,status,manual_totals_json,statement_total_from_file,total_payments_from_file,lines_computed_total,atomic_projection_version,atomic_projection_checksum,atomic_projection_snapshot_id'
       )
       .eq('account_id', accountId)
       .order('id', { ascending: true })
@@ -409,6 +438,8 @@ export async function readPersistedAtomicCardProjection(
       statementTotalCents: toCents(source === 'engine' ? row.statement_total : legacyTotal),
       totalPaymentsCents: toCents(row.total_payments),
       openBalanceCents: toCents(source === 'engine' ? row.open_balance : row.open_amount),
+      openAmountCents: toCents(row.open_amount),
+      status: row.status || 'open',
       hasProtectedMetadata:
         row.manual_totals_json != null ||
         row.statement_total_from_file != null ||
@@ -577,6 +608,17 @@ export const creditCardAtomicRebuildService = {
     try {
       const { data, error } = await supabase.rpc(
         'get_atomic_card_statement_conservation_feature_state'
+      );
+      return !error && data === 'enabled';
+    } catch {
+      return false;
+    }
+  },
+
+  async isDerivedSettlementReconciliationEnabled(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_atomic_card_derived_settlement_feature_state'
       );
       return !error && data === 'enabled';
     } catch {
@@ -838,6 +880,129 @@ export const creditCardAtomicRebuildService = {
     };
   },
 
+  /**
+   * Reaudita e corrige somente os quatro campos derivados de quitação nas
+   * faturas físicas existentes. O RPC repete as guardas, cria snapshot e não
+   * recebe payload capaz de tocar identidades, competências ou pagamentos.
+   */
+  async reconcileDerivedSettlement(
+    input: AtomicAuditInput,
+    expectedAudit: AtomicCardRebuildAuditResult
+  ): Promise<AtomicCardDerivedSettlementReconciliationResult> {
+    if (!(await this.isDerivedSettlementReconciliationEnabled())) {
+      throw new Error(
+        'A reconciliação derivada Sprint 2T não está habilitada para esta conta.'
+      );
+    }
+
+    const freshAudit = await this.audit(input);
+    if (
+      freshAudit.shadow.checksum !== expectedAudit.shadow.checksum ||
+      freshAudit.persistedRevision !== expectedAudit.persistedRevision
+    ) {
+      throw new Error(
+        'A projeção mudou depois da auditoria exibida. Nenhum dado foi alterado; audite novamente.'
+      );
+    }
+
+    const provenance = buildAtomicCardProvenanceReport(
+      freshAudit.shadow,
+      freshAudit.persisted,
+      freshAudit.comparison
+    );
+    const preparation = prepareAtomicCardDerivedSettlementExecution({
+      shadow: freshAudit.shadow,
+      persisted: freshAudit.persisted,
+      comparison: freshAudit.comparison,
+      provenance,
+      cycles: input.cycles.map((cycle) => ({
+        sourceFileName: cycle.fileName,
+        referenceMonth: cycle.referenceMonth,
+        dueDate: cycle.dueDate,
+        source: 'confirmed-import-history' as const,
+      })),
+      closingDay: input.account.dia_fechamento,
+      persistedRevision: freshAudit.persistedRevision,
+    });
+    if (!preparation.request) {
+      throw new Error(
+        `O contrato reversível foi recusado (${preparation.report.blockerCodes.join(', ') || preparation.report.status}). Nenhum dado foi alterado.`
+      );
+    }
+
+    const request = preparation.request;
+    const { data, error } = await supabase.rpc(
+      'reconcile_credit_card_derived_settlement_atomic_v1',
+      {
+        p_account_id: request.accountId,
+        p_expected_revision: request.expectedRevision,
+        p_shadow_checksum: request.shadowChecksum,
+        p_statement_updates: request.statementUpdates,
+      }
+    );
+    if (error) throw error;
+
+    const row = (data || {}) as Record<string, unknown>;
+    const snapshotId = String(row.snapshot_id || '');
+    if (!snapshotId) {
+      throw new Error('A reconciliação não retornou o snapshot de rollback.');
+    }
+
+    const statementsUpdated = Number(row.statements_updated || 0);
+    const entryRecordsChanged = Number(row.entry_records_changed || 0);
+    const paymentRecordsChanged = Number(row.payment_records_changed || 0);
+    let postReconciliationAudit: AtomicCardRebuildAuditResult;
+    try {
+      postReconciliationAudit = await this.audit(input);
+      if (
+        statementsUpdated !== request.statementUpdates.length ||
+        entryRecordsChanged !== 0 ||
+        paymentRecordsChanged !== 0 ||
+        postReconciliationAudit.comparison.structuralDifferenceCount !== 0 ||
+        postReconciliationAudit.persisted.statements.length !==
+          freshAudit.persisted.statements.length ||
+        postReconciliationAudit.persisted.entries.length !==
+          freshAudit.persisted.entries.length ||
+        postReconciliationAudit.persisted.payments.length !==
+          freshAudit.persisted.payments.length
+      ) {
+        throw new Error('A auditoria posterior não confirmou as invariantes do contrato.');
+      }
+    } catch (verificationError: unknown) {
+      let automaticRollbackSucceeded = false;
+      try {
+        const rollback = await this.rollbackDerivedSettlement(snapshotId);
+        automaticRollbackSucceeded = rollback.rolledBack;
+      } catch {
+        // O erro final mantém o snapshot explícito para recuperação manual.
+      }
+      const verificationMessage =
+        verificationError instanceof Error
+          ? verificationError.message
+          : 'Falha desconhecida na auditoria posterior.';
+      if (automaticRollbackSucceeded) {
+        throw new Error(
+          `A verificação posterior falhou e o rollback automático restaurou o estado anterior. Motivo: ${verificationMessage}`
+        );
+      }
+      throw new Error(
+        `A verificação posterior falhou e o rollback automático não foi confirmado. Snapshot ${snapshotId} preservado para recuperação. Motivo: ${verificationMessage}`
+      );
+    }
+
+    return {
+      snapshotId,
+      beforeRevision: String(row.before_revision || freshAudit.persistedRevision),
+      afterRevision: String(
+        row.after_revision || postReconciliationAudit.persistedRevision
+      ),
+      statementsUpdated,
+      entryRecordsChanged: 0,
+      paymentRecordsChanged: 0,
+      postReconciliationAudit,
+    };
+  },
+
   async latestRollback(accountId: string): Promise<AtomicCardRollbackAvailability | null> {
     const { data, error } = await supabase
       .from('credit_card_atomic_rebuild_snapshots')
@@ -958,6 +1123,50 @@ export const creditCardAtomicRebuildService = {
       restoredEntries: Number(row.restored_entries || 0),
       restoredLegacyItems: Number(row.restored_legacy_items || 0),
       restoredPayments: Number(row.restored_payments || 0),
+      rolledBack: Boolean(row.rolled_back),
+    };
+  },
+
+  async latestDerivedSettlementRollback(
+    accountId: string
+  ): Promise<AtomicCardDerivedSettlementRollbackAvailability | null> {
+    const { data, error } = await supabase
+      .from('credit_card_reconciliation_snapshots')
+      .select('id,account_id,shadow_checksum,applied_at,after_revision')
+      .eq('account_id', accountId)
+      .eq('operation_kind', 'derived_settlement_reconciliation')
+      .is('rolled_back_at', null)
+      .not('after_revision', 'is', null)
+      .order('applied_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const currentRevision = await readProjectionRevision(accountId);
+    if (String(data.after_revision || '') !== currentRevision) return null;
+    return {
+      snapshotId: String(data.id),
+      accountId: String(data.account_id),
+      shadowChecksum: String(data.shadow_checksum),
+      appliedAt: String(data.applied_at),
+    };
+  },
+
+  async rollbackDerivedSettlement(
+    snapshotId: string
+  ): Promise<AtomicCardDerivedSettlementRollbackResult> {
+    const { data, error } = await supabase.rpc(
+      'rollback_credit_card_derived_settlement_atomic_v1',
+      { p_snapshot_id: snapshotId }
+    );
+    if (error) throw error;
+    const row = (data || {}) as Record<string, unknown>;
+    return {
+      snapshotId: String(row.snapshot_id || snapshotId),
+      restoredRevision: String(row.restored_revision || ''),
+      restoredStatements: Number(row.statements_restored || 0),
+      entryRecordsChanged: 0,
+      paymentRecordsChanged: 0,
       rolledBack: Boolean(row.rolled_back),
     };
   },

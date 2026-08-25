@@ -174,7 +174,7 @@ describe('buildAtomicCardResidualStatementDryRunReport', () => {
       structuralDifferenceCountAfter: 0,
       informationalDifferenceCountAfter: 2,
       candidateStatementCount: 2,
-      hypotheticalStatementFieldUpdateCount: 3,
+      hypotheticalStatementFieldUpdateCount: 5,
       protectedStatementCount: 2,
       protectedMetadataPreserved: true,
       protectedFilePaymentEvidenceCount: 2,
@@ -186,7 +186,9 @@ describe('buildAtomicCardResidualStatementDryRunReport', () => {
     });
     expect(report.fieldProfiles).toEqual([
       { field: 'totalPaymentsCents', count: 2 },
+      { field: 'openAmountCents', count: 1 },
       { field: 'openBalanceCents', count: 1 },
+      { field: 'status', count: 1 },
     ]);
     expect(report.blockerProfiles).toEqual([]);
     expect(report.recommendationCodes).toEqual([

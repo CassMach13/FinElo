@@ -101,6 +101,8 @@ const persistedProjection = (): PersistedAtomicCardProjection => ({
       statementTotalCents: 39990,
       totalPaymentsCents: 40000,
       openBalanceCents: 0,
+      openAmountCents: 0,
+      status: 'paid',
       hasProtectedMetadata: true,
       manualTotalsPresent: false,
       manualTotalsJson: { privateMarker: 'private-july-metadata' },
@@ -118,6 +120,8 @@ const persistedProjection = (): PersistedAtomicCardProjection => ({
       statementTotalCents: 44990,
       totalPaymentsCents: 39990,
       openBalanceCents: 5000,
+      openAmountCents: 0,
+      status: 'partial',
       hasProtectedMetadata: true,
       manualTotalsPresent: false,
       manualTotalsJson: { privateMarker: 'private-august-metadata' },
@@ -224,8 +228,8 @@ describe('buildAtomicCardEndToEndDryRunReport', () => {
       paymentCountAfter: 1,
       hypotheticalIdentityUpdateCount: 0,
       hypotheticalCompetenceUpdateCount: 0,
-      hypotheticalStatementFieldUpdateCount: 3,
-      hypotheticalTotalUpdateCount: 3,
+      hypotheticalStatementFieldUpdateCount: 5,
+      hypotheticalTotalUpdateCount: 5,
       intentionalTypeReviewCount: 0,
       dateMutationCount: 0,
       amountMutationCount: 0,
@@ -290,8 +294,8 @@ describe('buildAtomicCardEndToEndDryRunReport', () => {
     expect(report.entryCountAfter).toBe(2);
     expect(report.hypotheticalIdentityUpdateCount).toBe(1);
     expect(report.hypotheticalCompetenceUpdateCount).toBe(1);
-    expect(report.hypotheticalStatementFieldUpdateCount).toBe(3);
-    expect(report.hypotheticalTotalUpdateCount).toBe(5);
+    expect(report.hypotheticalStatementFieldUpdateCount).toBe(5);
+    expect(report.hypotheticalTotalUpdateCount).toBe(7);
     expect(report.dateMutationCount).toBe(0);
     expect(report.amountMutationCount).toBe(0);
     expect(report.sourceMutationCount).toBe(0);

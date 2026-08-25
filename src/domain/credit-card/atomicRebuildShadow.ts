@@ -118,6 +118,10 @@ export interface PersistedAtomicCardStatement {
   statementTotalCents: number;
   totalPaymentsCents: number;
   openBalanceCents: number;
+  /** Espelho legado ainda consumido por telas antigas; deve acompanhar openBalanceCents. */
+  openAmountCents?: number;
+  /** Estado derivado da quitação materializada. */
+  status?: CreditCardStatementStatus;
   hasProtectedMetadata?: boolean;
   manualTotalsPresent?: boolean;
   /** Payload protegido, mantido em memória apenas para o RPC transacional. */
@@ -823,14 +827,28 @@ const entrySignature = (entry: PersistedAtomicCardEntry | AtomicCardShadowEntry)
 
 const statementSignature = (
   statement: PersistedAtomicCardStatement | AtomicCardShadowStatement
-): string =>
-  [
+): string => {
+  const openAmountCents =
+    'openAmountCents' in statement
+      ? statement.openAmountCents ?? statement.openBalanceCents
+      : statement.openBalanceCents;
+  const status =
+    statement.status ??
+    (statement.openBalanceCents <= 0
+      ? 'paid'
+      : statement.totalPaymentsCents > 0
+        ? 'partial'
+        : 'open');
+  return [
     statement.dueDate || '',
     statement.entryCount,
     statement.statementTotalCents,
     statement.totalPaymentsCents,
     statement.openBalanceCents,
+    openAmountCents,
+    status,
   ].join('|');
+};
 
 const paymentSignature = (
   payment: PersistedAtomicCardPayment | AtomicCardShadowPayment

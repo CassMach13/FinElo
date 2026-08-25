@@ -18,7 +18,9 @@ export type AtomicCardResidualStatementDryRunStatus =
 
 export type AtomicCardResidualStatementFieldCode =
   | 'totalPaymentsCents'
-  | 'openBalanceCents';
+  | 'openBalanceCents'
+  | 'openAmountCents'
+  | 'status';
 
 export type AtomicCardResidualStatementDryRunBlockerCode =
   | 'sequential-step-blocked'
@@ -107,7 +109,9 @@ type StatementField =
   | 'entryCount'
   | 'statementTotalCents'
   | 'totalPaymentsCents'
-  | 'openBalanceCents';
+  | 'openBalanceCents'
+  | 'openAmountCents'
+  | 'status';
 
 interface Candidate {
   current: PersistedAtomicCardStatement;
@@ -121,11 +125,15 @@ const STATEMENT_FIELD_ORDER: StatementField[] = [
   'statementTotalCents',
   'totalPaymentsCents',
   'openBalanceCents',
+  'openAmountCents',
+  'status',
 ];
 
 const ALLOWED_FIELDS = new Set<AtomicCardResidualStatementFieldCode>([
   'totalPaymentsCents',
   'openBalanceCents',
+  'openAmountCents',
+  'status',
 ]);
 
 const BLOCKER_ORDER: AtomicCardResidualStatementDryRunBlockerCode[] = [
@@ -156,6 +164,19 @@ const statementFields = (
 ): StatementField[] =>
   STATEMENT_FIELD_ORDER.filter((field) => {
     if (field === 'dueDate') return (current.dueDate || '') !== expected.dueDate;
+    if (field === 'openAmountCents') {
+      return (current.openAmountCents ?? current.openBalanceCents) !== expected.openBalanceCents;
+    }
+    if (field === 'status') {
+      const currentStatus =
+        current.status ??
+        (current.openBalanceCents <= 0
+          ? 'paid'
+          : current.totalPaymentsCents > 0
+            ? 'partial'
+            : 'open');
+      return currentStatus !== expected.status;
+    }
     return current[field] !== expected[field];
   });
 
@@ -290,6 +311,8 @@ export function simulateAtomicCardResidualStatementDryRun(input: {
             ...statement,
             totalPaymentsCents: expected.totalPaymentsCents,
             openBalanceCents: expected.openBalanceCents,
+            openAmountCents: expected.openBalanceCents,
+            status: expected.status,
           }
         : { ...statement };
     }),
