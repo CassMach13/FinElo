@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildAtomicCardRebuildShadow,
   compareAtomicCardProjections,
@@ -50,6 +50,10 @@ const cycles = [
     dueDate: '2026-09-28',
   },
 ];
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('Sprint 2A — projeção sombra atômica', () => {
   it('mantém centavos e aplica o pagamento do arquivo seguinte na fatura anterior', () => {
@@ -608,6 +612,9 @@ describe('Sprint 2A — projeção sombra atômica', () => {
   });
 
   it('preserva metadados protegidos sem liberá-los como uma alteração isolada', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-29T12:00:00Z'));
+
     const shadow = buildAtomicCardRebuildShadow({
       account,
       cycles: [cycles[0]],

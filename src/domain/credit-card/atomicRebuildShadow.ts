@@ -4,7 +4,7 @@ import { comparableImportOriginKey } from '../../utils/importOriginKey';
 import { importedPaymentProvenanceKeyFromNotes } from '../../utils/creditCardPaymentIntegrity';
 import type { ClassificationRules } from './classifiers';
 import { creditCardStatementEngine } from './creditCardStatementEngine';
-import { resolveImportedInvoicePaymentTarget } from './payments';
+import { inferStatusFromTotals, resolveImportedInvoicePaymentTarget } from './payments';
 import type {
   CreditCardImportEntry,
   CreditCardPayment,
@@ -834,11 +834,11 @@ const statementSignature = (
       : statement.openBalanceCents;
   const status =
     statement.status ??
-    (statement.openBalanceCents <= 0
-      ? 'paid'
-      : statement.totalPaymentsCents > 0
-        ? 'partial'
-        : 'open');
+    inferStatusFromTotals(
+      statement.statementTotalCents,
+      statement.totalPaymentsCents,
+      statement.dueDate
+    );
   return [
     statement.dueDate || '',
     statement.entryCount,
