@@ -111,6 +111,7 @@ import {
   type AtomicCardEndToEndDryRunStatus,
 } from '../../domain/credit-card/atomicRebuildEndToEndDryRun';
 import { prepareAtomicCardDerivedSettlementExecution } from '../../domain/credit-card/atomicRebuildDerivedSettlementExecution';
+import { prepareAtomicCardStructuralEntryExecution } from '../../domain/credit-card/atomicRebuildStructuralEntryExecution';
 
 const FORENSIC_FIELD_LABELS: Record<string, string> = {
   statementKey: 'competência',
@@ -1083,6 +1084,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const rollbackAtomicCardDerivedSettlement = useAppStore(
     (s) => s.rollbackAtomicCardDerivedSettlement
   );
+  const reconcileAtomicCardStructuralEntries = useAppStore(
+    (s) => s.reconcileAtomicCardStructuralEntries
+  );
+  const getAtomicCardStructuralEntryFeatureState = useAppStore(
+    (s) => s.getAtomicCardStructuralEntryFeatureState
+  );
+  const rollbackAtomicCardStructuralEntries = useAppStore(
+    (s) => s.rollbackAtomicCardStructuralEntries
+  );
 
   const creditCardAccounts = useMemo(
     () => accounts.filter((a) => a.Tipo_Conta === 'Cartão de Crédito'),
@@ -1102,6 +1112,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     | 'repairRollback'
     | 'reconcileSettlement'
     | 'settlementRollback'
+    | 'reconcileStructural'
+    | 'structuralRollback'
     | 'rebuild'
     | 'rollback'
     | null
@@ -1115,6 +1127,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     useState<AtomicCardDerivedSettlementRollbackAvailability | null>(null);
   const [atomicActivationEnabled, setAtomicActivationEnabled] = useState(false);
   const [derivedSettlementEnabled, setDerivedSettlementEnabled] = useState(false);
+  const [structuralEntryEnabled, setStructuralEntryEnabled] = useState(false);
+  const [structuralEntryRollbackSnapshotId, setStructuralEntryRollbackSnapshotId] =
+    useState<string | null>(null);
   const prevIsOpenRef = useRef(false);
   const prevFilterSigRef = useRef<string | undefined>(undefined);
 
@@ -1383,6 +1398,43 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     });
     const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
     return prepareAtomicCardDerivedSettlementExecution({
+      shadow: shadowAudit.shadow,
+      persisted: shadowAudit.persisted,
+      comparison: shadowAudit.comparison,
+      provenance: shadowAuditProvenance,
+      cycles,
+      closingDay: account?.dia_fechamento,
+      persistedRevision: shadowAudit.persistedRevision,
+    });
+  }, [
+    shadowAudit,
+    shadowAuditProvenance,
+    effectiveFilterAccountId,
+    rows,
+    invoiceDueDayStr,
+    accounts,
+  ]);
+
+  const shadowAuditStructuralEntryExecution = useMemo(() => {
+    if (!shadowAudit || !shadowAuditProvenance || !effectiveFilterAccountId) {
+      return null;
+    }
+    const cycles = rows.flatMap((row) => {
+      const referenceMonth = parseMMAAAAToIsoMonth(row.competenciaBR.trim());
+      const dueDay = effectiveDueDayForAccount(row.accountId, invoiceDueDayStr, accounts);
+      const dueDate = resolveCreditCardInvoiceCycleDueDateIso(row, dueDay);
+      if (!referenceMonth || !dueDate) return [];
+      return [
+        {
+          sourceFileName: row.displayOrigin,
+          referenceMonth,
+          dueDate,
+          source: row.competenceEvidenceSource || 'unknown',
+        },
+      ];
+    });
+    const account = accounts.find((candidate) => candidate.id === effectiveFilterAccountId);
+    return prepareAtomicCardStructuralEntryExecution({
       shadow: shadowAudit.shadow,
       persisted: shadowAudit.persisted,
       comparison: shadowAudit.comparison,
@@ -1686,6 +1738,8 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       setLatestDerivedSettlementRollback(null);
       setAtomicActivationEnabled(false);
       setDerivedSettlementEnabled(false);
+      setStructuralEntryEnabled(false);
+      setStructuralEntryRollbackSnapshotId(null);
       return;
     }
 
@@ -1853,6 +1907,28 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     getAtomicCardDerivedSettlementFeatureState,
     getLatestAtomicCardDerivedSettlementRollback,
   ]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || !user) {
+      setStructuralEntryEnabled(false);
+      setStructuralEntryRollbackSnapshotId(null);
+      return () => {
+        active = false;
+      };
+    }
+    void getAtomicCardStructuralEntryFeatureState()
+      .then((enabled) => {
+        if (active) setStructuralEntryEnabled(enabled);
+      })
+      .catch((error) => {
+        console.error('[CreditCardInvoiceCyclesModal][StructuralEntryState]', error);
+        if (active) setStructuralEntryEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, user, getAtomicCardStructuralEntryFeatureState]);
 
   const engineOn = user ? isCreditCardEngineEnabled(user) : false;
 
@@ -2326,6 +2402,119 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
     }
   }, [latestPaymentRepairRollback, rollbackAtomicCardPaymentRepair]);
 
+  const handleStructuralEntryReconciliation = useCallback(async () => {
+    if (
+      !effectiveFilterAccountId ||
+      !shadowAudit ||
+      !shadowAuditStructuralEntryExecution?.request ||
+      !structuralEntryEnabled
+    ) return;
+
+    const report = shadowAuditStructuralEntryExecution.report;
+    const confirmed = await appConfirm(
+      [
+        `Corrigir ${report.expectedEntryUpdateCount} linha(s) normalizada(s)?`,
+        `Identidades: ${report.expectedIdentityUpdateCount}; competências: ${report.expectedCompetenceUpdateCount}; tipos técnicos: ${report.expectedTypeUpdateCount}.`,
+        'Transações físicas, datas, valores, origem, faturas e pagamentos não serão alterados.',
+        'O banco criará um snapshot individual e fará rollback automático se a auditoria posterior falhar.',
+      ].join('\n'),
+      'Sprint 2U — reconciliação estrutural',
+      'Criar snapshot e reconciliar',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    const cycles = rows.map((row) => {
+      const { referenceMonth, dueDate } = rowIsoValues(row);
+      return { fileName: row.displayOrigin, referenceMonth, dueDate };
+    });
+    setBusy(true);
+    setOperation('reconcileStructural');
+    setApplyProgress('Reauditando e criando o snapshot estrutural Sprint 2U…');
+    try {
+      const result = await reconcileAtomicCardStructuralEntries(
+        effectiveFilterAccountId,
+        cycles,
+        shadowAudit
+      );
+      setShadowAudit(result.postReconciliationAudit);
+      setStructuralEntryRollbackSnapshotId(result.snapshotId);
+      await appAlert(
+        [
+          `${result.entriesUpdated} linha(s) normalizada(s) reconciliada(s).`,
+          `Identidades: ${result.identityUpdates}; competências: ${result.competenceUpdates}; tipos: ${result.typeUpdates}.`,
+          'Transações, faturas e pagamentos físicos alterados: 0.',
+          `Snapshot para rollback: ${result.snapshotId}.`,
+        ].join('\n'),
+        'Reconciliação Sprint 2U concluída',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][StructuralEntry]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'A reconciliação estrutural foi recusada. Nenhuma alteração parcial foi aceita.'
+        ),
+        'Reconciliação estrutural não concluída',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [
+    effectiveFilterAccountId,
+    shadowAudit,
+    shadowAuditStructuralEntryExecution,
+    structuralEntryEnabled,
+    rows,
+    rowIsoValues,
+    reconcileAtomicCardStructuralEntries,
+  ]);
+
+  const handleStructuralEntryRollback = useCallback(async () => {
+    if (!structuralEntryRollbackSnapshotId) return;
+    const confirmed = await appConfirm(
+      'Restaurar exatamente as identidades, competências e tipos anteriores? O banco recusará o rollback se a projeção tiver mudado.',
+      'Desfazer reconciliação Sprint 2U',
+      'Restaurar snapshot',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setOperation('structuralRollback');
+    setApplyProgress('Validando a revisão e restaurando o snapshot Sprint 2U…');
+    try {
+      const result = await rollbackAtomicCardStructuralEntries(
+        structuralEntryRollbackSnapshotId
+      );
+      setStructuralEntryRollbackSnapshotId(null);
+      setShadowAudit(null);
+      await appAlert(
+        `${result.restoredEntries} linha(s) restaurada(s). Transações, faturas e pagamentos físicos alterados: 0.`,
+        'Rollback Sprint 2U concluído',
+        'success'
+      );
+    } catch (error: unknown) {
+      console.error('[CreditCardInvoiceCyclesModal][StructuralEntryRollback]', error);
+      await appAlert(
+        unknownErrorMessage(
+          error,
+          'O rollback estrutural foi recusado. Nenhuma restauração parcial foi aceita.'
+        ),
+        'Rollback Sprint 2U não concluído',
+        'danger'
+      );
+    } finally {
+      setBusy(false);
+      setOperation(null);
+      setApplyProgress(null);
+    }
+  }, [structuralEntryRollbackSnapshotId, rollbackAtomicCardStructuralEntries]);
+
   const handleDerivedSettlementReconciliation = useCallback(async () => {
     if (
       !effectiveFilterAccountId ||
@@ -2691,6 +2880,37 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               {operation === 'settlementRollback'
                 ? 'Restaurando reconciliação…'
                 : 'Desfazer reconciliação Sprint 2T'}
+            </Button>
+          )}
+          {structuralEntryRollbackSnapshotId && (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={handleStructuralEntryRollback}
+            >
+              {operation === 'structuralRollback'
+                ? 'Restaurando estrutura…'
+                : 'Desfazer reconciliação Sprint 2U'}
+            </Button>
+          )}
+          {shadowAuditStructuralEntryExecution?.report.status === 'contract-ready' && (
+            <Button
+              variant="secondary"
+              disabled={
+                busy ||
+                !structuralEntryEnabled ||
+                !shadowAuditStructuralEntryExecution.request
+              }
+              onClick={handleStructuralEntryReconciliation}
+              title={
+                structuralEntryEnabled
+                  ? 'Altera somente vínculos normalizados comprovados, com snapshot e rollback.'
+                  : 'Reconciliação desligada pelo kill switch individual da Sprint 2U.'
+              }
+            >
+              {operation === 'reconcileStructural'
+                ? 'Reconciliando estrutura…'
+                : 'Reconciliar identidade e competência'}
             </Button>
           )}
           {shadowAuditDerivedSettlementExecution?.report.status === 'contract-ready' && (
@@ -4412,6 +4632,70 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 </ul>
               </div>
             )}
+            {engineOn && shadowAuditStructuralEntryExecution && (
+              <div className="mt-3 rounded-lg border border-violet-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-white">
+                    Sprint 2U — contrato estrutural reversível
+                  </p>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      shadowAuditStructuralEntryExecution.report.status === 'contract-ready'
+                        ? 'border-emerald-300/35 bg-emerald-300/10 text-emerald-100'
+                        : shadowAuditStructuralEntryExecution.report.status === 'not-needed'
+                          ? 'border-cyan-300/35 bg-cyan-300/10 text-cyan-100'
+                          : 'border-rose-300/35 bg-rose-300/10 text-rose-100'
+                    }`}
+                  >
+                    {shadowAuditStructuralEntryExecution.report.status === 'contract-ready'
+                      ? 'contrato pronto'
+                      : shadowAuditStructuralEntryExecution.report.status === 'not-needed'
+                        ? 'nenhuma correção necessária'
+                        : 'contrato bloqueado'}
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-slate-300">
+                  Corrige somente a identidade imutável da origem, a competência confirmada e
+                  o tipo técnico das linhas normalizadas já existentes. Não cria nem remove
+                  lançamentos e não altera transações, datas, valores, origem, faturas ou pagamentos.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Linhas executáveis</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStructuralEntryExecution.report.expectedEntryUpdateCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Campos estruturais</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStructuralEntryExecution.report.expectedLogicalFieldUpdateCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Guardas preparadas</p>
+                    <p className="mt-1 text-base font-semibold text-white">
+                      {shadowAuditStructuralEntryExecution.report.preparedDatabaseGuardCount} /{' '}
+                      {shadowAuditStructuralEntryExecution.report.requiredDatabaseGuardCount}
+                    </p>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p className="text-slate-400">Kill switch individual</p>
+                    <p className={`mt-1 text-base font-semibold ${structuralEntryEnabled ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {structuralEntryEnabled ? 'habilitado' : 'desabilitado'}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2 text-slate-300">
+                  Linhas preservadas: {shadowAuditStructuralEntryExecution.report.preservesEntryRows ? 'sim' : 'não'} · conteúdo econômico preservado: {shadowAuditStructuralEntryExecution.report.preservesEconomicContent ? 'sim' : 'não'} · proveniência preservada: {shadowAuditStructuralEntryExecution.report.preservesSourceProvenance ? 'sim' : 'não'} · faturas e pagamentos preservados: {shadowAuditStructuralEntryExecution.report.preservesStatements && shadowAuditStructuralEntryExecution.report.preservesPayments ? 'sim' : 'não'}.
+                </p>
+                {shadowAuditStructuralEntryExecution.report.blockerCodes.length > 0 && (
+                  <p className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2 text-rose-100">
+                    Bloqueios: {shadowAuditStructuralEntryExecution.report.blockerCodes.join(', ')}.
+                  </p>
+                )}
+              </div>
+            )}
             {engineOn && shadowAuditDerivedSettlementExecution && (
               <div className="mt-3 rounded-lg border border-cyan-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -4442,13 +4726,13 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Faturas candidatas</p>
+                    <p className="text-slate-400">Faturas executáveis</p>
                     <p className="mt-1 text-base font-semibold text-white">
                       {shadowAuditDerivedSettlementExecution.report.expectedStatementUpdateCount}
                     </p>
                   </div>
                   <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Campos derivados</p>
+                    <p className="text-slate-400">Campos executáveis</p>
                     <p className="mt-1 text-base font-semibold text-white">
                       {shadowAuditDerivedSettlementExecution.report.expectedLogicalFieldUpdateCount}
                     </p>

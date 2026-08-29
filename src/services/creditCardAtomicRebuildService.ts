@@ -17,6 +17,7 @@ import {
 import type { AtomicCardStatementConservationPlanReport } from '../domain/credit-card/atomicRebuildStatementConservationPlan';
 import { buildAtomicCardProvenanceReport } from '../domain/credit-card/atomicRebuildProvenance';
 import { prepareAtomicCardDerivedSettlementExecution } from '../domain/credit-card/atomicRebuildDerivedSettlementExecution';
+import { prepareAtomicCardStructuralEntryExecution } from '../domain/credit-card/atomicRebuildStructuralEntryExecution';
 import {
   parseDueFromReferenceMonth,
   referenceMonthFromTransaction,
@@ -192,6 +193,31 @@ export interface AtomicCardDerivedSettlementRollbackResult {
   restoredStatements: number;
   entryRecordsChanged: 0;
   paymentRecordsChanged: 0;
+  rolledBack: boolean;
+}
+
+export interface AtomicCardStructuralEntryReconciliationResult {
+  snapshotId: string;
+  beforeRevision: string;
+  afterRevision: string;
+  entriesUpdated: number;
+  identityUpdates: number;
+  competenceUpdates: number;
+  typeUpdates: number;
+  transactionRecordsChanged: 0;
+  paymentRecordsChanged: 0;
+  statementRecordsChanged: 0;
+  postReconciliationAudit: AtomicCardRebuildAuditResult;
+}
+
+export interface AtomicCardStructuralEntryRollbackResult {
+  snapshotId: string;
+  accountId: string;
+  restoredRevision: string;
+  restoredEntries: number;
+  transactionRecordsChanged: 0;
+  paymentRecordsChanged: 0;
+  statementRecordsChanged: 0;
   rolledBack: boolean;
 }
 
@@ -388,6 +414,7 @@ export async function readPersistedAtomicCardProjection(
     source === 'engine'
       ? engineRows.map((row) => ({
           rowId: row.id,
+          statementRowId: row.statement_id || null,
           sourceFileName: row.source_file_name || null,
           sourceRowIndex:
             row.source_row_index === null || row.source_row_index === undefined
@@ -404,6 +431,7 @@ export async function readPersistedAtomicCardProjection(
         }))
       : legacyRows.map((row) => ({
           rowId: row.id,
+          statementRowId: row.statement_id,
           transactionId: String(row.transaction_id || `legacy-row:${row.id}`),
           statementKey: statementKeyById.get(row.statement_id) || 'sem-competencia',
           postedDate: row.posted_date || null,
@@ -619,6 +647,17 @@ export const creditCardAtomicRebuildService = {
     try {
       const { data, error } = await supabase.rpc(
         'get_atomic_card_derived_settlement_feature_state'
+      );
+      return !error && data === 'enabled';
+    } catch {
+      return false;
+    }
+  },
+
+  async isStructuralEntryReconciliationEnabled(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_atomic_card_structural_entry_feature_state'
       );
       return !error && data === 'enabled';
     } catch {
@@ -877,6 +916,147 @@ export const creditCardAtomicRebuildService = {
       legacyItemsRelinked: Number(row.legacy_items_relinked || 0),
       paymentsRelinked,
       postConservationAudit,
+    };
+  },
+
+  /**
+   * Corrige somente identidade, competência e tipo técnico das linhas já
+   * existentes em credit_card_entries. Transações, valores, datas, origem,
+   * faturas e pagamentos físicos permanecem imutáveis.
+   */
+  async reconcileStructuralEntries(
+    input: AtomicAuditInput,
+    expectedAudit: AtomicCardRebuildAuditResult
+  ): Promise<AtomicCardStructuralEntryReconciliationResult> {
+    if (!(await this.isStructuralEntryReconciliationEnabled())) {
+      throw new Error(
+        'A reconciliação estrutural Sprint 2U não está habilitada para esta conta.'
+      );
+    }
+
+    const freshAudit = await this.audit(input);
+    if (
+      freshAudit.shadow.checksum !== expectedAudit.shadow.checksum ||
+      freshAudit.persistedRevision !== expectedAudit.persistedRevision
+    ) {
+      throw new Error(
+        'A projeção mudou depois da auditoria exibida. Nenhum dado foi alterado; audite novamente.'
+      );
+    }
+
+    const provenance = buildAtomicCardProvenanceReport(
+      freshAudit.shadow,
+      freshAudit.persisted,
+      freshAudit.comparison
+    );
+    const preparation = prepareAtomicCardStructuralEntryExecution({
+      shadow: freshAudit.shadow,
+      persisted: freshAudit.persisted,
+      comparison: freshAudit.comparison,
+      provenance,
+      cycles: input.cycles.map((cycle) => ({
+        sourceFileName: cycle.fileName,
+        referenceMonth: cycle.referenceMonth,
+        dueDate: cycle.dueDate,
+        source: 'confirmed-import-history' as const,
+      })),
+      closingDay: input.account.dia_fechamento,
+      persistedRevision: freshAudit.persistedRevision,
+    });
+    if (!preparation.request) {
+      throw new Error(
+        `O contrato estrutural foi recusado (${preparation.report.blockerCodes.join(', ') || preparation.report.status}). Nenhum dado foi alterado.`
+      );
+    }
+
+    const request = preparation.request;
+    const beforeCounts = {
+      entries: freshAudit.persisted.entries.length,
+      statements: freshAudit.persisted.statements.length,
+      payments: freshAudit.persisted.payments.length,
+    };
+    const { data, error } = await supabase.rpc(
+      'reconcile_credit_card_structural_entries_atomic_v1',
+      {
+        p_account_id: request.accountId,
+        p_expected_revision: request.expectedRevision,
+        p_shadow_checksum: request.shadowChecksum,
+        p_entry_updates: request.entryUpdates,
+      }
+    );
+    if (error) throw error;
+
+    const row = (data || {}) as Record<string, unknown>;
+    const snapshotId = String(row.snapshot_id || '');
+    if (!snapshotId) {
+      throw new Error('A reconciliação estrutural não retornou o snapshot de rollback.');
+    }
+
+    const entriesUpdated = Number(row.entries_updated || 0);
+    const identityUpdates = Number(row.identity_updates || 0);
+    const competenceUpdates = Number(row.competence_updates || 0);
+    const typeUpdates = Number(row.type_updates || 0);
+    const transactionRecordsChanged = Number(row.transaction_records_changed || 0);
+    const paymentRecordsChanged = Number(row.payment_records_changed || 0);
+    const statementRecordsChanged = Number(row.statement_records_changed || 0);
+    let postReconciliationAudit: AtomicCardRebuildAuditResult;
+    try {
+      postReconciliationAudit = await this.audit(input);
+      const comparison = postReconciliationAudit.comparison;
+      if (
+        entriesUpdated !== request.entryUpdates.length ||
+        identityUpdates !== preparation.report.expectedIdentityUpdateCount ||
+        competenceUpdates !== preparation.report.expectedCompetenceUpdateCount ||
+        typeUpdates !== preparation.report.expectedTypeUpdateCount ||
+        transactionRecordsChanged !== 0 ||
+        paymentRecordsChanged !== 0 ||
+        statementRecordsChanged !== 0 ||
+        postReconciliationAudit.persisted.entries.length !== beforeCounts.entries ||
+        postReconciliationAudit.persisted.statements.length !== beforeCounts.statements ||
+        postReconciliationAudit.persisted.payments.length !== beforeCounts.payments ||
+        comparison.duplicatePersistedTransactionIds.length !== 0 ||
+        comparison.missingTransactionIds.length !== 0 ||
+        comparison.orphanTransactionIds.length !== 0 ||
+        comparison.changedTransactionIds.length !== 0
+      ) {
+        throw new Error('A auditoria posterior não confirmou as invariantes estruturais.');
+      }
+    } catch (verificationError: unknown) {
+      let automaticRollbackSucceeded = false;
+      try {
+        const rollback = await this.rollbackStructuralEntries(snapshotId);
+        automaticRollbackSucceeded = rollback.rolledBack;
+      } catch {
+        // O erro final mantém o snapshot explícito para recuperação manual.
+      }
+      const verificationMessage =
+        verificationError instanceof Error
+          ? verificationError.message
+          : 'Falha desconhecida na auditoria posterior.';
+      if (automaticRollbackSucceeded) {
+        throw new Error(
+          `A verificação estrutural falhou e o rollback automático restaurou o estado anterior. Motivo: ${verificationMessage}`
+        );
+      }
+      throw new Error(
+        `A verificação estrutural falhou e o rollback automático não foi confirmado. Snapshot ${snapshotId} preservado. Motivo: ${verificationMessage}`
+      );
+    }
+
+    return {
+      snapshotId,
+      beforeRevision: String(row.before_revision || freshAudit.persistedRevision),
+      afterRevision: String(
+        row.after_revision || postReconciliationAudit.persistedRevision
+      ),
+      entriesUpdated,
+      identityUpdates,
+      competenceUpdates,
+      typeUpdates,
+      transactionRecordsChanged: 0,
+      paymentRecordsChanged: 0,
+      statementRecordsChanged: 0,
+      postReconciliationAudit,
     };
   },
 
@@ -1149,6 +1329,27 @@ export const creditCardAtomicRebuildService = {
       accountId: String(data.account_id),
       shadowChecksum: String(data.shadow_checksum),
       appliedAt: String(data.applied_at),
+    };
+  },
+
+  async rollbackStructuralEntries(
+    snapshotId: string
+  ): Promise<AtomicCardStructuralEntryRollbackResult> {
+    const { data, error } = await supabase.rpc(
+      'rollback_credit_card_structural_entries_atomic_v1',
+      { p_snapshot_id: snapshotId }
+    );
+    if (error) throw error;
+    const row = (data || {}) as Record<string, unknown>;
+    return {
+      snapshotId: String(row.snapshot_id || snapshotId),
+      accountId: String(row.account_id || ''),
+      restoredRevision: String(row.restored_revision || ''),
+      restoredEntries: Number(row.restored_entries || 0),
+      transactionRecordsChanged: 0,
+      paymentRecordsChanged: 0,
+      statementRecordsChanged: 0,
+      rolledBack: Boolean(row.rolled_back),
     };
   },
 

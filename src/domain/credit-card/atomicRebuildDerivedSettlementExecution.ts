@@ -263,6 +263,16 @@ export function prepareAtomicCardDerivedSettlementExecution(input: {
       ? 'contract-ready'
       : 'blocked';
   const preparedDatabaseGuardCount = eligibleForStagingExecution ? 14 : 0;
+  // O relatório público descreve somente o que pode ser efetivamente executado.
+  // As diferenças derivadas ainda podem ser calculadas internamente para compor
+  // os bloqueios, mas não devem aparecer na interface como "candidatas" antes
+  // de identidade e competência estarem reconciliadas.
+  const executableStatementUpdateCount = eligibleForStagingExecution
+    ? updates.length
+    : 0;
+  const executableLogicalFieldUpdateCount = eligibleForStagingExecution
+    ? logicalFieldUpdateCount
+    : 0;
 
   return {
     report: {
@@ -276,10 +286,10 @@ export function prepareAtomicCardDerivedSettlementExecution(input: {
       status,
       checksumBound,
       revisionBound,
-      expectedStatementUpdateCount: updates.length,
-      expectedLogicalFieldUpdateCount: logicalFieldUpdateCount,
-      expectedPhysicalColumnUpdateCount: logicalFieldUpdateCount,
-      snapshotStatementCount: updates.length,
+      expectedStatementUpdateCount: executableStatementUpdateCount,
+      expectedLogicalFieldUpdateCount: executableLogicalFieldUpdateCount,
+      expectedPhysicalColumnUpdateCount: executableLogicalFieldUpdateCount,
+      snapshotStatementCount: executableStatementUpdateCount,
       requiredDatabaseGuardCount: 14,
       preparedDatabaseGuardCount,
       updatesOnlyDerivedSettlementFields: !unsupportedStatementChange,

@@ -134,6 +134,8 @@ export interface PersistedAtomicCardStatement {
 export interface PersistedAtomicCardEntry {
   /** Identidade da linha materializada, usada apenas para auditoria/reparo seguro. */
   rowId?: string;
+  /** FK física atual da fatura; nunca é exposta nos relatórios agregados. */
+  statementRowId?: string | null;
   /** Proveniência persistida; permanece opcional para leituras do modelo legado. */
   sourceFileName?: string | null;
   sourceRowIndex?: number | null;

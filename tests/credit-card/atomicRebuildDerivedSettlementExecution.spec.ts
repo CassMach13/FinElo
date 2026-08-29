@@ -247,6 +247,9 @@ describe('prepareAtomicCardDerivedSettlementExecution', () => {
     expect(preparation.report.blockerCodes).toContain(
       'identity-or-competence-write-required'
     );
+    expect(preparation.report.expectedStatementUpdateCount).toBe(0);
+    expect(preparation.report.expectedLogicalFieldUpdateCount).toBe(0);
+    expect(preparation.report.snapshotStatementCount).toBe(0);
     expect(preparation.request).toBeNull();
   });
 
@@ -256,6 +259,8 @@ describe('prepareAtomicCardDerivedSettlementExecution', () => {
 
     expect(preparation.report.status).toBe('blocked');
     expect(preparation.report.blockerCodes).toContain('invalid-persisted-revision');
+    expect(preparation.report.expectedStatementUpdateCount).toBe(0);
+    expect(preparation.report.expectedLogicalFieldUpdateCount).toBe(0);
     expect(preparation.request).toBeNull();
     expect(serialized).not.toContain(julyRowId);
     expect(serialized).not.toContain(augustRowId);
