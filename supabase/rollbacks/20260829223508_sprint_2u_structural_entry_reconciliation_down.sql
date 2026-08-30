@@ -3,14 +3,6 @@
 
 begin;
 
-revoke all on function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
-  from public, anon, authenticated, service_role;
-revoke all on function public.reconcile_credit_card_structural_entries_atomic_v1(
-  uuid, text, text, jsonb
-) from public, anon, authenticated, service_role;
-revoke all on function public.get_atomic_card_structural_entry_feature_state()
-  from public, anon, authenticated, service_role;
-
 drop function if exists public.rollback_credit_card_structural_entries_atomic_v1(uuid);
 drop function if exists public.reconcile_credit_card_structural_entries_atomic_v1(
   uuid, text, text, jsonb
@@ -18,20 +10,25 @@ drop function if exists public.reconcile_credit_card_structural_entries_atomic_v
 drop function if exists public.get_atomic_card_structural_entry_feature_state();
 
 drop function if exists
-  finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid);
+  finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid);
 drop function if exists
-  finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+  finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
     uuid, text, text, jsonb
   );
 drop function if exists
-  finelo_internal.get_atomic_card_structural_entry_feature_state_impl();
+  finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl();
 
 drop table if exists
-  finelo_internal.credit_card_entry_reconciliation_snapshots;
+  finelo_structural_internal.credit_card_entry_reconciliation_snapshots;
 
+grant finelo_statement_conservation_executor to postgres
+  with set true, inherit false;
+set local role finelo_statement_conservation_executor;
 revoke execute on function
   finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
   from finelo_structural_entry_executor;
+reset role;
+revoke finelo_statement_conservation_executor from postgres;
 revoke update (transaction_id, statement_id, entry_type)
   on table public.credit_card_entries
   from finelo_structural_entry_executor;
@@ -51,8 +48,12 @@ revoke usage on schema public
   from finelo_structural_entry_executor;
 revoke usage on schema finelo_internal
   from finelo_structural_entry_executor;
-revoke usage on schema finelo_internal
-  from finelo_structural_entry_gateway;
+revoke usage on schema finelo_structural_internal
+  from finelo_structural_entry_executor;
+revoke usage on schema finelo_structural_internal
+  from authenticated, finelo_structural_entry_gateway;
+
+drop schema if exists finelo_structural_internal;
 
 drop role if exists finelo_structural_entry_executor;
 drop role if exists finelo_structural_entry_gateway;

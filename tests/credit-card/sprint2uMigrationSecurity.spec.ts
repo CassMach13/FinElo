@@ -32,16 +32,18 @@ describe('hardening da migration Sprint 2U', () => {
     expect(migration.match(/^(?:--.*\r?\n|\s)*([a-z]+);/im)?.[1]).toBe('begin');
     expect(migration.trimEnd().endsWith('commit;')).toBe(true);
     expect(migration).toMatch(
-      /grant finelo_statement_conservation_executor to postgres;[\s\S]*revoke finelo_statement_conservation_executor from postgres;/
+      /grant finelo_statement_conservation_executor to postgres\s+with set true, inherit false;[\s\S]*set local role finelo_statement_conservation_executor;[\s\S]*revoke finelo_statement_conservation_executor from postgres;/
     );
     expect(
-      migration.match(/grant finelo_structural_entry_executor to postgres;/g)
+      migration.match(
+        /grant finelo_structural_entry_executor to postgres\s+with set true, inherit false;/g
+      )
     ).toHaveLength(2);
     expect(
       migration.match(/revoke finelo_structural_entry_executor from postgres;/g)
     ).toHaveLength(2);
     expect(migration).toMatch(
-      /grant finelo_structural_entry_gateway to postgres;[\s\S]*revoke finelo_structural_entry_gateway from postgres;[\s\S]*commit;/
+      /grant finelo_structural_entry_gateway to postgres\s+with set true, inherit false;[\s\S]*revoke finelo_structural_entry_gateway from postgres;[\s\S]*commit;/
     );
 
     const featureBody = section(
@@ -66,7 +68,7 @@ describe('hardening da migration Sprint 2U', () => {
     }
   });
 
-  it('expõe somente gateways mínimos e mantém os definers de dados privados', () => {
+  it('expõe somente wrappers invokers e mantém os definers de dados privados', () => {
     for (const name of [
       'public.reconcile_credit_card_structural_entries_atomic_v1(',
       'public.rollback_credit_card_structural_entries_atomic_v1(',
@@ -75,17 +77,18 @@ describe('hardening da migration Sprint 2U', () => {
         `create or replace function ${name}`,
         `revoke all on function ${name}`
       );
-      expect(body).toContain('security definer');
+      expect(body).toContain('security invoker');
       expect(body).toContain("set search_path = ''");
+      expect(body).not.toContain('security definer');
     }
 
     const applyBody = section(
-      'create or replace function finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(',
-      'grant create on schema finelo_internal to finelo_structural_entry_executor;'
+      'create or replace function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(',
+      'grant create on schema finelo_structural_internal to finelo_structural_entry_executor;'
     );
     const rollbackBody = section(
-      'create or replace function finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(',
-      'grant create on schema finelo_internal to finelo_structural_entry_executor;'
+      'create or replace function finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(',
+      'grant create on schema finelo_structural_internal to finelo_structural_entry_executor;'
     );
     for (const body of [applyBody, rollbackBody]) {
       expect(body).toContain('security definer');
@@ -123,8 +126,8 @@ describe('hardening da migration Sprint 2U', () => {
     );
 
     const applyBody = section(
-      'create or replace function finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(',
-      'grant create on schema finelo_internal to finelo_structural_entry_executor;'
+      'create or replace function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(',
+      'grant create on schema finelo_structural_internal to finelo_structural_entry_executor;'
     );
     const entryUpdate = applyBody.match(
       /update public\.credit_card_entries e\s+set ([\s\S]*?)\s+from desired_updates desired/
@@ -152,19 +155,25 @@ describe('hardening da migration Sprint 2U', () => {
     expect(migration).toContain('A projeção mudou depois da auditoria');
     expect(migration).toContain('A revisão restaurada não coincide com o snapshot');
     expect(migration).toContain(
-      'finelo_internal.credit_card_entry_reconciliation_snapshots'
+      'finelo_structural_internal.credit_card_entry_reconciliation_snapshots'
     );
   });
 
   it('mantém snapshot fora da Data API, flag desligada por padrão e rollback rastreável', () => {
     expect(migration).toContain(
+      'create schema if not exists finelo_structural_internal authorization postgres;'
+    );
+    expect(migration).not.toContain(
+      'grant usage on schema finelo_internal to authenticated;'
+    );
+    expect(migration).toContain(
       "else 'unset'"
     );
     expect(migration).toContain(
-      'alter table finelo_internal.credit_card_entry_reconciliation_snapshots\n  enable row level security;'
+      'alter table finelo_structural_internal.credit_card_entry_reconciliation_snapshots\n  enable row level security;'
     );
     expect(migration).toContain(
-      'alter table finelo_internal.credit_card_entry_reconciliation_snapshots\n  force row level security;'
+      'alter table finelo_structural_internal.credit_card_entry_reconciliation_snapshots\n  force row level security;'
     );
     expect(migration).toContain(
       'to finelo_structural_entry_executor\n  using (user_id = (select auth.uid()))\n  with check (user_id = (select auth.uid()));'
@@ -173,21 +182,41 @@ describe('hardening da migration Sprint 2U', () => {
       'create index if not exists idx_cc_entry_reconciliation_card'
     );
     expect(migration).toContain(
-      'revoke all on table finelo_internal.credit_card_entry_reconciliation_snapshots\n  from public, anon, authenticated, service_role;'
+      'revoke all on table finelo_structural_internal.credit_card_entry_reconciliation_snapshots\n  from public, anon, authenticated, service_role;'
     );
-    expect(migration).not.toContain(
-      'grant usage on schema finelo_internal to authenticated;'
+    expect(migration).toContain(
+      'grant usage on schema finelo_structural_internal to authenticated;'
+    );
+    expect(migration).toContain(
+      'grant execute on function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(\n  uuid, text, text, jsonb\n) to authenticated;'
+    );
+    expect(migration).toContain(
+      'finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)\n  to authenticated;'
     );
     expect(migration).toContain(
       "pg_catalog.pg_get_userbyid(p.proowner) <>\n      'finelo_structural_entry_gateway'"
     );
     expect(migration).toContain(
-      "raise exception 'Authenticated recebeu execução direta de implementação privada.'"
+      "raise exception 'ACL privada mínima inválida nos wrappers Sprint 2U.'"
+    );
+    expect(migration).toContain('or membership.inherit_option');
+    expect(migration).toContain('or membership.set_option');
+    expect(migration).toContain(
+      "raise exception 'Uma membership funcional Sprint 2U permaneceu ativa.'"
     );
     expect(rollback.match(/^(?:--.*\r?\n|\s)*([a-z]+);/im)?.[1]).toBe('begin');
     expect(rollback.trimEnd().endsWith('commit;')).toBe(true);
     expect(rollback).toContain(
-      'drop table if exists\n  finelo_internal.credit_card_entry_reconciliation_snapshots;'
+      'drop table if exists\n  finelo_structural_internal.credit_card_entry_reconciliation_snapshots;'
+    );
+    expect(rollback).toContain(
+      'drop schema if exists finelo_structural_internal;'
+    );
+    expect(rollback).toContain(
+      'from authenticated, finelo_structural_entry_gateway;'
+    );
+    expect(rollback).toMatch(
+      /grant finelo_statement_conservation_executor to postgres\s+with set true, inherit false;[\s\S]*set local role finelo_statement_conservation_executor;[\s\S]*revoke finelo_statement_conservation_executor from postgres;/
     );
     expect(rollback).not.toMatch(/delete from public\.credit_card_/i);
   });

@@ -40,11 +40,18 @@ alter role finelo_structural_entry_executor
 alter role finelo_structural_entry_gateway
   nologin noinherit nobypassrls connection limit 0;
 
+create schema if not exists finelo_structural_internal authorization postgres;
+alter schema finelo_structural_internal owner to postgres;
+revoke all on schema finelo_structural_internal
+  from public, anon, authenticated, service_role,
+    finelo_structural_entry_executor, finelo_structural_entry_gateway;
+
 grant usage on schema public to finelo_structural_entry_executor;
 grant usage on schema finelo_internal to finelo_structural_entry_executor;
-grant usage on schema finelo_internal to finelo_structural_entry_gateway;
+grant usage on schema finelo_structural_internal
+  to finelo_structural_entry_executor;
 
-create table if not exists finelo_internal.credit_card_entry_reconciliation_snapshots (
+create table if not exists finelo_structural_internal.credit_card_entry_reconciliation_snapshots (
   id uuid primary key default pg_catalog.gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
   account_id uuid references public.contas(id) on delete cascade not null,
@@ -67,35 +74,35 @@ create table if not exists finelo_internal.credit_card_entry_reconciliation_snap
 );
 
 create index if not exists idx_cc_entry_reconciliation_account_applied
-  on finelo_internal.credit_card_entry_reconciliation_snapshots
+  on finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   (account_id, applied_at desc);
 create index if not exists idx_cc_entry_reconciliation_user
-  on finelo_internal.credit_card_entry_reconciliation_snapshots (user_id);
+  on finelo_structural_internal.credit_card_entry_reconciliation_snapshots (user_id);
 create index if not exists idx_cc_entry_reconciliation_card
-  on finelo_internal.credit_card_entry_reconciliation_snapshots (card_id);
+  on finelo_structural_internal.credit_card_entry_reconciliation_snapshots (card_id);
 
-alter table finelo_internal.credit_card_entry_reconciliation_snapshots
+alter table finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   enable row level security;
-alter table finelo_internal.credit_card_entry_reconciliation_snapshots
+alter table finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   force row level security;
 
 drop policy if exists "Sprint 2U executor owns authenticated snapshots"
-  on finelo_internal.credit_card_entry_reconciliation_snapshots;
+  on finelo_structural_internal.credit_card_entry_reconciliation_snapshots;
 create policy "Sprint 2U executor owns authenticated snapshots"
-  on finelo_internal.credit_card_entry_reconciliation_snapshots
+  on finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   for all
   to finelo_structural_entry_executor
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
-revoke all on table finelo_internal.credit_card_entry_reconciliation_snapshots
+revoke all on table finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   from public, anon, authenticated, service_role;
 
 grant select, insert
-  on table finelo_internal.credit_card_entry_reconciliation_snapshots
+  on table finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   to finelo_structural_entry_executor;
 grant update (after_revision, rolled_back_at, rollback_revision)
-  on table finelo_internal.credit_card_entry_reconciliation_snapshots
+  on table finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   to finelo_structural_entry_executor;
 grant select on table public.contas to finelo_structural_entry_executor;
 grant select on table public.credit_cards to finelo_structural_entry_executor;
@@ -106,13 +113,16 @@ grant select on table public.credit_card_payments to finelo_structural_entry_exe
 grant update (transaction_id, statement_id, entry_type)
   on table public.credit_card_entries
   to finelo_structural_entry_executor;
-grant finelo_statement_conservation_executor to postgres;
+grant finelo_statement_conservation_executor to postgres
+  with set true, inherit false;
+set local role finelo_statement_conservation_executor;
 grant execute on function
   finelo_internal.get_credit_card_projection_revision_for_user(uuid, uuid)
   to finelo_structural_entry_executor;
+reset role;
 revoke finelo_statement_conservation_executor from postgres;
 
-create or replace function finelo_internal.get_atomic_card_structural_entry_feature_state_impl()
+create or replace function finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()
 returns text
 language sql
 stable
@@ -143,16 +153,13 @@ as $feature$
 $feature$;
 
 revoke all on function
-  finelo_internal.get_atomic_card_structural_entry_feature_state_impl()
-  from public, anon, authenticated, service_role;
+  finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()
+  from public, anon, authenticated, service_role, finelo_structural_entry_gateway;
 grant execute on function
-  finelo_internal.get_atomic_card_structural_entry_feature_state_impl()
-  to finelo_structural_entry_gateway;
-grant execute on function
-  finelo_internal.get_atomic_card_structural_entry_feature_state_impl()
+  finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()
   to finelo_structural_entry_executor;
 
-create or replace function finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+create or replace function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
   p_account_id uuid,
   p_expected_revision text,
   p_shadow_checksum text,
@@ -189,7 +196,7 @@ begin
     raise exception 'Autenticação obrigatória.' using errcode = '28000';
   end if;
   if coalesce(
-    finelo_internal.get_atomic_card_structural_entry_feature_state_impl(),
+    finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl(),
     'unset'
   ) <> 'enabled' then
     raise exception 'A reconciliação estrutural Sprint 2U está desabilitada para esta conta.'
@@ -463,7 +470,7 @@ begin
     raise exception 'A revisão não mudou após a reconciliação.' using errcode = '40001';
   end if;
 
-  insert into finelo_internal.credit_card_entry_reconciliation_snapshots (
+  insert into finelo_structural_internal.credit_card_entry_reconciliation_snapshots (
     id, user_id, account_id, card_id, operation_kind, shadow_checksum,
     before_revision, after_revision, before_rows, after_rows, entry_count,
     identity_update_count, competence_update_count, type_update_count
@@ -490,21 +497,22 @@ begin
 end;
 $apply$;
 
-grant finelo_structural_entry_executor to postgres;
-grant create on schema finelo_internal to finelo_structural_entry_executor;
-alter function finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+revoke all on function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+  uuid, text, text, jsonb
+) from public, anon, authenticated, service_role, finelo_structural_entry_gateway;
+grant execute on function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+  uuid, text, text, jsonb
+) to authenticated;
+grant finelo_structural_entry_executor to postgres
+  with set true, inherit false;
+grant create on schema finelo_structural_internal to finelo_structural_entry_executor;
+alter function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
   uuid, text, text, jsonb
 ) owner to finelo_structural_entry_executor;
-revoke create on schema finelo_internal from finelo_structural_entry_executor;
-revoke all on function finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
-  uuid, text, text, jsonb
-) from public, anon, authenticated, service_role;
-grant execute on function finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
-  uuid, text, text, jsonb
-) to finelo_structural_entry_gateway;
+revoke create on schema finelo_structural_internal from finelo_structural_entry_executor;
 revoke finelo_structural_entry_executor from postgres;
 
-create or replace function finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(
+create or replace function finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(
   p_snapshot_id uuid
 )
 returns jsonb
@@ -519,7 +527,7 @@ declare
     nullif(pg_catalog.current_setting('request.jwt.claim.sub', true), ''),
     nullif(pg_catalog.current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
   )::uuid;
-  v_snapshot finelo_internal.credit_card_entry_reconciliation_snapshots%rowtype;
+  v_snapshot finelo_structural_internal.credit_card_entry_reconciliation_snapshots%rowtype;
   v_current_revision text;
   v_restored_revision text;
   v_current_match_count integer;
@@ -531,7 +539,7 @@ begin
 
   select s.*
   into v_snapshot
-  from finelo_internal.credit_card_entry_reconciliation_snapshots s
+  from finelo_structural_internal.credit_card_entry_reconciliation_snapshots s
   where s.id = p_snapshot_id
     and s.user_id = v_user_id
     and s.rolled_back_at is null
@@ -620,7 +628,7 @@ begin
       using errcode = '40001';
   end if;
 
-  update finelo_internal.credit_card_entry_reconciliation_snapshots
+  update finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   set rolled_back_at = pg_catalog.now(),
       rollback_revision = v_restored_revision
   where id = v_snapshot.id
@@ -639,22 +647,29 @@ begin
 end;
 $rollback$;
 
-grant finelo_structural_entry_executor to postgres;
-grant create on schema finelo_internal to finelo_structural_entry_executor;
-alter function finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
-  owner to finelo_structural_entry_executor;
-revoke create on schema finelo_internal from finelo_structural_entry_executor;
 revoke all on function
-  finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
-  from public, anon, authenticated, service_role;
+  finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
+  from public, anon, authenticated, service_role, finelo_structural_entry_gateway;
 grant execute on function
-  finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
-  to finelo_structural_entry_gateway;
+  finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
+  to authenticated;
+grant finelo_structural_entry_executor to postgres
+  with set true, inherit false;
+grant create on schema finelo_structural_internal to finelo_structural_entry_executor;
+alter function finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
+  owner to finelo_structural_entry_executor;
+revoke create on schema finelo_structural_internal from finelo_structural_entry_executor;
 revoke finelo_structural_entry_executor from postgres;
 
--- A Data API recebe somente gateways estreitos. Eles não têm qualquer acesso
--- a tabelas; sua única capacidade é delegar para as implementações privadas.
-grant finelo_structural_entry_gateway to postgres;
+-- O caller autenticado recebe somente o caminho exato necessário para o wrapper
+-- SECURITY INVOKER. O schema privado não é exposto pela Data API, e nenhum
+-- privilégio de tabela é concedido ao caller.
+grant usage on schema finelo_structural_internal to authenticated;
+
+-- A Data API recebe somente wrappers estreitos SECURITY INVOKER. O owner não
+-- possui acesso a tabelas nem capacidade de chamar as implementações privadas.
+grant finelo_structural_entry_gateway to postgres
+  with set true, inherit false;
 grant create on schema public to finelo_structural_entry_gateway;
 create or replace function public.get_atomic_card_structural_entry_feature_state()
 returns text
@@ -686,13 +701,13 @@ as $wrapper$
   end;
 $wrapper$;
 
-alter function public.get_atomic_card_structural_entry_feature_state()
-  owner to finelo_structural_entry_gateway;
-
 revoke all on function public.get_atomic_card_structural_entry_feature_state()
   from public, anon, authenticated, service_role;
 grant execute on function public.get_atomic_card_structural_entry_feature_state()
   to authenticated;
+
+alter function public.get_atomic_card_structural_entry_feature_state()
+  owner to finelo_structural_entry_gateway;
 
 create or replace function public.reconcile_credit_card_structural_entries_atomic_v1(
   p_account_id uuid,
@@ -703,20 +718,16 @@ create or replace function public.reconcile_credit_card_structural_entries_atomi
 returns jsonb
 language sql
 volatile
-security definer
+security invoker
 set search_path = ''
 as $wrapper$
-  select finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+  select finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
     p_account_id,
     p_expected_revision,
     p_shadow_checksum,
     p_entry_updates
   );
 $wrapper$;
-
-alter function public.reconcile_credit_card_structural_entries_atomic_v1(
-  uuid, text, text, jsonb
-) owner to finelo_structural_entry_gateway;
 
 revoke all on function public.reconcile_credit_card_structural_entries_atomic_v1(
   uuid, text, text, jsonb
@@ -725,28 +736,32 @@ grant execute on function public.reconcile_credit_card_structural_entries_atomic
   uuid, text, text, jsonb
 ) to authenticated;
 
+alter function public.reconcile_credit_card_structural_entries_atomic_v1(
+  uuid, text, text, jsonb
+) owner to finelo_structural_entry_gateway;
+
 create or replace function public.rollback_credit_card_structural_entries_atomic_v1(
   p_snapshot_id uuid
 )
 returns jsonb
 language sql
 volatile
-security definer
+security invoker
 set search_path = ''
 as $wrapper$
-  select finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(
+  select finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(
     p_snapshot_id
   );
 $wrapper$;
-
-alter function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
-  owner to finelo_structural_entry_gateway;
-revoke create on schema public from finelo_structural_entry_gateway;
 
 revoke all on function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
   to authenticated;
+
+alter function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
+  owner to finelo_structural_entry_gateway;
+revoke create on schema public from finelo_structural_entry_gateway;
 revoke finelo_structural_entry_gateway from postgres;
 
 do $finelo_2u_final_assertions$
@@ -766,8 +781,8 @@ begin
       'rollback_credit_card_structural_entries_atomic_v1'
     )
     and p.prosecdef;
-  if v_public_security_definer_count <> 2 then
-    raise exception 'Um gateway público Sprint 2U não está isolado pelo role mínimo.';
+  if v_public_security_definer_count <> 0 then
+    raise exception 'Um wrapper público Sprint 2U elevou privilégios indevidamente.';
   end if;
 
   if exists (
@@ -809,7 +824,7 @@ begin
       'reconcile_credit_card_structural_entries_atomic_v1',
       'rollback_credit_card_structural_entries_atomic_v1'
     )
-    and n.nspname in ('finelo_internal', 'public')
+    and n.nspname in ('finelo_structural_internal', 'public')
     and not exists (
       select 1
       from pg_catalog.unnest(coalesce(p.proconfig, '{}'::text[])) cfg(setting)
@@ -855,22 +870,38 @@ begin
     raise exception 'ACL pública inválida no rollback Sprint 2U.';
   end if;
 
-  if pg_catalog.has_function_privilege(
+  if not pg_catalog.has_schema_privilege(
+       'authenticated', 'finelo_structural_internal', 'USAGE'
+     )
+     or not pg_catalog.has_function_privilege(
        'authenticated',
-       'finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
+       'finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
+       'EXECUTE'
+     )
+     or not pg_catalog.has_function_privilege(
+       'authenticated',
+       'finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)',
        'EXECUTE'
      )
      or pg_catalog.has_function_privilege(
        'authenticated',
-       'finelo_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)',
+       'finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()',
+       'EXECUTE'
+     )
+     or pg_catalog.has_schema_privilege(
+       'finelo_structural_entry_gateway', 'finelo_structural_internal', 'USAGE'
+     )
+     or pg_catalog.has_function_privilege(
+       'finelo_structural_entry_gateway',
+       'finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
        'EXECUTE'
      )
      or pg_catalog.has_function_privilege(
-       'authenticated',
-       'finelo_internal.get_atomic_card_structural_entry_feature_state_impl()',
+       'finelo_structural_entry_gateway',
+       'finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)',
        'EXECUTE'
      ) then
-    raise exception 'Authenticated recebeu execução direta de implementação privada.';
+    raise exception 'ACL privada mínima inválida nos wrappers Sprint 2U.';
   end if;
 
   if pg_catalog.has_table_privilege(
@@ -880,7 +911,7 @@ begin
      )
      or pg_catalog.has_table_privilege(
        'finelo_structural_entry_gateway',
-       'finelo_internal.credit_card_entry_reconciliation_snapshots',
+       'finelo_structural_internal.credit_card_entry_reconciliation_snapshots',
        'SELECT,INSERT,UPDATE,DELETE'
      ) then
     raise exception 'O gateway Sprint 2U recebeu acesso direto a tabelas.';
@@ -905,12 +936,18 @@ begin
     select 1
     from pg_catalog.pg_auth_members membership
     join pg_catalog.pg_roles role on role.oid = membership.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = membership.member
     where role.rolname in (
       'finelo_structural_entry_executor',
       'finelo_structural_entry_gateway'
     )
+      and (
+        member_role.rolname <> 'postgres'
+        or membership.inherit_option
+        or membership.set_option
+      )
   ) then
-    raise exception 'Uma membership temporária Sprint 2U permaneceu ativa.';
+    raise exception 'Uma membership funcional Sprint 2U permaneceu ativa.';
   end if;
 end;
 $finelo_2u_final_assertions$;

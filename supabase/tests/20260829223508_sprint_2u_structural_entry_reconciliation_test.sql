@@ -336,10 +336,46 @@ begin
     'service_role',
     'public.reconcile_credit_card_structural_entries_atomic_v1(uuid,text,text,jsonb)',
     'EXECUTE'
-  ) or pg_catalog.has_function_privilege(
+  ) or not pg_catalog.has_function_privilege(
     'authenticated',
-    'finelo_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
+    'finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
     'EXECUTE'
+  ) or pg_catalog.has_function_privilege(
+    'finelo_structural_entry_gateway',
+    'finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
+    'EXECUTE'
+  ) or not pg_catalog.has_schema_privilege(
+    'authenticated',
+    'finelo_structural_internal',
+    'USAGE'
+  ) or pg_catalog.has_schema_privilege(
+    'finelo_structural_entry_gateway',
+    'finelo_structural_internal',
+    'USAGE'
+  ) or exists (
+    select 1
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in (
+        'reconcile_credit_card_structural_entries_atomic_v1',
+        'rollback_credit_card_structural_entries_atomic_v1'
+      )
+      and p.prosecdef
+  ) or exists (
+    select 1
+    from pg_catalog.pg_auth_members membership
+    join pg_catalog.pg_roles role on role.oid = membership.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = membership.member
+    where role.rolname in (
+      'finelo_structural_entry_executor',
+      'finelo_structural_entry_gateway'
+    )
+      and (
+        member_role.rolname <> 'postgres'
+        or membership.inherit_option
+        or membership.set_option
+      )
   ) then
     raise exception 'Um papel não autorizado recebeu execução Sprint 2U.';
   end if;
