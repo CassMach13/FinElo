@@ -92,6 +92,12 @@ insert into public.credit_card_statements (
     0, 50.00, -50.00, 0, 0, 0, 50.00, 0, 'paid'
   );
 
+-- Simula o estado histórico anterior ao guard de identidade: duas linhas
+-- antigas apontavam para a mesma transação. A Sprint 2U deve separá-las e o
+-- rollback precisa conseguir restaurar exatamente esse estado conhecido.
+alter table public.credit_card_entries
+  disable trigger trg_prevent_new_cc_entry_transaction_duplicate_insert;
+
 insert into public.credit_card_entries (
   id, user_id, card_id, account_id, import_lot_id, source_file_name,
   source_row_index, source_row_hash, transaction_id, statement_id,
@@ -116,10 +122,13 @@ insert into public.credit_card_entries (
     '2b000000-0000-4000-8000-000000000001',
     '4b000000-0000-4000-8000-000000000002',
     'sprint-2u-agosto.csv', 1, 'sprint-2u-row-august',
-    '5b000000-0000-4000-8000-000000000003',
+    '5b000000-0000-4000-8000-000000000001',
     '6b000000-0000-4000-8000-000000000001',
     '2026-08-05', 'Estorno', 'estorno', 50.00, 50.00, 'credit', 'purchase'
   );
+
+alter table public.credit_card_entries
+  enable trigger trg_prevent_new_cc_entry_transaction_duplicate_insert;
 
 select pg_catalog.set_config(
   'request.jwt.claim.sub',
@@ -212,7 +221,7 @@ begin
       ),
       pg_catalog.jsonb_build_object(
         'rowId', '7b000000-0000-4000-8000-000000000002',
-        'expectedTransactionId', '5b000000-0000-4000-8000-000000000003',
+        'expectedTransactionId', '5b000000-0000-4000-8000-000000000001',
         'desiredTransactionId', '5b000000-0000-4000-8000-000000000003',
         'expectedStatementRowId', '6b000000-0000-4000-8000-000000000001',
         'desiredStatementRowId', '6b000000-0000-4000-8000-000000000002',
@@ -231,7 +240,7 @@ begin
   );
 
   if (v_result->>'entries_updated')::integer <> 2
-     or (v_result->>'identity_updates')::integer <> 1
+     or (v_result->>'identity_updates')::integer <> 2
      or (v_result->>'competence_updates')::integer <> 1
      or (v_result->>'type_updates')::integer <> 2
      or (v_result->>'transaction_records_changed')::integer <> 0
@@ -309,7 +318,7 @@ begin
   ) or not exists (
     select 1 from public.credit_card_entries e
     where e.id = '7b000000-0000-4000-8000-000000000002'
-      and e.transaction_id = '5b000000-0000-4000-8000-000000000003'
+      and e.transaction_id = '5b000000-0000-4000-8000-000000000001'
       and e.statement_id = '6b000000-0000-4000-8000-000000000001'
       and e.entry_type = 'purchase'
   ) then
@@ -320,6 +329,22 @@ begin
     perform public.rollback_credit_card_structural_entries_atomic_v1(v_snapshot_id);
     raise exception 'O mesmo snapshot foi aceito duas vezes.';
   exception when sqlstate '42501' then null;
+  end;
+
+  perform pg_catalog.set_config(
+    'finelo.structural_identity_guard_rollback_snapshot_id',
+    v_snapshot_id::text,
+    true
+  );
+  begin
+    update public.credit_card_entries
+    set transaction_id = '5b000000-0000-4000-8000-000000000002'
+    where id in (
+      '7b000000-0000-4000-8000-000000000001',
+      '7b000000-0000-4000-8000-000000000002'
+    );
+    raise exception 'Um chamador autenticado forjou o contexto privado do rollback.';
+  exception when unique_violation then null;
   end;
 end;
 $test$;
