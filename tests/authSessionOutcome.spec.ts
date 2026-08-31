@@ -21,8 +21,10 @@ describe('classifyAuthInit', () => {
     expect(classifyAuthInit(false, unavailable)).toBe('offline-fallback');
   });
 
-  it('purga a credencial quando o Supabase Auth recusa o token', () => {
-    const rejected = new AuthApiError('invalid claim: missing sub claim', 401, 'bad_jwt');
+  // 403/bad_jwt é o que o Supabase Auth devolveu de fato para um token forjado
+  // durante a homologação em staging; 401 cobre a variante por token expirado.
+  it.each([403, 401])('purga a credencial quando o Supabase Auth recusa o token (HTTP %i)', (status) => {
+    const rejected = new AuthApiError('invalid claim: missing sub claim', status, 'bad_jwt');
     expect(classifyAuthInit(false, rejected)).toBe('rejected');
   });
 
@@ -35,14 +37,14 @@ describe('classifyAuthInit', () => {
     const outcomes = [
       classifyAuthInit(false, null),
       classifyAuthInit(false, new AuthSessionMissingError()),
-      classifyAuthInit(false, new AuthApiError('bad jwt', 401, 'bad_jwt')),
+      classifyAuthInit(false, new AuthApiError('bad jwt', 403, 'bad_jwt')),
       classifyAuthInit(false, new AuthRetryableFetchError('Failed to fetch', 0)),
     ];
     expect(outcomes).not.toContain('authenticated');
   });
 
   it('não confia no usuário quando o servidor devolveu erro junto', () => {
-    const rejected = new AuthApiError('bad jwt', 401, 'bad_jwt');
+    const rejected = new AuthApiError('bad jwt', 403, 'bad_jwt');
     expect(classifyAuthInit(true, rejected)).toBe('rejected');
   });
 });
