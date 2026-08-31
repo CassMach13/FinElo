@@ -1,23 +1,17 @@
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { readSqlFixture } from '../helpers/sqlFixture';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const migration = readFileSync(
-  join(
+const migration = readSqlFixture(join(
     currentDir,
     '../../supabase/migrations/20260829223508_sprint_2u_structural_entry_reconciliation.sql'
-  ),
-  'utf8'
-);
-const rollback = readFileSync(
-  join(
+  ));
+const rollback = readSqlFixture(join(
     currentDir,
     '../../supabase/rollbacks/20260829223508_sprint_2u_structural_entry_reconciliation_down.sql'
-  ),
-  'utf8'
-);
+  ));
 
 const section = (start: string, end: string): string => {
   const startAt = migration.indexOf(start);
