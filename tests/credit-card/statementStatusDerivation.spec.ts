@@ -93,6 +93,61 @@ describe('status da fatura é derivado dos totais na leitura', () => {
     expect(st.status).toBe('open');
   });
 
+  /**
+   * As migrations 046 (V2) e 047 (motor) deixaram os dois conjuntos de colunas na
+   * mesma tabela, todas `not null default 0`. Uma linha escrita pelo caminho V2 tem
+   * `statement_total = 0` por default e o valor real em `total_charges`.
+   *
+   * Sem o fallback legado, derivar o status desses zeros exibiria uma fatura em
+   * aberto como PAGA — que é o pior erro possível num app de finanças.
+   */
+  describe('linha legada do caminho V2 (sem statement_total)', () => {
+    const linhaV2 = {
+      id: 'stmt-v2',
+      card_id: 'card-1',
+      account_id: 'acc-1',
+      reference_label: '2026-07',
+      due_date: '2999-01-10',
+      source_import_lot_ids: [],
+      statement_total: 0,
+      open_balance: 0,
+      total_charges: 1200,
+      total_credits: 200,
+      open_amount: 700,
+      total_payments: 300,
+      status: 'partial',
+    };
+
+    it('não marca como paga uma fatura em aberto gravada no formato antigo', () => {
+      const st = mapRowToCreditCardStatement(linhaV2);
+
+      // Oráculo: 1200 de compras − 200 de créditos = 1000 de fatura; 300 pagos.
+      expect(st.statementTotal).toBe(1000);
+      expect(st.totalPayments).toBe(300);
+      expect(st.status).toBe('partial');
+      expect(st.status).not.toBe('paid');
+    });
+
+    it('usa open_amount quando open_balance não foi preenchido', () => {
+      const st = mapRowToCreditCardStatement({ ...linhaV2, open_balance: undefined });
+      expect(st.openBalance).toBe(700);
+    });
+
+    it('fatura inteiramente zerada preserva o status gravado, em vez de inventar "paid"', () => {
+      const st = mapRowToCreditCardStatement({
+        ...linhaBase,
+        statement_total: 0,
+        total_payments: 0,
+        open_balance: 0,
+        total_charges: 0,
+        total_credits: 0,
+        status: 'open',
+      });
+
+      expect(st.status).toBe('open');
+    });
+  });
+
   it('derivação é idempotente: reler o resultado não muda o status', () => {
     const primeira = mapRowToCreditCardStatement({
       ...linhaBase,

@@ -294,8 +294,37 @@ function hasAuthoritativeFileTotals(file: CreditCardFileTotalsInput | null | und
 
 export function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardStatement {
   const dueDate = ((row.due_date as string) ?? null) as string | null;
-  const statementTotal = Number(row.statement_total || 0);
+
+  /**
+   * As migrations 046 (V2) e 047 (motor) criaram os dois conjuntos de colunas na
+   * MESMA tabela, e todas são `not null default 0`. Uma linha escrita pelo caminho
+   * V2 tem `statement_total = 0` por default, com o valor real em
+   * `total_charges`/`total_credits`. Ler só a coluna nova daria total zero.
+   */
+  const engineStatementTotal = Number(row.statement_total || 0);
+  const legacyStatementTotal = round2(
+    Number(row.total_charges || 0) - Number(row.total_credits || 0)
+  );
+  const statementTotal =
+    engineStatementTotal > 0.005 ? engineStatementTotal : legacyStatementTotal;
   const totalPayments = Number(row.total_payments || 0);
+  const openBalance = Number(row.open_balance ?? row.open_amount ?? 0);
+
+  /**
+   * O status é derivado dos totais em vez de lido da coluna, porque a coluna fica
+   * defasada: o upsert de importação grava `status: 'open'` fixo e depende de um
+   * recálculo posterior. Staging tem fatura com `open_balance = 0`,
+   * `total_payments = statement_total` e `status = 'open'` gravada DEPOIS do
+   * pagamento — combinação que `inferStatusFromTotals` não produz.
+   *
+   * A derivação só é aplicada quando há de fato totais para derivar. Numa fatura
+   * inteiramente zerada não há informação, e inventar 'paid' seria pior do que
+   * preservar o que está gravado.
+   */
+  const temTotais = statementTotal > 0.005 || totalPayments > 0.005;
+  const status = temTotais
+    ? inferStatusFromTotals(statementTotal, totalPayments, dueDate)
+    : (row.status as CreditCardStatement['status']);
 
   return {
     id: row.id as string,
@@ -306,17 +335,7 @@ export function mapRowToCreditCardStatement(row: Record<string, unknown>): Credi
     dueMonth: (row.due_month as number) || Number(String(row.reference_label || '').slice(5, 7)) || 0,
     dueDate,
     closingDate: (row.closing_date || row.close_date) as string | null | undefined,
-    /**
-     * Derivado dos totais da própria linha, e não lido da coluna `status`.
-     *
-     * A coluna pode ficar defasada: o upsert de importação grava `status: 'open'`
-     * fixo e depende de um recálculo posterior para corrigir. Staging tem faturas
-     * com `open_balance = 0`, `total_payments = statement_total` e `status = 'open'`
-     * gravadas depois do pagamento — combinação que `inferStatusFromTotals` não
-     * produz. Derivar na leitura torna a UI imune a essa deriva e é idempotente:
-     * é exatamente a mesma função usada na escrita.
-     */
-    status: inferStatusFromTotals(statementTotal, totalPayments, dueDate),
+    status,
     sourceImportLotIds: Array.isArray(row.source_import_lot_ids) ? (row.source_import_lot_ids as string[]) : [],
     totalPurchases: Number(row.total_purchases || row.total_charges || 0),
     totalFees: Number(row.total_fees || 0),
@@ -324,7 +343,7 @@ export function mapRowToCreditCardStatement(row: Record<string, unknown>): Credi
     totalRefunds: Number(row.total_refunds || row.total_credits || 0),
     statementTotal,
     totalPayments,
-    openBalance: Number(row.open_balance ?? row.open_amount ?? 0),
+    openBalance,
     manualTotals: parseManualTotalsJson(row.manual_totals_json),
     statementTotalFromFile:
       row.statement_total_from_file != null ? Number(row.statement_total_from_file) : null,
