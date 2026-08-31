@@ -292,7 +292,11 @@ function hasAuthoritativeFileTotals(file: CreditCardFileTotalsInput | null | und
   );
 }
 
-function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardStatement {
+export function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardStatement {
+  const dueDate = ((row.due_date as string) ?? null) as string | null;
+  const statementTotal = Number(row.statement_total || 0);
+  const totalPayments = Number(row.total_payments || 0);
+
   return {
     id: row.id as string,
     cardId: row.card_id as string,
@@ -300,16 +304,26 @@ function mapRowToCreditCardStatement(row: Record<string, unknown>): CreditCardSt
     purchaseReferenceLabel: (row.purchase_reference_label || row.reference_label) as string,
     dueYear: (row.due_year as number) || Number(String(row.reference_label || '').slice(0, 4)) || 0,
     dueMonth: (row.due_month as number) || Number(String(row.reference_label || '').slice(5, 7)) || 0,
-    dueDate: (row.due_date as string) ?? null,
+    dueDate,
     closingDate: (row.closing_date || row.close_date) as string | null | undefined,
-    status: row.status as CreditCardStatement['status'],
+    /**
+     * Derivado dos totais da própria linha, e não lido da coluna `status`.
+     *
+     * A coluna pode ficar defasada: o upsert de importação grava `status: 'open'`
+     * fixo e depende de um recálculo posterior para corrigir. Staging tem faturas
+     * com `open_balance = 0`, `total_payments = statement_total` e `status = 'open'`
+     * gravadas depois do pagamento — combinação que `inferStatusFromTotals` não
+     * produz. Derivar na leitura torna a UI imune a essa deriva e é idempotente:
+     * é exatamente a mesma função usada na escrita.
+     */
+    status: inferStatusFromTotals(statementTotal, totalPayments, dueDate),
     sourceImportLotIds: Array.isArray(row.source_import_lot_ids) ? (row.source_import_lot_ids as string[]) : [],
     totalPurchases: Number(row.total_purchases || row.total_charges || 0),
     totalFees: Number(row.total_fees || 0),
     totalInterest: Number(row.total_interest || 0),
     totalRefunds: Number(row.total_refunds || row.total_credits || 0),
-    statementTotal: Number(row.statement_total || 0),
-    totalPayments: Number(row.total_payments || 0),
+    statementTotal,
+    totalPayments,
     openBalance: Number(row.open_balance ?? row.open_amount ?? 0),
     manualTotals: parseManualTotalsJson(row.manual_totals_json),
     statementTotalFromFile:
