@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
-import { classifyAuthInit } from './utils/authSessionOutcome';
+import { classifyAuthInit, shouldDeferStartupAuthEvent } from './utils/authSessionOutcome';
 import { useAppStore } from './hooks/useAppStore';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -25,6 +25,7 @@ const AppContent: React.FC = () => {
 
   const ignoreNextSignedIn = useRef(false);
   const lastSessionIdRef = useRef<string | null>(null);
+  const initialValidationDone = useRef(false);
 
   const stableFetchAllData = useCallback(fetchAllData, [fetchAllData]);
 
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
         }
       }
 
+      initialValidationDone.current = true;
       setIsAuthReady(true);
     };
 
@@ -77,6 +79,11 @@ const AppContent: React.FC = () => {
         return;
       }
       lastSessionIdRef.current = session?.access_token ?? null;
+
+      // initializeAuth() é a autoridade até o servidor responder.
+      if (shouldDeferStartupAuthEvent(_event, initialValidationDone.current)) {
+        return;
+      }
 
       if (_event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);

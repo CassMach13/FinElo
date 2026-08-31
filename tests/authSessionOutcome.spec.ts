@@ -4,7 +4,7 @@ import {
   AuthRetryableFetchError,
   AuthSessionMissingError,
 } from '@supabase/supabase-js';
-import { classifyAuthInit } from '../src/utils/authSessionOutcome';
+import { classifyAuthInit, shouldDeferStartupAuthEvent } from '../src/utils/authSessionOutcome';
 
 describe('classifyAuthInit', () => {
   it('libera conteúdo protegido quando o servidor validou o token', () => {
@@ -47,4 +47,33 @@ describe('classifyAuthInit', () => {
     const rejected = new AuthApiError('bad jwt', 403, 'bad_jwt');
     expect(classifyAuthInit(true, rejected)).toBe('rejected');
   });
+});
+
+describe('shouldDeferStartupAuthEvent', () => {
+  // Homologação em staging: com um token forjado no storage, INITIAL_SESSION e
+  // SIGNED_IN chegaram em ~2ms enquanto o getUser() só respondeu 403 em ~405ms.
+  // Sem adiar esses eventos, o app liberava conteúdo protegido durante a janela.
+  it.each(['INITIAL_SESSION', 'SIGNED_IN'])(
+    'adia %s enquanto o servidor não validou a sessão',
+    (event) => {
+      expect(shouldDeferStartupAuthEvent(event, false)).toBe(true);
+    }
+  );
+
+  it.each(['INITIAL_SESSION', 'SIGNED_IN'])(
+    'processa %s normalmente depois da validação inicial',
+    (event) => {
+      expect(shouldDeferStartupAuthEvent(event, true)).toBe(false);
+    }
+  );
+
+  // SIGNED_OUT e PASSWORD_RECOVERY só restringem ou desviam o acesso, então
+  // adiá-los na partida não protege nada e atrasaria o redirecionamento.
+  it.each(['SIGNED_OUT', 'PASSWORD_RECOVERY', 'TOKEN_REFRESHED', 'USER_UPDATED'])(
+    'nunca adia %s',
+    (event) => {
+      expect(shouldDeferStartupAuthEvent(event, false)).toBe(false);
+      expect(shouldDeferStartupAuthEvent(event, true)).toBe(false);
+    }
+  );
 });

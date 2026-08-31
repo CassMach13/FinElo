@@ -19,3 +19,25 @@ export function classifyAuthInit(hasUser: boolean, error: unknown): AuthInitOutc
   if (!error || isAuthSessionMissingError(error)) return 'anonymous';
   return 'rejected';
 }
+
+/**
+ * Whether an `onAuthStateChange` event must be ignored because the startup
+ * validation has not finished yet.
+ *
+ * `INITIAL_SESSION` and `SIGNED_IN` fire within a few milliseconds of client
+ * creation, carrying whatever is in local storage — long before `getUser()` has
+ * asked the server whether that token is still good. Acting on them during
+ * startup would mark auth as ready and render protected content from an
+ * unvalidated token, which is exactly what validating server-side prevents.
+ *
+ * Nothing is lost by deferring: a recovered session that is genuinely valid is
+ * confirmed by the startup `getUser()`, and so is a session picked up from an
+ * OAuth redirect, because `getUser()` awaits the client's initialization.
+ */
+export function shouldDeferStartupAuthEvent(
+  event: string,
+  initialValidationDone: boolean
+): boolean {
+  if (initialValidationDone) return false;
+  return event === 'INITIAL_SESSION' || event === 'SIGNED_IN';
+}
