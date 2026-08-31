@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
+import { classifyAuthInit } from './utils/authSessionOutcome';
 import { useAppStore } from './hooks/useAppStore';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -37,20 +37,32 @@ const AppContent: React.FC = () => {
       const { data, error } = await supabase.auth.getUser();
       if (!active) return;
 
-      if (!error && data.user) {
-        setUser(data.user);
-        void stableFetchAllData();
-      } else if (isAuthRetryableFetchError(error)) {
-        // A network failure is not proof of an invalid token. Falling back to the
-        // persisted session keeps the app usable during a connectivity blip instead
-        // of signing the user out; the token is revalidated on the next request.
-        const { data: local } = await supabase.auth.getSession();
-        if (!active) return;
+      switch (classifyAuthInit(Boolean(data.user), error)) {
+        case 'authenticated': {
+          setUser(data.user);
+          void stableFetchAllData();
+          break;
+        }
+        case 'offline-fallback': {
+          const { data: local } = await supabase.auth.getSession();
+          if (!active) return;
 
-        setUser(local.session?.user ?? null);
-        if (local.session) void stableFetchAllData();
-      } else {
-        setUser(null);
+          setUser(local.session?.user ?? null);
+          if (local.session) void stableFetchAllData();
+          break;
+        }
+        case 'rejected': {
+          // scope 'local' skips a network round-trip this dead token could not
+          // authorize anyway, and leaves sessions on other devices alone.
+          await supabase.auth.signOut({ scope: 'local' });
+          if (!active) return;
+
+          setUser(null);
+          break;
+        }
+        default: {
+          setUser(null);
+        }
       }
 
       setIsAuthReady(true);
