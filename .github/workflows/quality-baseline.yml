@@ -2,6 +2,11 @@ name: Quality baseline
 
 on:
   pull_request:
+  # Verifica também o que já entrou na main. Sem isto, um merge pela interface do
+  # GitHub ou um push direto chegava à main — e, por consequência, ao deploy de
+  # produção da Vercel — sem nenhuma verificação automatizada.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -9,7 +14,10 @@ permissions:
 
 concurrency:
   group: quality-baseline-${{ github.ref }}
-  cancel-in-progress: true
+  # Em PR, um push novo torna o run anterior irrelevante: cancelar economiza fila.
+  # Na main, cada commit é o que está publicado, então o resultado dele importa por
+  # si só — cancelar deixaria um commit já implantado sem veredito.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -19,14 +27,18 @@ jobs:
     env:
       GEMINI_API_KEY: ""
       VITE_SUPABASE_URL: "https://example.supabase.co"
+      # Os dois nomes: o cliente prefere PUBLISHABLE e cai em ANON como
+      # compatibilidade. Definir ambos mantém o build determinístico mesmo quando
+      # o fallback legado for removido. Valores são placeholders públicos.
+      VITE_SUPABASE_PUBLISHABLE_KEY: "ci-public-placeholder"
       VITE_SUPABASE_ANON_KEY: "ci-public-placeholder"
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
           cache: npm
