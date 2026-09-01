@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import Button from '../ui/Button';
 import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
@@ -8,6 +8,7 @@ import Input from '../ui/Input';
 // Combina a declaração da função com a exportação padrão.
 export default function AuthView(): React.ReactElement {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(searchParams.get('view') === 'signup');
@@ -28,16 +29,12 @@ export default function AuthView(): React.ReactElement {
     if (emailParam) setEmail(emailParam);
   }, [searchParams]);
 
-  const getRedirectUrl = () => {
-    let url = window.location.origin;
-    if (!url.startsWith('http')) {
-      url = `https://${url}`;
-    }
+  const getRedirectUrl = (path: string) => {
+    const url = new URL(path, window.location.origin);
     const params = new URLSearchParams(window.location.search);
     const promo = params.get('promo') || params.get('coupon');
-    const extra = promo ? `?promo=${promo}` : '';
-    
-    return url.replace(/\/$/, '') + extra;
+    if (promo) url.searchParams.set('promo', promo);
+    return url.toString();
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -45,6 +42,10 @@ export default function AuthView(): React.ReactElement {
     setError(null); setMessage(null); setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
+    else {
+      const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+      window.location.assign(returnTo?.startsWith('/') ? returnTo : '/app');
+    }
     setLoading(false);
   };
 
@@ -62,7 +63,7 @@ export default function AuthView(): React.ReactElement {
       email,
       password,
       options: {
-        emailRedirectTo: getRedirectUrl(),
+        emailRedirectTo: getRedirectUrl('/app'),
       },
     });
 
@@ -101,7 +102,7 @@ export default function AuthView(): React.ReactElement {
     event.preventDefault();
     setError(null); setMessage(null); setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${getRedirectUrl()}/update-password`, // Página para onde o usuário será levado
+      redirectTo: getRedirectUrl('/update-password'),
     });
     if (error) setError(error.message);
     else setMessage('Se o e-mail estiver correto, você receberá um link para redefinir sua senha.');
@@ -115,7 +116,7 @@ export default function AuthView(): React.ReactElement {
       provider,
       options: {
         // de pular do ambiente de desenvolvimento para o de produção.
-        redirectTo: getRedirectUrl()
+        redirectTo: getRedirectUrl('/app')
       }
     });
     if (error) {

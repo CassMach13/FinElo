@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Session } from '@supabase/supabase-js';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
+import { classifyAuthInit, shouldDeferStartupAuthEvent } from './utils/authSessionOutcome';
 import { useAppStore } from './hooks/useAppStore';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -14,37 +14,63 @@ import UpdatePasswordView from './components/views/UpdatePasswordView';
 // Core
 import MainLayout from './layouts/MainLayout';
 import { AppLock } from './components/auth/AppLock';
+import { AuthLoadingScreen, ProtectedRoute } from './components/auth/ProtectedRoute';
 import ReloadPrompt from './components/pwa/ReloadPrompt';
 import { GlobalDialog } from './components/ui/GlobalDialog';
 
 const AppContent: React.FC = () => {
-  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  const { fetchAllData, setUser, user, signOut } = useAppStore();
+  const { fetchAllData, setUser, user } = useAppStore();
 
   const ignoreNextSignedIn = useRef(false);
   const lastSessionIdRef = useRef<string | null>(null);
+  const initialValidationDone = useRef(false);
 
   const stableFetchAllData = useCallback(fetchAllData, [fetchAllData]);
 
   useEffect(() => {
-    // Inicialização da Sessão
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    let active = true;
 
-      if (session) {
-        supabase.auth.getUser().then(({ data, error }) => {
-          if (error || !data.user) {
-            console.warn('[Security] Sessão inválida. Forçando logout.');
-            signOut();
-            setSession(null);
-          } else {
-            stableFetchAllData();
-          }
-        });
+    // getUser validates the persisted access token with Supabase Auth before any
+    // protected content is rendered. getSession alone only reads local storage.
+    const initializeAuth = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (!active) return;
+
+      switch (classifyAuthInit(Boolean(data.user), error)) {
+        case 'authenticated': {
+          setUser(data.user);
+          void stableFetchAllData();
+          break;
+        }
+        case 'offline-fallback': {
+          const { data: local } = await supabase.auth.getSession();
+          if (!active) return;
+
+          setUser(local.session?.user ?? null);
+          if (local.session) void stableFetchAllData();
+          break;
+        }
+        case 'rejected': {
+          // scope 'local' skips a network round-trip this dead token could not
+          // authorize anyway, and leaves sessions on other devices alone.
+          await supabase.auth.signOut({ scope: 'local' });
+          if (!active) return;
+
+          setUser(null);
+          break;
+        }
+        default: {
+          setUser(null);
+        }
       }
-    });
+
+      initialValidationDone.current = true;
+      setIsAuthReady(true);
+    };
+
+    void initializeAuth();
 
     // Listener de Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -54,12 +80,15 @@ const AppContent: React.FC = () => {
       }
       lastSessionIdRef.current = session?.access_token ?? null;
 
-      console.log(`%c[Auth Event] %c${_event}`, 'color: yellow; font-weight: bold;', 'color: cyan; font-weight: bold;', { session });
+      // initializeAuth() é a autoridade até o servidor responder.
+      if (shouldDeferStartupAuthEvent(_event, initialValidationDone.current)) {
+        return;
+      }
 
       if (_event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
         ignoreNextSignedIn.current = true;
-        setSession(session);
+        setIsAuthReady(true);
         return;
       }
 
@@ -69,16 +98,19 @@ const AppContent: React.FC = () => {
       }
 
       setIsPasswordRecovery(false);
-      setSession(session);
       setUser(session?.user ?? null);
+      setIsAuthReady(true);
 
       if (_event === 'SIGNED_IN') {
         stableFetchAllData();
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [stableFetchAllData, setUser, signOut]);
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [stableFetchAllData, setUser]);
 
   // PWA Safety Update Check
   useEffect(() => {
@@ -120,23 +152,19 @@ const AppContent: React.FC = () => {
     return <UpdatePasswordView />;
   }
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<AuthView />} />
-        <Route path="/update-password" element={<UpdatePasswordView />} />
-        <Route path="/pricing" element={<LandingPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    );
-  }
+  if (!isAuthReady) return <AuthLoadingScreen />;
 
   return (
     <Routes>
+      <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
+      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <AuthView />} />
       <Route path="/update-password" element={<UpdatePasswordView />} />
-      <Route path="/" element={<MainLayout />} />
-      <Route path="/pricing" element={<MainLayout />} />
+      {/* MainLayout reads /pricing from the URL to open the in-app pricing view. */}
+      <Route path="/pricing" element={user ? <Navigate to="/app?view=pricing" replace /> : <LandingPage />} />
+      <Route element={<ProtectedRoute isAuthReady={isAuthReady} user={user} />}>
+        <Route path="/app" element={<MainLayout />} />
+        <Route path="/dashboard" element={<Navigate to="/app" replace />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
