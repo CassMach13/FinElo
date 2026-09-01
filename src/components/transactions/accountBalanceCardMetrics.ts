@@ -1,9 +1,10 @@
 import type { ClassificationRules } from '../../domain/credit-card/classifiers';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
-  competenceAmountDue,
-  pickCurrentCompetenceCard,
-} from '../../services/creditCardManualCompetence';
+  centsToCurrency,
+  projectCardTwoLedger,
+  type CardTwoLedgerProjection,
+} from '../../domain/credit-card/twoLedgerProjection';
 import { Account, ImportLog, Transaction } from '../../types';
 import type { AccountCardDisplayData } from './AccountBalanceCard';
 
@@ -66,6 +67,8 @@ export function computeAccountCardDisplay(
   let faturaDueDateIso: string | null = null;
   let faturaVencida = false;
   let faturaCompetenceLabel: string | null = null;
+  /** Projeção dos dois livros. Nula quando a conta não tem competências. */
+  let projecao: CardTwoLedgerProjection | null = null;
   if (isCreditCard) {
     const toLocalDateStr = (date: Date | string): string => {
       if (!date) return '';
@@ -263,24 +266,39 @@ export function computeAccountCardDisplay(
        * compromissos futuros seguem consumindo limite, apenas não sequestram este
        * campo.
        */
-      const faturaCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
+      /**
+       * A partir daqui quem manda são os dois livros. `projectCardTwoLedger`
+       * separa obrigação econômica de diferença de reconciliação, e só a primeira
+       * governa valor, vencimento, status e limite.
+       */
+      projecao = projectCardTwoLedger(competenceCards, { asOf: todayStr });
+      const faturaCompetence = projecao.current;
+
       if (faturaCompetence) {
         /**
-         * Valor principal = saldo efetivamente em aberto, depois de pagamentos,
-         * créditos e estornos. O total bruto continua no Histórico como
-         * «Total da fatura»; aqui o número precisa responder «quanto falta pagar».
+         * Valor principal = saldo econômico em aberto. O total bruto continua no
+         * Histórico como «Total da fatura»; aqui o número responde «quanto falta
+         * pagar» — e uma diferença de reconciliação nunca entra nessa resposta.
          */
-        faturaAtual = roundCurrency(competenceAmountDue(faturaCompetence));
+        faturaAtual = centsToCurrency(faturaCompetence.economicOpenBalanceCents);
         faturaDueDateIso = faturaCompetence.dueDate || null;
         faturaCompetenceLabel = faturaCompetence.competenceBR || faturaCompetence.referenceMonth;
-        faturaVencida = Boolean(faturaDueDateIso && faturaDueDateIso < todayStr);
+        /**
+         * Vencida exige DÍVIDA econômica vencida, não apenas data passada. Uma
+         * competência quitada com conciliação pendente ficaria eternamente com o
+         * selo VENCIDA se bastasse a data — foi exatamente assim que R$ 0,22 de
+         * diferença apareceram como «FATURA EM ABERTO · VENCIDA» em produção.
+         */
+        faturaVencida = faturaCompetence.economicStatus === 'overdue';
       }
-      const openFromAllCompetences = competenceCards.reduce(
-        (sum, c) => sum + Math.max(c.openBalance, 0),
-        0
-      );
-      /** Limite usado = soma dos saldos em aberto por competência (abril paga não entra). */
-      totalUsedLimit = roundCurrency(openFromAllCompetences);
+
+      /**
+       * Limite usado = soma dos saldos ECONÔMICOS em aberto, inclusive de
+       * competências futuras. O suspense de reconciliação fica de fora: enquanto
+       * não houver resolução econômica ele não é dívida nem crédito, e não pode
+       * mover nem o utilizado nem o disponível.
+       */
+      totalUsedLimit = centsToCurrency(projecao.economicUsedCents);
 
       /**
        * Valor, status e datas do card precisam falar da MESMA fatura.
@@ -356,5 +374,12 @@ export function computeAccountCardDisplay(
     faturaDueDateIso,
     faturaCompetenceLabel,
     faturaTitulo: faturaVencida ? 'Fatura em aberto' : 'Fatura atual',
+    /**
+     * Livro 2, exposto SEPARADAMENTE. Estes campos jamais devem ser somados a
+     * `faturaAtual`, ao limite ou a qualquer número econômico: servem só para a
+     * indicação secundária de conciliação pendente.
+     */
+    reconciliacaoPendente: projecao?.reconciliationPending ?? false,
+    reconciliacaoSaldo: centsToCurrency(projecao?.suspenseBalanceCents ?? 0),
   };
 }
