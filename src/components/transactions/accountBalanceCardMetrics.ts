@@ -1,7 +1,7 @@
 import type { ClassificationRules } from '../../domain/credit-card/classifiers';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
-  competenceFaturaAtualDisplayAmount,
+  competenceAmountDue,
   pickCurrentCompetenceCard,
 } from '../../services/creditCardManualCompetence';
 import { Account, ImportLog, Transaction } from '../../types';
@@ -62,6 +62,10 @@ export function computeAccountCardDisplay(
   let diaVence = 0;
   let diasParaFechar = 0;
   let diasParaVencer = 0;
+  /** Vencimento da competência efetivamente exibida, não o próximo genérico do cadastro. */
+  let faturaDueDateIso: string | null = null;
+  let faturaVencida = false;
+  let faturaCompetenceLabel: string | null = null;
   if (isCreditCard) {
     const toLocalDateStr = (date: Date | string): string => {
       if (!date) return '';
@@ -261,7 +265,15 @@ export function computeAccountCardDisplay(
        */
       const faturaCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
       if (faturaCompetence) {
-        faturaAtual = competenceFaturaAtualDisplayAmount(faturaCompetence);
+        /**
+         * Valor principal = saldo efetivamente em aberto, depois de pagamentos,
+         * créditos e estornos. O total bruto continua no Histórico como
+         * «Total da fatura»; aqui o número precisa responder «quanto falta pagar».
+         */
+        faturaAtual = roundCurrency(competenceAmountDue(faturaCompetence));
+        faturaDueDateIso = faturaCompetence.dueDate || null;
+        faturaCompetenceLabel = faturaCompetence.competenceBR || faturaCompetence.referenceMonth;
+        faturaVencida = Boolean(faturaDueDateIso && faturaDueDateIso < todayStr);
       }
       const openFromAllCompetences = competenceCards.reduce(
         (sum, c) => sum + Math.max(c.openBalance, 0),
@@ -269,6 +281,42 @@ export function computeAccountCardDisplay(
       );
       /** Limite usado = soma dos saldos em aberto por competência (abril paga não entra). */
       totalUsedLimit = roundCurrency(openFromAllCompetences);
+
+      /**
+       * Valor, status e datas do card precisam falar da MESMA fatura.
+       *
+       * `diasParaFechar`/`diasParaVencer` acima vêm de `hoje` + dia cadastrado, então
+       * apontam sempre para o próximo ciclo — mesmo quando a fatura exibida é uma
+       * vencida. Aqui eles são realinhados à competência efetivamente selecionada.
+       */
+      if (faturaDueDateIso) {
+        if (faturaVencida) {
+          // Fatura vencida: contagem regressiva não faz sentido e o fechamento do
+          // ciclo seguinte não descreve esta fatura.
+          diasParaVencer = 0;
+          diasParaFechar = 0;
+        } else {
+          diasParaVencer = Math.max(
+            0,
+            Math.ceil(
+              (new Date(`${faturaDueDateIso}T00:00:00`).getTime() -
+                new Date(`${todayStr}T00:00:00`).getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          );
+          /**
+           * O fechamento só é exibido quando a competência escolhida é o ciclo
+           * corrente. Para uma competência mais adiante não sabemos a data real de
+           * fechamento — o PRD registra que ela varia mês a mês — e mostrar a do
+           * cadastro seria inventar um dado sobre outra fatura.
+           */
+          const venceNoCicloCorrente =
+            diaVence > 0 && faturaDueDateIso.slice(8, 10) === String(diaVence).padStart(2, '0')
+              ? diasParaVencer <= 31
+              : false;
+          if (!venceNoCicloCorrente) diaFecha = 0;
+        }
+      }
     } else {
       const shouldUseCardSnapshot =
         (cardV2Enabled || cardEngineEnabled) && !!cardV2Snapshot && cardV2Snapshot.hasData;
@@ -304,5 +352,9 @@ export function computeAccountCardDisplay(
     diasParaFechar,
     diasParaVencer,
     awaitingMotorSnapshotUi,
+    faturaVencida,
+    faturaDueDateIso,
+    faturaCompetenceLabel,
+    faturaTitulo: faturaVencida ? 'Fatura em aberto' : 'Fatura atual',
   };
 }

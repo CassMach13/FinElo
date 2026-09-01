@@ -16,7 +16,21 @@ export interface AccountCardDisplayData {
   diasParaFechar: number;
   diasParaVencer: number;
   awaitingMotorSnapshotUi: boolean;
+  /** Competência exibida já venceu e segue em aberto. */
+  faturaVencida?: boolean;
+  /** Vencimento da competência exibida (AAAA-MM-DD), não o próximo genérico. */
+  faturaDueDateIso?: string | null;
+  /** Competência exibida, em MM/AAAA. */
+  faturaCompetenceLabel?: string | null;
+  /** «Fatura atual» ou «Fatura em aberto», conforme o status. */
+  faturaTitulo?: string;
 }
+
+/** DD/MM a partir de AAAA-MM-DD, sem passar por Date (evita deslocamento de fuso). */
+const isoParaDiaMes = (iso?: string | null): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso || '').trim());
+  return m ? `${m[3]}/${m[2]}` : '';
+};
 
 interface AccountBalanceCardProps {
   account: Account;
@@ -50,6 +64,9 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     diaVence,
     diasParaFechar,
     diasParaVencer,
+    faturaVencida = false,
+    faturaDueDateIso = null,
+    faturaTitulo = 'Fatura atual',
     awaitingMotorSnapshotUi,
   } = display;
 
@@ -188,8 +205,13 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         </div>
                         <div className="w-px h-8 bg-white/10 shrink-0" aria-hidden />
                         <div className="flex flex-col gap-px shrink-0">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap">
-                            Fatura atual
+                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
+                            {faturaTitulo}
+                            {faturaVencida && (
+                              <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                                VENCIDA
+                              </span>
+                            )}
                           </p>
                           <p className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
                             {formatCurrency(faturaAtual)}
@@ -226,22 +248,39 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       </div>
                     </div>
 
-                    {(diaFecha > 0 || diaVence > 0) && (
+                    {faturaVencida && faturaDueDateIso ? (
+                      /* Fatura vencida: mostra o vencimento real dela, sem contagem
+                         regressiva do ciclo seguinte, que descreveria outra fatura. */
                       <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                        {diaFecha > 0 && (
-                          <span className="text-amber-400/90 font-medium whitespace-nowrap">
-                            Fecha {diasParaFechar}d · dia {diaFecha}
-                          </span>
-                        )}
-                        {diaVence > 0 && (
-                          <span
-                            className="text-cyan-300/95 font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-400/20 whitespace-nowrap"
-                            title={`Vencimento dia ${diaVence}`}
-                          >
-                            Vence {diasParaVencer}d · dia {diaVence}
-                          </span>
-                        )}
+                        <span
+                          className="text-rose-300 font-bold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-400/30 whitespace-nowrap"
+                          title={`Venceu em ${isoParaDiaMes(faturaDueDateIso)}`}
+                        >
+                          Venceu em {isoParaDiaMes(faturaDueDateIso)}
+                        </span>
                       </div>
+                    ) : (
+                      (diaFecha > 0 || diaVence > 0) && (
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                          {diaFecha > 0 && (
+                            <span className="text-amber-400/90 font-medium whitespace-nowrap">
+                              Fecha {diasParaFechar}d · dia {diaFecha}
+                            </span>
+                          )}
+                          {diaVence > 0 && (
+                            <span
+                              className="text-cyan-300/95 font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-400/20 whitespace-nowrap"
+                              title={
+                                faturaDueDateIso
+                                  ? `Vence em ${isoParaDiaMes(faturaDueDateIso)}`
+                                  : `Vencimento dia ${diaVence}`
+                              }
+                            >
+                              Vence {diasParaVencer}d · {isoParaDiaMes(faturaDueDateIso) || `dia ${diaVence}`}
+                            </span>
+                          )}
+                        </div>
+                      )
                     )}
                   </>
                 )}
@@ -251,7 +290,14 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                 <span className="text-xl font-black text-rose-400 tabular-nums">
                   {formatCurrency(faturaAtual)}
                 </span>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Fatura atual</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
+                  {faturaTitulo}
+                  {faturaVencida && (
+                    <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                      VENCIDA
+                    </span>
+                  )}
+                </p>
                 <div className="flex flex-wrap gap-2 w-full mt-1 justify-end">
                   <button
                     type="button"
