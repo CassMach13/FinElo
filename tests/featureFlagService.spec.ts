@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '@supabase/supabase-js';
 import {
   isAtomicImportEnabled,
+  isCardV2Enabled,
+  isCardV2ShadowEnabled,
+  isCreditCardEngineEnabled,
   isSmartTransactionFiltersEnabled,
   resolveAtomicImportEnabled,
 } from '../src/services/featureFlagService';
@@ -172,5 +175,149 @@ describe('resolveAtomicImportEnabled', () => {
       data: 'disabled',
       error: null,
     }))).resolves.toBe(false);
+  });
+});
+
+/**
+ * As flags de cartão nasceram no commit fundador do motor comparando o e-mail do usuário
+ * com um endereço fixo. Isso embutia a conta piloto no bundle publicado e criava um
+ * caminho de código exclusivo dela. Passaram a seguir o mesmo padrão já validado em
+ * `isAtomicImportEnabled`: metadado + ambiente, nunca e-mail.
+ */
+const EMAIL_QUE_JA_FOI_PILOTO = 'cassiomq@gmail.com';
+
+describe('flags de cartão não consultam e-mail', () => {
+  const semAmbiente = () => {
+    vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_SHADOW_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_ROLLOUT_PERCENT', '0');
+  };
+
+  it('o e-mail que já foi piloto não habilita mais nada sozinho', () => {
+    semAmbiente();
+    const piloto = user({ email: EMAIL_QUE_JA_FOI_PILOTO });
+
+    expect(isCreditCardEngineEnabled(piloto)).toBe(false);
+    expect(isCardV2Enabled(piloto)).toBe(false);
+    expect(isCardV2ShadowEnabled(piloto)).toBe(false);
+  });
+
+  it('dois usuários com os mesmos metadados recebem o mesmo resultado, independente do e-mail', () => {
+    semAmbiente();
+    const a = user({ email: EMAIL_QUE_JA_FOI_PILOTO, app_metadata: { credit_card_engine_enabled: true } });
+    const b = user({ email: 'outra.pessoa@exemplo.com', app_metadata: { credit_card_engine_enabled: true } });
+
+    expect(isCreditCardEngineEnabled(a)).toBe(isCreditCardEngineEnabled(b));
+    expect(isCreditCardEngineEnabled(a)).toBe(true);
+  });
+});
+
+describe('isCreditCardEngineEnabled', () => {
+  const semAmbiente = () => vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'false');
+
+  it('permanece desligada por padrão', () => {
+    semAmbiente();
+    expect(isCreditCardEngineEnabled(user())).toBe(false);
+  });
+
+  it('sem usuário autenticado permanece desligada', () => {
+    vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'true');
+    expect(isCreditCardEngineEnabled(null)).toBe(false);
+  });
+
+  it('habilita a conta piloto por app_metadata', () => {
+    semAmbiente();
+    expect(
+      isCreditCardEngineEnabled(user({ app_metadata: { credit_card_engine_enabled: true } }))
+    ).toBe(true);
+  });
+
+  it('aceita o opt-in legado em user_metadata, por compatibilidade', () => {
+    semAmbiente();
+    expect(
+      isCreditCardEngineEnabled(user({ user_metadata: { credit_card_engine_enabled: true } }))
+    ).toBe(true);
+  });
+
+  it('opt-out administrativo prevalece sobre opt-in e sobre a flag global', () => {
+    vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'true');
+    expect(
+      isCreditCardEngineEnabled(
+        user({
+          app_metadata: { credit_card_engine_enabled: true, credit_card_engine_disabled: true },
+        })
+      )
+    ).toBe(false);
+  });
+
+  it('permite ativação global pelo ambiente', () => {
+    vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'true');
+    expect(isCreditCardEngineEnabled(user())).toBe(true);
+  });
+});
+
+describe('isCardV2Enabled', () => {
+  const semAmbiente = () => {
+    vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_ROLLOUT_PERCENT', '0');
+  };
+
+  it('permanece desligada por padrão', () => {
+    semAmbiente();
+    expect(isCardV2Enabled(user())).toBe(false);
+  });
+
+  it('o motor novo, quando ligado, desliga o V2 na mesma conta', () => {
+    semAmbiente();
+    const comMotor = user({ app_metadata: { credit_card_engine_enabled: true, card_v2_enabled: true } });
+    expect(isCreditCardEngineEnabled(comMotor)).toBe(true);
+    expect(isCardV2Enabled(comMotor)).toBe(false);
+  });
+
+  it('habilita por metadado quando o motor está desligado', () => {
+    semAmbiente();
+    expect(isCardV2Enabled(user({ app_metadata: { card_v2_enabled: true } }))).toBe(true);
+  });
+
+  it('opt-out prevalece sobre opt-in', () => {
+    semAmbiente();
+    expect(
+      isCardV2Enabled(user({ app_metadata: { card_v2_enabled: true, card_v2_disabled: true } }))
+    ).toBe(false);
+  });
+
+  it('rollout percentual de 100 habilita todo mundo', () => {
+    vi.stubEnv('VITE_CARD_ENGINE_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_FORCE', 'false');
+    vi.stubEnv('VITE_CARD_V2_ROLLOUT_PERCENT', '100');
+    expect(isCardV2Enabled(user())).toBe(true);
+  });
+});
+
+describe('isCardV2ShadowEnabled', () => {
+  it('permanece desligada por padrão', () => {
+    vi.stubEnv('VITE_CARD_V2_SHADOW_FORCE', 'false');
+    expect(isCardV2ShadowEnabled(user())).toBe(false);
+  });
+
+  it('habilita por metadado', () => {
+    vi.stubEnv('VITE_CARD_V2_SHADOW_FORCE', 'false');
+    expect(
+      isCardV2ShadowEnabled(user({ app_metadata: { card_v2_shadow_enabled: true } }))
+    ).toBe(true);
+  });
+
+  it('opt-out prevalece até sobre a flag global do ambiente', () => {
+    vi.stubEnv('VITE_CARD_V2_SHADOW_FORCE', 'true');
+    expect(
+      isCardV2ShadowEnabled(user({ app_metadata: { card_v2_shadow_disabled: true } }))
+    ).toBe(false);
+  });
+
+  it('flag global do ambiente habilita quem não tem opt-out', () => {
+    vi.stubEnv('VITE_CARD_V2_SHADOW_FORCE', 'true');
+    expect(isCardV2ShadowEnabled(user())).toBe(true);
   });
 });
