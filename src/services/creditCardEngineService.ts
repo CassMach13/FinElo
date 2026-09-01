@@ -297,18 +297,42 @@ export function mapRowToCreditCardStatement(row: Record<string, unknown>): Credi
 
   /**
    * As migrations 046 (V2) e 047 (motor) criaram os dois conjuntos de colunas na
-   * MESMA tabela, e todas são `not null default 0`. Uma linha escrita pelo caminho
-   * V2 tem `statement_total = 0` por default, com o valor real em
-   * `total_charges`/`total_credits`. Ler só a coluna nova daria total zero.
+   * MESMA tabela — a 047 faz `alter table ... add column` sobre a tabela da 046, com a
+   * mesma chave única `(user_id, account_id, reference_label)`. Uma linha escrita pelo
+   * caminho V2 tem `statement_total = 0` por default, com o valor real em
+   * `total_charges`/`total_credits`.
+   *
+   * O discriminador é `card_id`: só o motor o grava (o `upsertStatement` do caminho V2
+   * nem inclui esse campo no payload). Portanto `card_id` presente significa linha
+   * gerida pelo motor, e as colunas novas são a verdade — inclusive quando valem zero.
+   *
+   * Não usar `statement_total > 0` como discriminador: uma linha do motor que
+   * legitimamente soma zero (todos os lançamentos removidos ou reclassificados) cairia
+   * no fallback e ressuscitaria um total legado obsoleto. Isso aconteceria justamente
+   * quando o motor assumisse contas que já tinham histórico no caminho antigo.
    */
+  const geridaPeloMotor = row.card_id != null;
   const engineStatementTotal = Number(row.statement_total || 0);
   const legacyStatementTotal = round2(
     Number(row.total_charges || 0) - Number(row.total_credits || 0)
   );
-  const statementTotal =
-    engineStatementTotal > 0.005 ? engineStatementTotal : legacyStatementTotal;
+  const statementTotal = geridaPeloMotor
+    ? engineStatementTotal
+    : engineStatementTotal > 0.005
+      ? engineStatementTotal
+      : legacyStatementTotal;
   const totalPayments = Number(row.total_payments || 0);
-  const openBalance = Number(row.open_balance ?? row.open_amount ?? 0);
+  /**
+   * `open_balance ?? open_amount` nunca caía no fallback: a coluna é
+   * `not null default 0`, então o valor chega como 0, e `??` só desvia em null ou
+   * undefined. Uma linha exclusivamente legada lia saldo zero mesmo tendo
+   * `open_amount` preenchido. Para linha não gerida pelo motor, o legado é a verdade.
+   */
+  const openBalance = geridaPeloMotor
+    ? Number(row.open_balance ?? 0)
+    : Number(row.open_amount || 0) > 0.005
+      ? Number(row.open_amount || 0)
+      : Number(row.open_balance ?? 0);
 
   /**
    * O status é derivado dos totais em vez de lido da coluna, porque a coluna fica
