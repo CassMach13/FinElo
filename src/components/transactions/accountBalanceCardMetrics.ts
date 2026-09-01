@@ -2,7 +2,7 @@ import type { ClassificationRules } from '../../domain/credit-card/classifiers';
 import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
   competenceFaturaAtualDisplayAmount,
-  pickFaturaAtualCompetenceCard,
+  pickCurrentCompetenceCard,
 } from '../../services/creditCardManualCompetence';
 import { Account, ImportLog, Transaction } from '../../types';
 import type { AccountCardDisplayData } from './AccountBalanceCard';
@@ -245,7 +245,21 @@ export function computeAccountCardDisplay(
     const useCompetenceLedger = competenceCards.length > 0;
 
     if (useCompetenceLedger) {
-      const faturaCompetence = pickFaturaAtualCompetenceCard(competenceCards, todayStr);
+      /**
+       * «Fatura atual» é a fatura operacionalmente relevante agora: a vencida em
+       * aberto mais antiga, ou, na falta dela, a próxima a vencer.
+       *
+       * Não usar `pickFaturaAtualCompetenceCard` aqui. Aquela escolhe a MAIOR
+       * competência com saldo relevante, então uma compra lançada para um mês
+       * futuro — ou a última parcela de um parcelamento — passava a ocupar este
+       * campo, enquanto «Fecha/Vence» ao lado continuava apontando o ciclo
+       * corrente. O card exibia duas faturas diferentes lado a lado.
+       *
+       * O limite utilizado continua somando TODAS as competências em aberto: os
+       * compromissos futuros seguem consumindo limite, apenas não sequestram este
+       * campo.
+       */
+      const faturaCompetence = pickCurrentCompetenceCard(competenceCards, todayStr);
       if (faturaCompetence) {
         faturaAtual = competenceFaturaAtualDisplayAmount(faturaCompetence);
       }

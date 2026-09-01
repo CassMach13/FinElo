@@ -8,7 +8,7 @@ import {
 } from './creditCardRebuildFromImportHistoryService';
 import {
   competenceFaturaAtualDisplayAmount,
-  pickFaturaAtualCompetenceCard,
+  pickCurrentCompetenceCard,
   referenceMonthFromTransaction,
 } from './creditCardManualCompetence';
 import {
@@ -212,7 +212,9 @@ export function mergeMotorSnapshotWithManualLedger(params: {
   if (cards.length === 0) return params.snapshot;
 
   const today = params.todayIso || localTodayIso();
-  const current = pickFaturaAtualCompetenceCard(cards, today);
+  // Mesma definição de «fatura atual» usada no card, para que o snapshot do motor
+  // e o ledger de competência não exibam faturas diferentes conforme o caminho ativo.
+  const current = pickCurrentCompetenceCard(cards, today);
   if (!current) return params.snapshot;
 
   const ledgerFatura = competenceFaturaAtualDisplayAmount(current);
