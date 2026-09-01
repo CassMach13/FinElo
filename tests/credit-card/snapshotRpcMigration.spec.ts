@@ -280,11 +280,15 @@ describe('só a Edge alcança estas funções', () => {
     );
   });
 
-  it('toda função fixa search_path e limita o tempo de lock', () => {
+  it('toda função fixa search_path e limita o tempo', () => {
     const funcoes = migration.match(/create or replace function public\./g)?.length ?? 0;
-    expect(funcoes).toBe(3);
+    expect(funcoes).toBe(4);
     expect(migration.match(/set search_path = ''/g)?.length).toBe(funcoes);
-    expect(migration.match(/set lock_timeout/g)?.length).toBe(funcoes);
+    expect(migration.match(/set statement_timeout/g)?.length).toBe(funcoes);
+
+    // `lock_timeout` só nas três que escrevem. A leitura de contadores é
+    // `stable` e não disputa lock com ninguém.
+    expect(migration.match(/set lock_timeout/g)?.length).toBe(3);
   });
 
   /** A exceção ao padrão SECURITY DEFINER só se sustenta com o motivo escrito. */

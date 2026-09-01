@@ -393,6 +393,42 @@ end;
 $reverse$;
 
 -- ---------------------------------------------------------------------------
+-- Ler os contadores de fora
+-- ---------------------------------------------------------------------------
+--
+-- A Edge precisa dos contadores ANTES e DEPOIS de ler os dados (R0 e R1).
+-- `current_revisions` vive no schema privado, que o PostgREST nao expoe; este
+-- wrapper e a unica porta, e so `service_role` a atravessa.
+
+create or replace function public.finelo_reconciliation_context_v1(
+  p_account_id uuid
+)
+returns jsonb
+language plpgsql
+stable
+set search_path = ''
+set statement_timeout = '10s'
+as $ctx$
+declare
+  v_user_id uuid;
+  v_acc bigint;
+  v_ctx bigint;
+begin
+  select c.user_id into v_user_id from public.contas c where c.id = p_account_id;
+  if v_user_id is null then
+    raise exception 'contexto: conta % inexistente ou sem dono', p_account_id using errcode = '42501';
+  end if;
+
+  select account_revision, user_context_revision into v_acc, v_ctx
+    from finelo_reconciliation_internal.current_revisions(v_user_id, p_account_id);
+
+  return pg_catalog.jsonb_build_object(
+    'account_revision', v_acc,
+    'user_context_revision', v_ctx);
+end;
+$ctx$;
+
+-- ---------------------------------------------------------------------------
 -- Privilégios
 -- ---------------------------------------------------------------------------
 --
@@ -405,12 +441,16 @@ revoke all on function public.finelo_resolve_reconciliation_v1(
   uuid, text, text, text, text, text, bigint, bigint, text, text) from public, anon, authenticated;
 revoke all on function public.finelo_reverse_reconciliation_v1(uuid, text, text)
   from public, anon, authenticated;
+revoke all on function public.finelo_reconciliation_context_v1(uuid)
+  from public, anon, authenticated;
 
 grant execute on function public.finelo_write_reconciliation_snapshot_v1(
   uuid, text, bigint, bigint, bigint, text, text) to service_role;
 grant execute on function public.finelo_resolve_reconciliation_v1(
   uuid, text, text, text, text, text, bigint, bigint, text, text) to service_role;
 grant execute on function public.finelo_reverse_reconciliation_v1(uuid, text, text)
+  to service_role;
+grant execute on function public.finelo_reconciliation_context_v1(uuid)
   to service_role;
 
 commit;

@@ -34,10 +34,23 @@ const money = (cents: number): string =>
     currency: 'BRL',
   });
 
+/**
+ * A consequência precisa dizer a verdade inteira.
+ *
+ * Estas duas opções retiram o valor do bolso de reconciliação. Quando esse
+ * valor estava compensando o déficit de uma competência posterior — como os
+ * R$ 0,22 de 2024-12 cobriam parte de 2025-03 na cadeia real — a compensação
+ * some junto, e o déficit descoberto vira obrigação econômica.
+ *
+ * O texto antigo prometia que «o limite disponível não muda». Não era verdade
+ * nesse caso, e prometer isso levaria o usuário a clicar esperando o oposto do
+ * que aconteceria. O que se pode afirmar sem ressalva é que nenhuma das duas
+ * vira CRÉDITO — e é exatamente isso que as separa de `economic_credit`.
+ */
 const ajuste = (deltaCents: number): ResolutionOption => ({
   kind: 'bank_adjustment',
   label: 'É ajuste ou diferença do banco',
-  consequence: `Encerra ${money(deltaCents)} de diferença. Não vira crédito nem dívida, e o limite disponível não muda.`,
+  consequence: `Encerra ${money(deltaCents)} de diferença. Não vira crédito para as próximas faturas. Se este valor estava cobrindo a diferença de outro mês, aquela diferença reaparece.`,
   movesEconomicLedger: false,
   requiresAuthoritativeTotal: false,
 });
@@ -54,7 +67,7 @@ const oficial = (): ResolutionOption => ({
 const encerrar = (deltaCents: number): ResolutionOption => ({
   kind: 'reconciliation_write_off',
   label: 'Encerrar sem classificar',
-  consequence: `Encerra ${money(deltaCents)} de diferença sem afirmar que é crédito, dívida ou valor oficial. O limite disponível não muda.`,
+  consequence: `Encerra ${money(deltaCents)} de diferença sem afirmar que é crédito, dívida ou valor oficial. Não vira crédito para as próximas faturas. Se este valor estava cobrindo a diferença de outro mês, aquela diferença reaparece.`,
   movesEconomicLedger: false,
   requiresAuthoritativeTotal: false,
 });

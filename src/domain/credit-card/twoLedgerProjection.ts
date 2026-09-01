@@ -15,6 +15,7 @@ import {
   computeTwoLedgerBalances,
   type CompetenceLedgerInput,
   type EconomicStatus,
+  type ReconciliationResolutionInput,
   type ReconciliationStatus,
 } from './twoLedgerBalance';
 
@@ -65,7 +66,10 @@ const toCents = (value: number | null | undefined): number =>
 
 export const centsToCurrency = (cents: number): number => Math.round(cents) / 100;
 
-function toLedgerInput(card: CompetenceHistoryLike): CompetenceLedgerInput {
+function toLedgerInput(
+  card: CompetenceHistoryLike,
+  resolutions: ReconciliationResolutionInput[] | undefined
+): CompetenceLedgerInput {
   return {
     referenceMonth: card.referenceMonth,
     dueDate: card.dueDate ?? null,
@@ -75,6 +79,11 @@ function toLedgerInput(card: CompetenceHistoryLike): CompetenceLedgerInput {
     // `totalPayments` já traz somadas as confirmações de valor — ambas são
     // pagamento reconhecido no livro 1, e a distinção não muda nenhum resultado.
     observedPaymentCents: toCents(card.totalPayments),
+    // Sem isto, resolver uma divergência não a faria sumir da tela: o usuário
+    // classificaria os R$ 0,22, o banco gravaria a resolução, e «A CONCILIAR»
+    // continuaria exibindo o mesmo valor. O snapshot que o servidor grava
+    // também ficaria bruto, e a mesma diferença poderia ser resolvida de novo.
+    resolutions,
   };
 }
 
@@ -103,9 +112,21 @@ function pickCurrent(
 
 export function projectCardTwoLedger(
   cards: CompetenceHistoryLike[],
-  options: { asOf: string }
+  options: {
+    asOf: string;
+    /**
+     * Resoluções já gravadas e NÃO revertidas, por competência. Omitir equivale
+     * a não haver nenhuma — que era o comportamento anterior, quando a projeção
+     * simplesmente não as conhecia.
+     */
+    resolutionsByMonth?: Record<string, ReconciliationResolutionInput[]>;
+  }
 ): CardTwoLedgerProjection {
-  const ledger = computeTwoLedgerBalances(cards.map(toLedgerInput), { asOf: options.asOf });
+  const porMes = options.resolutionsByMonth ?? {};
+  const ledger = computeTwoLedgerBalances(
+    cards.map((c) => toLedgerInput(c, porMes[c.referenceMonth])),
+    { asOf: options.asOf }
+  );
 
   const rotulos = new Map(cards.map((c) => [c.referenceMonth, c] as const));
 
