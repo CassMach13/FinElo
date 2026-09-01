@@ -102,9 +102,10 @@ describe('status da fatura é derivado dos totais na leitura', () => {
    * aberto como PAGA — que é o pior erro possível num app de finanças.
    */
   describe('linha legada do caminho V2 (sem statement_total)', () => {
+    // Linha genuinamente legada NÃO tem card_id: o upsert do caminho V2 nem inclui
+    // esse campo no payload. Só o motor grava.
     const linhaV2 = {
       id: 'stmt-v2',
-      card_id: 'card-1',
       account_id: 'acc-1',
       reference_label: '2026-07',
       due_date: '2999-01-10',
@@ -128,14 +129,17 @@ describe('status da fatura é derivado dos totais na leitura', () => {
       expect(st.status).not.toBe('paid');
     });
 
-    it('usa open_amount quando open_balance não foi preenchido', () => {
-      const st = mapRowToCreditCardStatement({ ...linhaV2, open_balance: undefined });
+    it('usa open_amount mesmo com open_balance no default zero da coluna', () => {
+      // `open_balance` é `not null default 0`: nunca chega null, então um fallback com
+      // `??` jamais desviaria. Numa linha legada o saldo real está em `open_amount`.
+      const st = mapRowToCreditCardStatement({ ...linhaV2, open_balance: 0 });
       expect(st.openBalance).toBe(700);
     });
 
     it('fatura inteiramente zerada preserva o status gravado, em vez de inventar "paid"', () => {
       const st = mapRowToCreditCardStatement({
         ...linhaBase,
+        card_id: null,
         statement_total: 0,
         total_payments: 0,
         open_balance: 0,
@@ -145,6 +149,64 @@ describe('status da fatura é derivado dos totais na leitura', () => {
       });
 
       expect(st.status).toBe('open');
+    });
+  });
+
+  /**
+   * `card_id` é o discriminador entre linha gerida pelo motor e linha exclusivamente
+   * legada: só o motor grava esse campo — o `upsertStatement` do caminho V2 nem o inclui
+   * no payload. Isso importa na migração, quando o motor assume uma conta que já tinha
+   * histórico antigo e passa a atualizar a MESMA linha (as migrations 046 e 047
+   * compartilham tabela e chave única).
+   */
+  describe('discriminador entre linha do motor e linha legada', () => {
+    const legadoObsoleto = {
+      total_charges: 500,
+      total_credits: 0,
+      open_amount: 500,
+    };
+
+    it('linha do motor com zero legítimo não ressuscita o total legado', () => {
+      const st = mapRowToCreditCardStatement({
+        ...linhaBase,
+        ...legadoObsoleto,
+        card_id: 'card-1',
+        source_import_lot_ids: ['lot-1'],
+        statement_total: 0,
+        open_balance: 0,
+        total_payments: 0,
+      });
+
+      expect(st.statementTotal).toBe(0);
+      expect(st.openBalance).toBe(0);
+    });
+
+    it('linha do motor com valor usa as colunas novas, ignorando as legadas', () => {
+      const st = mapRowToCreditCardStatement({
+        ...linhaBase,
+        ...legadoObsoleto,
+        card_id: 'card-1',
+        statement_total: 120,
+        open_balance: 20,
+        total_payments: 100,
+      });
+
+      expect(st.statementTotal).toBe(120);
+      expect(st.openBalance).toBe(20);
+    });
+
+    it('linha sem card_id continua lendo as colunas legadas', () => {
+      const st = mapRowToCreditCardStatement({
+        ...linhaBase,
+        ...legadoObsoleto,
+        card_id: null,
+        statement_total: 0,
+        open_balance: 0,
+        total_payments: 100,
+      });
+
+      expect(st.statementTotal).toBe(500);
+      expect(st.openBalance).toBe(500);
     });
   });
 
