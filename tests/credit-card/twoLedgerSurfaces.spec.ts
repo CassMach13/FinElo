@@ -878,3 +878,162 @@ describe('conversão de centavos para moeda', () => {
     expect(centsToCurrency(0)).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A cadeia real, competência a competência, com os valores intermediários à
+ * vista. Os testes anteriores checam o desfecho; este fixa o ROTEIRO, para que
+ * uma mudança que chegue ao mesmo zero por outro caminho não passe despercebida.
+ */
+describe('regressão ponta a ponta da cadeia dos R$ 0,22', () => {
+  const ateFevereiro = (): CompetenceHistoryLike[] => [
+    comp('2024-12', 6052.63, 6052.85),
+    comp('2025-02', 5798.44, 5858.74),
+  ];
+
+  /** 2025-03 sem a confirmação: mostra o resíduo econômico que ela existe para cobrir. */
+  const semConfirmacao = (): CompetenceHistoryLike[] => [
+    ...ateFevereiro(),
+    comp('2025-03', 6777.72, 6716.48),
+  ];
+
+  /** Com a confirmação `amount` de R$ 0,72 somada aos pagamentos reconhecidos. */
+  const comConfirmacao = (): CompetenceHistoryLike[] => [
+    ...ateFevereiro(),
+    comp('2025-03', 6777.72, 6717.2),
+  ];
+
+  it('2024-12 contribui +0,22 para o livro de reconciliação', () => {
+    const p = projetar(semConfirmacao());
+    const dez = p.competences[0];
+
+    expect(dez.unresolvedReconciliationDeltaCents).toBe(c(0.22));
+    expect(dez.economicOpenBalanceCents).toBe(0);
+  });
+
+  it('2025-02 contribui +60,30 e o saldo acumulado chega a +60,52', () => {
+    const p = projetar(semConfirmacao());
+
+    expect(p.competences[1].unresolvedReconciliationDeltaCents).toBe(c(60.3));
+    expect(p.competences[0].unresolvedReconciliationDeltaCents +
+           p.competences[1].unresolvedReconciliationDeltaCents).toBe(c(60.52));
+  });
+
+  it('2025-03 tem déficit econômico bruto de 61,24 antes de qualquer compensação', () => {
+    const p = projetar(semConfirmacao());
+    const marco = p.competences[2];
+
+    // 6.777,72 faturados contra 6.716,48 pagos.
+    expect(marco.statementTotalCents - marco.recognizedPaymentsCents).toBe(c(61.24));
+  });
+
+  it('o suspense de 60,52 é consumido e sobra economic_open de 0,72', () => {
+    const p = projetar(semConfirmacao());
+    const marco = p.competences[2];
+
+    expect(marco.economicOpenBalanceCents).toBe(c(0.72));
+    expect(p.suspenseBalanceCents).toBe(0);
+  });
+
+  it('a confirmação de 0,72 zera exatamente o que sobrou', () => {
+    const p = projetar(comConfirmacao());
+    const marco = p.competences[2];
+
+    expect(marco.recognizedPaymentsCents).toBe(c(6717.2));
+    expect(marco.economicOpenBalanceCents).toBe(0);
+  });
+
+  it('o resultado final não tem dívida, crédito nem saldo de reconciliação', () => {
+    const p = projetar(comConfirmacao());
+
+    expect(p.economicUsedCents).toBe(0);
+    expect(p.economicCarryCents).toBe(0);
+    expect(p.suspenseBalanceCents).toBe(0);
+  });
+
+  it('nenhuma fatura vencida de R$ 0,22 aparece em lugar nenhum', () => {
+    const p = projetar(comConfirmacao());
+
+    expect(p.competences.filter((x) => x.economicStatus === 'overdue')).toEqual([]);
+    expect(p.competences.some((x) => x.economicOpenBalanceCents === c(0.22))).toBe(false);
+  });
+
+  it('o limite fica integralmente disponível apesar dos R$ 60,52 que transitaram', () => {
+    const p = projetar(comConfirmacao());
+    expect(p.economicUsedCents).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * As invariantes exigidas, verificadas na superfície e não só no domínio.
+ */
+describe('invariantes da integração', () => {
+  it('fatura importada sem pagamento continua gerando dívida econômica', () => {
+    const arq = 'fatura_julho.csv';
+    const d = exibir([compra('2026-07-05', 6000, arq)], contaCartao(), [
+      logImport(arq, '2026-07', '2026-08-28'),
+    ]);
+
+    expect(d.faturaAtual).toBe(6000);
+    expect(d.faturaVencida).toBe(true);
+    expect(d.limiteDisponivel).toBe(LIMITE - 6000);
+    expect(d.reconciliacaoPendente).toBe(false);
+  });
+
+  it('excedente não comprovado continua indo para o suspense', () => {
+    const p = projetar([comp('2026-07', 400, 450)]);
+
+    expect(p.economicCarryCents).toBe(0);
+    expect(p.suspenseBalanceCents).toBe(c(50));
+  });
+
+  it('suspense anterior compensa diferença posterior', () => {
+    const p = projetar([comp('2026-06', 400, 450), comp('2026-07', 300, 250)]);
+
+    expect(p.competences[1].economicOpenBalanceCents).toBe(0);
+    expect(p.suspenseBalanceCents).toBe(0);
+  });
+
+  it('suspense nunca vira crédito econômico implicitamente', () => {
+    // Suspense de 500 acumulado e a competência seguinte já quitada: o suspense
+    // não pode aparecer como crédito disponível nem abater nada.
+    const p = projetar([comp('2026-06', 400, 900), comp('2026-07', 300, 300)]);
+
+    expect(p.economicCarryCents).toBe(0);
+    expect(p.competences[1].priorCreditAppliedCents ?? 0).toBe(0);
+    expect(p.suspenseBalanceCents).toBe(c(500));
+  });
+
+  it('rodapé de arquivo + lançamentos manuais somam corretamente na superfície', () => {
+    // A projeção entrega ao domínio a soma de TODAS as fontes da competência —
+    // arquivo e manuais —, então nenhuma parte é substituída pela outra.
+    const arq = 'fatura_julho.csv';
+    const d = exibir(
+      [compra('2026-07-05', 5000, arq), compra('2026-07-15', 300)],
+      contaCartao({ limite_credito: 20000 }),
+      [logImport(arq, '2026-07', '2026-08-28')]
+    );
+
+    expect(d.faturaAtual).toBe(5300);
+    expect(20000 - d.limiteDisponivel).toBe(5300);
+  });
+
+  it('a mesma competência mista, paga só na parte do arquivo, mantém o manual devido', () => {
+    const arq = 'fatura_julho.csv';
+    const d = exibir(
+      [
+        compra('2026-07-05', 5000, arq),
+        compra('2026-07-15', 300),
+        pagamento('2026-07-25', 5000),
+      ],
+      contaCartao({ limite_credito: 20000 }),
+      [logImport(arq, '2026-07', '2026-08-28')]
+    );
+
+    expect(d.faturaAtual).toBe(300);
+    expect(d.reconciliacaoPendente).toBe(false);
+  });
+});
