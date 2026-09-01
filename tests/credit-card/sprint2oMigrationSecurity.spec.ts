@@ -1,14 +1,14 @@
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { readSqlFixture } from '../helpers/sqlFixture';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const migrationPath = join(
   currentDir,
   '../../supabase/migrations/20260822221118_sprint_2o_atomic_statement_conservation.sql'
 );
-const migration = readFileSync(migrationPath, 'utf8');
+const migration = readSqlFixture(migrationPath);
 
 function section(start: string, end: string): string {
   const startIndex = migration.indexOf(start);
