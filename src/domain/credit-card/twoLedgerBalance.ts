@@ -15,6 +15,13 @@
  * resolução explícita. Uma diferença sem natureza provada nunca vira, sozinha,
  * nem dívida vencida nem crédito gastável.
  *
+ * O alcance da proveniência tem um limite que vale escrever: ela governa o
+ * tratamento da INCERTEZA, não a existência econômica das transações. Compras,
+ * tarifas e estornos importados são fatos econômicos como quaisquer outros e
+ * entram integralmente na obrigação — uma fatura importada sem pagamento é
+ * dívida de valor cheio. O que a proveniência decide é o destino do EXCEDENTE e
+ * do resíduo que nenhuma evidência explica.
+ *
  * Toda a aritmética é em CENTAVOS INTEIROS. Não há tolerância monetária neste
  * arquivo, e não deve haver: com inteiros exatos ela seria arbitrária por
  * definição. Converter na fronteira, nunca aqui.
@@ -23,7 +30,7 @@
 export type AuthoritativeSource = 'bank_app' | 'bank_pdf' | 'bank_api' | 'user_declared';
 
 /** De onde veio o total usado no cálculo. Espelha a escada A do modelo. */
-export type TotalSource = 'authoritative' | 'file' | 'lines' | 'empty';
+export type TotalSource = 'authoritative' | 'file' | 'lines' | 'manual' | 'mixed' | 'empty';
 
 /** Livro 1. `settled_confirmed` pertence à confirmação FULL e não é produzido aqui. */
 export type EconomicStatus = 'paid' | 'open' | 'overdue' | 'settled_confirmed';
@@ -39,6 +46,11 @@ export interface CompetenceLedgerInput {
 
   /** Soma das linhas atribuídas. Sempre presente — é o último degrau com valor. */
   computedLinesTotalCents: number;
+  /**
+   * Obrigação que o usuário registrou por fora do arquivo, na mesma competência.
+   * Soma-se ao que o rodapé declara em vez de ser substituída por ele.
+   */
+  manualObligationCents?: number;
   /** Rodapé do arquivo. Declaração do arquivo, não autoridade sobre o emissor. */
   fileReportedTotalCents?: number | null;
   /** Valor oficial do emissor. Só vale acompanhado de `authoritativeSource`. */
@@ -112,13 +124,33 @@ function resolveTotal(input: CompetenceLedgerInput): {
   if (authoritative != null && input.authoritativeSource != null) {
     return { totalCents: int(authoritative), totalSource: 'authoritative' };
   }
-  if (input.fileReportedTotalCents != null) {
-    return { totalCents: int(input.fileReportedTotalCents), totalSource: 'file' };
-  }
-  if (input.computedLinesTotalCents != null) {
-    return { totalCents: int(input.computedLinesTotalCents), totalSource: 'lines' };
-  }
-  return { totalCents: 0, totalSource: 'empty' };
+
+  /**
+   * O rodapé descreve APENAS o que veio dentro do arquivo. Obrigações que o
+   * usuário registrou por fora somam por cima — deixá-lo substituir o total
+   * inteiro faria um rodapé de R$ 5.000 engolir R$ 300 de lançamentos manuais da
+   * mesma competência.
+   *
+   * Compras importadas, tarifas e estornos são fatos econômicos como quaisquer
+   * outros: entram integralmente na obrigação. A proveniência governa o
+   * tratamento da INCERTEZA — o excedente sem prova —, não a existência das
+   * transações.
+   */
+  const manualCents = int(input.manualObligationCents);
+  const importedCents =
+    input.fileReportedTotalCents != null
+      ? int(input.fileReportedTotalCents)
+      : int(input.computedLinesTotalCents);
+  const totalCents = manualCents + importedCents;
+
+  let totalSource: TotalSource;
+  if (manualCents > 0 && importedCents > 0) totalSource = 'mixed';
+  else if (input.fileReportedTotalCents != null) totalSource = 'file';
+  else if (manualCents > 0) totalSource = 'manual';
+  else if (totalCents > 0) totalSource = 'lines';
+  else totalSource = 'empty';
+
+  return { totalCents, totalSource };
 }
 
 /**
@@ -162,7 +194,9 @@ export function computeTwoLedgerBalances(
     // Livro 2: a distância entre o que o emissor cobrou e o que as linhas somam.
     // Registrada, nunca somada ao livro 1.
     const reconciliationAdjustmentCents =
-      totalSource === 'authoritative' ? totalCents - int(input.computedLinesTotalCents) : 0;
+      totalSource === 'authoritative'
+        ? totalCents - (int(input.computedLinesTotalCents) + int(input.manualObligationCents))
+        : 0;
 
     let economicOpenBalanceCents = 0;
     let suspenseInCents = 0;

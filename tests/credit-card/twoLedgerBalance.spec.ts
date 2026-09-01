@@ -661,3 +661,224 @@ describe('aritmética exata em centavos', () => {
     expect(twoLedgerConservation(r).conservado).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+
+/**
+ * O limite do alcance da proveniência.
+ *
+ * Proveniência governa o tratamento da INCERTEZA — o excedente sem prova, o
+ * resíduo que nenhuma evidência explica. Ela NÃO governa a existência econômica
+ * das transações: compras, tarifas e estornos importados são fatos econômicos
+ * como quaisquer outros, e entram integralmente na obrigação.
+ *
+ * Levar a proveniência longe demais produziria o absurdo de uma fatura importada
+ * de R$ 6.000 sem pagamento virar `economic_open = 0` com diferença de
+ * reconciliação de −6.000, deixando o cartão sem dívida e sem limite consumido.
+ */
+describe('proveniência governa a incerteza, não a existência das transações', () => {
+  it('fatura importada sem pagamento é dívida de valor cheio', () => {
+    const r = computeTwoLedgerBalances([manual('2026-01', 6000, 0)]);
+    const x = r.competences[0];
+
+    expect(x.economicOpenBalanceCents).toBe(c(6000));
+    expect(x.reconciliationStatus).toBe('reconciled');
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('excedente sobre obrigação importada vira diferença, não crédito', () => {
+    const r = computeTwoLedgerBalances([manual('2026-01', 1000, 1000.22)]);
+
+    expect(r.competences[0].economicOpenBalanceCents).toBe(0);
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(c(0.22));
+  });
+
+  it('déficit sem diferença anterior é dívida — a obrigação não se apaga', () => {
+    const r = computeTwoLedgerBalances([manual('2026-01', 1000.22, 1000)]);
+
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(0.22));
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('déficit COM diferença anterior é compensado dentro do livro 2', () => {
+    const r = computeTwoLedgerBalances([
+      manual('2025-12', 1000, 1000.22),
+      manual('2026-01', 1000.22, 1000),
+    ]);
+
+    expect(r.competences[0].suspenseInCents).toBe(c(0.22));
+    expect(r.competences[1].suspenseOutCents).toBe(c(0.22));
+    expect(r.competences[1].economicOpenBalanceCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(0);
+    // Compensação interna do livro 2: não é carry econômico e não é pagamento.
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.competences[1].priorCreditAppliedCents).toBe(0);
+  });
+
+  it('manual e importado somam integralmente, mesmo com rodapé declarado', () => {
+    const r = computeTwoLedgerBalances([
+      competencia('2026-01', {
+        manualObligationCents: c(300),
+        computedLinesTotalCents: c(5000),
+        fileReportedTotalCents: c(5000),
+        observedPaymentCents: 0,
+      }),
+    ]);
+    const x = r.competences[0];
+
+    // O rodapé de 5.000 descreve só o arquivo; os 300 manuais somam por cima.
+    expect(x.statementTotalCents).toBe(c(5300));
+    expect(x.economicOpenBalanceCents).toBe(c(5300));
+    expect(x.totalSource).toBe('mixed');
+  });
+
+  it('sem rodapé, manual e importado também somam', () => {
+    const r = computeTwoLedgerBalances([
+      competencia('2026-01', { manualObligationCents: c(300), computedLinesTotalCents: c(5000) }),
+    ]);
+
+    expect(r.competences[0].statementTotalCents).toBe(c(5300));
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(5300));
+  });
+
+  it('o total autoritativo continua prevalecendo sobre tudo', () => {
+    const r = computeTwoLedgerBalances([
+      competencia('2026-01', {
+        manualObligationCents: c(300),
+        computedLinesTotalCents: c(5000),
+        fileReportedTotalCents: c(5000),
+        authoritativeStatementTotalCents: c(5100),
+        authoritativeSource: 'bank_pdf',
+        observedPaymentCents: c(5100),
+      }),
+    ]);
+    const x = r.competences[0];
+
+    expect(x.totalSource).toBe('authoritative');
+    expect(x.statementTotalCents).toBe(c(5100));
+    expect(x.economicOpenBalanceCents).toBe(0);
+    // 5.100 oficiais contra 5.300 de linhas conhecidas: ajuste de −200.
+    expect(x.reconciliationAdjustmentCents).toBe(c(-200));
+  });
+
+  it('a resolução explícita continua movendo excedente para crédito', () => {
+    const semResolucao = computeTwoLedgerBalances([manual('2026-01', 1000, 1500)]);
+    const comResolucao = computeTwoLedgerBalances([
+      competencia('2026-01', {
+        computedLinesTotalCents: c(1000),
+        observedPaymentCents: c(1500),
+        explicitEconomicCreditResolution: true,
+      }),
+    ]);
+
+    expect(semResolucao.economicCarryCents).toBe(0);
+    expect(semResolucao.suspenseBalanceCents).toBe(c(500));
+    expect(comResolucao.economicCarryCents).toBe(c(500));
+    expect(comResolucao.suspenseBalanceCents).toBe(0);
+  });
+
+  it('a compensação nunca apaga dívida além da diferença disponível', () => {
+    const r = computeTwoLedgerBalances([
+      manual('2025-12', 1000, 1000.22),
+      manual('2026-01', 1000, 500),
+    ]);
+
+    expect(r.competences[1].suspenseOutCents).toBe(c(0.22));
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(499.78));
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('a cadeia real segue o roteiro competência a competência', () => {
+    const r = computeTwoLedgerBalances([
+      manual('2024-12', 6052.63, 6052.85),
+      manual('2025-02', 5798.44, 5858.74),
+      competencia('2025-03', {
+        computedLinesTotalCents: c(6777.72),
+        observedPaymentCents: c(6716.48),
+        amountConfirmationCents: c(0.72),
+      }),
+    ]);
+
+    expect(r.competences[0].suspenseInCents).toBe(c(0.22));
+    expect(r.competences[1].suspenseInCents).toBe(c(60.3));
+    expect(r.competences[1].suspenseBalanceCents).toBe(c(60.52));
+    // Déficit bruto de 61,24. A confirmação de 0,72 é pagamento reconhecido no
+    // livro 1; o suspense de 60,52 explica o restante dentro do livro 2.
+    expect(r.competences[2].recognizedPaymentsCents).toBe(c(6717.2));
+    expect(r.competences[2].suspenseOutCents).toBe(c(60.52));
+    expect(r.competences[2].economicOpenBalanceCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(0);
+    expect(r.economicCarryCents).toBe(0);
+  });
+
+  it('a conservação econômica não muda quando há consumo de suspense', () => {
+    const semConsumo = computeTwoLedgerBalances([manual('2026-01', 1000, 500)]);
+    const comConsumo = computeTwoLedgerBalances([
+      manual('2025-12', 1000, 1000.22),
+      manual('2026-01', 1000, 500),
+    ]);
+
+    expect(twoLedgerConservation(semConsumo).conservado).toBe(true);
+    expect(twoLedgerConservation(comConsumo).conservado).toBe(true);
+    expect(suspenseConservation(comConsumo)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * O rodapé do arquivo descreve o ARQUIVO, não a competência.
+ *
+ * Deixá-lo substituir o total inteiro faz obrigações registradas por fora
+ * desaparecerem sem deixar rastro — e o desaparecimento é silencioso, porque o
+ * número resultante continua parecendo plausível. Estes casos cercam a diferença
+ * de perto, com e sem pagamento, sozinha e em série.
+ */
+describe('o rodapé não engole obrigação registrada por fora', () => {
+  const mistoComRodape = (ref: string, manualReais: number, arquivoReais: number, pagoReais: number) =>
+    competencia(ref, {
+      manualObligationCents: c(manualReais),
+      computedLinesTotalCents: c(arquivoReais),
+      fileReportedTotalCents: c(arquivoReais),
+      observedPaymentCents: c(pagoReais),
+    });
+
+  it('pagando só a parte do arquivo, a manual continua devida', () => {
+    const r = computeTwoLedgerBalances([mistoComRodape('2026-01', 300, 5000, 5000)]);
+
+    expect(r.competences[0].statementTotalCents).toBe(c(5300));
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(300));
+  });
+
+  it('pagando tudo, a competência fecha sem sobra nem falta', () => {
+    const r = computeTwoLedgerBalances([mistoComRodape('2026-01', 300, 5000, 5300)]);
+
+    expect(r.competences[0].economicOpenBalanceCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(0);
+    expect(r.competences[0].reconciliationStatus).toBe('reconciled');
+  });
+
+  it('pagando além de tudo, o excedente vai para o livro 2', () => {
+    const r = computeTwoLedgerBalances([mistoComRodape('2026-01', 300, 5000, 5300.22)]);
+
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(c(0.22));
+  });
+
+  it('em série, a parte manual continua consumindo limite mês a mês', () => {
+    const r = computeTwoLedgerBalances([
+      mistoComRodape('2026-01', 300, 5000, 5000),
+      mistoComRodape('2026-02', 200, 4000, 4000),
+    ]);
+
+    const emAberto = r.competences.reduce((a, x) => a + x.economicOpenBalanceCents, 0);
+    expect(emAberto).toBe(c(500));
+    expect(twoLedgerConservation(r).conservado).toBe(true);
+  });
+
+  it('uma obrigação manual pequena não some diante de um arquivo grande', () => {
+    const r = computeTwoLedgerBalances([mistoComRodape('2026-01', 0.22, 9000, 9000)]);
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(0.22));
+  });
+});
