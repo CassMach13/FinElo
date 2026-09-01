@@ -8,7 +8,12 @@
 -- 1. `economic_debt` entra na taxonomia. O livro de reconciliação é assinado por
 --    desenho, então classificar uma diferença como obrigação econômica real
 --    precisa de representação própria; forçá-la em `authoritative_total` ou
---    `written_off` seria mentir sobre o que o usuário afirmou.
+--    `reconciliation_write_off` seria mentir sobre o que o usuário afirmou.
+--
+-- 3. `written_off` é renomeado para `reconciliation_write_off`. O nome antigo
+--    dizia apenas «baixa», que em contabilidade também designa baixa ECONÔMICA —
+--    exatamente o que esta resolução NÃO faz. A tabela não tem nenhuma linha e
+--    nenhum leitor, então o rename é gratuito agora e caro depois.
 --
 --    Registro honesto do estado atual: com a regra vigente — déficit inexplicado
 --    vira dívida econômica na hora —, o saldo de reconciliação NUNCA fica
@@ -43,7 +48,7 @@ begin
     alter table public.credit_card_reconciliation_resolutions
       add constraint cc_reconciliation_resolution_kind_check
       check (resolution in ('economic_credit', 'economic_debt', 'bank_adjustment',
-                            'authoritative_total', 'written_off'));
+                            'authoritative_total', 'reconciliation_write_off'));
   end if;
 end $$;
 
@@ -52,7 +57,7 @@ comment on column public.credit_card_reconciliation_resolutions.resolution is
   'economic_debt = a diferença é obrigação econômica real: sai do livro 2 e vira saldo em aberto no livro 1, pelo mesmo valor absoluto. '
   'bank_adjustment = é arredondamento/divergência do emissor ou do arquivo e NÃO representa dinheiro: encerra a diferença sem crédito, sem dívida e sem carry. '
   'authoritative_total = o usuário informou o valor oficial da fatura: a competência é RECALCULADA a partir da fonte superior, e saldo, carry e diferença são derivados de novo — não é mascarar o delta. '
-  'written_off = o usuário encerra conscientemente uma divergência de reconciliação SEM afirmar que ela é crédito, dívida ou total oficial: encerra no livro 2 e não move o livro econômico.';
+  'reconciliation_write_off = o usuário encerra conscientemente uma divergência de reconciliação SEM classificá-la como crédito, dívida, total oficial ou ajuste bancário: encerra no livro 2 e não move o livro econômico.';
 
 -- ---------------------------------------------------------------------------
 -- Sinal e completude por tipo de resolução
@@ -70,7 +75,7 @@ begin
       check (
         (resolution = 'economic_credit' and resolved_amount is not null and resolved_amount > 0)
         or (resolution = 'economic_debt' and resolved_amount is not null and resolved_amount < 0)
-        or (resolution in ('bank_adjustment', 'written_off')
+        or (resolution in ('bank_adjustment', 'reconciliation_write_off')
             and resolved_amount is not null and resolved_amount <> 0)
         or (resolution = 'authoritative_total' and resolved_amount is null)
       );

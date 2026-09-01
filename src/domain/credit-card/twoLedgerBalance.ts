@@ -42,7 +42,7 @@ export type ReconciliationStatus = 'reconciled' | 'adjusted' | 'unreconciled' | 
  * As cinco formas de resolver uma diferença de reconciliação.
  *
  * `economic_credit` e `economic_debt` MOVEM valor entre os livros, conservando-o.
- * `bank_adjustment` e `written_off` encerram a diferença sem mover nada para o
+ * `bank_adjustment` e `reconciliation_write_off` encerram a diferença sem mover nada para o
  * livro econômico. `authoritative_total` não consome porção nenhuma: ele fornece
  * uma fonte superior e a competência inteira é recalculada a partir dela.
  */
@@ -51,7 +51,7 @@ export type ResolutionKind =
   | 'economic_debt'
   | 'bank_adjustment'
   | 'authoritative_total'
-  | 'written_off';
+  | 'reconciliation_write_off';
 
 export interface ReconciliationResolutionInput {
   kind: ResolutionKind;
@@ -125,8 +125,8 @@ export interface CompetenceLedgerResult {
   /** Movido para o livro 1 por resolucao explicita, conservando o valor. */
   resolvedToCarryCents: number;
   resolvedToDebtCents: number;
-  /** Encerrado no livro 2 por `bank_adjustment` ou `written_off`. Sem efeito economico. */
-  reconciliationClosedCents: number;
+  /** Encerrado no livro 2 por `bank_adjustment` ou `reconciliation_write_off`. Sem efeito economico. */
+  resolvedNonEconomicCents: number;
   reconciliationStatus: ReconciliationStatus;
 
   // ---- saldos correntes depois desta competência ----
@@ -145,7 +145,7 @@ export interface TwoLedgerResult {
    * não é crédito, e não volta — mas precisa aparecer na conservação, senão o
    * valor encerrado pareceria ter evaporado.
    */
-  reconciliationClosedCents: number;
+  resolvedNonEconomicCents: number;
 }
 
 export interface TwoLedgerOptions {
@@ -241,7 +241,7 @@ export interface AppliedResolutions {
   /** Sai do livro 2 e entra como saldo em aberto no livro 1. */
   paraDividaCents: number;
   /** Encerrado no livro 2, sem efeito econômico algum. */
-  encerradoCents: number;
+  naoEconomicoCents: number;
 }
 
 /**
@@ -258,7 +258,7 @@ export function applyResolutions(
   diferencaCents: number
 ): AppliedResolutions {
   let disponivel = diferencaCents;
-  const out: AppliedResolutions = { paraCarryCents: 0, paraDividaCents: 0, encerradoCents: 0 };
+  const out: AppliedResolutions = { paraCarryCents: 0, paraDividaCents: 0, naoEconomicoCents: 0 };
 
   for (const r of resolutions) {
     if (r.kind === 'authoritative_total') continue;
@@ -278,7 +278,7 @@ export function applyResolutions(
 
     if (r.kind === 'economic_credit') out.paraCarryCents += aplicado;
     else if (r.kind === 'economic_debt') out.paraDividaCents += Math.abs(aplicado);
-    else out.encerradoCents += aplicado;
+    else out.naoEconomicoCents += aplicado;
   }
 
   return out;
@@ -297,7 +297,7 @@ export function computeTwoLedgerBalances(
 
   let economicCarryCents = 0;
   let suspenseBalanceCents = 0;
-  let reconciliationClosedCents = 0;
+  let resolvedNonEconomicCents = 0;
   const competences: CompetenceLedgerResult[] = [];
 
   for (const bruto of ordered) {
@@ -352,11 +352,11 @@ export function computeTwoLedgerBalances(
     economicCarryCents += aplicadas.paraCarryCents;
     economicOpenBalanceCents += aplicadas.paraDividaCents;
     suspenseInCents -=
-      aplicadas.paraCarryCents + aplicadas.encerradoCents - aplicadas.paraDividaCents;
-    reconciliationClosedCents += aplicadas.encerradoCents;
+      aplicadas.paraCarryCents + aplicadas.naoEconomicoCents - aplicadas.paraDividaCents;
+    resolvedNonEconomicCents += aplicadas.naoEconomicoCents;
 
     const resolvidaCents =
-      aplicadas.paraCarryCents + aplicadas.paraDividaCents + aplicadas.encerradoCents;
+      aplicadas.paraCarryCents + aplicadas.paraDividaCents + aplicadas.naoEconomicoCents;
 
     suspenseBalanceCents += suspenseInCents - suspenseOutCents;
 
@@ -388,14 +388,14 @@ export function computeTwoLedgerBalances(
       suspenseOutCents,
       resolvedToCarryCents: aplicadas.paraCarryCents,
       resolvedToDebtCents: aplicadas.paraDividaCents,
-      reconciliationClosedCents: aplicadas.encerradoCents,
+      resolvedNonEconomicCents: aplicadas.naoEconomicoCents,
       reconciliationStatus,
       economicCarryCents,
       suspenseBalanceCents,
     });
   }
 
-  return { competences, economicCarryCents, suspenseBalanceCents, reconciliationClosedCents };
+  return { competences, economicCarryCents, suspenseBalanceCents, resolvedNonEconomicCents };
 }
 
 /**
@@ -421,7 +421,7 @@ export function twoLedgerConservation(result: TwoLedgerResult): {
   const cobrado = result.competences.reduce((a, c) => a + c.statementTotalCents, 0);
   const reconhecido = result.competences.reduce((a, c) => a + c.recognizedPaymentsCents, 0);
   const emAberto = result.competences.reduce((a, c) => a + c.economicOpenBalanceCents, 0);
-  const encerrado = result.reconciliationClosedCents;
+  const encerrado = result.resolvedNonEconomicCents;
   return {
     cobrado,
     reconhecido,

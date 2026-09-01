@@ -37,7 +37,7 @@ describe('atomicidade', () => {
 describe('taxonomia simétrica', () => {
   it('economic_debt entra ao lado das quatro existentes', () => {
     expect(migration).toMatch(
-      /resolution in \('economic_credit', 'economic_debt', 'bank_adjustment',\s*'authoritative_total', 'written_off'\)/
+      /resolution in \('economic_credit', 'economic_debt', 'bank_adjustment',\s*'authoritative_total', 'reconciliation_write_off'\)/
     );
   });
 
@@ -47,20 +47,20 @@ describe('taxonomia simétrica', () => {
       'economic_debt =',
       'bank_adjustment =',
       'authoritative_total =',
-      'written_off =',
+      'reconciliation_write_off =',
     ]) {
       expect(migration).toContain(termo);
     }
   });
 
   /**
-   * `written_off` era descrito apenas como «baixa consciente», o que podia ser
+   * `reconciliation_write_off` era descrito apenas como «baixa consciente», o que podia ser
    * lido como baixa ECONÔMICA. A definição agora é explícita e sem efeito no
    * livro 1.
    */
-  it('written_off é encerramento de reconciliação, não baixa econômica', () => {
+  it('reconciliation_write_off é encerramento de reconciliação, não baixa econômica', () => {
     expect(migration).toMatch(
-      /written_off = o usuário encerra conscientemente uma divergência de reconciliação SEM afirmar/
+      /reconciliation_write_off = o usuário encerra conscientemente uma divergência de reconciliação SEM classificá-la/
     );
     expect(migration).toMatch(/não move o livro econômico/);
   });
@@ -86,7 +86,7 @@ describe('o banco recusa classificação que criaria dinheiro', () => {
 
   it('ajuste e baixa exigem valor não nulo', () => {
     expect(migration).toMatch(
-      /resolution in \('bank_adjustment', 'written_off'\)\s*and resolved_amount is not null and resolved_amount <> 0/
+      /resolution in \('bank_adjustment', 'reconciliation_write_off'\)\s*and resolved_amount is not null and resolved_amount <> 0/
     );
   });
 
@@ -146,7 +146,8 @@ describe('rollback', () => {
     }
   });
 
-  it('restaura a taxonomia de quatro valores', () => {
+  /** O rollback restaura a taxonomia ANTERIOR, que ainda usava `written_off`. */
+  it('restaura a taxonomia de quatro valores com o nome anterior', () => {
     expect(rollback).toMatch(
       /check \(resolution in \('economic_credit', 'bank_adjustment', 'authoritative_total', 'written_off'\)\)/
     );
@@ -156,8 +157,10 @@ describe('rollback', () => {
    * Reverter com resoluções `economic_debt` gravadas descartaria informação que
    * o usuário afirmou. O rollback falha de propósito em vez de apagar em silêncio.
    */
-  it('recusa reverter se houver economic_debt gravado', () => {
-    expect(rollback).toMatch(/where resolution = 'economic_debt'/);
+  it('recusa reverter se houver resolução fora da taxonomia antiga', () => {
+    expect(rollback).toMatch(
+      /resolution in \('economic_debt', 'reconciliation_write_off'\)/
+    );
     expect(rollback).toMatch(/raise exception/i);
     expect(rollback).toMatch(/Reclassifique-as antes de reverter/);
   });

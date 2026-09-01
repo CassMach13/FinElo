@@ -10,15 +10,18 @@ begin;
 
 do $$
 declare
-  v_debt integer;
+  v_incompativeis integer;
 begin
-  select count(*) into v_debt
+  -- A taxonomia restaurada nao conhece `economic_debt` nem
+  -- `reconciliation_write_off`. Reverter com linhas assim descartaria o que o
+  -- usuario afirmou, entao o rollback falha de proposito.
+  select count(*) into v_incompativeis
     from public.credit_card_reconciliation_resolutions
-   where resolution = 'economic_debt';
+   where resolution in ('economic_debt', 'reconciliation_write_off');
 
-  if v_debt > 0 then
+  if v_incompativeis > 0 then
     raise exception
-      'Existem % resolucoes economic_debt. Reclassifique-as antes de reverter — reverter descartaria a informacao.', v_debt;
+      'Existem % resolucoes fora da taxonomia antiga. Reclassifique-as antes de reverter — reverter descartaria a informacao.', v_incompativeis;
   end if;
 end $$;
 

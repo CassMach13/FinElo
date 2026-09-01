@@ -32,7 +32,7 @@ describe('oferta por sinal da diferença', () => {
     for (const delta of [c(100), c(-100)]) {
       expect(tipos(delta)).toContain('bank_adjustment');
       expect(tipos(delta)).toContain('authoritative_total');
-      expect(tipos(delta)).toContain('written_off');
+      expect(tipos(delta)).toContain('reconciliation_write_off');
     }
   });
 
@@ -72,7 +72,7 @@ describe('cada opção declara sua consequência antes da confirmação', () => 
   });
 
   it('ajuste e encerramento avisam que o limite não muda', () => {
-    for (const kind of ['bank_adjustment', 'written_off'] as const) {
+    for (const kind of ['bank_adjustment', 'reconciliation_write_off'] as const) {
       const opcao = resolutionOptionsForDelta(c(100)).find((o) => o.kind === kind)!;
       expect(opcao.consequence).toMatch(/limite disponível não muda/);
       expect(opcao.movesEconomicLedger).toBe(false);

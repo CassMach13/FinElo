@@ -52,7 +52,7 @@ const oficial = (): ResolutionOption => ({
 });
 
 const encerrar = (deltaCents: number): ResolutionOption => ({
-  kind: 'written_off',
+  kind: 'reconciliation_write_off',
   label: 'Encerrar sem classificar',
   consequence: `Encerra ${money(deltaCents)} de diferença sem afirmar que é crédito, dívida ou valor oficial. O limite disponível não muda.`,
   movesEconomicLedger: false,

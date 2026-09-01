@@ -45,7 +45,7 @@ describe('sem resolução, nada acontece', () => {
     expect(r.suspenseBalanceCents).toBe(c(100));
     expect(r.economicCarryCents).toBe(0);
     expect(soma(r, 'economicOpenBalanceCents')).toBe(0);
-    expect(r.reconciliationClosedCents).toBe(0);
+    expect(r.resolvedNonEconomicCents).toBe(0);
     expect(r.competences[0].reconciliationStatus).toBe('unreconciled');
   });
 });
@@ -192,7 +192,7 @@ describe('sinal incompatível é recusado', () => {
   });
 });
 
-describe('bank_adjustment e written_off encerram sem mover o livro econômico', () => {
+describe('bank_adjustment e reconciliation_write_off encerram sem mover o livro econômico', () => {
   it('bank_adjustment não gera crédito, dívida nem carry', () => {
     const r = computeTwoLedgerBalances([
       comExcedente('2026-01', 1000, 1100, [
@@ -205,28 +205,28 @@ describe('bank_adjustment e written_off encerram sem mover o livro econômico', 
     expect(r.competences[1].priorCreditAppliedCents).toBe(0);
     expect(r.competences[1].economicOpenBalanceCents).toBe(c(300));
     expect(r.suspenseBalanceCents).toBe(0);
-    expect(r.reconciliationClosedCents).toBe(c(100));
+    expect(r.resolvedNonEconomicCents).toBe(c(100));
   });
 
   /**
-   * `written_off` é encerramento consciente SEM afirmar crédito, dívida ou total
+   * `reconciliation_write_off` é encerramento consciente SEM afirmar crédito, dívida ou total
    * oficial. Portanto move exatamente o mesmo que `bank_adjustment` no livro
    * econômico: nada. A diferença entre os dois é o que o usuário AFIRMOU, e isso
    * vive na trilha de auditoria, não no saldo.
    */
-  it('written_off tem o mesmo efeito econômico que bank_adjustment: nenhum', () => {
+  it('reconciliation_write_off tem o mesmo efeito econômico que bank_adjustment: nenhum', () => {
     const ajuste = computeTwoLedgerBalances([
       comExcedente('2026-01', 1000, 1100, [
         { kind: 'bank_adjustment', resolvedAmountCents: c(100) },
       ]),
     ]);
     const baixa = computeTwoLedgerBalances([
-      comExcedente('2026-01', 1000, 1100, [{ kind: 'written_off', resolvedAmountCents: c(100) }]),
+      comExcedente('2026-01', 1000, 1100, [{ kind: 'reconciliation_write_off', resolvedAmountCents: c(100) }]),
     ]);
 
     expect(baixa.economicCarryCents).toBe(ajuste.economicCarryCents);
     expect(baixa.suspenseBalanceCents).toBe(ajuste.suspenseBalanceCents);
-    expect(baixa.reconciliationClosedCents).toBe(ajuste.reconciliationClosedCents);
+    expect(baixa.resolvedNonEconomicCents).toBe(ajuste.resolvedNonEconomicCents);
     expect(baixa.economicCarryCents).toBe(0);
   });
 
@@ -241,6 +241,73 @@ describe('bank_adjustment e written_off encerram sem mover o livro econômico', 
     expect(cons.cobrado - cons.reconhecido).toBe(c(-100));
     expect(cons.encerrado).toBe(c(100));
     expect(cons.conservado).toBe(true);
+  });
+});
+
+/**
+ * A consequência aprovada de `bank_adjustment`, fixada no par mínimo.
+ *
+ * Resolver como ajuste do banco ENCERRA aquele valor: ele deixa de estar
+ * disponível para compensar divergências futuras. Não altera o livro econômico
+ * nem o limite no momento da resolução — mas pode fazer uma dívida futura
+ * reaparecer, porque o que a encobria era uma diferença que o usuário acaba de
+ * declarar inexistente.
+ *
+ * Deixar a compensação acontecer mesmo assim usaria não-dinheiro para apagar
+ * dívida real.
+ */
+describe('bank_adjustment encerra o valor e ele não compensa mais nada', () => {
+  const serie = (resolucoes: ReconciliationResolutionInput[]) =>
+    computeTwoLedgerBalances([
+      comExcedente('2026-01', 1000, 1100, resolucoes),
+      comExcedente('2026-02', 100, 0),
+    ]);
+
+  it('A · com bank_adjustment, o déficit posterior de 100 aparece inteiro', () => {
+    const r = serie([{ kind: 'bank_adjustment', resolvedAmountCents: c(100) }]);
+
+    expect(r.competences[1].suspenseOutCents).toBe(0);
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(100));
+    expect(r.resolvedNonEconomicCents).toBe(c(100));
+    expect(r.suspenseBalanceCents).toBe(0);
+    expect(twoLedgerConservation(r).conservado).toBe(true);
+  });
+
+  it('B · sem resolução, a diferença compensa o déficit e nada fica em aberto', () => {
+    const r = serie([]);
+
+    expect(r.competences[1].suspenseOutCents).toBe(c(100));
+    expect(r.competences[1].economicOpenBalanceCents).toBe(0);
+    expect(r.resolvedNonEconomicCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(0);
+    expect(twoLedgerConservation(r).conservado).toBe(true);
+  });
+
+  it('a diferença entre A e B é exatamente o valor encerrado', () => {
+    const comAjuste = serie([{ kind: 'bank_adjustment', resolvedAmountCents: c(100) }]);
+    const sem = serie([]);
+
+    expect(
+      soma(comAjuste, 'economicOpenBalanceCents') - soma(sem, 'economicOpenBalanceCents')
+    ).toBe(comAjuste.resolvedNonEconomicCents);
+  });
+
+  it('reconciliation_write_off tem exatamente a mesma consequência', () => {
+    const r = serie([{ kind: 'reconciliation_write_off', resolvedAmountCents: c(100) }]);
+
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(100));
+    expect(r.resolvedNonEconomicCents).toBe(c(100));
+  });
+
+  it('o valor encerrado não entra em limite, saldo em aberto nem carry', () => {
+    const r = serie([{ kind: 'bank_adjustment', resolvedAmountCents: c(100) }]);
+
+    // Aparece só no termo próprio da conservação, nunca somado aos econômicos.
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.competences[0].economicOpenBalanceCents).toBe(0);
+    expect(r.competences[0].resolvedToCarryCents).toBe(0);
+    expect(r.competences[0].resolvedToDebtCents).toBe(0);
+    expect(r.competences[0].resolvedNonEconomicCents).toBe(c(100));
   });
 });
 
@@ -332,7 +399,7 @@ describe('resoluções parciais', () => {
     ]);
 
     expect(r.economicCarryCents).toBe(c(30));
-    expect(r.reconciliationClosedCents).toBe(c(70));
+    expect(r.resolvedNonEconomicCents).toBe(c(70));
     expect(r.suspenseBalanceCents).toBe(0);
     expect(twoLedgerConservation(r).conservado).toBe(true);
   });
@@ -354,12 +421,12 @@ describe('resoluções parciais', () => {
       comExcedente('2026-01', 1000, 1100, [
         { kind: 'economic_credit', resolvedAmountCents: c(20) },
         { kind: 'bank_adjustment', resolvedAmountCents: c(30) },
-        { kind: 'written_off', resolvedAmountCents: c(50) },
+        { kind: 'reconciliation_write_off', resolvedAmountCents: c(50) },
       ]),
     ]);
 
     expect(r.economicCarryCents).toBe(c(20));
-    expect(r.reconciliationClosedCents).toBe(c(80));
+    expect(r.resolvedNonEconomicCents).toBe(c(80));
     expect(r.suspenseBalanceCents).toBe(0);
   });
 });
@@ -386,7 +453,7 @@ describe('nenhuma resolução excede a diferença disponível', () => {
     ]);
 
     expect(r.economicCarryCents).toBe(c(100));
-    expect(r.reconciliationClosedCents).toBe(0);
+    expect(r.resolvedNonEconomicCents).toBe(0);
     expect(r.suspenseBalanceCents).toBe(0);
   });
 
@@ -450,9 +517,9 @@ describe('o limite só se move quando há efeito econômico', () => {
     expect(usado(com)).toBe(0);
   });
 
-  it('written_off isolado não muda o limite utilizado', () => {
+  it('reconciliation_write_off isolado não muda o limite utilizado', () => {
     const com = computeTwoLedgerBalances([
-      comExcedente('2026-01', 1000, 1100, [{ kind: 'written_off', resolvedAmountCents: c(100) }]),
+      comExcedente('2026-01', 1000, 1100, [{ kind: 'reconciliation_write_off', resolvedAmountCents: c(100) }]),
     ]);
 
     expect(usado(com)).toBe(0);
@@ -504,7 +571,7 @@ describe('conservação sob todas as formas de resolução', () => {
     ['economic_credit total', [comExcedente('2026-01', 1000, 1100, [{ kind: 'economic_credit', resolvedAmountCents: c(100) }])]],
     ['economic_credit parcial', [comExcedente('2026-01', 1000, 1100, [{ kind: 'economic_credit', resolvedAmountCents: c(30) }])]],
     ['bank_adjustment', [comExcedente('2026-01', 1000, 1100, [{ kind: 'bank_adjustment', resolvedAmountCents: c(100) }])]],
-    ['written_off', [comExcedente('2026-01', 1000, 1100, [{ kind: 'written_off', resolvedAmountCents: c(100) }])]],
+    ['reconciliation_write_off', [comExcedente('2026-01', 1000, 1100, [{ kind: 'reconciliation_write_off', resolvedAmountCents: c(100) }])]],
     ['mista 30/70', [comExcedente('2026-01', 1000, 1100, [{ kind: 'economic_credit', resolvedAmountCents: c(30) }, { kind: 'bank_adjustment', resolvedAmountCents: c(70) }])]],
     ['excedendo o disponível', [comExcedente('2026-01', 1000, 1100, [{ kind: 'economic_credit', resolvedAmountCents: c(999) }])]],
     ['sinal incompatível', [comExcedente('2026-01', 1000, 1100, [{ kind: 'economic_debt', resolvedAmountCents: c(-50) }])]],
@@ -584,7 +651,7 @@ describe('não-regressão da cadeia real dos R$ 0,22', () => {
 
     expect(soma(r, 'economicOpenBalanceCents')).toBe(0);
     expect(r.economicCarryCents).toBe(0);
-    expect(r.reconciliationClosedCents).toBe(0);
+    expect(r.resolvedNonEconomicCents).toBe(0);
   });
 
   it('a maquinaria de resolução não alterou o resultado histórico', () => {
@@ -609,7 +676,7 @@ describe('legado nunca é ativado automaticamente', () => {
     ]);
 
     expect(r.economicCarryCents).toBe(0);
-    expect(r.reconciliationClosedCents).toBe(0);
+    expect(r.resolvedNonEconomicCents).toBe(0);
     expect(r.suspenseBalanceCents).toBe(c(100));
   });
 
@@ -645,7 +712,7 @@ describe('contrato de sinal da distribuição de resoluções', () => {
 
     expect(r.paraCarryCents).toBe(0);
     expect(r.paraDividaCents).toBe(0);
-    expect(r.encerradoCents).toBe(0);
+    expect(r.naoEconomicoCents).toBe(0);
   });
 
   it('economic_debt é recusado contra diferença positiva', () => {
@@ -660,7 +727,7 @@ describe('contrato de sinal da distribuição de resoluções', () => {
 
     expect(r.paraDividaCents).toBe(c(100));
     expect(r.paraCarryCents).toBe(0);
-    expect(r.encerradoCents).toBe(0);
+    expect(r.naoEconomicoCents).toBe(0);
   });
 
   it('economic_credit resolve diferença positiva e vira carry', () => {
@@ -714,14 +781,14 @@ describe('contrato de sinal da distribuição de resoluções', () => {
     );
 
     expect(r.paraDividaCents).toBe(c(30));
-    expect(r.encerradoCents).toBe(c(-70));
+    expect(r.naoEconomicoCents).toBe(c(-70));
   });
 
   it('sem diferença disponível, nada é aplicado', () => {
     const r = applyResolutions([{ kind: 'economic_credit', resolvedAmountCents: c(100) }], 0);
 
     expect(r.paraCarryCents).toBe(0);
-    expect(r.encerradoCents).toBe(0);
+    expect(r.naoEconomicoCents).toBe(0);
   });
 
   it('authoritative_total não consome porção alguma da diferença', () => {
@@ -738,6 +805,6 @@ describe('contrato de sinal da distribuição de resoluções', () => {
 
     expect(r.paraCarryCents).toBe(0);
     expect(r.paraDividaCents).toBe(0);
-    expect(r.encerradoCents).toBe(0);
+    expect(r.naoEconomicoCents).toBe(0);
   });
 });
