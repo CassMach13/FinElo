@@ -269,6 +269,19 @@ export function competenceHasImportedStatement(card: CompetenceHistoryCard): boo
 }
 
 /**
+ * Só existe excedente quando existe fatura para pagar a mais.
+ *
+ * Não use `competenceHasImportedStatement` para isto. Aquele predicado responde
+ * «veio de arquivo?», que é o que interessa para esconder competências-fantasma —
+ * e usá-lo como proxy de «tem fatura?» já apagou, uma vez, o crédito de quem paga
+ * a mais num cartão só com lançamentos manuais. O que protege contra crédito
+ * inventado é exigir uma fatura real, não exigir um CSV.
+ */
+export function competenceCanGenerateSurplusCredit(card: CompetenceHistoryCard): boolean {
+  return card.statementTotal > 0.005;
+}
+
+/**
  * Recalcula o total da fatura: soma compras de todas as fontes − soma estornos.
  * Não usa max(0, débitos−estornos) por arquivo — estorno manual em linha separada precisa abater o import.
  */
@@ -436,9 +449,7 @@ export function applySequentialCreditCarryForward(cards: CompetenceHistoryCard[]
     const grossDeficit = round2(Math.max(0, card.statementTotal - card.totalPayments));
     const rawSurplus = round2(Math.max(0, card.totalPayments - card.statementTotal));
     const grossSurplus =
-      competenceHasImportedStatement(card) &&
-      card.statementTotal > 0.005 &&
-      rawSurplus >= MICRO_SURPLUS_CARRY_MAX
+      competenceCanGenerateSurplusCredit(card) && rawSurplus >= MICRO_SURPLUS_CARRY_MAX
         ? rawSurplus
         : 0;
 
@@ -447,7 +458,7 @@ export function applySequentialCreditCarryForward(cards: CompetenceHistoryCard[]
     card.openBalance = round2(Math.max(0, grossDeficit - card.priorCreditApplied));
 
     availableCredit = round2(availableCredit - card.priorCreditApplied + grossSurplus);
-    card.creditCarriedForward = competenceHasImportedStatement(card) ? availableCredit : 0;
+    card.creditCarriedForward = availableCredit;
   });
 }
 
