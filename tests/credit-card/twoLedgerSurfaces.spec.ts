@@ -4,6 +4,7 @@ import {
   centsToCurrency,
   type CompetenceHistoryLike,
 } from '../../src/domain/credit-card/twoLedgerProjection';
+import { computeTwoLedgerBalances } from '../../src/domain/credit-card/twoLedgerBalance';
 import { computeAccountCardDisplay } from '../../src/components/transactions/accountBalanceCardMetrics';
 import type { Account, Transaction } from '../../src/types';
 
@@ -355,6 +356,267 @@ describe('combinações de dívida e reconciliação', () => {
     expect(x.economicStatus).toBe('paid');
     expect(x.economicStatus).not.toBe('overdue');
     expect(x.hasPendingReconciliation).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Os cinco casos de procedência, fixados como regressão.
+ *
+ * A regra decidida: o total reconstruído/importado VALE como obrigação
+ * econômica, então um déficit contra ele é dívida. Já um EXCEDENTE precisa de
+ * procedência — total autoritativo ou resolução explícita — para virar crédito
+ * econômico; sem isso fica no livro 2.
+ *
+ * A assimetria restante não é por sinal nem por magnitude: ela existe porque as
+ * duas direções têm evidências de forças diferentes. Uma fatura importada é a
+ * melhor evidência disponível do que se deve; um pagamento a maior não prova que o
+ * cliente quis adiantar dinheiro, porque o total contra o qual ele foi medido pode
+ * estar subestimado.
+ *
+ * O exemplo 1 foi especificado com `economic_open = 0`, mas a decisão posterior de
+ * tratar o total importado como obrigação econômica o substitui: sem ela, uma
+ * fatura importada sem pagamento nenhum não produziria dívida alguma.
+ */
+describe('proveniência decide, não o sinal nem a magnitude', () => {
+  const umaComp = (over: Record<string, unknown>) =>
+    computeTwoLedgerBalances([{ referenceMonth: '2026-01', computedLinesTotalCents: 0, ...over } as never]);
+
+  it('1 · déficit importado é dívida — o total do arquivo é a obrigação disponível', () => {
+    const r = umaComp({
+      computedLinesTotalCents: c(1000.22),
+      fileReportedTotalCents: c(1000.22),
+      observedPaymentCents: c(1000),
+    });
+
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(0.22));
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('2 · déficit contra obrigação manual é dívida', () => {
+    const r = umaComp({ computedLinesTotalCents: c(1000.22), observedPaymentCents: c(1000) });
+
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(0.22));
+    expect(r.competences[0].reconciliationStatus).toBe('reconciled');
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('3 · déficit contra total autoritativo é dívida', () => {
+    const r = umaComp({
+      computedLinesTotalCents: c(1000.22),
+      authoritativeStatementTotalCents: c(1000.22),
+      authoritativeSource: 'bank_app',
+      observedPaymentCents: c(1000),
+    });
+
+    expect(r.competences[0].economicOpenBalanceCents).toBe(c(0.22));
+  });
+
+  it('4 · excedente importado NÃO vira crédito — vai para o livro 2', () => {
+    const r = umaComp({
+      computedLinesTotalCents: c(1000),
+      fileReportedTotalCents: c(1000),
+      observedPaymentCents: c(1000.22),
+    });
+
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.suspenseBalanceCents).toBe(c(0.22));
+    expect(r.competences[0].reconciliationStatus).toBe('unreconciled');
+  });
+
+  it('5 · excedente autoritativo vira crédito econômico', () => {
+    const r = umaComp({
+      computedLinesTotalCents: c(1000),
+      authoritativeStatementTotalCents: c(1000),
+      authoritativeSource: 'bank_app',
+      observedPaymentCents: c(1000.22),
+    });
+
+    expect(r.economicCarryCents).toBe(c(0.22));
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('excedente com resolução explícita também vira crédito, sem autoridade', () => {
+    const r = umaComp({
+      computedLinesTotalCents: c(1000),
+      observedPaymentCents: c(1000.22),
+      explicitEconomicCreditResolution: true,
+    });
+
+    expect(r.economicCarryCents).toBe(c(0.22));
+    expect(r.suspenseBalanceCents).toBe(0);
+  });
+
+  it('a mesma diferença de centavos muda de livro só quando a procedência muda', () => {
+    const semProva = umaComp({ computedLinesTotalCents: c(1000), observedPaymentCents: c(1000.22) });
+    const comProva = umaComp({
+      computedLinesTotalCents: c(1000),
+      authoritativeStatementTotalCents: c(1000),
+      authoritativeSource: 'bank_app',
+      observedPaymentCents: c(1000.22),
+    });
+
+    // Mesmo valor, mesmo sinal, mesma magnitude — livros diferentes.
+    expect(semProva.suspenseBalanceCents).toBe(c(0.22));
+    expect(semProva.economicCarryCents).toBe(0);
+    expect(comProva.suspenseBalanceCents).toBe(0);
+    expect(comProva.economicCarryCents).toBe(c(0.22));
+  });
+
+  it('a magnitude não muda o tratamento em nenhuma das direções', () => {
+    const centavos = umaComp({ computedLinesTotalCents: c(1000), observedPaymentCents: c(1000.22) });
+    const centenas = umaComp({ computedLinesTotalCents: c(1000), observedPaymentCents: c(1500) });
+
+    expect(centavos.economicCarryCents).toBe(0);
+    expect(centenas.economicCarryCents).toBe(0);
+    expect(centavos.suspenseBalanceCents).toBe(c(0.22));
+    expect(centenas.suspenseBalanceCents).toBe(c(500));
+  });
+});
+
+/**
+ * As duas portas do carry, exercidas até o efeito visível. Um crédito que existe
+ * mas não abate nada é indistinguível de crédito nenhum — só o abatimento da
+ * competência seguinte prova que ele entrou mesmo no livro 1.
+ */
+describe('as duas portas do carry econômico', () => {
+  const serie = (over: Record<string, unknown>) =>
+    computeTwoLedgerBalances([
+      { referenceMonth: '2026-01', computedLinesTotalCents: c(1000), observedPaymentCents: c(1500), ...over } as never,
+      { referenceMonth: '2026-02', computedLinesTotalCents: c(800), observedPaymentCents: 0 } as never,
+    ]);
+
+  const comAutoridade = {
+    authoritativeStatementTotalCents: c(1000),
+    authoritativeSource: 'bank_app',
+  };
+
+  it('porta 1 · autoridade: o crédito abate a competência seguinte', () => {
+    const r = serie(comAutoridade);
+
+    expect(r.competences[0].economicCarryCents).toBe(c(500));
+    expect(r.competences[1].priorCreditAppliedCents).toBe(c(500));
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(300));
+  });
+
+  it('porta 2 · resolução explícita: mesmo efeito, sem autoridade', () => {
+    const r = serie({ explicitEconomicCreditResolution: true });
+
+    expect(r.competences[0].economicCarryCents).toBe(c(500));
+    expect(r.competences[1].priorCreditAppliedCents).toBe(c(500));
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(300));
+  });
+
+  /**
+   * Sem procedência o saldo exibido acaba no mesmo lugar — porque a diferença do
+   * livro 2 compensa o déficit seguinte, que é comportamento aprovado. O que muda
+   * é POR QUAL LIVRO isso aconteceu, e é essa distinção que precisa ser visível:
+   * com procedência há crédito econômico aplicado e nada a conciliar; sem ela há
+   * consumo de suspense e conciliação pendente.
+   */
+  it('sem nenhuma das duas portas, o abatimento vem do livro 2, não do crédito', () => {
+    const r = serie({});
+
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.competences[1].priorCreditAppliedCents).toBe(0);
+    expect(r.competences[1].suspenseOutCents).toBe(c(500));
+    expect(r.competences[1].reconciliationStatus).toBe('unreconciled');
+  });
+
+  it('o saldo coincide, mas a classificação separa os dois caminhos', () => {
+    const comProva = serie(comAutoridade);
+    const semProva = serie({});
+
+    // Mesmo número na tela...
+    expect(semProva.competences[1].economicOpenBalanceCents).toBe(
+      comProva.competences[1].economicOpenBalanceCents
+    );
+
+    // ...e origens completamente diferentes.
+    expect(comProva.competences[1].priorCreditAppliedCents).toBe(c(500));
+    expect(comProva.competences[1].suspenseOutCents).toBe(0);
+    expect(comProva.competences[1].reconciliationStatus).toBe('reconciled');
+
+    expect(semProva.competences[1].priorCreditAppliedCents).toBe(0);
+    expect(semProva.competences[1].suspenseOutCents).toBe(c(500));
+    expect(semProva.competences[1].reconciliationStatus).toBe('unreconciled');
+  });
+
+  it('as duas portas produzem exatamente o mesmo resultado econômico', () => {
+    const porAutoridade = serie(comAutoridade);
+    const porResolucao = serie({ explicitEconomicCreditResolution: true });
+
+    expect(porResolucao.competences[1].economicOpenBalanceCents).toBe(
+      porAutoridade.competences[1].economicOpenBalanceCents
+    );
+    expect(porResolucao.suspenseBalanceCents).toBe(porAutoridade.suspenseBalanceCents);
+  });
+
+  it('créditos autoritativos de vários meses se acumulam', () => {
+    const r = computeTwoLedgerBalances([
+      { referenceMonth: '2026-01', computedLinesTotalCents: c(100), authoritativeStatementTotalCents: c(100), authoritativeSource: 'bank_app', observedPaymentCents: c(150) } as never,
+      { referenceMonth: '2026-02', computedLinesTotalCents: c(100), authoritativeStatementTotalCents: c(100), authoritativeSource: 'bank_app', observedPaymentCents: c(180) } as never,
+      { referenceMonth: '2026-03', computedLinesTotalCents: c(500), observedPaymentCents: 0 } as never,
+    ]);
+
+    // 50 + 80 = 130 de crédito provado abatem março.
+    expect(r.competences[2].priorCreditAppliedCents).toBe(c(130));
+    expect(r.competences[2].economicOpenBalanceCents).toBe(c(370));
+  });
+
+  it('crédito econômico não vira suspense por engano', () => {
+    const r = serie(comAutoridade);
+    expect(r.suspenseBalanceCents).toBe(0);
+    expect(r.competences[0].suspenseInCents).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('o selo A CONCILIAR responde aos dois sinais', () => {
+  it('acende com diferença positiva (pagou a mais sem procedência)', () => {
+    const p = projetar([comp('2026-07', 400, 400.22)]);
+
+    expect(p.competences[0].unresolvedReconciliationDeltaCents).toBe(c(0.22));
+    expect(p.reconciliationPending).toBe(true);
+  });
+
+  it('acende com diferença negativa (competência que consome suspense)', () => {
+    const p = projetar([comp('2026-06', 400, 450), comp('2026-07', 300, 250)]);
+
+    expect(p.competences[1].unresolvedReconciliationDeltaCents).toBe(c(-50));
+    expect(p.competences[1].hasPendingReconciliation).toBe(true);
+    expect(p.reconciliationPending).toBe(true);
+  });
+
+  it('acende mesmo depois de a cadeia zerar, porque houve diferença no caminho', () => {
+    const p = projetar([comp('2026-06', 400, 450), comp('2026-07', 300, 250)]);
+
+    expect(p.suspenseBalanceCents).toBe(0);
+    expect(p.reconciliationPending).toBe(true);
+  });
+
+  it('não acende quando nada divergiu', () => {
+    const p = projetar([comp('2026-06', 400, 400), comp('2026-07', 300, 100)]);
+
+    expect(p.reconciliationPending).toBe(false);
+    expect(p.competences.every((x) => x.unresolvedReconciliationDeltaCents === 0)).toBe(true);
+  });
+
+  it('na superfície, acende sem selo de vencida e sem mover o limite', () => {
+    const d = exibir([compra('2026-07-05', 400), pagamento('2026-07-20', 400.22)]);
+
+    expect(d.reconciliacaoPendente).toBe(true);
+    expect(d.faturaVencida).toBe(false);
+    expect(d.limiteDisponivel).toBe(LIMITE);
+  });
+
+  it('na superfície, dívida real acende o selo de vencida e não o de conciliar', () => {
+    const d = exibir([compra('2026-07-05', 400), pagamento('2026-07-20', 150)]);
+
+    expect(d.faturaVencida).toBe(true);
+    expect(d.reconciliacaoPendente).toBe(false);
   });
 });
 
