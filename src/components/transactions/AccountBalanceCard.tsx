@@ -24,6 +24,14 @@ export interface AccountCardDisplayData {
   faturaCompetenceLabel?: string | null;
   /** «Fatura atual» ou «Fatura em aberto», conforme o status. */
   faturaTitulo?: string;
+  /**
+   * Livro 2. Existe conciliação pendente nesta conta — diferença observada cuja
+   * natureza ainda não foi provada. NUNCA é dívida, pagamento nem crédito, e não
+   * pode ser somada a `faturaAtual` nem ao limite.
+   */
+  reconciliacaoPendente?: boolean;
+  /** Saldo do livro de reconciliação. Informativo; não move nenhum número econômico. */
+  reconciliacaoSaldo?: number;
 }
 
 /** DD/MM a partir de AAAA-MM-DD, sem passar por Date (evita deslocamento de fuso). */
@@ -68,6 +76,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     faturaDueDateIso = null,
     faturaTitulo = 'Fatura atual',
     awaitingMotorSnapshotUi,
+    reconciliacaoPendente = false,
   } = display;
 
   const balanceColor =
@@ -207,6 +216,14 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         <div className="flex flex-col gap-px shrink-0">
                           <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
                             {faturaTitulo}
+                            {!faturaVencida && reconciliacaoPendente && (
+                              <span
+                                title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
+                                className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
+                              >
+                                A CONCILIAR
+                              </span>
+                            )}
                             {faturaVencida && (
                               <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
                                 VENCIDA
@@ -292,6 +309,14 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                 </span>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
                   {faturaTitulo}
+                  {!faturaVencida && reconciliacaoPendente && (
+                    <span
+                      title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
+                      className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
+                    >
+                      A CONCILIAR
+                    </span>
+                  )}
                   {faturaVencida && (
                     <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
                       VENCIDA
