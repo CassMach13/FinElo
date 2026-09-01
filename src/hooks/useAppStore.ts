@@ -41,6 +41,7 @@ import {
   type ImportHistoryRebuildCycle,
   type ImportHistoryRebuildResult,
 } from '../services/creditCardRebuildFromImportHistoryService';
+import { creditCardRebuildPersistService } from '../services/creditCardRebuildPersistService';
 import {
   creditCardAtomicRebuildService,
   type AtomicCardActivationResult,
@@ -969,7 +970,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const rules = engineClassifierRulesFromUser(user);
-    const result = await creditCardRebuildFromImportHistoryService.rebuildFromImportHistory({
+    const result = await creditCardRebuildPersistService.rebuildFromImportHistory({
       userId: user.id,
       account,
       cycles,
