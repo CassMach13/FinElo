@@ -34,31 +34,3 @@ export const assignEntriesToStatement = (
     statementId: input.statementId,
   }));
 };
-
-export const inferManualPurchaseReference = (
-  postedDateIso: string,
-  closingDay: number,
-  dueDay: number
-): { dueYear: number; dueMonth: number; dueDate: string; referenceLabel: string } => {
-  const postedDate = new Date(postedDateIso);
-  const postedDay = postedDate.getDate();
-
-  const dueBase = new Date(postedDate.getFullYear(), postedDate.getMonth(), 1);
-  if (postedDay > closingDay) {
-    dueBase.setMonth(dueBase.getMonth() + 2);
-  } else {
-    dueBase.setMonth(dueBase.getMonth() + 1);
-  }
-
-  const dueYear = dueBase.getFullYear();
-  const dueMonth = dueBase.getMonth() + 1;
-  const safeDueDay = Math.max(1, Math.min(28, dueDay));
-  const dueDate = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(safeDueDay).padStart(2, '0')}`;
-  return {
-    dueYear,
-    dueMonth,
-    dueDate,
-    referenceLabel: formatReferenceLabel(dueYear, dueMonth),
-  };
-};
-
