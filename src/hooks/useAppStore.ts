@@ -78,6 +78,7 @@ import {
 import { resolveCardImportCycleCoordinates } from '../utils/cardImportReference';
 import { withCardImportCycleMetadata } from '../utils/cardImportCycleMetadata';
 import { unknownErrorMessage } from '../utils/unknownError';
+import { normalizeClassifierKeywords } from '../domain/credit-card/metadataContext';
 
 const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
   resolveAtomicImportEnabled(user, async () => {
@@ -88,12 +89,13 @@ const readAtomicImportEligibility = async (user: User | null): Promise<boolean> 
     };
   });
 
-const parseClassifierKeywords = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean);
-};
+/**
+ * A regra mora em `domain/credit-card/metadataContext`, porque o token de
+ * invalidação calculado na Edge precisa normalizar exatamente igual. Duas
+ * cópias divergiriam em silêncio, e a divergência apareceria como snapshot
+ * aceito com palavras diferentes das que produziram o número.
+ */
+const parseClassifierKeywords = normalizeClassifierKeywords;
 
 const getCardClassifierRules = (user: User | null): CardClassifierRules | undefined => {
   if (!user) return undefined;
