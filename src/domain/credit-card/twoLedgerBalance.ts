@@ -38,9 +38,44 @@ export type EconomicStatus = 'paid' | 'open' | 'overdue' | 'settled_confirmed';
 /** Livro 2. Ortogonal a EconomicStatus: uma competência pode estar paga e não reconciliada. */
 export type ReconciliationStatus = 'reconciled' | 'adjusted' | 'unreconciled' | 'resolved';
 
+/**
+ * As cinco formas de resolver uma diferença de reconciliação.
+ *
+ * `economic_credit` e `economic_debt` MOVEM valor entre os livros, conservando-o.
+ * `bank_adjustment` e `reconciliation_write_off` encerram a diferença sem mover nada para o
+ * livro econômico. `authoritative_total` não consome porção nenhuma: ele fornece
+ * uma fonte superior e a competência inteira é recalculada a partir dela.
+ */
+export type ResolutionKind =
+  | 'economic_credit'
+  | 'economic_debt'
+  | 'bank_adjustment'
+  | 'authoritative_total'
+  | 'reconciliation_write_off';
+
+export interface ReconciliationResolutionInput {
+  kind: ResolutionKind;
+  /**
+   * Porção ASSINADA da diferença classificada por este evento, em centavos.
+   * Positiva para `economic_credit`, negativa para `economic_debt`. Ignorada em
+   * `authoritative_total`. Resoluções parciais são somadas; o excedente sobre a
+   * diferença disponível é descartado, nunca inventado.
+   */
+  resolvedAmountCents?: number;
+  /** Só para `authoritative_total`, e só vale acompanhado da procedência. */
+  authoritativeStatementTotalCents?: number;
+  authoritativeSource?: AuthoritativeSource | null;
+}
+
 export interface CompetenceLedgerInput {
   /** 'YYYY-MM'. Define a ordem de processamento do carry e do suspense. */
   referenceMonth: string;
+  /**
+   * Resoluções explícitas registradas pelo usuário para esta competência.
+   * Sem elas, uma diferença permanece inerte no livro 2 — a intenção nunca é
+   * inferida da magnitude nem do sinal.
+   */
+  resolutions?: ReconciliationResolutionInput[];
   /** 'YYYY-MM-DD'. Só serve para distinguir `open` de `overdue`. */
   dueDate?: string | null;
 
@@ -87,6 +122,11 @@ export interface CompetenceLedgerResult {
   unresolvedReconciliationDeltaCents: number;
   suspenseInCents: number;
   suspenseOutCents: number;
+  /** Movido para o livro 1 por resolucao explicita, conservando o valor. */
+  resolvedToCarryCents: number;
+  resolvedToDebtCents: number;
+  /** Encerrado no livro 2 por `bank_adjustment` ou `reconciliation_write_off`. Sem efeito economico. */
+  resolvedNonEconomicCents: number;
   reconciliationStatus: ReconciliationStatus;
 
   // ---- saldos correntes depois desta competência ----
@@ -100,6 +140,12 @@ export interface TwoLedgerResult {
   economicCarryCents: number;
   /** Diferença não reconciliada acumulada ao fim da série. Livro 2. */
   suspenseBalanceCents: number;
+  /**
+   * Total encerrado no livro 2 por resolução sem efeito econômico. Não é dívida,
+   * não é crédito, e não volta — mas precisa aparecer na conservação, senão o
+   * valor encerrado pareceria ter evaporado.
+   */
+  resolvedNonEconomicCents: number;
 }
 
 export interface TwoLedgerOptions {
@@ -163,6 +209,81 @@ function carryIsSupported(input: CompetenceLedgerInput, totalSource: TotalSource
   return input.explicitEconomicCreditResolution === true;
 }
 
+/**
+ * `authoritative_total` não consome porção da diferença: ele entrega uma fonte
+ * superior e a competência inteira é RECALCULADA a partir dela. Por isso a
+ * resolução é dobrada na entrada antes de qualquer cálculo — saldo, carry e
+ * diferença saem derivados do total novo, em vez de o delta antigo ser mascarado.
+ *
+ * A resolução vigente é a mais recente da lista; as anteriores continuam na
+ * trilha de auditoria, fora do cálculo.
+ */
+function applyAuthoritativeResolution(input: CompetenceLedgerInput): CompetenceLedgerInput {
+  const autoritativas = (input.resolutions ?? []).filter(
+    (r) =>
+      r.kind === 'authoritative_total' &&
+      r.authoritativeStatementTotalCents != null &&
+      r.authoritativeSource != null
+  );
+  const vigente = autoritativas[autoritativas.length - 1];
+  if (!vigente) return input;
+
+  return {
+    ...input,
+    authoritativeStatementTotalCents: int(vigente.authoritativeStatementTotalCents),
+    authoritativeSource: vigente.authoritativeSource ?? null,
+  };
+}
+
+export interface AppliedResolutions {
+  /** Sai do livro 2 e entra como carry no livro 1. */
+  paraCarryCents: number;
+  /** Sai do livro 2 e entra como saldo em aberto no livro 1. */
+  paraDividaCents: number;
+  /** Encerrado no livro 2, sem efeito econômico algum. */
+  naoEconomicoCents: number;
+}
+
+/**
+ * Distribui as resoluções sobre a diferença disponível, respeitando o sinal.
+ *
+ * Duas travas que existem para impedir que uma classificação crie dinheiro:
+ * o sinal precisa casar com o da diferença — `economic_credit` só resolve
+ * diferença positiva e `economic_debt` só negativa —, e a soma das porções nunca
+ * ultrapassa o disponível. Uma resolução repetida encontra o saldo já consumido
+ * e não aplica nada, o que dá idempotência por construção.
+ */
+export function applyResolutions(
+  resolutions: ReconciliationResolutionInput[],
+  diferencaCents: number
+): AppliedResolutions {
+  let disponivel = diferencaCents;
+  const out: AppliedResolutions = { paraCarryCents: 0, paraDividaCents: 0, naoEconomicoCents: 0 };
+
+  for (const r of resolutions) {
+    if (r.kind === 'authoritative_total') continue;
+
+    const pedido = int(r.resolvedAmountCents);
+    if (pedido === 0) continue;
+
+    // Sinal incompatível: recusado, nunca convertido em silêncio.
+    if (r.kind === 'economic_credit' && pedido < 0) continue;
+    if (r.kind === 'economic_debt' && pedido > 0) continue;
+    if (Math.sign(pedido) !== Math.sign(disponivel)) continue;
+
+    const aplicado = Math.sign(pedido) * Math.min(Math.abs(pedido), Math.abs(disponivel));
+    if (aplicado === 0) continue;
+
+    disponivel -= aplicado;
+
+    if (r.kind === 'economic_credit') out.paraCarryCents += aplicado;
+    else if (r.kind === 'economic_debt') out.paraDividaCents += Math.abs(aplicado);
+    else out.naoEconomicoCents += aplicado;
+  }
+
+  return out;
+}
+
 function compareReferenceMonth(a: CompetenceLedgerInput, b: CompetenceLedgerInput): number {
   return a.referenceMonth < b.referenceMonth ? -1 : a.referenceMonth > b.referenceMonth ? 1 : 0;
 }
@@ -176,9 +297,13 @@ export function computeTwoLedgerBalances(
 
   let economicCarryCents = 0;
   let suspenseBalanceCents = 0;
+  let resolvedNonEconomicCents = 0;
   const competences: CompetenceLedgerResult[] = [];
 
-  for (const input of ordered) {
+  for (const bruto of ordered) {
+    // `authoritative_total` entra ANTES do calculo: a competencia e recalculada
+    // a partir da fonte superior, nao tem o delta mascarado depois.
+    const input = applyAuthoritativeResolution(bruto);
     const { totalCents, totalSource } = resolveTotal(input);
 
     const recognizedPaymentsCents =
@@ -217,6 +342,22 @@ export function computeTwoLedgerBalances(
       economicOpenBalanceCents = economicDueCents - suspenseOutCents;
     }
 
+    /**
+     * As resolucoes agem sobre a diferenca que ESTA competencia colocou no livro
+     * 2. `suspenseOut` e consumo de diferenca anterior, ja explicada, e por isso
+     * fica fora: resolver de novo o que ja foi compensado criaria dinheiro.
+     */
+    const aplicadas = applyResolutions(input.resolutions ?? [], suspenseInCents);
+
+    economicCarryCents += aplicadas.paraCarryCents;
+    economicOpenBalanceCents += aplicadas.paraDividaCents;
+    suspenseInCents -=
+      aplicadas.paraCarryCents + aplicadas.naoEconomicoCents - aplicadas.paraDividaCents;
+    resolvedNonEconomicCents += aplicadas.naoEconomicoCents;
+
+    const resolvidaCents =
+      aplicadas.paraCarryCents + aplicadas.paraDividaCents + aplicadas.naoEconomicoCents;
+
     suspenseBalanceCents += suspenseInCents - suspenseOutCents;
 
     const vencida = asOf != null && input.dueDate != null && input.dueDate < asOf;
@@ -225,7 +366,9 @@ export function computeTwoLedgerBalances(
 
     const unresolvedReconciliationDeltaCents = suspenseInCents - suspenseOutCents;
     const reconciliationStatus: ReconciliationStatus =
-      reconciliationAdjustmentCents !== 0
+      resolvidaCents !== 0
+        ? 'resolved'
+        : reconciliationAdjustmentCents !== 0
         ? 'adjusted'
         : suspenseInCents !== 0 || suspenseOutCents !== 0
           ? 'unreconciled'
@@ -243,13 +386,16 @@ export function computeTwoLedgerBalances(
       unresolvedReconciliationDeltaCents,
       suspenseInCents,
       suspenseOutCents,
+      resolvedToCarryCents: aplicadas.paraCarryCents,
+      resolvedToDebtCents: aplicadas.paraDividaCents,
+      resolvedNonEconomicCents: aplicadas.naoEconomicoCents,
       reconciliationStatus,
       economicCarryCents,
       suspenseBalanceCents,
     });
   }
 
-  return { competences, economicCarryCents, suspenseBalanceCents };
+  return { competences, economicCarryCents, suspenseBalanceCents, resolvedNonEconomicCents };
 }
 
 /**
@@ -269,19 +415,23 @@ export function twoLedgerConservation(result: TwoLedgerResult): {
   emAberto: number;
   carry: number;
   suspense: number;
+  encerrado: number;
   conservado: boolean;
 } {
   const cobrado = result.competences.reduce((a, c) => a + c.statementTotalCents, 0);
   const reconhecido = result.competences.reduce((a, c) => a + c.recognizedPaymentsCents, 0);
   const emAberto = result.competences.reduce((a, c) => a + c.economicOpenBalanceCents, 0);
+  const encerrado = result.resolvedNonEconomicCents;
   return {
     cobrado,
     reconhecido,
     emAberto,
     carry: result.economicCarryCents,
     suspense: result.suspenseBalanceCents,
+    encerrado,
     conservado:
-      cobrado - reconhecido === emAberto - result.economicCarryCents - result.suspenseBalanceCents,
+      cobrado - reconhecido ===
+      emAberto - result.economicCarryCents - result.suspenseBalanceCents - encerrado,
   };
 }
 
