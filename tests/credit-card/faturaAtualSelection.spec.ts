@@ -1,27 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseDueFromReferenceMonth,
-  pickFaturaAtualCompetenceCard,
   pickCurrentCompetenceCard,
+  pickFaturaAtualCompetenceCard,
   competenceFaturaAtualDisplayAmount,
+  competenceAmountDue,
 } from '../../src/services/creditCardManualCompetence';
 import type { CompetenceHistoryCard } from '../../src/services/creditCardRebuildFromImportHistoryService';
 
 /**
- * CARACTERIZAÇÃO — descreve o que o código faz hoje, não o que deveria fazer.
+ * Regra de produto da «Fatura Atual» do card de cartão:
  *
- * Investigação do campo «FATURA ATUAL» do card de cartão. Nenhuma regra de negócio foi
- * alterada: estes testes existem para tornar a regra atual visível e reproduzível antes
- * de qualquer decisão de produto.
+ *   1. se houver fatura vencida ainda em aberto, ela tem prioridade;
+ *   2. caso contrário, mostra a próxima fatura em aberto a vencer;
+ *   3. lançamentos, parcelas ou compromissos de competências futuras NÃO devem
+ *      fazer o campo pular para meses futuros.
  *
- * O cartão real que motivou a investigação (`STG-CLAUDE Cartao Manual`, vencimento dia 28)
- * exibia «FATURA ATUAL R$ 200» com hoje = 2026-08-31, sendo que R$ 200 é a competência
- * de **outubro** — dois ciclos à frente do ciclo corrente.
+ * «Fatura Atual» e «Uso do Limite» respondem perguntas diferentes e, de propósito,
+ * não cobrem o mesmo conjunto de competências: o limite soma tudo que está em aberto,
+ * inclusive o futuro; a fatura atual mostra só a que importa agora.
  */
 
 const DIA_VENCIMENTO = 28;
+const HOJE = '2026-08-31';
 
-function competencia(referenceMonth: string, statementTotal: number, openBalance: number): CompetenceHistoryCard {
+function competencia(
+  referenceMonth: string,
+  statementTotal: number,
+  openBalance: number,
+  over: Partial<CompetenceHistoryCard> = {}
+): CompetenceHistoryCard {
   return {
     referenceMonth,
     competenceBR: referenceMonth,
@@ -38,11 +46,25 @@ function competencia(referenceMonth: string, statementTotal: number, openBalance
     priorCreditApplied: 0,
     openBalance,
     creditCarriedForward: 0,
+    ...over,
   };
 }
 
-/** Exatamente o cartão STG-CLAUDE, como estava em staging. */
-function cartaoDoCenarioReal(): CompetenceHistoryCard[] {
+const importada = (ref: string, total: number, aberto: number) =>
+  competencia(ref, total, aberto, {
+    files: [{ fileName: `fatura_${ref}.csv`, transactionCount: 3, statementTotal: total, totalPayments: 0 }],
+  });
+
+const mista = (ref: string, total: number, aberto: number) =>
+  competencia(ref, total, aberto, {
+    files: [
+      { fileName: `fatura_${ref}.csv`, transactionCount: 3, statementTotal: total * 0.8, totalPayments: 0 },
+      { fileName: 'Lançamentos manuais', transactionCount: 1, statementTotal: total * 0.2, totalPayments: 0 },
+    ],
+  });
+
+/** O cartão STG-CLAUDE de staging, como estava quando a inconsistência foi observada. */
+function cenarioReal(): CompetenceHistoryCard[] {
   return [
     competencia('2026-06', 300, 0),
     competencia('2026-07', 400, 200),
@@ -52,156 +74,177 @@ function cartaoDoCenarioReal(): CompetenceHistoryCard[] {
   ];
 }
 
-describe('qual competência o card chama de «Fatura Atual»', () => {
-  const HOJE = '2026-08-31';
+describe('regra nova: fatura operacionalmente relevante', () => {
+  it('o cenário real deixa de apontar para outubro', () => {
+    const escolhida = pickCurrentCompetenceCard(cenarioReal(), HOJE);
 
-  it('reproduz o caso observado: escolhe outubro, não o ciclo corrente', () => {
-    const escolhida = pickFaturaAtualCompetenceCard(cartaoDoCenarioReal(), HOJE);
-
-    expect(escolhida?.referenceMonth).toBe('2026-10');
-    expect(competenceFaturaAtualDisplayAmount(escolhida!)).toBe(200);
+    expect(escolhida?.referenceMonth).not.toBe('2026-10');
+    // Julho venceu em 28/08 e ainda tem 200 em aberto: é a vencida mais antiga.
+    expect(escolhida?.referenceMonth).toBe('2026-07');
+    expect(escolhida?.dueDate).toBe('2026-08-28');
   });
 
-  it('a competência escolhida vence quase três meses depois de hoje', () => {
-    const escolhida = pickFaturaAtualCompetenceCard(cartaoDoCenarioReal(), HOJE);
+  it('o pagamento parcial já feito aparece no saldo da fatura escolhida', () => {
+    const escolhida = pickCurrentCompetenceCard(cenarioReal(), HOJE)!;
 
-    // Competência 2026-10 vence em 28/11/2026, com hoje em 31/08/2026.
-    expect(escolhida?.dueDate).toBe('2026-11-28');
-    expect(escolhida!.dueDate > HOJE).toBe(true);
+    // Julho: fatura de 400, 200 já abatidos, restam 200.
+    expect(escolhida.statementTotal).toBe(400);
+    expect(competenceAmountDue(escolhida)).toBe(200);
   });
 
-  it('a regra é «a maior competência com saldo relevante», não «a que vence primeiro»', () => {
-    const cards = cartaoDoCenarioReal();
-    const escolhida = pickFaturaAtualCompetenceCard(cards, HOJE);
-
-    const emAbertoAVencer = cards
-      .filter((c) => c.openBalance > 0.005 && c.dueDate >= HOJE)
-      .map((c) => c.referenceMonth)
-      .sort();
-
-    // Agosto e outubro estão em aberto e a vencer. A escolhida é a MAIOR.
-    expect(emAbertoAVencer).toEqual(['2026-08', '2026-10']);
-    expect(escolhida?.referenceMonth).toBe('2026-10');
-
-    // A que vence primeiro seria agosto (28/09), e não é a escolhida.
-    const queVenceAntes = cards
-      .filter((c) => c.openBalance > 0.005 && c.dueDate >= HOJE)
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
-    expect(queVenceAntes.referenceMonth).toBe('2026-08');
-    expect(escolhida?.referenceMonth).not.toBe(queVenceAntes.referenceMonth);
-  });
-
-  it('competência quitada é ignorada mesmo sendo a maior', () => {
-    // Setembro (600) está quitado; por isso outubro venceu a disputa, e não setembro.
-    const cards = cartaoDoCenarioReal();
-    expect(cards.find((c) => c.referenceMonth === '2026-09')!.openBalance).toBe(0);
+  it('a regra antiga e a nova discordam exatamente neste ponto', () => {
+    const cards = cenarioReal();
     expect(pickFaturaAtualCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-10');
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-07');
   });
 });
 
-describe('efeito de lançamentos em meses futuros', () => {
-  const HOJE = '2026-08-31';
+describe('cenário: fatura vencida e não paga + compras futuras', () => {
+  it('a vencida tem prioridade sobre qualquer compromisso futuro', () => {
+    const cards = [
+      competencia('2026-06', 500, 500), // venceu 28/07, em aberto
+      competencia('2027-03', 80, 80), // compra lançada para o futuro
+      competencia('2027-12', 40, 40), // outra, mais distante ainda
+    ];
 
-  it('uma única compra futura desloca a «Fatura Atual» para o futuro distante', () => {
-    const semFuturo = [competencia('2026-08', 350, 350)];
-    expect(pickFaturaAtualCompetenceCard(semFuturo, HOJE)?.referenceMonth).toBe('2026-08');
-
-    // Mesmo cartão, mais uma compra lançada para dezembro de 2027.
-    const comFuturo = [...semFuturo, competencia('2027-12', 50, 50)];
-    const escolhida = pickFaturaAtualCompetenceCard(comFuturo, HOJE);
-
-    expect(escolhida?.referenceMonth).toBe('2027-12');
-    expect(competenceFaturaAtualDisplayAmount(escolhida!)).toBe(50);
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-06');
   });
 
-  it('parcelamento longo faz a «Fatura Atual» apontar para a última parcela', () => {
-    // Compra de 1.200 em 12x de 100, começando no ciclo corrente.
+  it('havendo várias vencidas em aberto, mostra a mais antiga', () => {
+    const cards = [
+      competencia('2026-05', 100, 100), // venceu 28/06
+      competencia('2026-06', 500, 500), // venceu 28/07
+      competencia('2026-07', 250, 250), // venceu 28/08
+    ];
+
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-05');
+  });
+});
+
+describe('cenário: fatura corrente parcialmente paga + parcelas futuras', () => {
+  it('parcelamento de 12x não desloca o campo para a última parcela', () => {
     const parcelas: CompetenceHistoryCard[] = [];
     for (let i = 0; i < 12; i++) {
       const mes = 8 + i;
       const ano = 2026 + Math.floor((mes - 1) / 12);
       const mm = String(((mes - 1) % 12) + 1).padStart(2, '0');
-      parcelas.push(competencia(`${ano}-${mm}`, 100, 100));
+      // A primeira parcela está parcialmente paga (100 de fatura, 60 em aberto).
+      parcelas.push(competencia(`${ano}-${mm}`, 100, i === 0 ? 60 : 100));
     }
 
-    const escolhida = pickFaturaAtualCompetenceCard(parcelas, HOJE);
+    const escolhida = pickCurrentCompetenceCard(parcelas, HOJE)!;
 
-    // Aponta para a 12ª parcela, não para a que está vencendo agora.
-    expect(escolhida?.referenceMonth).toBe('2027-07');
-    expect(competenceFaturaAtualDisplayAmount(escolhida!)).toBe(100);
-    expect(parcelas[0].referenceMonth).toBe('2026-08');
+    expect(escolhida.referenceMonth).toBe('2026-08');
+    expect(competenceAmountDue(escolhida)).toBe(60);
+
+    // A regra antiga apontaria para a 12ª parcela.
+    expect(pickFaturaAtualCompetenceCard(parcelas, HOJE)?.referenceMonth).toBe('2027-07');
   });
 });
 
-describe('as duas seletoras do módulo discordam entre si', () => {
-  const HOJE = '2026-08-31';
-
-  /**
-   * `pickCurrentCompetenceCard` existe no mesmo arquivo, ordena por vencimento
-   * ASCENDENTE e prioriza a vencida mais antiga. O comentário dela diz, literalmente,
-   * que serve para «evitar que lançamentos manuais futuros (ex. 2027) ocultem extrato
-   * importado vencido» — exatamente o efeito observado aqui.
-   *
-   * Ela NÃO é usada em lugar nenhum de `src/`. Quem alimenta o card é a outra.
-   */
-  it('pickCurrentCompetenceCard escolheria o ciclo corrente; a usada no card escolhe o futuro', () => {
-    const cards = cartaoDoCenarioReal();
-
-    const usadaNoCard = pickFaturaAtualCompetenceCard(cards, HOJE);
-    const naoUsada = pickCurrentCompetenceCard(cards, HOJE);
-
-    expect(usadaNoCard?.referenceMonth).toBe('2026-10');
-    expect(naoUsada?.referenceMonth).toBe('2026-07');
-    expect(usadaNoCard?.referenceMonth).not.toBe(naoUsada?.referenceMonth);
-  });
-
-  it('com fatura vencida em aberto, a discordância fica mais visível', () => {
+describe('cenário: fatura corrente quitada + próxima com compras', () => {
+  it('pula a quitada e mostra a próxima em aberto', () => {
     const cards = [
-      competencia('2026-06', 500, 500), // venceu 28/07, ainda em aberto
-      competencia('2027-03', 80, 80), // compra lançada para o futuro
+      competencia('2026-08', 350, 0), // vence 28/09, quitada
+      competencia('2026-09', 600, 600), // vence 28/10, em aberto
     ];
 
-    // A vencida e não paga é junho. A usada no card mostra a de 2027.
-    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-06');
-    expect(pickFaturaAtualCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2027-03');
-  });
-});
-
-describe('«Fatura Atual» exibe o total bruto, não o saldo devedor', () => {
-  it('mostra statementTotal mesmo quando parte já foi paga', () => {
-    // Fatura de 400 com 200 já abatidos por crédito: devedor é 200.
-    const card = competencia('2026-10', 400, 200);
-
-    expect(competenceFaturaAtualDisplayAmount(card)).toBe(400);
-    expect(card.openBalance).toBe(200);
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-09');
   });
 
-  it('cai para o saldo devedor apenas quando não há total de fatura', () => {
-    const card = competencia('2026-10', 0, 150);
-    expect(competenceFaturaAtualDisplayAmount(card)).toBe(150);
-  });
-});
-
-describe('dependência da data de hoje', () => {
-  it('a escolha muda conforme o dia, mesmo com os dados idênticos', () => {
+  it('com tudo quitado, ainda mostra o ciclo corrente em vez de nada', () => {
     const cards = [
-      competencia('2026-06', 300, 300), // vence 28/07
+      competencia('2026-08', 350, 0),
+      competencia('2026-09', 600, 0),
+    ];
+
+    // Nenhuma em aberto: cai no ciclo mais próximo a vencer.
+    const escolhida = pickCurrentCompetenceCard(cards, HOJE);
+    expect(escolhida?.referenceMonth).toBe('2026-08');
+    expect(competenceAmountDue(escolhida!)).toBe(0);
+  });
+});
+
+describe('cenário: várias competências futuras', () => {
+  it('nenhuma delas assume o campo enquanto houver fatura corrente em aberto', () => {
+    const cards = [
+      competencia('2026-08', 350, 350), // vence 28/09 — a corrente
+      competencia('2026-11', 90, 90),
+      competencia('2027-01', 120, 120),
+      competencia('2027-06', 45, 45),
+      competencia('2028-02', 10, 10),
+    ];
+
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-08');
+  });
+
+  it('só com competências futuras, mostra a que vence primeiro', () => {
+    const cards = [
+      competencia('2027-06', 45, 45),
+      competencia('2026-11', 90, 90),
+      competencia('2028-02', 10, 10),
+    ];
+
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-11');
+  });
+});
+
+describe('a regra não depende da origem dos lançamentos', () => {
+  it('cartão 100% manual', () => {
+    const cards = [competencia('2026-07', 400, 200), competencia('2026-12', 90, 90)];
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-07');
+  });
+
+  it('cartão com fatura importada', () => {
+    const cards = [importada('2026-07', 400, 200), importada('2026-12', 90, 90)];
+    expect(pickCurrentCompetenceCard(cards, HOJE)?.referenceMonth).toBe('2026-07');
+  });
+
+  it('cartão misto manual + importado', () => {
+    const cards = [mista('2026-07', 400, 200), mista('2026-12', 90, 90)];
+    const escolhida = pickCurrentCompetenceCard(cards, HOJE)!;
+    expect(escolhida.referenceMonth).toBe('2026-07');
+    expect(escolhida.files.map((f) => f.fileName)).toEqual([
+      'fatura_2026-07.csv',
+      'Lançamentos manuais',
+    ]);
+  });
+});
+
+describe('«Fatura Atual» e «Uso do Limite» respondem perguntas diferentes', () => {
+  it('o futuro fica fora da fatura atual mas dentro do limite utilizado', () => {
+    const cards = cenarioReal();
+
+    const faturaAtual = pickCurrentCompetenceCard(cards, HOJE)!;
+    const limiteUtilizado = cards.reduce((soma, c) => soma + Math.max(c.openBalance, 0), 0);
+
+    // Fatura atual: só julho, 200 em aberto de uma fatura de 400.
+    expect(faturaAtual.referenceMonth).toBe('2026-07');
+    expect(competenceFaturaAtualDisplayAmount(faturaAtual)).toBe(400);
+
+    // Limite utilizado: julho 200 + agosto 150 + outubro 200 = 550.
+    expect(Math.round(limiteUtilizado * 100) / 100).toBe(550);
+    expect(limiteUtilizado).toBeGreaterThan(competenceAmountDue(faturaAtual));
+  });
+});
+
+describe('dependência da data', () => {
+  it('conforme o tempo passa, a corrente vira vencida e depois cede lugar à seguinte', () => {
+    const cards = [
       competencia('2026-08', 350, 350), // vence 28/09
+      competencia('2026-09', 600, 600), // vence 28/10
     ];
 
-    // Antes de 28/07: ambas a vencer -> pega a maior competência.
-    expect(pickFaturaAtualCompetenceCard(cards, '2026-07-01')?.referenceMonth).toBe('2026-08');
-
-    // Depois de 28/09: ambas vencidas -> cai no ramo de vencidas, ainda pela maior.
-    expect(pickFaturaAtualCompetenceCard(cards, '2026-10-01')?.referenceMonth).toBe('2026-08');
-
-    // Entre as duas: junho já venceu, agosto ainda não. O ramo «a vencer» tem
-    // prioridade sobre o de vencidas, então a vencida em aberto não é exibida.
-    expect(pickFaturaAtualCompetenceCard(cards, '2026-08-15')?.referenceMonth).toBe('2026-08');
+    // Antes de 28/09: nenhuma vencida, mostra a que vence primeiro.
+    expect(pickCurrentCompetenceCard(cards, '2026-09-01')?.referenceMonth).toBe('2026-08');
+    // Depois de 28/09: agosto virou vencida em aberto e tem prioridade.
+    expect(pickCurrentCompetenceCard(cards, '2026-10-01')?.referenceMonth).toBe('2026-08');
+    // Quitando agosto, setembro assume.
+    const quitada = [competencia('2026-08', 350, 0), cards[1]];
+    expect(pickCurrentCompetenceCard(quitada, '2026-10-01')?.referenceMonth).toBe('2026-09');
   });
 
-  it('sem nenhuma competência em aberto, não há «Fatura Atual»', () => {
-    const cards = [competencia('2026-06', 300, 0), competencia('2026-07', 400, 0)];
-    expect(pickFaturaAtualCompetenceCard(cards, '2026-08-31')).toBeUndefined();
+  it('sem competência nenhuma, não há fatura atual', () => {
+    expect(pickCurrentCompetenceCard([], HOJE)).toBeUndefined();
   });
 });
