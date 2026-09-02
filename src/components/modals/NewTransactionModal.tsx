@@ -15,6 +15,7 @@ import {
 } from '../../utils/transactionDraftStorage';
 import type { CompetenceHistoryCard } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
+  buildDirectedPurchaseDescription,
   buildDirectedRefundDescription,
   type CardManualEntryKind,
   inferCardManualEntryKind,
@@ -22,7 +23,7 @@ import {
   parseDirectedCompetenceFromPayment,
   referenceMonthFromIsoDate,
 } from '../../services/creditCardDirectedPayment';
-import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso } from '../../services/creditCardManualCompetence';
+import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso, inferUserTargetCompetenceOnPaymentEdit } from '../../services/creditCardManualCompetence';
 import { addMonthsToDateOnly, parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
 
 interface NewTransactionModalProps {
@@ -112,6 +113,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   /** Só compras no cartão de crédito têm vencimento separado da data da compra. */
   const showSeparatePaymentDate =
     isCreditCardAccount && cardEntryKind !== 'refund';
+
+  /** O vencimento informado, de volta em pt-BR, para o usuário conferir antes de salvar. */
+  const faturaDestinoBR = useMemo(() => {
+    const iso = String(transaction.Data_Pagamento || '').trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+  }, [transaction.Data_Pagamento]);
 
   const openPayInvoiceFlow = useCallback(
     (account: Account, suggestedAmount?: number) => {
@@ -529,6 +537,26 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       let descricaoOriginal = description;
       if (isCreditCardAccount && cardEntryKind === 'refund' && refundReferenceMonth) {
         descricaoOriginal = buildDirectedRefundDescription(refundReferenceMonth, description);
+      } else if (
+        isCreditCardAccount &&
+        cardEntryKind === 'purchase' &&
+        selectedAccount &&
+        currentPaymentDate
+      ) {
+        /**
+         * A fatura escolhida é gravada JUNTO com a compra, como estorno e
+         * pagamento já faziam. Sem isso a competência voltava a ser adivinhada
+         * a cada leitura, e a escolha do usuário durava até o próximo render.
+         *
+         * Numa compra parcelada cada parcela tem o seu próprio vencimento — por
+         * isso a competência sai da data desta iteração, não da primeira.
+         */
+        const ref = inferUserTargetCompetenceOnPaymentEdit(
+          toLocalDateIso(currentPaymentDate),
+          toLocalDateIso(currentTxDate),
+          selectedAccount
+        );
+        if (ref) descricaoOriginal = buildDirectedPurchaseDescription(ref, description);
       }
 
       transactionsToSave.push({
@@ -703,16 +731,28 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           />
           {showSeparatePaymentDate && (
             <Input
-              label="Data do Pagamento"
+              label={isCreditCardAccount ? 'Fatura desta compra' : 'Data do Pagamento'}
               name="Data_Pagamento"
               type="date"
               value={transaction.Data_Pagamento}
               onChange={handleChange}
               placeholder="Vencimento na fatura"
-              title="Quando a compra entra na fatura (vencimento)"
+              title="Vencimento da fatura em que esta compra será cobrada"
             />
           )}
         </div>
+        {/*
+          O campo guarda um VENCIMENTO, e o rótulo antigo («Data do Pagamento»)
+          dizia outra coisa — quando o dinheiro saiu. Com dois lançamentos na
+          mesma data de compra e faturas diferentes, o usuário não tinha como
+          conferir se o sistema entendeu o que ele quis. Esta linha devolve a
+          leitura do sistema antes de salvar.
+        */}
+        {showSeparatePaymentDate && isCreditCardAccount && faturaDestinoBR && (
+          <p className="text-[11px] text-cyan-300/80 -mt-2">
+            Esta compra irá para a fatura que vence em <strong>{faturaDestinoBR}</strong>.
+          </p>
+        )}
         {!showSeparatePaymentDate && selectedAccount && (
           <p className="text-[11px] text-gray-500 -mt-2">
             Para {selectedAccount.Tipo_Conta === 'Cartão de Crédito' ? 'estornos' : 'débito, alimentação ou dinheiro'},
@@ -756,8 +796,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             <p className="text-xs text-cyan-100/90 leading-relaxed">
               Conta de <strong className="text-white">cartão de crédito</strong>: escolha o tipo abaixo. Compras usam{' '}
               <strong className="text-white">Data da Compra</strong> e{' '}
-              <strong className="text-white">Data do Pagamento</strong> (vencimento na fatura); estornos usam só a data
-              da compra e a competência da fatura; pagamentos devem usar{' '}
+              <strong className="text-white">Fatura desta compra</strong> (o vencimento da fatura em que ela será
+              cobrada); estornos usam só a data da compra e a competência da fatura; pagamentos devem usar{' '}
               <strong className="text-white">Pagar fatura</strong>.
             </p>
             <Select

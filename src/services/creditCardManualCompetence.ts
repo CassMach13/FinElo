@@ -101,25 +101,41 @@ export function resolveRefundCompetenceMonthForEdit(tx: Transaction, account: Ac
  * Na aba Transações, ao editar Data_Pagamento o usuário indica a fatura desejada.
  * Compra e vencimento no mesmo mês → competência desse mês; compra anterior → mês do vencimento.
  */
+/**
+ * A fatura que o usuário informou manda.
+ *
+ * Num lançamento manual de cartão a segunda data não é «quando eu paguei»: é
+ * EM QUE FATURA esta compra será cobrada. Sendo vencimento, a competência sai
+ * dele por subtração — competência N vence em N+1.
+ *
+ * Duas correções vivem na ausência de código aqui, e as duas descartavam a
+ * escolha explícita do usuário:
+ *
+ *   1. `purchaseMonth === paymentMonth` devolvia o mês da COMPRA. Uma compra em
+ *      05/08 com fatura 10/08 caía em 2026-08 — a fatura que vence em 10/09.
+ *      Junto com uma compra de 05/08 marcada para 10/09, as duas colidiam numa
+ *      fatura só, e a distinção que o usuário fez sumia.
+ *
+ *   2. `purchaseMonth < fromDue` devolvia o mês do VENCIMENTO. Uma parcela
+ *      comprada em junho e marcada para a fatura de 10/09 ia para 2026-09, que
+ *      vence em 10/10 — um ciclo depois do que foi pedido.
+ *
+ * Sem elas a regra é uma só, e é a que o usuário enxerga: a data informada é o
+ * vencimento da fatura de destino.
+ */
 export function inferUserTargetCompetenceOnPaymentEdit(
   paymentIso: string,
-  purchaseIso: string,
+  _purchaseIso: string,
   account: Account
 ): string | null {
   const paymentMonth = referenceMonthFromIsoDate(paymentIso);
-  const purchaseMonth = referenceMonthFromIsoDate(purchaseIso);
   if (!paymentMonth) return null;
-  if (purchaseMonth === paymentMonth) return paymentMonth;
 
   if (paymentIsoLooksLikeCardDueDate(paymentIso, account)) {
     const fromDue = referenceMonthFromPaymentDueDate(paymentIso);
-    if (fromDue && paymentMonth !== fromDue && purchaseMonth && purchaseMonth < fromDue) {
-      return paymentMonth;
-    }
     if (fromDue) return fromDue;
   }
 
-  if (purchaseMonth && purchaseMonth < paymentMonth) return paymentMonth;
   return paymentMonth;
 }
 
@@ -169,14 +185,16 @@ export function competenceMonthFromManualPaymentDate(
   const dataMonth = referenceMonthFromIsoDate(normalizedData);
   const paymentMonth = referenceMonthFromIsoDate(normalizedPay);
 
-  if (paymentIsoLooksLikeCardDueDate(normalizedPay, account)) {
-    // Estorno/cashback: vencimento no mês M → fatura M (intenção na aba Transações).
-    if (opts?.treatAsRefund && paymentMonth) return paymentMonth;
-    if (dataMonth && paymentMonth && dataMonth === paymentMonth) return dataMonth;
-    const fromDue = referenceMonthFromPaymentDueDate(normalizedPay);
-    if (fromDue) return fromDue;
-  }
-  return paymentMonth || dataMonth;
+  // Estorno/cashback: vencimento no mês M → fatura M (intenção na aba Transações).
+  if (opts?.treatAsRefund) return paymentMonth || dataMonth;
+
+  /**
+   * Compra: a mesma regra que a EDIÇÃO já aplicava. Derivar aqui uma segunda
+   * vez foi o que deixou criação e edição discordarem — a mesma compra caía em
+   * faturas diferentes conforme tivesse sido digitada de uma vez ou ajustada
+   * depois. Agora há uma regra só, e as duas superfícies a chamam.
+   */
+  return inferUserTargetCompetenceOnPaymentEdit(normalizedPay, normalizedData, account) || dataMonth;
 }
 
 /** Crédito manual positivo no cartão (cashback, estorno) — não é pagamento de fatura. */
@@ -229,15 +247,16 @@ export function prepareManualPurchaseCompetenceOnPaymentDateEdit(
   const directed = inferUserTargetCompetenceOnPaymentEdit(newPay, toLocalDateIso(oldTx.Data), account);
   if (!directed) return fields;
 
-  const withoutMarker: Transaction = {
-    ...oldTx,
-    ...fields,
-    Observacoes: stripCompetenceMarker(oldTx.Observacoes),
-    Descricao_Original: stripCompetenceMarker(oldTx.Descricao_Original),
-  };
-  const autoCompetence = referenceMonthFromTransaction(withoutMarker, account);
-  if (autoCompetence === directed) return fields;
-
+  /**
+   * O marcador é reescrito SEMPRE que a data muda, e não só quando diverge da
+   * derivação automática.
+   *
+   * Antes as duas regras eram diferentes, então «divergiu» era um teste útil.
+   * Agora criação, edição e derivação usam a mesma, e elas nunca divergem — o
+   * teste antigo passaria a nunca disparar, deixando o marcador ANTIGO gravado
+   * enquanto o usuário via a data nova. Trocar a fatura no formulário não
+   * moveria a compra.
+   */
   return { ...fields, ...upsertCompetenceMarkerInTransaction(oldTx, directed) };
 }
 

@@ -309,6 +309,21 @@ export function reconcileCardStatementTotalFromFiles(card: CompetenceHistoryCard
 export function isPaymentOnlyGhostCompetenceCard(card: CompetenceHistoryCard): boolean {
   if (competenceHasImportedStatement(card)) return false;
   if ((card.directedManualRefundTotal ?? 0) > 0.005) return false;
+  /**
+   * Pagamento REGISTRADO PELO USUÁRIO nunca é fantasma.
+   *
+   * A competência fantasma que este filtro existe para esconder é a que nasce
+   * da convenção de importação — o arquivo do mês N+1 empurra seu pagamento
+   * para N, e sem CSV em N sobraria uma fatura R$ 0 que ninguém reconhece.
+   *
+   * Um pagamento manual dirigido é outra coisa: é dinheiro que o usuário
+   * afirma ter pago. Ele caía aqui quando a competência apontada não tinha
+   * fatura, e sumia de TODAS as superfícies sem erro nenhum — o saldo não
+   * andava e não havia o que olhar. Esconder é o pior desfecho possível:
+   * melhor a competência aparecer com a diferença a conciliar do que o valor
+   * evaporar em silêncio.
+   */
+  if ((card.directedManualPaymentTotal ?? 0) > 0.005) return false;
   const manual = card.files.find((f) => f.fileName === MANUAL_COMPETENCE_FILE_LABEL);
   if (manual && ((manual.totalDebits ?? 0) > 0.005 || (manual.totalRefunds ?? 0) > 0.005)) return false;
   return card.files.length === 0 && card.totalPayments > 0.005 && card.statementTotal < 0.005;
