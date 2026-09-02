@@ -196,14 +196,25 @@ describe('fluxo de confirmação do modal', () => {
     expect(componente).not.toMatch(/useContext|useStore|useAppStore/);
   });
 
+  /** A lista visível é a do MVP; a completa continua no domínio. */
   it('as opções vêm do módulo de regras, não de lista embutida', () => {
-    expect(componente).toMatch(/resolutionOptionsForDelta\(unresolvedDeltaCents\)/);
+    expect(componente).toMatch(/visibleResolutionOptionsForDelta\(unresolvedDeltaCents\)/);
     expect(componente).not.toMatch(/kind: 'economic_credit'/);
     expect(componente).not.toMatch(/kind: 'economic_debt'/);
   });
 
   it('valor oficial sem procedência não pode ser confirmado', () => {
     expect(componente).toMatch(/oficialValido/);
-    expect(componente).toMatch(/disabled=\{!oficialValido\}/);
+    expect(componente).toMatch(/disabled=\{!oficialValido \|\| busy\}/);
+  });
+
+  /**
+   * O botão sai de circulação enquanto grava. A validação do 4B1 mediu uma
+   * resolução concorrente devolvendo timeout ao cliente DEPOIS de gravar: um
+   * botão ainda clicável nesse intervalo convida a criar a segunda resolução.
+   */
+  it('o botão de confirmar não aceita um segundo clique durante a gravação', () => {
+    expect(componente).toMatch(/busy \? 'Processando…' : 'Confirmar resolução'/);
+    expect(componente).toMatch(/disabled=\{busy\}/);
   });
 });

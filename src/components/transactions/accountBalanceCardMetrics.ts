@@ -381,5 +381,14 @@ export function computeAccountCardDisplay(
      */
     reconciliacaoPendente: projecao?.reconciliationPending ?? false,
     reconciliacaoSaldo: centsToCurrency(projecao?.suspenseBalanceCents ?? 0),
+    /**
+     * A competencia que de fato tem diferenca a conciliar — que NAO e
+     * necessariamente a fatura exibida. Na cadeia real, os R$ 0,22 ficam em
+     * 2024-12 enquanto a fatura em destaque e outra. Sem este campo, abrir o
+     * fluxo pela fatura levaria o usuario a uma competencia sem diferenca.
+     */
+    reconciliacaoReferenceMonth:
+      projecao?.competences.find((c) => c.unresolvedReconciliationDeltaCents !== 0)
+        ?.referenceMonth ?? null,
   };
 }

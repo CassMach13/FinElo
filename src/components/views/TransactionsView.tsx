@@ -64,6 +64,7 @@ import AccountModal from './AccountModal';
 import CategoryModal from '../modals/CategoryModal';
 import NewTransactionModal from '../modals/NewTransactionModal';
 import MappingRuleModal from '../modals/MappingRuleModal';
+import { ReconciliationFlow } from '../modals/ReconciliationFlow';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
@@ -1901,6 +1902,13 @@ const TransactionsView: React.FC = () => {
 
   // New Modals State
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+  /**
+   * Fluxo de conciliacao aberto. Guarda a COMPETENCIA explicitamente: sem isso
+   * o modal poderia herdar a competencia de uma abertura anterior.
+   */
+  const [reconciliacaoAberta, setReconciliacaoAberta] = useState<
+    { accountId: string; referenceMonth: string } | null
+  >(null);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
@@ -2317,6 +2325,11 @@ const TransactionsView: React.FC = () => {
           onPayInvoice={
             isCredit && display.faturaAtual > 0
               ? () => handlePayInvoice(account, display.faturaAtual)
+              : undefined
+          }
+          onOpenReconciliation={
+            isCredit
+              ? (referenceMonth) => setReconciliacaoAberta({ accountId: account.id, referenceMonth })
               : undefined
           }
         />
@@ -4450,6 +4463,31 @@ const TransactionsView: React.FC = () => {
               </Button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {reconciliacaoAberta && (
+        <Modal
+          /* A chave remonta o fluxo inteiro quando muda a conta ou a competencia:
+             sem isso o modal reaproveitaria o estado da abertura anterior e
+             poderia exibir a competencia errada. */
+          key={`${reconciliacaoAberta.accountId}-${reconciliacaoAberta.referenceMonth}`}
+          isOpen
+          onClose={() => setReconciliacaoAberta(null)}
+          title="Conciliar diferença"
+          className="max-w-lg"
+        >
+          <ReconciliationFlow
+            accountId={reconciliacaoAberta.accountId}
+            referenceMonth={reconciliacaoAberta.referenceMonth}
+            onClose={() => setReconciliacaoAberta(null)}
+            onResolved={() => {
+              // Recarrega os dados E invalida o memo do cartão: sem o segundo,
+              // o card continuaria mostrando o número anterior.
+              void fetchAllData();
+              bumpCreditCardEngineRevision();
+            }}
+          />
         </Modal>
       )}
 

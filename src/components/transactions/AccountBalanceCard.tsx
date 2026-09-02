@@ -32,6 +32,12 @@ export interface AccountCardDisplayData {
   reconciliacaoPendente?: boolean;
   /** Saldo do livro de reconciliação. Informativo; não move nenhum número econômico. */
   reconciliacaoSaldo?: number;
+  /**
+   * A competência que tem a diferença — não necessariamente a fatura exibida.
+   * Na cadeia real dos R$ 0,22 a diferença mora em 2024-12 enquanto o destaque
+   * é outro mês.
+   */
+  reconciliacaoReferenceMonth?: string | null;
 }
 
 /** DD/MM a partir de AAAA-MM-DD, sem passar por Date (evita deslocamento de fuso). */
@@ -49,6 +55,8 @@ interface AccountBalanceCardProps {
   onEdit: () => void;
   onOpenHistory?: () => void;
   onPayInvoice?: () => void;
+  /** Abre o fluxo de conciliacao da competencia que tem a diferenca. */
+  onOpenReconciliation?: (referenceMonth: string) => void;
 }
 
 const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
@@ -59,6 +67,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
   onEdit,
   onOpenHistory,
   onPayInvoice,
+  onOpenReconciliation,
 }) => {
   const {
     isCreditCard,
@@ -77,6 +86,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     faturaTitulo = 'Fatura atual',
     awaitingMotorSnapshotUi,
     reconciliacaoPendente = false,
+    reconciliacaoReferenceMonth = null,
   } = display;
 
   const balanceColor =
@@ -224,6 +234,18 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                                 A CONCILIAR
                               </span>
                             )}
+                            {!faturaVencida && reconciliacaoPendente && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenReconciliation(reconciliacaoReferenceMonth);
+                                }}
+                                className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
+                              >
+                                Ver diferença
+                              </button>
+                            )}
                             {faturaVencida && (
                               <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
                                 VENCIDA
@@ -316,6 +338,18 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     >
                       A CONCILIAR
                     </span>
+                  )}
+                  {!faturaVencida && reconciliacaoPendente && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenReconciliation(reconciliacaoReferenceMonth);
+                      }}
+                      className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
+                    >
+                      Ver diferença
+                    </button>
                   )}
                   {faturaVencida && (
                     <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
