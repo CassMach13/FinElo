@@ -65,6 +65,8 @@ import CategoryModal from '../modals/CategoryModal';
 import NewTransactionModal from '../modals/NewTransactionModal';
 import MappingRuleModal from '../modals/MappingRuleModal';
 import { ReconciliationFlow } from '../modals/ReconciliationFlow';
+import CardDiagnosticsModal from '../modals/CardDiagnosticsModal';
+import type { CardDiagnostic } from '../../domain/credit-card/cardDiagnostics';
 import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
@@ -1911,6 +1913,14 @@ const TransactionsView: React.FC = () => {
     { accountId: string; referenceMonth: string } | null
   >(null);
   /**
+   * Conta cuja lista «Revisar cartão» está aberta, com os itens que o card já
+   * calculou. Guardar o resultado evita recalcular a projeção só para abrir a
+   * lista — e garante que a lista mostre exatamente o que o selo contou.
+   */
+  const [diagnosticoAberto, setDiagnosticoAberto] = useState<
+    { accountId: string; diagnosticos: CardDiagnostic[] } | null
+  >(null);
+  /**
    * Resolucoes ativas por conta e competencia. O card projeta com elas, senao
    * ignora o que o usuario resolveu e o selo A CONCILIAR nunca sai da tela.
    */
@@ -2325,6 +2335,7 @@ const TransactionsView: React.FC = () => {
         reconciliationResolutions: reconciliacaoHabilitada
           ? resolucoesPorConta[account.id]
           : undefined,
+        reconciliationSurfaceEnabled: reconciliacaoHabilitada,
         rules: {
           paymentKeywords: currentPaymentKeywords,
           refundKeywords: currentCreditKeywords,
@@ -2381,6 +2392,15 @@ const TransactionsView: React.FC = () => {
           onOpenReconciliation={
             isCredit && reconciliacaoHabilitada
               ? (referenceMonth) => setReconciliacaoAberta({ accountId: account.id, referenceMonth })
+              : undefined
+          }
+          onOpenDiagnostics={
+            isCredit
+              ? () =>
+                  setDiagnosticoAberto({
+                    accountId: account.id,
+                    diagnosticos: display.diagnosticos ?? [],
+                  })
               : undefined
           }
         />
@@ -4545,6 +4565,30 @@ const TransactionsView: React.FC = () => {
           />
         </Modal>
       )}
+
+      {diagnosticoAberto && (() => {
+        const conta = accounts.find((a) => a.id === diagnosticoAberto.accountId);
+        if (!conta) return null;
+        return (
+          <CardDiagnosticsModal
+            accountName={conta.Nome_Conta}
+            diagnosticos={diagnosticoAberto.diagnosticos}
+            onClose={() => setDiagnosticoAberto(null)}
+            onOpenHistory={() => {
+              setDiagnosticoAberto(null);
+              void openMotorInvoiceHistoryModal(conta);
+            }}
+            onOpenReconciliation={
+              reconciliacaoHabilitada
+                ? (referenceMonth) => {
+                    setDiagnosticoAberto(null);
+                    setReconciliacaoAberta({ accountId: conta.id, referenceMonth });
+                  }
+                : undefined
+            }
+          />
+        );
+      })()}
 
       {isMappingRuleModalOpen && transactionForRule && (
         <MappingRuleModal

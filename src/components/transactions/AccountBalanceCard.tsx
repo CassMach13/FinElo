@@ -2,6 +2,10 @@ import React from 'react';
 import { Account } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
 import type { NativeBankConfig } from '../../services/parsers/nativeBankParsers';
+import {
+  summarizeCardDiagnostics,
+  type CardDiagnostic,
+} from '../../domain/credit-card/cardDiagnostics';
 
 export interface AccountCardDisplayData {
   isCreditCard: boolean;
@@ -44,6 +48,11 @@ export interface AccountCardDisplayData {
    * DESFAZER.
    */
   reconciliacaoResolvida?: boolean;
+  /**
+   * O que pode explicar o cartão não estar batendo. Vazio = nada material
+   * encontrado, e aí o card diz isso discretamente em vez de ficar mudo.
+   */
+  diagnosticos?: CardDiagnostic[];
 }
 
 /** DD/MM a partir de AAAA-MM-DD, sem passar por Date (evita deslocamento de fuso). */
@@ -63,6 +72,8 @@ interface AccountBalanceCardProps {
   onPayInvoice?: () => void;
   /** Abre o fluxo de conciliacao da competencia que tem a diferenca. */
   onOpenReconciliation?: (referenceMonth: string) => void;
+  /** Abre a lista «Revisar cartão» com o que pode explicar o cartão não bater. */
+  onOpenDiagnostics?: () => void;
 }
 
 const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
@@ -74,6 +85,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
   onOpenHistory,
   onPayInvoice,
   onOpenReconciliation,
+  onOpenDiagnostics,
 }) => {
   const {
     isCreditCard,
@@ -94,7 +106,15 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     reconciliacaoPendente = false,
     reconciliacaoReferenceMonth = null,
     reconciliacaoResolvida = false,
+    diagnosticos,
   } = display;
+
+  /**
+   * O card mostra o RESUMO; a lista fica no modal. Um card que enumera
+   * problemas vira árvore de Natal, e a pergunta que ele responde aqui é só
+   * «tem algo para eu olhar?».
+   */
+  const diagnostico = diagnosticos ? summarizeCardDiagnostics(diagnosticos) : null;
 
   const balanceColor =
     currentBalance < 0 ? 'text-danger' : currentBalance > 0 ? 'text-accent' : 'text-light';
@@ -266,6 +286,32 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                             {formatCurrency(faturaAtual)}
                           </p>
                         </div>
+                        {/* Linha própria. O cabeçalho da fatura já carrega três selos; somar
+                            mais um chip ali estourava a largura do card, e o botão ficava fora
+                            de alcance — o clique caía no card e abria a edição da conta. */}
+                        {diagnostico && onOpenDiagnostics && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenDiagnostics();
+                            }}
+                            title={
+                              diagnostico.total > 0
+                                ? 'Ver o que pode estar deixando o cartão fora de sincronia'
+                                : 'Não encontramos nada material para revisar'
+                            }
+                            className={`self-start shrink-0 whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded transition-colors ${
+                              diagnostico.total === 0
+                                ? 'text-slate-400 hover:text-slate-200'
+                                : diagnostico.precisaAtencao
+                                ? 'bg-amber-500/20 hover:bg-amber-500/35 text-amber-100 border border-amber-400/35'
+                                : 'bg-slate-500/20 hover:bg-slate-500/35 text-slate-200 border border-slate-400/30'
+                            }`}
+                          >
+                            {diagnostico.total === 0 ? '✓ Cartão consistente' : `⚠ ${diagnostico.label}`}
+                          </button>
+                        )}
                         {(onOpenHistory || (faturaAtual > 0 && onPayInvoice)) && (
                           <div className="flex items-center gap-1 shrink-0 border-l border-white/10 pl-2.5 ml-0.5">
                             {onOpenHistory && (
@@ -370,6 +416,29 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     </button>
                   )}
                 </p>
+                {diagnostico && onOpenDiagnostics && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenDiagnostics();
+                    }}
+                    title={
+                      diagnostico.total > 0
+                        ? 'Ver o que pode estar deixando o cartão fora de sincronia'
+                        : 'Não encontramos nada material para revisar'
+                    }
+                    className={`self-start shrink-0 whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded transition-colors ${
+                      diagnostico.total === 0
+                        ? 'text-slate-400 hover:text-slate-200'
+                        : diagnostico.precisaAtencao
+                        ? 'bg-amber-500/20 hover:bg-amber-500/35 text-amber-100 border border-amber-400/35'
+                        : 'bg-slate-500/20 hover:bg-slate-500/35 text-slate-200 border border-slate-400/30'
+                    }`}
+                  >
+                    {diagnostico.total === 0 ? '✓ Cartão consistente' : `⚠ ${diagnostico.label}`}
+                  </button>
+                )}
                 <div className="flex flex-wrap gap-2 w-full mt-1 justify-end">
                   <button
                     type="button"
