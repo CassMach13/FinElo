@@ -16,6 +16,7 @@
       "vite-plugin-pwa/react"
     ],
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,

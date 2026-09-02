@@ -1,4 +1,4 @@
-import type { CreditCardStatementV2 } from '../types';
+import type { CreditCardStatementV2 } from '../types.ts';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 

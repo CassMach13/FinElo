@@ -3,7 +3,7 @@ import {
   CreditCardEntryDirection,
   CreditCardEntryType,
   CreditCardImportEntry,
-} from './types';
+} from './types.ts';
 
 export interface ClassificationOverrides {
   bySourceRowHash?: Record<string, CreditCardEntryType>;

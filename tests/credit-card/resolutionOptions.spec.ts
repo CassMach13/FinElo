@@ -71,10 +71,22 @@ describe('cada opção declara sua consequência antes da confirmação', () => 
     expect(movem(c(-100)).sort()).toEqual(['authoritative_total', 'economic_debt']);
   });
 
-  it('ajuste e encerramento avisam que o limite não muda', () => {
+  /**
+   * O texto antigo prometia que «o limite disponível não muda». Isso não é
+   * verdade quando a diferença estava cobrindo o déficit de outra competência:
+   * retirá-la do bolso de reconciliação descobre aquele déficit, que vira
+   * obrigação econômica. Prometer o contrário levaria o usuário a clicar
+   * esperando o oposto do que aconteceria.
+   *
+   * O que se afirma sem ressalva é que nenhuma das duas vira CRÉDITO, e o
+   * efeito colateral possível fica dito.
+   */
+  it('ajuste e encerramento avisam que não viram crédito, e que outro mês pode reaparecer', () => {
     for (const kind of ['bank_adjustment', 'reconciliation_write_off'] as const) {
       const opcao = resolutionOptionsForDelta(c(100)).find((o) => o.kind === kind)!;
-      expect(opcao.consequence).toMatch(/limite disponível não muda/);
+      expect(opcao.consequence).toMatch(/não vira crédito/i);
+      expect(opcao.consequence).toMatch(/aquela diferença reaparece/i);
+      expect(opcao.consequence).not.toMatch(/limite disponível não muda/);
       expect(opcao.movesEconomicLedger).toBe(false);
     }
   });

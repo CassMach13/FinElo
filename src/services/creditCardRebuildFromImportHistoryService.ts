@@ -1,28 +1,26 @@
-import { supabase } from '../supabaseClient';
-import { computeImportLedgerTotals } from '../domain/credit-card/importLedgerTotals';
-import type { ClassificationRules } from '../domain/credit-card/classifiers';
-import { Account, ImportLog, Transaction } from '../types';
-import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay';
-import { statementDueMonthKey } from '../utils/creditCardStatementDisplay';
-import { comparableImportOriginKey } from '../utils/importOriginKey';
-import { resolveAutomaticCardReferenceMonth } from '../utils/cardImportReference';
-import { toDateOnlyIso } from '../utils/dateOnly';
+import { computeImportLedgerTotals } from '../domain/credit-card/importLedgerTotals.ts';
+import type { ClassificationRules } from '../domain/credit-card/classifiers.ts';
+import { Account, ImportLog, Transaction } from '../types.ts';
+import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay.ts';
+import { statementDueMonthKey } from '../utils/creditCardStatementDisplay.ts';
+import { comparableImportOriginKey } from '../utils/importOriginKey.ts';
+import { resolveAutomaticCardReferenceMonth } from '../utils/cardImportReference.ts';
+import { toDateOnlyIso } from '../utils/dateOnly.ts';
 import {
   buildInvoiceCycleRowsForAccount,
   cardCycleMetaFromImportedLog,
   invoiceCycleRowToRebuildCycle,
   parseBRDateToIso,
   parseMMAAAAToIsoMonth,
-} from './creditCardInvoiceCycleRows';
-import { creditCardEngineService } from './creditCardEngineService';
-import { parseCreditCardReferenceFromFileName } from './creditCardEngineService';
+} from './creditCardInvoiceCycleRows.ts';
+import { parseCreditCardReferenceFromFileName } from '../domain/credit-card/cardFileReference.ts';
 import {
   appendManualCompetenceTotals,
   inferManualRefundReferenceMonth,
   isManualCardPositiveCredit,
   MANUAL_COMPETENCE_FILE_LABEL,
   referenceMonthFromTransaction,
-} from './creditCardManualCompetence';
+} from './creditCardManualCompetence.ts';
 import {
   isDirectedManualInvoicePayment,
   isImportedInvoicePayment,
@@ -31,7 +29,7 @@ import {
   ledgerClassificationTextFromTransaction,
   looksLikeInvoicePaymentText,
   parseDirectedCompetenceFromPayment,
-} from './creditCardDirectedPayment';
+} from './creditCardDirectedPayment.ts';
 
 export interface ImportHistoryRebuildCycle {
   /** Nome do arquivo como em import_logs.file_name */
@@ -555,7 +553,7 @@ function buildCyclesForAccount(input: {
   return cycles;
 }
 
-function toImportLines(txs: Transaction[]): Array<{
+export function toImportLines(txs: Transaction[]): Array<{
   postedDate: string;
   description: string;
   amount: number;
@@ -589,82 +587,6 @@ export const creditCardRebuildFromImportHistoryService = {
         totals,
       };
     });
-  },
-
-  async rebuildFromImportHistory(input: {
-    userId: string;
-    account: Account;
-    cycles: ImportHistoryRebuildCycle[];
-    transactions: Transaction[];
-    rules?: ClassificationRules;
-  }): Promise<ImportHistoryRebuildResult> {
-    const { userId, account, cycles, transactions, rules } = input;
-    const sorted = [...cycles].sort((a, b) => a.referenceMonth.localeCompare(b.referenceMonth));
-    const previews: ImportHistoryRebuildPreview[] = [];
-    let processedFiles = 0;
-
-    await creditCardEngineService.ensureCreditCardForAccount(userId, account);
-
-    for (const cycle of sorted) {
-      const txs = transactionsForFile(account.id, cycle.fileName, transactions);
-      if (txs.length === 0) continue;
-
-      const accountId = account.id;
-      const lines = toImportLines(txs);
-      const totals = computeImportLedgerTotals(lines, rules);
-      previews.push({
-        fileName: cycle.fileName,
-        referenceMonth: cycle.referenceMonth,
-        dueDate: cycle.dueDate,
-        transactionCount: txs.length,
-        totals,
-      });
-
-      const dueParts = /^(\d{4})-(\d{2})-\d{2}$/.exec(cycle.dueDate.trim());
-      if (!dueParts) {
-        throw new Error(`Vencimento inválido para "${cycle.fileName}" — use AAAA-MM-DD.`);
-      }
-      const dueYear = Number(dueParts[1]);
-      const dueMonth = Number(dueParts[2]);
-      const rows = await creditCardEngineService.buildImportRowsFromTransactionsPreservingIndices({
-        accountId,
-        origin: cycle.fileName,
-        transactions: txs,
-      });
-
-      await creditCardEngineService.normalizeAndPersistImportLot({
-        userId,
-        account,
-        sourceFileName: cycle.fileName,
-        rows,
-        dueYear,
-        dueMonth,
-        dueDate: cycle.dueDate,
-        purchaseReferenceLabel: cycle.referenceMonth,
-        rules,
-        fileTotals: {
-          statementTotal: totals.statementTotal,
-          totalPayments: totals.totalPayments,
-        },
-        skipRecalculateAllStatements: true,
-      });
-
-      processedFiles += 1;
-    }
-
-    if (processedFiles > 0) {
-      const card = await creditCardEngineService.ensureCreditCardForAccount(userId, account);
-      await creditCardEngineService.recalculateAllStatementsForCard(card.id);
-    }
-
-    return {
-      processedFiles,
-      previews,
-      message:
-        processedFiles > 0
-          ? `${processedFiles} arquivo(s) reconstruído(s). Total da fatura = compras/estornos do arquivo; pagamentos de fatura no CSV abatem a competência anterior.`
-          : 'Nenhum lançamento encontrado para os arquivos selecionados neste cartão.',
-    };
   },
 
   /** Sugere competência AAAA-MM a partir do nome do arquivo ou metadados do log. */

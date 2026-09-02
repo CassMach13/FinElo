@@ -83,41 +83,10 @@ const toReferenceLabel = (year: number, month: number): string =>
   `${year}-${String(month).padStart(2, '0')}`;
 
 /** Inferência de competência (vencimento) a partir do nome do arquivo — também usada na importação pelo store. */
-export const parseCreditCardReferenceFromFileName = (fileName: string): { dueYear: number; dueMonth: number } | null => {
-  const normalized = fileName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-  const monthMap: Record<string, number> = {
-    jan: 1,
-    fev: 2,
-    mar: 3,
-    abr: 4,
-    mai: 5,
-    jun: 6,
-    jul: 7,
-    ago: 8,
-    set: 9,
-    out: 10,
-    nov: 11,
-    dez: 12,
-  };
+import { parseCreditCardReferenceFromFileName } from '../domain/credit-card/cardFileReference';
 
-  const monthTextMatch = normalized.match(/(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[_-]?(\d{4})/);
-  if (monthTextMatch) {
-    return {
-      dueYear: Number(monthTextMatch[2]),
-      dueMonth: monthMap[monthTextMatch[1]],
-    };
-  }
-
-  const numericMatch = normalized.match(/(\d{1,2})[_-](\d{4})/);
-  if (!numericMatch) return null;
-  const month = Number(numericMatch[1]);
-  const year = Number(numericMatch[2]);
-  if (month < 1 || month > 12) return null;
-  return { dueYear: year, dueMonth: month };
-};
+// Reexportado para nao quebrar quem ja importava daqui.
+export { parseCreditCardReferenceFromFileName };
 
 const calcReferenceLabelFromDue = (dueYear: number, dueMonth: number): string => {
   const ref = new Date(dueYear, dueMonth - 2, 1);
