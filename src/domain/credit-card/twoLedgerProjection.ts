@@ -17,7 +17,7 @@ import {
   type EconomicStatus,
   type ReconciliationResolutionInput,
   type ReconciliationStatus,
-} from './twoLedgerBalance';
+} from './twoLedgerBalance.ts';
 
 /** Forma mínima consumida do histórico reconstruído, para não acoplar ao serviço. */
 export interface CompetenceHistoryLike {
