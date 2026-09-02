@@ -64,6 +64,8 @@ import AccountModal from './AccountModal';
 import CategoryModal from '../modals/CategoryModal';
 import NewTransactionModal from '../modals/NewTransactionModal';
 import MappingRuleModal from '../modals/MappingRuleModal';
+import { ReconciliationFlow } from '../modals/ReconciliationFlow';
+import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
@@ -1901,6 +1903,30 @@ const TransactionsView: React.FC = () => {
 
   // New Modals State
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+  /**
+   * Fluxo de conciliacao aberto. Guarda a COMPETENCIA explicitamente: sem isso
+   * o modal poderia herdar a competencia de uma abertura anterior.
+   */
+  const [reconciliacaoAberta, setReconciliacaoAberta] = useState<
+    { accountId: string; referenceMonth: string } | null
+  >(null);
+  /**
+   * Resolucoes ativas por conta e competencia. O card projeta com elas, senao
+   * ignora o que o usuario resolveu e o selo A CONCILIAR nunca sai da tela.
+   */
+  const [resolucoesPorConta, setResolucoesPorConta] = useState<
+    Record<string, Record<string, Array<{ kind: string; resolvedAmountCents?: number; authoritativeStatementTotalCents?: number }>>>
+  >({});
+
+  // Recarrega quando o motor do cartao e invalidado — inclusive apos resolver
+  // ou desfazer, que e o que faz o selo sair (ou voltar) na tela.
+  useEffect(() => {
+    let vivo = true;
+    carregarResolucoesAtivasPorConta()
+      .then((r) => { if (vivo) setResolucoesPorConta(r); })
+      .catch(() => { /* o card apenas projeta sem resolucoes; nao quebra a tela */ });
+    return () => { vivo = false; };
+  }, [creditCardEngineRevision]);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
@@ -2280,6 +2306,7 @@ const TransactionsView: React.FC = () => {
         transactions,
         accounts,
         importLogs,
+        reconciliationResolutions: resolucoesPorConta[account.id],
         rules: {
           paymentKeywords: currentPaymentKeywords,
           refundKeywords: currentCreditKeywords,
@@ -2319,6 +2346,11 @@ const TransactionsView: React.FC = () => {
               ? () => handlePayInvoice(account, display.faturaAtual)
               : undefined
           }
+          onOpenReconciliation={
+            isCredit
+              ? (referenceMonth) => setReconciliacaoAberta({ accountId: account.id, referenceMonth })
+              : undefined
+          }
         />
       );
     },
@@ -2337,6 +2369,9 @@ const TransactionsView: React.FC = () => {
       openMotorInvoiceHistoryModal,
       handlePayInvoice,
       familyOwnerContext,
+      // Sem esta dependência o card continua com a projeção anterior depois de
+      // resolver ou desfazer, e o selo não sai da tela.
+      resolucoesPorConta,
     ]
   );
 
@@ -4450,6 +4485,31 @@ const TransactionsView: React.FC = () => {
               </Button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {reconciliacaoAberta && (
+        <Modal
+          /* A chave remonta o fluxo inteiro quando muda a conta ou a competencia:
+             sem isso o modal reaproveitaria o estado da abertura anterior e
+             poderia exibir a competencia errada. */
+          key={`${reconciliacaoAberta.accountId}-${reconciliacaoAberta.referenceMonth}`}
+          isOpen
+          onClose={() => setReconciliacaoAberta(null)}
+          title="Conciliar diferença"
+          className="max-w-lg"
+        >
+          <ReconciliationFlow
+            accountId={reconciliacaoAberta.accountId}
+            referenceMonth={reconciliacaoAberta.referenceMonth}
+            onClose={() => setReconciliacaoAberta(null)}
+            onResolved={() => {
+              // Recarrega os dados E invalida o memo do cartão: sem o segundo,
+              // o card continuaria mostrando o número anterior.
+              void fetchAllData();
+              bumpCreditCardEngineRevision();
+            }}
+          />
         </Modal>
       )}
 

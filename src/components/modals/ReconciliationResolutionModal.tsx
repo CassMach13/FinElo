@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   describeDelta,
-  resolutionOptionsForDelta,
+  visibleResolutionOptionsForDelta,
   type ResolutionOption,
 } from '../../domain/credit-card/reconciliationResolutionOptions';
 import type { AuthoritativeSource, ResolutionKind } from '../../domain/credit-card/twoLedgerBalance';
@@ -39,6 +39,17 @@ export interface ReconciliationResolutionModalProps {
   onCancel: () => void;
   /** Chamado UMA vez, só depois da confirmação final. */
   onConfirm: (payload: ReconciliationResolutionPayload) => void;
+  /**
+   * Uma gravação está em voo. O botão sai de circulação enquanto isso.
+   *
+   * Não é enfeite: a validação do 4B1 mediu uma resolução concorrente levando
+   * mais de dois minutos e devolvendo timeout ao cliente DEPOIS de gravar. Um
+   * botão que continua clicável nesse intervalo convida o usuário a criar uma
+   * segunda resolução.
+   */
+  busy?: boolean;
+  /** Recado do servidor a mostrar junto da confirmação — recusa ou incerteza. */
+  aviso?: string | null;
 }
 
 const money = (cents: number): string =>
@@ -57,13 +68,15 @@ export function ReconciliationResolutionModal({
   unresolvedDeltaCents,
   onCancel,
   onConfirm,
+  busy = false,
+  aviso = null,
 }: ReconciliationResolutionModalProps) {
   const [escolhida, setEscolhida] = useState<ResolutionOption | null>(null);
   const [totalOficial, setTotalOficial] = useState('');
   const [fonte, setFonte] = useState<AuthoritativeSource>('bank_app');
 
   const opcoes = useMemo(
-    () => resolutionOptionsForDelta(unresolvedDeltaCents),
+    () => visibleResolutionOptionsForDelta(unresolvedDeltaCents),
     [unresolvedDeltaCents]
   );
   const descricao = useMemo(() => describeDelta(unresolvedDeltaCents), [unresolvedDeltaCents]);
@@ -117,17 +130,27 @@ export function ReconciliationResolutionModal({
           {escolhida.consequence}
         </p>
 
+        {aviso && (
+          <p
+            role="status"
+            className="text-sm text-sky-200/90 bg-sky-500/10 border border-sky-400/30 rounded p-3"
+          >
+            {aviso}
+          </p>
+        )}
+
         <div className="flex gap-2 justify-end">
           <button
             type="button"
+            disabled={busy}
             onClick={() => setEscolhida(null)}
-            className="px-3 py-1.5 rounded bg-slate-700 text-slate-100"
+            className="px-3 py-1.5 rounded bg-slate-700 text-slate-100 disabled:opacity-40"
           >
             Voltar
           </button>
           <button
             type="button"
-            disabled={!oficialValido}
+            disabled={!oficialValido || busy}
             onClick={() =>
               onConfirm({
                 referenceMonth,
@@ -142,7 +165,7 @@ export function ReconciliationResolutionModal({
             }
             className="px-3 py-1.5 rounded bg-emerald-600 text-white font-semibold disabled:opacity-40"
           >
-            Confirmar resolução
+            {busy ? 'Processando…' : 'Confirmar resolução'}
           </button>
         </div>
       </div>

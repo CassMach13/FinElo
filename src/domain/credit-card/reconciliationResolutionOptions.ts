@@ -73,10 +73,41 @@ const encerrar = (deltaCents: number): ResolutionOption => ({
 });
 
 /**
+ * As classificações que a interface oferece hoje.
+ *
+ * `economic_debt` e `reconciliation_write_off` continuam existindo no domínio e
+ * no schema — o banco os aceita, o núcleo os aplica, e as resoluções gravadas
+ * com eles seguem valendo. Fora da tela por decisão de produto:
+ *
+ *   — `economic_debt` não tem estado alcançável no modelo atual: a projeção não
+ *     produz diferença negativa que o usuário possa classificar assim;
+ *   — `reconciliation_write_off` faria, na prática, o mesmo que
+ *     `bank_adjustment` para quem olha, e explicar a diferença entre «encerrar
+ *     sem classificar» e «é ajuste do banco» custaria mais do que vale antes de
+ *     o produto ser validado.
+ *
+ * Tirar da UI não é remover do domínio. Se um deles voltar a ser necessário,
+ * volta para esta lista.
+ */
+const KINDS_NA_INTERFACE: ResolutionKind[] = [
+  'economic_credit',
+  'bank_adjustment',
+  'authoritative_total',
+];
+
+/** As opções que a interface deve mostrar para esta diferença. */
+export function visibleResolutionOptionsForDelta(deltaCents: number): ResolutionOption[] {
+  return resolutionOptionsForDelta(deltaCents).filter((o) => KINDS_NA_INTERFACE.includes(o.kind));
+}
+
+/**
  * As opções válidas para uma diferença assinada, em centavos.
  *
  * Diferença zero devolve lista vazia: não há o que resolver, e oferecer ações
  * sobre nada só produziria eventos vazios na trilha de auditoria.
+ *
+ * Esta é a lista COMPLETA do domínio. Para a interface, use
+ * `visibleResolutionOptionsForDelta`.
  */
 export function resolutionOptionsForDelta(deltaCents: number): ResolutionOption[] {
   const delta = Math.trunc(Number(deltaCents) || 0);

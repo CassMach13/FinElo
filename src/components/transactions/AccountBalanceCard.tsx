@@ -32,6 +32,18 @@ export interface AccountCardDisplayData {
   reconciliacaoPendente?: boolean;
   /** Saldo do livro de reconciliação. Informativo; não move nenhum número econômico. */
   reconciliacaoSaldo?: number;
+  /**
+   * A competência que tem a diferença — não necessariamente a fatura exibida.
+   * Na cadeia real dos R$ 0,22 a diferença mora em 2024-12 enquanto o destaque
+   * é outro mês.
+   */
+  reconciliacaoReferenceMonth?: string | null;
+  /**
+   * Ha resolucao gravada nesta conta. O acesso ao fluxo continua mesmo sem
+   * diferenca pendente — senao o usuario resolve e fica sem caminho para
+   * DESFAZER.
+   */
+  reconciliacaoResolvida?: boolean;
 }
 
 /** DD/MM a partir de AAAA-MM-DD, sem passar por Date (evita deslocamento de fuso). */
@@ -49,6 +61,8 @@ interface AccountBalanceCardProps {
   onEdit: () => void;
   onOpenHistory?: () => void;
   onPayInvoice?: () => void;
+  /** Abre o fluxo de conciliacao da competencia que tem a diferenca. */
+  onOpenReconciliation?: (referenceMonth: string) => void;
 }
 
 const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
@@ -59,6 +73,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
   onEdit,
   onOpenHistory,
   onPayInvoice,
+  onOpenReconciliation,
 }) => {
   const {
     isCreditCard,
@@ -77,6 +92,8 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     faturaTitulo = 'Fatura atual',
     awaitingMotorSnapshotUi,
     reconciliacaoPendente = false,
+    reconciliacaoReferenceMonth = null,
+    reconciliacaoResolvida = false,
   } = display;
 
   const balanceColor =
@@ -216,7 +233,15 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         <div className="flex flex-col gap-px shrink-0">
                           <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
                             {faturaTitulo}
-                            {!faturaVencida && reconciliacaoPendente && (
+                            {/* O selo de vencida vem primeiro: e o estado principal. O de
+                                conciliacao vem depois, como informacao secundaria. Sao dimensoes
+                                diferentes, e uma nao substitui a outra. */}
+                            {faturaVencida && (
+                              <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                                VENCIDA
+                              </span>
+                            )}
+                            {reconciliacaoPendente && (
                               <span
                                 title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
                                 className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
@@ -224,10 +249,17 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                                 A CONCILIAR
                               </span>
                             )}
-                            {faturaVencida && (
-                              <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
-                                VENCIDA
-                              </span>
+                            {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenReconciliation(reconciliacaoReferenceMonth);
+                                }}
+                                className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
+                              >
+                                {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
+                              </button>
                             )}
                           </p>
                           <p className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
@@ -309,7 +341,15 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                 </span>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
                   {faturaTitulo}
-                  {!faturaVencida && reconciliacaoPendente && (
+                  {/* O selo de vencida vem primeiro: e o estado principal. O de
+                      conciliacao vem depois, como informacao secundaria. Sao dimensoes
+                      diferentes, e uma nao substitui a outra. */}
+                  {faturaVencida && (
+                    <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                      VENCIDA
+                    </span>
+                  )}
+                  {reconciliacaoPendente && (
                     <span
                       title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
                       className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
@@ -317,10 +357,17 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       A CONCILIAR
                     </span>
                   )}
-                  {faturaVencida && (
-                    <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
-                      VENCIDA
-                    </span>
+                  {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenReconciliation(reconciliacaoReferenceMonth);
+                      }}
+                      className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
+                    >
+                      {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
+                    </button>
                   )}
                 </p>
                 <div className="flex flex-wrap gap-2 w-full mt-1 justify-end">
