@@ -7,6 +7,10 @@ import { CARD_DOMAIN_VERSION } from '../../../src/domain/credit-card/domainVersi
 import { metadataContextToken } from '../../../src/domain/credit-card/metadataContext.ts';
 import type { ReconciliationResolutionInput } from '../../../src/domain/credit-card/twoLedgerBalance.ts';
 import { foiRevertida } from './reversalLink.ts';
+import { lerColecaoCompleta } from './leituraCompleta.ts';
+
+/** Linha crua do PostgREST, antes de o núcleo dar sentido a ela. */
+type Linha = Record<string, unknown>;
 
 /**
  * O ambiente confiável da reconciliação de cartão.
@@ -84,19 +88,52 @@ async function lerEstadoCoerente(
 
   const r0 = await contexto();
 
-  const [contas, transactions, importLogs, confirmacoes, resolucoes] = await Promise.all([
-    userClient.from('contas').select('*'),
-    userClient.from('transactions').select('*'),
-    userClient.from('import_logs').select('*'),
-    userClient.from('credit_card_competence_payment_confirmations').select('*').eq('account_id', accountId),
-    userClient
-      .from('credit_card_reconciliation_resolutions')
-      .select('*, credit_card_reconciliation_resolution_reversals(id)')
-      .eq('account_id', accountId),
-  ]);
+  // TODA coleção é lida por páginas, com contagem exata conferida no fim.
+  // `.select('*')` cru devolve 200 truncado em `max-rows`, e foi assim que o
+  // servidor calculou uma competência inteira sobre 1.000 de 3.768 transações.
+  // A ordem por coluna única não é enfeite: sem ela as páginas se sobrepõem.
+  let contas: Linha[];
+  let transactions: Linha[];
+  let importLogs: Linha[];
+  let confirmacoes: Linha[];
+  let resolucoes: Linha[];
 
-  for (const r of [contas, transactions, importLogs, confirmacoes, resolucoes]) {
-    if (r.error) throw new HttpError(500, `leitura: ${r.error.message}`);
+  try {
+    [contas, transactions, importLogs, confirmacoes, resolucoes] = await Promise.all([
+      lerColecaoCompleta<Linha>('contas', (de, ate) =>
+        userClient.from('contas').select('*', { count: 'exact' }).order('id').range(de, ate)
+      ),
+      lerColecaoCompleta<Linha>('transactions', (de, ate) =>
+        userClient
+          .from('transactions')
+          .select('*', { count: 'exact' })
+          .order('ID_Transacao')
+          .range(de, ate)
+      ),
+      lerColecaoCompleta<Linha>('import_logs', (de, ate) =>
+        userClient.from('import_logs').select('*', { count: 'exact' }).order('id').range(de, ate)
+      ),
+      lerColecaoCompleta<Linha>('confirmacoes', (de, ate) =>
+        userClient
+          .from('credit_card_competence_payment_confirmations')
+          .select('*', { count: 'exact' })
+          .eq('account_id', accountId)
+          .order('id')
+          .range(de, ate)
+      ),
+      lerColecaoCompleta<Linha>('resolucoes', (de, ate) =>
+        userClient
+          .from('credit_card_reconciliation_resolutions')
+          .select('*, credit_card_reconciliation_resolution_reversals(id)', { count: 'exact' })
+          .eq('account_id', accountId)
+          .order('id')
+          .range(de, ate)
+      ),
+    ]);
+  } catch (e) {
+    // Leitura incompleta não vira snapshot. 500 é a resposta certa: o pedido
+    // não pôde ser atendido, e nada foi materializado.
+    throw new HttpError(500, `leitura: ${(e as Error).message}`);
   }
 
   const r1 = await contexto();
@@ -109,11 +146,11 @@ async function lerEstadoCoerente(
 
   return {
     revisions: r0,
-    contas: contas.data ?? [],
-    transactions: transactions.data ?? [],
-    importLogs: importLogs.data ?? [],
-    confirmacoes: confirmacoes.data ?? [],
-    resolucoes: resolucoes.data ?? [],
+    contas,
+    transactions,
+    importLogs,
+    confirmacoes,
+    resolucoes,
   };
 }
 

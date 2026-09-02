@@ -319,8 +319,24 @@ export function appendManualCompetenceTotals(params: {
   const { accountId, account, transactions, rules, byCompetence, ensureCompetenceCard, previousReferenceMonth } =
     params;
 
+  /**
+   * Os dois caminhos precisam COBRIR o conjunto, não só não se sobrepor.
+   *
+   * `transactionsForFile` recusa duas classes de linha: as de origem manual e
+   * as que carregam marcador de competência dirigida. A segunda recusa não
+   * tinha contrapartida aqui — este filtro exigia origem manual —, e uma linha
+   * com marcador vinda de ARQUIVO caía entre os dois e sumia do ledger sem
+   * ruído. Foi o caso de um estorno de R$ 30,36 dirigido a 2026-07: importado
+   * de CSV, marcado pelo modal, e invisível para as duas superfícies.
+   *
+   * A união agora é total e a interseção continua vazia — cada lançamento da
+   * conta é somado por exatamente um caminho.
+   */
   const manualTx = transactions.filter(
-    (t) => t.ID_Conta === accountId && String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
+    (t) =>
+      t.ID_Conta === accountId &&
+      (String(t.Origem || 'manual').trim().toLowerCase() === 'manual' ||
+        parseDirectedCompetenceFromPayment(t) != null)
   );
   if (manualTx.length === 0) return;
 
