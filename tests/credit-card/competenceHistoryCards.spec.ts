@@ -746,7 +746,12 @@ describe('competenceHistoryCardsForAccount', () => {
     ).toEqual(['cashback-mai']);
   });
 
-  it('compra manual no mesmo mês do vencimento compete nesse mês (sem marcador)', () => {
+  /**
+   * INVERTIDO de propósito. O título antigo — «compete nesse mês» — era a regra
+   * que descartava a fatura informada: compra 04/05 com vencimento 25/05 caía em
+   * 2026-05, que vence em 25/06, um ciclo depois do que o usuário pediu.
+   */
+  it('compra com vencimento 25/05 compete em 2026-04, que é a fatura que vence nessa data', () => {
     const itauAccount: Account = {
       id: 'acc-itau',
       Nome_Conta: 'Cartão Itaú',
@@ -778,8 +783,9 @@ describe('competenceHistoryCardsForAccount', () => {
 
     const abr = cards.find((c) => c.referenceMonth === '2026-04');
     const mai = cards.find((c) => c.referenceMonth === '2026-05');
-    expect(abr).toBeUndefined();
-    expect(mai?.statementTotal).toBe(23.9);
+    expect(abr?.statementTotal).toBe(23.9);
+    expect(abr?.dueDate).toBe('2026-05-25');
+    expect(mai).toBeUndefined();
   });
 
   it('compra manual abril com Data_Pagamento em maio entra na competência 05/2026 com finelo_competence', () => {

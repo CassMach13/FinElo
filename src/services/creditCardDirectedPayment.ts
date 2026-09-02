@@ -51,6 +51,20 @@ export function buildFundingPaymentDescription(
   return `Pagamento Fatura ${card} (${ref}) ${buildCompetencePaymentObservacao(ref)}${funding}`;
 }
 
+/**
+ * Compra manual com a fatura escolhida pelo usuário gravada junto.
+ *
+ * O marcador é a única forma de a escolha SOBREVIVER: sem ele a competência é
+ * re-derivada a cada render por heurística, e uma heurística não sabe o que o
+ * usuário quis. Estorno e pagamento já gravavam o seu; compra não gravava, e
+ * era a única das três cuja fatura podia mudar sozinha.
+ */
+export function buildDirectedPurchaseDescription(referenceMonth: string, label: string): string {
+  const ref = referenceMonth.trim();
+  const base = label.trim() || 'Compra';
+  return `${base} (${ref}) ${buildCompetencePaymentObservacao(ref)}`;
+}
+
 /** Estorno/crédito manual com competência explícita na fatura. */
 export function buildDirectedRefundDescription(referenceMonth: string, label = 'Estorno'): string {
   const ref = referenceMonth.trim();
