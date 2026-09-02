@@ -383,8 +383,13 @@ export function computeAccountCardDisplay(
     isCreditCard && limite > 0 && cardSnapshotPipelineEnabled && !creditCardMetricsReady;
 
   const reconciliacaoPendente = projecao?.reconciliationPending ?? false;
+  /**
+   * A competência que o fluxo deve abrir é a que AINDA tem diferença — não
+   * qualquer uma que já teve. Apontar para uma diferença que a cadeia devolveu
+   * levaria o usuário a uma tela sem nada para resolver.
+   */
   const reconciliacaoReferenceMonth =
-    projecao?.competences.find((c) => c.unresolvedReconciliationDeltaCents !== 0)?.referenceMonth ??
+    projecao?.competences.find((c) => c.hasPendingReconciliation)?.referenceMonth ??
     Object.keys(reconciliationResolutions ?? {})[0] ??
     null;
 

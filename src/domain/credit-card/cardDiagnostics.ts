@@ -1,4 +1,7 @@
-import type { CompetenceProjection } from './twoLedgerProjection.ts';
+import {
+  competenciasComDiferencaAcionavel,
+  type CompetenceProjection,
+} from './twoLedgerProjection.ts';
 
 /**
  * Por que o cartão não está batendo.
@@ -121,26 +124,16 @@ interface Alvo {
 /**
  * Quais excedentes ainda existem no estado atual.
  *
- * Percorre a série somando as diferenças. Toda vez que o acumulado zera, tudo
- * que entrou até ali já foi devolvido e deixa de ser acionável — é o caso dos
- * `+60,30` seguidos de `−60,52`, que apareciam e sumiam sozinhos.
+ * A regra NÃO mora aqui: mora em `competenciasComDiferencaAcionavel`, a mesma
+ * que decide se o selo «A CONCILIAR» acende. Duas contas de centavos foi
+ * exatamente o que produziu uma tela dizendo «Cartão consistente» ao lado de
+ * outra pedindo para resolver a mesma diferença.
  */
 function excedentesQueSobrevivem(ordenadas: ReadonlyArray<CompetenceProjection>): Alvo[] {
-  const vivas = new Set<string>();
-  let acumulado = 0;
-
-  for (const c of ordenadas) {
-    acumulado += c.unresolvedReconciliationDeltaCents;
-    if (c.unresolvedReconciliationDeltaCents > 0) vivas.add(c.referenceMonth);
-    if (acumulado <= 0) {
-      vivas.clear();
-      acumulado = 0;
-    }
-  }
-
+  const vivas = competenciasComDiferencaAcionavel(ordenadas);
   return ordenadas
     .filter((c) => vivas.has(c.referenceMonth))
-    .map((c) => ({ ref: c.referenceMonth, valor: c.unresolvedReconciliationDeltaCents }));
+    .map((c) => ({ ref: c.referenceMonth, valor: vivas.get(c.referenceMonth)! }));
 }
 
 export function diagnoseCreditCard(input: CardDiagnosticsInput): CardDiagnostic[] {
@@ -182,12 +175,14 @@ export function diagnoseCreditCard(input: CardDiagnosticsInput): CardDiagnostic[
   const conciliadas = new Set<string>();
   const recon = input.reconciliation;
   if (recon?.pendente) {
+    const vivas = competenciasComDiferencaAcionavel(ordenadas);
     const alvo =
-      ordenadas.find((c) => c.referenceMonth === recon.referenceMonth) ??
-      ordenadas.find((c) => c.unresolvedReconciliationDeltaCents !== 0);
+      (recon.referenceMonth && vivas.has(recon.referenceMonth)
+        ? ordenadas.find((c) => c.referenceMonth === recon.referenceMonth)
+        : undefined) ?? ordenadas.find((c) => vivas.has(c.referenceMonth));
 
-    if (alvo && alvo.unresolvedReconciliationDeltaCents !== 0) {
-      const valor = Math.abs(alvo.unresolvedReconciliationDeltaCents);
+    if (alvo) {
+      const valor = vivas.get(alvo.referenceMonth)!;
       conciliadas.add(alvo.referenceMonth);
       registrar(
         valor < RUIDO_CENTS ? 'revisar' : 'atencao',
