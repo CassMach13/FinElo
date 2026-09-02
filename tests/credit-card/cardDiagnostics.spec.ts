@@ -184,12 +184,20 @@ describe('agregação: uma causa, um item', () => {
 });
 
 describe('coerência com o selo A CONCILIAR', () => {
+  /**
+   * Cadeia real do piloto SEM a competência final que consome o resíduo — assim
+   * sobram R$ 0,94, e há de fato algo a conciliar. Com a competência final, a
+   * cadeia se resolve sozinha e nada é oferecido (coberto em
+   * `diferencaTransitoria.spec.ts`).
+   *
+   * Pela fila, os R$ 60,52 de 2025-03 devolvem 0,22, 0,94 e quase todo o 60,30:
+   * o que resta pertence a 2025-02.
+   */
   const pilotoLinhas: Array<[string, string, number, number]> = [
     ['2024-12', '2025-01-10', 6052.63, 6052.85],
     ['2025-01', '2025-02-10', 6261.95, 6262.89],
     ['2025-02', '2025-03-10', 5798.44, 5858.74],
     ['2025-03', '2025-04-10', 6777.72, 6717.2],
-    ['2026-07', '2026-08-10', 7258.08, 0],
   ];
 
   /**
@@ -199,7 +207,7 @@ describe('coerência com o selo A CONCILIAR', () => {
   it('com o selo aceso, o cartão nunca é declarado consistente', () => {
     const achados = diagnosticar(pilotoLinhas, {
       pendente: true,
-      referenceMonth: '2024-12',
+      referenceMonth: '2025-02',
     });
 
     expect(achados.length).toBeGreaterThan(0);
@@ -207,20 +215,24 @@ describe('coerência com o selo A CONCILIAR', () => {
 
     const item = achados.find((a) => a.code === 'diferenca_a_conciliar')!;
     expect(item.severity).toBe('revisar');
-    expect(item.amountCents).toBe(22);
+    expect(item.amountCents).toBe(94);
     expect(item.action).toBe('ver_diferenca');
-    expect(item.message).toMatch(/diferença de R\$ 0,22/);
+    expect(item.message).toMatch(/diferença de R\$ 0,94/);
   });
 
   /** O valor sai da MESMA competência que o selo aponta — não há segunda conta. */
-  it('o valor mostrado é o da competência que o selo aponta', () => {
+  /**
+   * Apontar para uma competência cuja diferença a cadeia já devolveu levaria a
+   * uma tela sem nada a resolver — o item cai na que ainda tem resíduo.
+   */
+  it('uma competência já devolvida não é oferecida; vale a que ainda tem resíduo', () => {
     const achados = diagnosticar(pilotoLinhas, {
       pendente: true,
-      referenceMonth: '2025-01',
+      referenceMonth: '2024-12',
     });
 
     const item = achados.find((a) => a.code === 'diferenca_a_conciliar')!;
-    expect(item.competences).toEqual(['2025-01']);
+    expect(item.competences).toEqual(['2025-02']);
     expect(item.amountCents).toBe(94);
   });
 

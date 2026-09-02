@@ -43,7 +43,18 @@ export interface CompetenceProjection {
   reconciliationStatus: ReconciliationStatus;
   unresolvedReconciliationDeltaCents: number;
   reconciliationAdjustmentCents: number;
-  /** Verdadeiro quando a competência participou de alguma diferença não reconciliada. */
+  /**
+   * Esta competência tem diferença que o usuário PRECISA resolver.
+   *
+   * Não é o mesmo que «tem diferença». A convenção de pagamento faz o mês N+1
+   * quitar o mês N, então uma diferença nasce numa competência e a seguinte a
+   * consome — ela some sozinha, sem ninguém decidir nada. Convidar o usuário a
+   * classificar isso é pedir uma decisão que não existe: foi assim que R$ 60,30
+   * e R$ 77,80 viraram «crédito econômico» numa conta real, sendo que a própria
+   * cadeia os devolveria.
+   *
+   * Só entra o excedente que SOBREVIVE até o fim da série.
+   */
   hasPendingReconciliation: boolean;
 }
 
@@ -63,6 +74,60 @@ export interface CardTwoLedgerProjection {
 
 const toCents = (value: number | null | undefined): number =>
   Math.round((Number(value ?? 0) + Number.EPSILON) * 100);
+
+/** Forma mínima que a regra de acionabilidade precisa ler. */
+export interface DiferencaPorCompetencia {
+  referenceMonth: string;
+  unresolvedReconciliationDeltaCents: number;
+}
+
+/**
+ * Quanto de cada diferença ainda existe no estado atual — o que é acionável.
+ *
+ * ESTA É A ÚNICA DEFINIÇÃO DE «PRECISA DE DECISÃO» no módulo de cartão. O selo
+ * «A CONCILIAR» e o diagnóstico leem daqui; ter duas contas de centavos foi
+ * exatamente o que produziu uma tela dizendo «Cartão consistente» ao lado de
+ * outra pedindo para resolver a mesma diferença.
+ *
+ * O percurso é uma FILA: o que entrou primeiro é devolvido primeiro. Uma
+ * competência que consome suspense paga a dívida mais antiga do livro 2, e o
+ * que sobra na fila no fim da série é o que de fato ainda existe — com o valor
+ * REMANESCENTE, não o original. Oferecer os R$ 77,80 inteiros quando só R$ 0,94
+ * sobreviveram convidaria a classificar dinheiro que já foi devolvido.
+ *
+ * Sem threshold: quem decide é a cadeia inteira, não a magnitude.
+ */
+export function competenciasComDiferencaAcionavel(
+  competences: ReadonlyArray<DiferencaPorCompetencia>
+): Map<string, number> {
+  const ordenadas = [...competences].sort((a, b) =>
+    a.referenceMonth < b.referenceMonth ? -1 : a.referenceMonth > b.referenceMonth ? 1 : 0
+  );
+
+  /** Fila do que entrou e ainda não foi devolvido, na ordem em que entrou. */
+  const fila: Array<{ ref: string; resta: number }> = [];
+
+  for (const c of ordenadas) {
+    const delta = c.unresolvedReconciliationDeltaCents;
+
+    if (delta > 0) {
+      fila.push({ ref: c.referenceMonth, resta: delta });
+      continue;
+    }
+
+    // Competência que consome: devolve o que entrou primeiro.
+    let aDevolver = -delta;
+    while (aDevolver > 0 && fila.length > 0) {
+      const frente = fila[0];
+      const usado = Math.min(frente.resta, aDevolver);
+      frente.resta -= usado;
+      aDevolver -= usado;
+      if (frente.resta === 0) fila.shift();
+    }
+  }
+
+  return new Map(fila.filter((f) => f.resta > 0).map((f) => [f.ref, f.resta]));
+}
 
 export const centsToCurrency = (cents: number): number => Math.round(cents) / 100;
 
@@ -129,6 +194,7 @@ export function projectCardTwoLedger(
   );
 
   const rotulos = new Map(cards.map((c) => [c.referenceMonth, c] as const));
+  const acionaveis = competenciasComDiferencaAcionavel(ledger.competences);
 
   const competences: CompetenceProjection[] = ledger.competences.map((c) => {
     const origem = rotulos.get(c.referenceMonth);
@@ -143,7 +209,7 @@ export function projectCardTwoLedger(
       reconciliationStatus: c.reconciliationStatus,
       unresolvedReconciliationDeltaCents: c.unresolvedReconciliationDeltaCents,
       reconciliationAdjustmentCents: c.reconciliationAdjustmentCents,
-      hasPendingReconciliation: c.reconciliationStatus === 'unreconciled',
+      hasPendingReconciliation: acionaveis.has(c.referenceMonth),
     };
   });
 
@@ -160,8 +226,12 @@ export function projectCardTwoLedger(
     economicUsedCents,
     economicCarryCents: ledger.economicCarryCents,
     suspenseBalanceCents: ledger.suspenseBalanceCents,
-    reconciliationPending:
-      ledger.suspenseBalanceCents !== 0 || competences.some((c) => c.hasPendingReconciliation),
+    /**
+     * O selo só acende por diferença que ainda existe. O saldo final do livro 2
+     * deixou de entrar nesta conta: ele é consequência das mesmas diferenças, e
+     * somá-lo aqui reacendia o selo por resíduo que a cadeia já devolveu.
+     */
+    reconciliationPending: competences.some((c) => c.hasPendingReconciliation),
     current: pickCurrent(competences),
   };
 }

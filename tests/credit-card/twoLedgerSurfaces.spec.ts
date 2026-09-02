@@ -75,11 +75,21 @@ describe('caso real de regressão — a cadeia dos R$ 0,22 nas superfícies', ()
     expect(p.competences.reduce((a, x) => a + x.economicOpenBalanceCents, 0)).toBe(0);
   });
 
-  it('a conciliação pendente aparece — mas só como indicação secundária', () => {
+  /**
+   * INVERTIDO de propósito. Esta cadeia inteira se resolve sozinha:
+   * +0,22 +60,30 −60,52 = 0. Enquanto o selo acendia aqui, o usuário era
+   * convidado a classificar diferenças que a própria cadeia devolveria — e numa
+   * conta real ele classificou R$ 60,30 e R$ 77,80 como «crédito econômico»,
+   * crédito que nunca existiu.
+   */
+  it('a conciliação NÃO é oferecida quando a própria cadeia devolve a diferença', () => {
     const p = projetar(cadeia());
-    expect(p.reconciliationPending).toBe(true);
-    expect(p.competences.every((x) => x.hasPendingReconciliation)).toBe(true);
-    // E não contamina nenhum número econômico.
+    expect(p.reconciliationPending).toBe(false);
+    expect(p.competences.some((x) => x.hasPendingReconciliation)).toBe(false);
+    // As diferenças continuam existindo no livro 2 e se compensando lá dentro.
+    expect(p.competences.map((x) => x.unresolvedReconciliationDeltaCents)).toEqual([22, 6030, -6052]);
+    expect(p.suspenseBalanceCents).toBe(0);
+    // E nada disso contamina número econômico nenhum.
     expect(p.economicUsedCents).toBe(0);
     expect(p.economicCarryCents).toBe(0);
   });
@@ -134,12 +144,13 @@ describe('limite', () => {
 
 describe('seleção da fatura atual', () => {
   it('competência quitada com reconciliação pendente NÃO sequestra o destaque', () => {
-    // 2026-06 tem suspense pendente mas saldo zero; 2026-07 tem dívida real.
-    const p = projetar([comp('2026-06', 300, 300.22), comp('2026-07', 400, 150)]);
+    // 2026-06 tem dívida real; 2026-07 está quitada e guarda a diferença que
+    // sobrevive (nada depois dela a consome).
+    const p = projetar([comp('2026-06', 400, 150), comp('2026-07', 300, 300.22)]);
 
-    expect(p.competences[0].economicOpenBalanceCents).toBe(0);
-    expect(p.competences[0].hasPendingReconciliation).toBe(true);
-    expect(p.current?.referenceMonth).toBe('2026-07');
+    expect(p.competences[1].economicOpenBalanceCents).toBe(0);
+    expect(p.competences[1].hasPendingReconciliation).toBe(true);
+    expect(p.current?.referenceMonth).toBe('2026-06');
     expect(p.current?.economicStatus).toBe('overdue');
   });
 
@@ -239,11 +250,11 @@ describe('a fatura em destaque é escolhida pelo saldo econômico', () => {
     expect(p.current?.economicOpenBalanceCents).toBe(c(300));
   });
 
-  it('uma quitada antiga com diferença pendente não é escolhida na frente de uma devedora', () => {
-    const p = projetar([comp('2024-01', 300, 300.22), comp('2026-06', 500, 200)]);
+  it('uma quitada com diferença pendente não é escolhida na frente de uma devedora', () => {
+    const p = projetar([comp('2024-01', 500, 200), comp('2026-06', 300, 300.22)]);
 
-    expect(p.competences[0].hasPendingReconciliation).toBe(true);
-    expect(p.current?.referenceMonth).toBe('2026-06');
+    expect(p.competences[1].hasPendingReconciliation).toBe(true);
+    expect(p.current?.referenceMonth).toBe('2024-01');
   });
 
   it('o valor exibido é o da competência escolhida, não o da primeira da série', () => {
@@ -293,13 +304,13 @@ describe('a fatura em destaque é escolhida pelo saldo econômico', () => {
     expect(p.current?.economicOpenBalanceCents).toBe(c(350));
   });
 
-  it('quitada antiga COM diferença pendente também é pulada quando nada venceu', () => {
-    const p = projetar([comp('2026-12', 300, 300.4), comp('2027-03', 600, 100)]);
+  it('quitada COM diferença pendente também é pulada quando nada venceu', () => {
+    const p = projetar([comp('2027-03', 600, 100), comp('2027-06', 300, 300.4)]);
 
-    expect(p.competences[0].hasPendingReconciliation).toBe(true);
+    expect(p.competences[1].hasPendingReconciliation).toBe(true);
     expect(p.current?.referenceMonth).toBe('2027-03');
-    // 600 − 100 − 0,40 de suspense compensado.
-    expect(p.current?.economicOpenBalanceCents).toBe(c(499.6));
+    // Nada anterior deixou suspense para compensar: a dívida sai inteira.
+    expect(p.current?.economicOpenBalanceCents).toBe(c(500));
   });
 
   it('na superfície, uma competência futura em aberto governa o valor exibido', () => {
@@ -582,18 +593,32 @@ describe('o selo A CONCILIAR responde aos dois sinais', () => {
     expect(p.reconciliationPending).toBe(true);
   });
 
-  it('acende com diferença negativa (competência que consome suspense)', () => {
+  /**
+   * INVERTIDOS de propósito. `+50` seguido de `−50` é a convenção de pagamento
+   * funcionando: a diferença nasce e a competência seguinte a devolve. Não há
+   * decisão a tomar, e pedir uma produzia classificação de dinheiro que não
+   * existe.
+   */
+  it('a competência que CONSOME suspense não pede decisão nenhuma', () => {
     const p = projetar([comp('2026-06', 400, 450), comp('2026-07', 300, 250)]);
 
     expect(p.competences[1].unresolvedReconciliationDeltaCents).toBe(c(-50));
-    expect(p.competences[1].hasPendingReconciliation).toBe(true);
-    expect(p.reconciliationPending).toBe(true);
+    expect(p.competences[1].hasPendingReconciliation).toBe(false);
+    expect(p.reconciliationPending).toBe(false);
   });
 
-  it('acende mesmo depois de a cadeia zerar, porque houve diferença no caminho', () => {
+  it('não acende depois de a cadeia zerar — a diferença já foi devolvida', () => {
     const p = projetar([comp('2026-06', 400, 450), comp('2026-07', 300, 250)]);
 
     expect(p.suspenseBalanceCents).toBe(0);
+    expect(p.reconciliationPending).toBe(false);
+  });
+
+  it('acende quando a diferença SOBREVIVE ao fim da cadeia', () => {
+    const p = projetar([comp('2026-06', 400, 450), comp('2026-07', 300, 300)]);
+
+    expect(p.suspenseBalanceCents).toBe(c(50));
+    expect(p.competences[0].hasPendingReconciliation).toBe(true);
     expect(p.reconciliationPending).toBe(true);
   });
 
