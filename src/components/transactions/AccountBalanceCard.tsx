@@ -233,7 +233,15 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         <div className="flex flex-col gap-px shrink-0">
                           <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
                             {faturaTitulo}
-                            {!faturaVencida && reconciliacaoPendente && (
+                            {/* O selo de vencida vem primeiro: e o estado principal. O de
+                                conciliacao vem depois, como informacao secundaria. Sao dimensoes
+                                diferentes, e uma nao substitui a outra. */}
+                            {faturaVencida && (
+                              <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                                VENCIDA
+                              </span>
+                            )}
+                            {reconciliacaoPendente && (
                               <span
                                 title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
                                 className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
@@ -241,7 +249,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                                 A CONCILIAR
                               </span>
                             )}
-                            {!faturaVencida && (reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                            {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -252,11 +260,6 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                               >
                                 {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
                               </button>
-                            )}
-                            {faturaVencida && (
-                              <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
-                                VENCIDA
-                              </span>
                             )}
                           </p>
                           <p className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
@@ -338,7 +341,15 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                 </span>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
                   {faturaTitulo}
-                  {!faturaVencida && reconciliacaoPendente && (
+                  {/* O selo de vencida vem primeiro: e o estado principal. O de
+                      conciliacao vem depois, como informacao secundaria. Sao dimensoes
+                      diferentes, e uma nao substitui a outra. */}
+                  {faturaVencida && (
+                    <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                      VENCIDA
+                    </span>
+                  )}
+                  {reconciliacaoPendente && (
                     <span
                       title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
                       className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
@@ -346,7 +357,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       A CONCILIAR
                     </span>
                   )}
-                  {!faturaVencida && (reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                  {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -357,11 +368,6 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     >
                       {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
                     </button>
-                  )}
-                  {faturaVencida && (
-                    <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
-                      VENCIDA
-                    </span>
                   )}
                 </p>
                 <div className="flex flex-wrap gap-2 w-full mt-1 justify-end">
