@@ -62,6 +62,18 @@ create table if not exists finelo_reconciliation_internal.reconciliation_snapsho
   primary key (user_id, account_id, reference_month)
 );
 
+-- A COLUNA que guarda a chave, antes do indice que a torna unica.
+--
+-- Ela nasceu em staging por um passo aplicado direto no banco e nunca virou
+-- arquivo — o mesmo caso da tabela de reversoes. Sem esta linha, um banco que
+-- so conhece as migrations versionadas falha aqui, ao indexar uma coluna que
+-- nao existe. Foi o ensaio em ambiente limpo que expos as duas ausencias.
+alter table public.credit_card_reconciliation_resolutions
+  add column if not exists idempotency_key text null;
+
+comment on column public.credit_card_reconciliation_resolutions.idempotency_key is
+  'Chave da INTENCAO de resolver. Repetir com a mesma chave devolve a linha original em vez de criar outra.';
+
 -- A leitura previa da chave de idempotencia reduz a corrida; quem a ELIMINA e
 -- este indice. Duas requisicoes simultaneas com a mesma intencao chegam as duas
 -- ao insert, e a segunda quebra em vez de duplicar dinheiro.

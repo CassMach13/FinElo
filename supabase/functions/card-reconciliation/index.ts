@@ -232,6 +232,33 @@ Deno.serve(async (req) => {
     if (erroAuth || !auth?.user) throw new HttpError(401, 'credencial inválida');
     const userId = auth.user.id;
 
+    /**
+     * A PORTA DO PILOTO, do lado do servidor.
+     *
+     * O gating do frontend impede que a superfície apareça. Ele não impede que
+     * alguém chame esta função direto com o próprio JWT — e um fluxo que move
+     * dinheiro não pode depender de o navegador ter escondido um botão.
+     *
+     * A fonte é `app_metadata` lido AGORA pelo Auth Admin, não o JWT: um token
+     * emitido antes de a flag ser revogada continuaria afirmando o contrário.
+     * `user_metadata` também é aceito porque é onde a flag já vive para parte
+     * dos usuários, e o gate existente lê os dois.
+     */
+    const { data: perfil, error: erroPerfil } = await admin.auth.admin.getUserById(userId);
+    if (erroPerfil || !perfil?.user) {
+      throw new HttpError(500, `perfil: ${erroPerfil?.message ?? 'usuário não encontrado'}`);
+    }
+    const habilitado =
+      perfil.user.app_metadata?.credit_card_engine_enabled === true ||
+      perfil.user.user_metadata?.credit_card_engine_enabled === true;
+    const desabilitado =
+      perfil.user.app_metadata?.credit_card_engine_disabled === true ||
+      perfil.user.user_metadata?.credit_card_engine_disabled === true;
+
+    if (!habilitado || desabilitado) {
+      throw new HttpError(403, 'reconciliação de cartão não habilitada para esta conta');
+    }
+
     const body = await req.json().catch(() => ({}));
     const { action, accountId, referenceMonth } = body as Record<string, string>;
 
