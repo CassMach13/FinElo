@@ -65,6 +65,7 @@ import CategoryModal from '../modals/CategoryModal';
 import NewTransactionModal from '../modals/NewTransactionModal';
 import MappingRuleModal from '../modals/MappingRuleModal';
 import { ReconciliationFlow } from '../modals/ReconciliationFlow';
+import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
@@ -1909,6 +1910,23 @@ const TransactionsView: React.FC = () => {
   const [reconciliacaoAberta, setReconciliacaoAberta] = useState<
     { accountId: string; referenceMonth: string } | null
   >(null);
+  /**
+   * Resolucoes ativas por conta e competencia. O card projeta com elas, senao
+   * ignora o que o usuario resolveu e o selo A CONCILIAR nunca sai da tela.
+   */
+  const [resolucoesPorConta, setResolucoesPorConta] = useState<
+    Record<string, Record<string, Array<{ kind: string; resolvedAmountCents?: number; authoritativeStatementTotalCents?: number }>>>
+  >({});
+
+  // Recarrega quando o motor do cartao e invalidado — inclusive apos resolver
+  // ou desfazer, que e o que faz o selo sair (ou voltar) na tela.
+  useEffect(() => {
+    let vivo = true;
+    carregarResolucoesAtivasPorConta()
+      .then((r) => { if (vivo) setResolucoesPorConta(r); })
+      .catch(() => { /* o card apenas projeta sem resolucoes; nao quebra a tela */ });
+    return () => { vivo = false; };
+  }, [creditCardEngineRevision]);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
@@ -2288,6 +2306,7 @@ const TransactionsView: React.FC = () => {
         transactions,
         accounts,
         importLogs,
+        reconciliationResolutions: resolucoesPorConta[account.id],
         rules: {
           paymentKeywords: currentPaymentKeywords,
           refundKeywords: currentCreditKeywords,
@@ -2350,6 +2369,9 @@ const TransactionsView: React.FC = () => {
       openMotorInvoiceHistoryModal,
       handlePayInvoice,
       familyOwnerContext,
+      // Sem esta dependência o card continua com a projeção anterior depois de
+      // resolver ou desfazer, e o selo não sai da tela.
+      resolucoesPorConta,
     ]
   );
 

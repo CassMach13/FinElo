@@ -190,3 +190,42 @@ describe('as opções que a interface mostra', () => {
     expect(oficial.requiresAuthoritativeTotal).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('o card projeta com as mesmas entradas do servidor', () => {
+  /**
+   * REGRESSÃO da validação visual do 4B2. A resolução era gravada, o servidor
+   * recalculava certo, e o card seguia mostrando «A CONCILIAR» depois do
+   * reload: `computeAccountCardDisplay` chamava a projeção sem as resoluções.
+   *
+   * O teste é sobre a FORMA do contrato — que a opção existe e chega à
+   * projeção — porque o efeito financeiro em si já está coberto em
+   * `resolutionsClearDelta`.
+   */
+  it('a opção de resoluções existe e é repassada à projeção', async () => {
+    const fonte = await import('node:fs').then((fs) =>
+      fs.readFileSync('src/components/transactions/accountBalanceCardMetrics.ts', 'utf8')
+    );
+
+    expect(fonte).toMatch(/reconciliationResolutions\?: Record<string, ReconciliationResolutionInput\[\]>/);
+    expect(fonte).toMatch(/resolutionsByMonth: reconciliationResolutions/);
+  });
+
+  /**
+   * Resolvida a diferença, o selo some — e o acesso precisa continuar, senão o
+   * usuário fica sem caminho para DESFAZER.
+   */
+  it('o acesso ao fluxo sobrevive à resolução', async () => {
+    const fonte = await import('node:fs').then((fs) =>
+      fs.readFileSync('src/components/transactions/AccountBalanceCard.tsx', 'utf8')
+    );
+
+    const condicoes = fonte.match(
+      /\(reconciliacaoPendente \|\| reconciliacaoResolvida\) && reconciliacaoReferenceMonth && onOpenReconciliation/g
+    );
+    // As DUAS ramificações de layout. Uma validação anterior encontrou o selo
+    // presente em apenas uma delas.
+    expect(condicoes?.length).toBe(2);
+  });
+});

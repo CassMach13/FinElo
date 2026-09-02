@@ -208,6 +208,59 @@ export async function listarResolucoesAtivas(
 }
 
 /**
+ * Todas as resoluções ativas do usuário, agrupadas por conta e competência.
+ *
+ * O card precisa delas para projetar o mesmo resultado que o servidor. Sem
+ * isto ele ignora o que o usuário resolveu — a validação visual do 4B2
+ * classificou os R$ 0,22 como crédito, o banco gravou, e o selo «A CONCILIAR»
+ * continuou na tela depois do reload.
+ *
+ * Uma consulta só para todas as contas: são poucas linhas, e uma por conta
+ * multiplicaria idas ao servidor numa tela que já é pesada.
+ */
+export async function carregarResolucoesAtivasPorConta(): Promise<
+  Record<string, Record<string, ReconciliationResolutionInputLike[]>>
+> {
+  const { data, error } = await supabase
+    .from('credit_card_reconciliation_resolutions')
+    .select(
+      'account_id, reference_month, resolution, resolved_amount, authoritative_total, authoritative_source, credit_card_reconciliation_resolution_reversals(id)'
+    );
+
+  if (error) throw new Error(error.message);
+
+  const fora: Record<string, Record<string, ReconciliationResolutionInputLike[]>> = {};
+  for (const r of data ?? []) {
+    if (foiRevertida(r.credit_card_reconciliation_resolution_reversals)) continue;
+
+    const conta = String(r.account_id);
+    const mes = String(r.reference_month);
+    ((fora[conta] ??= {})[mes] ??= []).push({
+      kind: r.resolution as ResolutionKind,
+      resolvedAmountCents:
+        r.resolved_amount == null ? undefined : Math.round(Number(r.resolved_amount) * 100),
+      authoritativeStatementTotalCents:
+        r.authoritative_total == null
+          ? undefined
+          : Math.round(Number(r.authoritative_total) * 100),
+      // Sem a PROCEDÊNCIA o núcleo descarta a resolução — `applyAuthoritativeResolution`
+      // exige as duas. Informar o valor oficial não recalculava nada, e o selo
+      // «A CONCILIAR» voltava logo depois de confirmar.
+      authoritativeSource: (r.authoritative_source ?? null) as AuthoritativeSource | null,
+    });
+  }
+  return fora;
+}
+
+interface ReconciliationResolutionInputLike {
+  kind: ResolutionKind;
+  resolvedAmountCents?: number;
+  authoritativeStatementTotalCents?: number;
+  /** O núcleo exige valor E procedência para aceitar um total autoritativo. */
+  authoritativeSource?: AuthoritativeSource | null;
+}
+
+/**
  * O vínculo de reversão pode chegar como objeto ou array, conforme a
  * cardinalidade que o PostgREST infere — o índice único sobre `resolution_id`
  * mudou isso uma vez, e o desfazer parou de fazer efeito em silêncio. Aceitar

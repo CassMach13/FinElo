@@ -25,9 +25,14 @@ const componente = readFileSync(
 const ocorrencias = (padrao: RegExp) => (componente.match(padrao) ?? []).length;
 
 describe('selos do card de conta', () => {
+  /**
+   * A abertura do SELO, com a chave: `{faturaVencida && (`. Sem a chave, o
+   * padrão também casaria com a condição do botão «Ver diferença», que começa
+   * por `!faturaVencida && (` — e o contador passaria a medir outra coisa.
+   */
   it('todo ramo de layout que desenha VENCIDA também desenha A CONCILIAR', () => {
-    const vencida = ocorrencias(/faturaVencida && \(/g);
-    const conciliar = ocorrencias(/!faturaVencida && reconciliacaoPendente && \(/g);
+    const vencida = ocorrencias(/\{faturaVencida && \(/g);
+    const conciliar = ocorrencias(/\{!faturaVencida && reconciliacaoPendente && \(/g);
 
     expect(vencida).toBeGreaterThan(0);
     expect(conciliar).toBe(vencida);

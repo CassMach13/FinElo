@@ -5,6 +5,7 @@ import {
   projectCardTwoLedger,
   type CardTwoLedgerProjection,
 } from '../../domain/credit-card/twoLedgerProjection';
+import type { ReconciliationResolutionInput } from '../../domain/credit-card/twoLedgerBalance';
 import { Account, ImportLog, Transaction } from '../../types';
 import type { AccountCardDisplayData } from './AccountBalanceCard';
 
@@ -35,6 +36,15 @@ export interface ComputeAccountCardMetricsOptions {
   cardSnapshotPipelineEnabled: boolean;
   /** false = aguardar snapshot + confirmações antes de exibir números no card. */
   creditCardMetricsReady?: boolean;
+  /**
+   * Resolucoes ja gravadas e NAO revertidas, por competencia.
+   *
+   * Sem isto o card ignora o que o usuario resolveu: a validacao visual do 4B2
+   * classificou os R$ 0,22 como credito, o banco gravou, e o selo A CONCILIAR
+   * continuou na tela depois do reload. O servidor e o cliente precisam calcular
+   * com as MESMAS entradas.
+   */
+  reconciliationResolutions?: Record<string, ReconciliationResolutionInput[]>;
 }
 
 export function computeAccountCardDisplay(
@@ -52,6 +62,7 @@ export function computeAccountCardDisplay(
     cardEngineEnabled,
     cardSnapshotPipelineEnabled,
     creditCardMetricsReady = true,
+    reconciliationResolutions,
   } = options;
 
   const currentBalance = account.Saldo_Atual_Calculado ?? 0;
@@ -271,7 +282,10 @@ export function computeAccountCardDisplay(
        * separa obrigação econômica de diferença de reconciliação, e só a primeira
        * governa valor, vencimento, status e limite.
        */
-      projecao = projectCardTwoLedger(competenceCards, { asOf: todayStr });
+      projecao = projectCardTwoLedger(competenceCards, {
+        asOf: todayStr,
+        resolutionsByMonth: reconciliationResolutions,
+      });
       const faturaCompetence = projecao.current;
 
       if (faturaCompetence) {
@@ -387,8 +401,17 @@ export function computeAccountCardDisplay(
      * 2024-12 enquanto a fatura em destaque e outra. Sem este campo, abrir o
      * fluxo pela fatura levaria o usuario a uma competencia sem diferenca.
      */
+    /**
+     * Preferencia: a competencia que AINDA tem diferenca. Se nao houver nenhuma,
+     * a que ja foi resolvida — senao, resolvida a diferenca, o acesso sumiria e
+     * o usuario ficaria sem caminho para DESFAZER.
+     */
     reconciliacaoReferenceMonth:
       projecao?.competences.find((c) => c.unresolvedReconciliationDeltaCents !== 0)
-        ?.referenceMonth ?? null,
+        ?.referenceMonth ??
+      Object.keys(reconciliationResolutions ?? {})[0] ??
+      null,
+    /** Ha resolucao gravada nesta conta: o acesso continua, para poder desfazer. */
+    reconciliacaoResolvida: Object.keys(reconciliationResolutions ?? {}).length > 0,
   };
 }

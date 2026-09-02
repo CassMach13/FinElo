@@ -211,3 +211,61 @@ describe('compatibilidade', () => {
     expect(delta(p, '2026-07')).toBe(c(30));
   });
 });
+
+describe('o total oficial só vale acompanhado da procedência', () => {
+  /**
+   * REGRESSÃO da validação visual do 4B2. O valor oficial era gravado, mas o
+   * card seguia mostrando a diferença: quem monta a entrada do núcleo levava
+   * `authoritativeStatementTotalCents` e esquecia `authoritativeSource`, e
+   * `applyAuthoritativeResolution` descarta a resolução que não tem as duas.
+   *
+   * O usuário informava o valor da fatura, via a confirmação, e o selo voltava.
+   */
+  const uma = () => [comp('2026-06', 500, 522)];
+
+  it('com valor e procedência, a competência é recalculada', () => {
+    const p = projetar(uma(), {
+      '2026-06': [
+        {
+          kind: 'authoritative_total',
+          authoritativeStatementTotalCents: c(522),
+          authoritativeSource: 'bank_app',
+        },
+      ],
+    });
+    expect(delta(p, '2026-06')).toBe(0);
+  });
+
+  it('sem procedência, nada acontece — e é assim de propósito', () => {
+    const p = projetar(uma(), {
+      '2026-06': [
+        { kind: 'authoritative_total', authoritativeStatementTotalCents: c(522) },
+      ],
+    });
+    expect(delta(p, '2026-06')).toBe(c(22));
+  });
+
+  it('sem valor, nada acontece', () => {
+    const p = projetar(uma(), {
+      '2026-06': [{ kind: 'authoritative_total', authoritativeSource: 'bank_app' }],
+    });
+    expect(delta(p, '2026-06')).toBe(c(22));
+  });
+
+  /** O total oficial não consome porção: ele troca a fonte do total. */
+  it('um total oficial maior faz a diferença mudar de sinal', () => {
+    const p = projetar(uma(), {
+      '2026-06': [
+        {
+          kind: 'authoritative_total',
+          authoritativeStatementTotalCents: c(600),
+          authoritativeSource: 'bank_pdf',
+        },
+      ],
+    });
+    expect(delta(p, '2026-06')).toBe(0);
+    expect(
+      p.competences.find((x) => x.referenceMonth === '2026-06')?.economicOpenBalanceCents
+    ).toBe(c(78));
+  });
+});

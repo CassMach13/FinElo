@@ -150,6 +150,8 @@ function projetar(estado: NonNullable<Awaited<ReturnType<typeof lerEstadoCoerent
       resolvedAmountCents: toCents(r.resolved_amount as number | null),
       authoritativeStatementTotalCents:
         r.authoritative_total == null ? undefined : toCents(r.authoritative_total as number),
+      // Sem a PROCEDENCIA o nucleo descarta a resolucao autoritativa inteira.
+      authoritativeSource: (r.authoritative_source ?? null) as never,
     });
   }
 

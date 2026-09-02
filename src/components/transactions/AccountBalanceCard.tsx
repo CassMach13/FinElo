@@ -38,6 +38,12 @@ export interface AccountCardDisplayData {
    * é outro mês.
    */
   reconciliacaoReferenceMonth?: string | null;
+  /**
+   * Ha resolucao gravada nesta conta. O acesso ao fluxo continua mesmo sem
+   * diferenca pendente — senao o usuario resolve e fica sem caminho para
+   * DESFAZER.
+   */
+  reconciliacaoResolvida?: boolean;
 }
 
 /** DD/MM a partir de AAAA-MM-DD, sem passar por Date (evita deslocamento de fuso). */
@@ -87,6 +93,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     awaitingMotorSnapshotUi,
     reconciliacaoPendente = false,
     reconciliacaoReferenceMonth = null,
+    reconciliacaoResolvida = false,
   } = display;
 
   const balanceColor =
@@ -234,7 +241,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                                 A CONCILIAR
                               </span>
                             )}
-                            {!faturaVencida && reconciliacaoPendente && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                            {!faturaVencida && (reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -243,7 +250,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                                 }}
                                 className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
                               >
-                                Ver diferença
+                                {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
                               </button>
                             )}
                             {faturaVencida && (
@@ -339,7 +346,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       A CONCILIAR
                     </span>
                   )}
-                  {!faturaVencida && reconciliacaoPendente && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                  {!faturaVencida && (reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -348,7 +355,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       }}
                       className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
                     >
-                      Ver diferença
+                      {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
                     </button>
                   )}
                   {faturaVencida && (
