@@ -1918,15 +1918,31 @@ const TransactionsView: React.FC = () => {
     Record<string, Record<string, Array<{ kind: string; resolvedAmountCents?: number; authoritativeStatementTotalCents?: number }>>>
   >({});
 
+  /**
+   * A porta do piloto.
+   *
+   * O frontend do fluxo de reconciliacao foi publicado antes do backend: o
+   * merge em main dispara deploy de producao, e o banco ainda nao tem as
+   * tabelas nem a Edge Function. Enquanto isso, NENHUMA superficie do fluxo
+   * pode aparecer para quem nao tem a flag — nem o selo, nem o acesso, nem a
+   * consulta que hoje erra no console porque a tabela nao existe.
+   *
+   * Reutiliza a flag que ja existe. A projecao financeira pura continua rodando
+   * para todos: ela e o que mantem os numeros corretos, e nao depende de nada
+   * que falte em producao.
+   */
+  const reconciliacaoHabilitada = isCreditCardEngineEnabled(user);
+
   // Recarrega quando o motor do cartao e invalidado — inclusive apos resolver
   // ou desfazer, que e o que faz o selo sair (ou voltar) na tela.
   useEffect(() => {
+    if (!reconciliacaoHabilitada) return;
     let vivo = true;
     carregarResolucoesAtivasPorConta()
       .then((r) => { if (vivo) setResolucoesPorConta(r); })
       .catch(() => { /* o card apenas projeta sem resolucoes; nao quebra a tela */ });
     return () => { vivo = false; };
-  }, [creditCardEngineRevision]);
+  }, [creditCardEngineRevision, reconciliacaoHabilitada]);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [lastCreatedAccount, setLastCreatedAccount] = useState<string | null>(null);
   const [lastCreatedCategory, setLastCreatedCategory] = useState<string | null>(null);
@@ -2306,7 +2322,9 @@ const TransactionsView: React.FC = () => {
         transactions,
         accounts,
         importLogs,
-        reconciliationResolutions: resolucoesPorConta[account.id],
+        reconciliationResolutions: reconciliacaoHabilitada
+          ? resolucoesPorConta[account.id]
+          : undefined,
         rules: {
           paymentKeywords: currentPaymentKeywords,
           refundKeywords: currentCreditKeywords,
@@ -2327,12 +2345,26 @@ const TransactionsView: React.FC = () => {
         !accountOwnerProfile.isSelf
           ? accountOwnerProfile.label
           : undefined;
+      /**
+       * Sem a flag, o card nao recebe nem o selo nem a competencia: apagar aqui
+       * garante que nenhuma ramificacao de layout consiga desenhar a superficie,
+       * sem precisar espalhar a condicao por dentro do componente.
+       */
+      const displayGated = reconciliacaoHabilitada
+        ? display
+        : {
+            ...display,
+            reconciliacaoPendente: false,
+            reconciliacaoResolvida: false,
+            reconciliacaoReferenceMonth: null,
+          };
+
       return (
         <AccountBalanceCard
           key={account.id}
           account={account}
           bankConfig={bankConfig}
-          display={display}
+          display={displayGated}
           ownerLabel={ownerLabel}
           onEdit={() => {
             setEditingAccount(account);
@@ -2347,7 +2379,7 @@ const TransactionsView: React.FC = () => {
               : undefined
           }
           onOpenReconciliation={
-            isCredit
+            isCredit && reconciliacaoHabilitada
               ? (referenceMonth) => setReconciliacaoAberta({ accountId: account.id, referenceMonth })
               : undefined
           }
@@ -2372,6 +2404,7 @@ const TransactionsView: React.FC = () => {
       // Sem esta dependência o card continua com a projeção anterior depois de
       // resolver ou desfazer, e o selo não sai da tela.
       resolucoesPorConta,
+      reconciliacaoHabilitada,
     ]
   );
 
@@ -4488,7 +4521,7 @@ const TransactionsView: React.FC = () => {
         </Modal>
       )}
 
-      {reconciliacaoAberta && (
+      {reconciliacaoAberta && reconciliacaoHabilitada && (
         <Modal
           /* A chave remonta o fluxo inteiro quando muda a conta ou a competencia:
              sem isso o modal reaproveitaria o estado da abertura anterior e
