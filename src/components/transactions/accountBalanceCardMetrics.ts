@@ -6,6 +6,7 @@ import {
   type CardTwoLedgerProjection,
 } from '../../domain/credit-card/twoLedgerProjection';
 import type { ReconciliationResolutionInput } from '../../domain/credit-card/twoLedgerBalance';
+import { diagnoseCreditCard } from '../../domain/credit-card/cardDiagnostics';
 import { Account, ImportLog, Transaction } from '../../types';
 import type { AccountCardDisplayData } from './AccountBalanceCard';
 
@@ -45,6 +46,15 @@ export interface ComputeAccountCardMetricsOptions {
    * com as MESMAS entradas.
    */
   reconciliationResolutions?: Record<string, ReconciliationResolutionInput[]>;
+  /**
+   * A superfície de conciliação está ligada para este usuário?
+   *
+   * Só serve ao diagnóstico, e serve para uma coisa só: enquanto o selo
+   * «A CONCILIAR» puder aparecer, o cartão não pode ser declarado consistente.
+   * Com a flag desligada o selo não existe, e a diferença de centavos não é
+   * acionável — então também não vira aviso.
+   */
+  reconciliationSurfaceEnabled?: boolean;
 }
 
 export function computeAccountCardDisplay(
@@ -63,6 +73,7 @@ export function computeAccountCardDisplay(
     cardSnapshotPipelineEnabled,
     creditCardMetricsReady = true,
     reconciliationResolutions,
+    reconciliationSurfaceEnabled = false,
   } = options;
 
   const currentBalance = account.Saldo_Atual_Calculado ?? 0;
@@ -371,6 +382,26 @@ export function computeAccountCardDisplay(
   const awaitingMotorSnapshotUi =
     isCreditCard && limite > 0 && cardSnapshotPipelineEnabled && !creditCardMetricsReady;
 
+  const reconciliacaoPendente = projecao?.reconciliationPending ?? false;
+  const reconciliacaoReferenceMonth =
+    projecao?.competences.find((c) => c.unresolvedReconciliationDeltaCents !== 0)?.referenceMonth ??
+    Object.keys(reconciliationResolutions ?? {})[0] ??
+    null;
+
+  /**
+   * O diagnóstico LÊ a projeção — não recalcula nada. E recebe o estado da
+   * conciliação já passado pelo gate da flag, para que card e diagnóstico nunca
+   * digam coisas diferentes sobre a mesma diferença.
+   */
+  const diagnosticos = projecao
+    ? diagnoseCreditCard({
+        competences: projecao.competences,
+        reconciliation: reconciliationSurfaceEnabled
+          ? { pendente: reconciliacaoPendente, referenceMonth: reconciliacaoReferenceMonth }
+          : null,
+      })
+    : undefined;
+
   return {
     isCreditCard,
     currentBalance,
@@ -393,8 +424,10 @@ export function computeAccountCardDisplay(
      * `faturaAtual`, ao limite ou a qualquer número econômico: servem só para a
      * indicação secundária de conciliação pendente.
      */
-    reconciliacaoPendente: projecao?.reconciliationPending ?? false,
+    reconciliacaoPendente,
     reconciliacaoSaldo: centsToCurrency(projecao?.suspenseBalanceCents ?? 0),
+    /** Itens que explicam por que o cartão pode não estar batendo. */
+    diagnosticos,
     /**
      * A competencia que de fato tem diferenca a conciliar — que NAO e
      * necessariamente a fatura exibida. Na cadeia real, os R$ 0,22 ficam em
@@ -406,11 +439,7 @@ export function computeAccountCardDisplay(
      * a que ja foi resolvida — senao, resolvida a diferenca, o acesso sumiria e
      * o usuario ficaria sem caminho para DESFAZER.
      */
-    reconciliacaoReferenceMonth:
-      projecao?.competences.find((c) => c.unresolvedReconciliationDeltaCents !== 0)
-        ?.referenceMonth ??
-      Object.keys(reconciliationResolutions ?? {})[0] ??
-      null,
+    reconciliacaoReferenceMonth,
     /** Ha resolucao gravada nesta conta: o acesso continua, para poder desfazer. */
     reconciliacaoResolvida: Object.keys(reconciliationResolutions ?? {}).length > 0,
   };
