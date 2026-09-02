@@ -1,6 +1,6 @@
-import { classifyEntryType, inferDirection, normalizeDescription } from './classifiers';
-import type { ClassificationRules } from './classifiers';
-import type { CreditCardEntryType } from './types';
+import { classifyEntryType, inferDirection, normalizeDescription } from './classifiers.ts';
+import type { ClassificationRules } from './classifiers.ts';
+import type { CreditCardEntryType } from './types.ts';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 

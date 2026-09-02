@@ -1,14 +1,14 @@
-import type { ClassificationRules } from '../domain/credit-card/classifiers';
+import type { ClassificationRules } from '../domain/credit-card/classifiers.ts';
 import {
   computeImportLedgerTotals,
   type ImportLedgerLineInput,
-} from '../domain/credit-card/importLedgerTotals';
-import { Account, Transaction } from '../types';
+} from '../domain/credit-card/importLedgerTotals.ts';
+import { Account, Transaction } from '../types.ts';
 import type {
   CompetenceHistoryCard,
   CompetenceHistoryFileLine,
-} from './creditCardRebuildFromImportHistoryService';
-import { reconcileCardStatementTotalFromFiles } from './creditCardRebuildFromImportHistoryService';
+} from './creditCardRebuildFromImportHistoryService.ts';
+import { reconcileCardStatementTotalFromFiles } from './creditCardRebuildFromImportHistoryService.ts';
 import {
   isDirectedManualInvoicePayment,
   isDirectedManualRefund,
@@ -18,8 +18,8 @@ import {
   referenceMonthFromIsoDate,
   stripCompetenceMarker,
   upsertCompetenceMarkerInTransaction,
-} from './creditCardDirectedPayment';
-import { toDateOnlyIso } from '../utils/dateOnly';
+} from './creditCardDirectedPayment.ts';
+import { toDateOnlyIso } from '../utils/dateOnly.ts';
 
 export function parseDueFromReferenceMonth(referenceMonth: string, dueDay: number): string {
   const m = /^(\d{4})-(\d{2})$/.exec(referenceMonth.trim());

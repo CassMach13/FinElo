@@ -1,5 +1,5 @@
-import type { CompetenceHistoryCard } from './creditCardRebuildFromImportHistoryService';
-import { Transaction } from '../types';
+import type { CompetenceHistoryCard } from './creditCardRebuildFromImportHistoryService.ts';
+import { Transaction } from '../types.ts';
 
 /** Marcador em `Observacoes` para abater pagamento manual em competência escolhida. */
 export const COMPETENCE_PAYMENT_OBS_PREFIX = 'finelo_competence:';

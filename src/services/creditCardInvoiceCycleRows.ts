@@ -1,7 +1,7 @@
-import { comparableImportOriginKey } from '../utils/importOriginKey';
-import { creditCardRebuildFromImportHistoryService } from './creditCardRebuildFromImportHistoryService';
-import type { ImportHistoryRebuildCycle } from './creditCardRebuildFromImportHistoryService';
-import type { Account, ImportLog, Transaction } from '../types';
+import { comparableImportOriginKey } from '../utils/importOriginKey.ts';
+import { creditCardRebuildFromImportHistoryService } from './creditCardRebuildFromImportHistoryService.ts';
+import type { ImportHistoryRebuildCycle } from './creditCardRebuildFromImportHistoryService.ts';
+import type { Account, ImportLog, Transaction } from '../types.ts';
 
 /** DD/MM/AAAA → YYYY-MM-DD ou null */
 export function parseBRDateToIso(value: string): string | null {

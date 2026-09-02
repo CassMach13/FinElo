@@ -1,26 +1,26 @@
-import { computeImportLedgerTotals } from '../domain/credit-card/importLedgerTotals';
-import type { ClassificationRules } from '../domain/credit-card/classifiers';
-import { Account, ImportLog, Transaction } from '../types';
-import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay';
-import { statementDueMonthKey } from '../utils/creditCardStatementDisplay';
-import { comparableImportOriginKey } from '../utils/importOriginKey';
-import { resolveAutomaticCardReferenceMonth } from '../utils/cardImportReference';
-import { toDateOnlyIso } from '../utils/dateOnly';
+import { computeImportLedgerTotals } from '../domain/credit-card/importLedgerTotals.ts';
+import type { ClassificationRules } from '../domain/credit-card/classifiers.ts';
+import { Account, ImportLog, Transaction } from '../types.ts';
+import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay.ts';
+import { statementDueMonthKey } from '../utils/creditCardStatementDisplay.ts';
+import { comparableImportOriginKey } from '../utils/importOriginKey.ts';
+import { resolveAutomaticCardReferenceMonth } from '../utils/cardImportReference.ts';
+import { toDateOnlyIso } from '../utils/dateOnly.ts';
 import {
   buildInvoiceCycleRowsForAccount,
   cardCycleMetaFromImportedLog,
   invoiceCycleRowToRebuildCycle,
   parseBRDateToIso,
   parseMMAAAAToIsoMonth,
-} from './creditCardInvoiceCycleRows';
-import { parseCreditCardReferenceFromFileName } from '../domain/credit-card/cardFileReference';
+} from './creditCardInvoiceCycleRows.ts';
+import { parseCreditCardReferenceFromFileName } from '../domain/credit-card/cardFileReference.ts';
 import {
   appendManualCompetenceTotals,
   inferManualRefundReferenceMonth,
   isManualCardPositiveCredit,
   MANUAL_COMPETENCE_FILE_LABEL,
   referenceMonthFromTransaction,
-} from './creditCardManualCompetence';
+} from './creditCardManualCompetence.ts';
 import {
   isDirectedManualInvoicePayment,
   isImportedInvoicePayment,
@@ -29,7 +29,7 @@ import {
   ledgerClassificationTextFromTransaction,
   looksLikeInvoicePaymentText,
   parseDirectedCompetenceFromPayment,
-} from './creditCardDirectedPayment';
+} from './creditCardDirectedPayment.ts';
 
 export interface ImportHistoryRebuildCycle {
   /** Nome do arquivo como em import_logs.file_name */
