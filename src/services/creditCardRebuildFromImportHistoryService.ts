@@ -13,7 +13,10 @@ import {
   parseBRDateToIso,
   parseMMAAAAToIsoMonth,
 } from './creditCardInvoiceCycleRows.ts';
-import { parseCreditCardReferenceFromFileName } from '../domain/credit-card/cardFileReference.ts';
+import {
+  parseCreditCardReferenceFromFileName,
+  parseDueDateFromIsoFileName,
+} from '../domain/credit-card/cardFileReference.ts';
 import {
   appendManualCompetenceTotals,
   inferManualRefundReferenceMonth,
@@ -403,7 +406,11 @@ export function buildImportHistoryCyclesForAccount(input: {
     const persisted = cardCycleMetaFromImportedLog(log, accountId);
     const referenceMonth =
       parseMMAAAAToIsoMonth(persisted.competenciaBR.trim()) ||
-      suggestReferenceMonthFromLog(log.file_name, log.imported_details as unknown[] | undefined);
+      suggestReferenceMonthFromLog(
+        log.file_name,
+        log.imported_details as unknown[] | undefined,
+        Number(account.dia_fechamento) || undefined
+      );
     if (!referenceMonth) return;
     const dueDate =
       parseBRDateToIso(persisted.vencimentoBR.trim()) ||
@@ -489,16 +496,29 @@ export function previousReferenceMonth(referenceMonth: string): string | null {
   return `${y}-${String(mo).padStart(2, '0')}`;
 }
 
-function suggestReferenceMonthFromLog(fileName: string, importedDetails?: unknown[]): string | null {
+function suggestReferenceMonthFromLog(
+  fileName: string,
+  importedDetails?: unknown[],
+  dueDayOfMonth?: number
+): string | null {
   const det = Array.isArray(importedDetails) ? importedDetails : [];
   const meta = det.find((d: any) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(d?.Card_Reference_Label || '')));
   if (meta?.Card_Reference_Label) return String(meta.Card_Reference_Label);
+  /**
+   * Vencimento DECLARADO pelo nome do arquivo (ex. Nubank_2026-06-18.csv) —
+   * autoritativo quando existe, testado antes do conteúdo. Não concorre com
+   * `parseCreditCardReferenceFromFileName` abaixo, que lê OUTRA convenção
+   * (mmm-aaaa/mm-aaaa).
+   */
+  const isoDueFromFile = parseDueDateFromIsoFileName(fileName);
   const fromImportedRows = resolveAutomaticCardReferenceMonth(
     det.map((detail: any) => ({
       Data: detail?.Data,
       Valor: detail?.Valor,
       Tipo: detail?.Tipo,
-    }))
+    })),
+    isoDueFromFile,
+    dueDayOfMonth
   );
   if (fromImportedRows) return fromImportedRows;
   const fromFile = parseCreditCardReferenceFromFileName(fileName);
@@ -604,9 +624,19 @@ export const creditCardRebuildFromImportHistoryService = {
     });
   },
 
-  /** Sugere competência AAAA-MM a partir do nome do arquivo ou metadados do log. */
-  suggestReferenceMonth(fileName: string, importedDetails?: unknown[]): string | null {
-    return suggestReferenceMonthFromLog(fileName, importedDetails);
+  /**
+   * Sugere competência AAAA-MM a partir do nome do arquivo ou metadados do
+   * log. `dueDayOfMonth` (dia_fechamento da conta) refina a competência pelo
+   * CICLO real quando o arquivo não declara vencimento — sem ele, cai no mês
+   * civil mais recente das linhas, que erra sempre que o ciclo atravessa a
+   * virada do mês.
+   */
+  suggestReferenceMonth(
+    fileName: string,
+    importedDetails?: unknown[],
+    dueDayOfMonth?: number
+  ): string | null {
+    return suggestReferenceMonthFromLog(fileName, importedDetails, dueDayOfMonth);
   },
 
   suggestDueDate(referenceMonth: string, account: Account): string {
