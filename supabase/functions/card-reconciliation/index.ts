@@ -2,7 +2,10 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { creditCardRebuildFromImportHistoryService } from '../../../src/services/creditCardRebuildFromImportHistoryService.ts';
-import { projectCardTwoLedger } from '../../../src/domain/credit-card/twoLedgerProjection.ts';
+import {
+  projectCardTwoLedger,
+  valorAcionavelDaCompetencia,
+} from '../../../src/domain/credit-card/twoLedgerProjection.ts';
 import { CARD_DOMAIN_VERSION } from '../../../src/domain/credit-card/domainVersion.ts';
 import { metadataContextToken } from '../../../src/domain/credit-card/metadataContext.ts';
 import type { ReconciliationResolutionInput } from '../../../src/domain/credit-card/twoLedgerBalance.ts';
@@ -229,10 +232,24 @@ async function calcularEGravar(
   const competencia = projecao.competences.find((c) => c.referenceMonth === referenceMonth);
   if (!competencia) throw new HttpError(404, `competência ${referenceMonth} não existe nesta conta`);
 
+  /**
+   * O que o usuário pode de fato resolver — não o delta bruto da competência.
+   *
+   * A convenção de pagamento faz uma diferença nascer num mês e a seguinte
+   * devolvê-la. Oferecer o bruto convidava a classificar dinheiro que a cadeia
+   * já tinha devolvido: na conta piloto, R$ 77,80 no lugar dos R$ 0,94 que
+   * sobreviveram.
+   *
+   * Este é o MESMO valor que acende «A CONCILIAR» e que o diagnóstico mostra, e
+   * é também o que a RPC grava no snapshot — então o número exibido e o número
+   * resolvido são um só.
+   */
+  const deltaAcionavelCents = valorAcionavelDaCompetencia(projecao.competences, referenceMonth);
+
   const { error } = await admin.rpc('finelo_write_reconciliation_snapshot_v1', {
     p_account_id: accountId,
     p_reference_month: referenceMonth,
-    p_delta_cents: competencia.unresolvedReconciliationDeltaCents,
+    p_delta_cents: deltaAcionavelCents,
     p_observed_account_revision: estado.revisions.account_revision,
     p_observed_user_context_revision: estado.revisions.user_context_revision,
     p_metadata_context: metadataContext,
@@ -243,7 +260,7 @@ async function calcularEGravar(
     throw new HttpError(error.code === '40001' ? 409 : 500, `snapshot: ${error.message}`);
   }
 
-  return { projecao, competencia, metadataContext };
+  return { projecao, competencia, deltaAcionavelCents, metadataContext };
 }
 
 Deno.serve(async (req) => {
@@ -340,7 +357,7 @@ Deno.serve(async (req) => {
     if (erroConta) throw new HttpError(500, erroConta.message);
     if (!conta) throw new HttpError(404, 'conta não encontrada');
 
-    const { projecao, competencia, metadataContext } = await calcularEGravar(
+    const { projecao, competencia, deltaAcionavelCents, metadataContext } = await calcularEGravar(
       userClient,
       admin,
       userId,
@@ -351,7 +368,7 @@ Deno.serve(async (req) => {
     if (action === 'compute') {
       return json({
         referenceMonth,
-        deltaCents: competencia.unresolvedReconciliationDeltaCents,
+        deltaCents: deltaAcionavelCents,
         economicOpenBalanceCents: competencia.economicOpenBalanceCents,
         economicStatus: competencia.economicStatus,
         reconciliationStatus: competencia.reconciliationStatus,
