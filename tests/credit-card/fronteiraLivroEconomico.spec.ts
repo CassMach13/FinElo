@@ -206,6 +206,81 @@ describe('crédito econômico REAL continua abatendo, com ou sem pagamento', () 
   });
 });
 
+describe('sobrepagamento manual — consequência conhecida e deliberada', () => {
+  /**
+   * ===========================================================================
+   * ESTE TESTE EXISTE PARA QUE O COMPORTAMENTO NÃO MUDE POR ACIDENTE
+   * ===========================================================================
+   *
+   * O caso mais comum que existe: o usuário paga a fatura a maior e ainda não
+   * pagou a seguinte.
+   *
+   *   fatura manual        = 300
+   *   pagamento explícito  = 500
+   *   fatura seguinte      = 400, sem pagamento
+   *
+   * A fatura seguinte continua valendo 400, e os 200 ficam em reconciliação para
+   * o usuário classificar. Antes da fronteira, os 200 abatiam sozinhos e o card
+   * mostrava 200.
+   *
+   * É deliberado, e é a opção mais segura: um excedente sem procedência pode ser
+   * sobrepagamento, mas pode igualmente ser uma linha de compra que faltou. Se
+   * for a segunda, deixá-lo pagar a fatura seguinte esconde a compra que falta.
+   * Transformar diferença não explicada em dinheiro automaticamente é justamente
+   * o que este módulo existe para impedir.
+   *
+   * A saída para o usuário é explícita e de uma ação: classificar como crédito
+   * econômico. Aí o valor atravessa para o livro 1 e abate normalmente.
+   *
+   * Mudar isto exige decisão de produto — não é refatoração.
+   */
+  const faturaManual = (): CompetenceLedgerInput => ({
+    referenceMonth: '2026-06',
+    computedLinesTotalCents: c(300),
+    observedPaymentCents: c(500),
+  });
+  const faturaSeguinte = {
+    referenceMonth: '2026-07',
+    computedLinesTotalCents: c(400),
+    observedPaymentCents: 0,
+  };
+
+  const r = computeTwoLedgerBalances([faturaManual(), faturaSeguinte]);
+
+  it('a fatura seguinte continua valendo 400', () => {
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(400));
+    expect(r.competences[1].suspenseOutCents).toBe(0);
+  });
+
+  it('os 200 permanecem em reconciliação, sem virar crédito', () => {
+    expect(r.suspenseBalanceCents).toBe(c(200));
+    expect(r.economicCarryCents).toBe(0);
+    expect(r.competences[0].suspenseInCents).toBe(c(200));
+  });
+
+  it('o limite utilizado acompanha a dívida, não o suspense', () => {
+    const usado = r.competences.reduce((a, x) => a + x.economicOpenBalanceCents, 0);
+    expect(usado).toBe(c(400));
+  });
+
+  it('classificar como crédito econômico resolve, e é a única saída', () => {
+    const classificado = computeTwoLedgerBalances([
+      {
+        ...faturaManual(),
+        resolutions: [{ kind: 'economic_credit', resolvedAmountCents: c(200) }],
+      },
+      faturaSeguinte,
+    ]);
+
+    expect(classificado.competences[1].priorCreditAppliedCents).toBe(c(200));
+    expect(classificado.competences[1].economicOpenBalanceCents).toBe(c(200));
+    expect(classificado.suspenseBalanceCents).toBe(0);
+    ambosOsLivrosFecham(classificado);
+  });
+
+  it('as duas conservações continuam fechando', () => ambosOsLivrosFecham(r));
+});
+
 describe('bank_adjustment segue sendo não econômico', () => {
   /**
    * Declarar a diferença como ajuste do banco a encerra no livro 2. Ela não vira
