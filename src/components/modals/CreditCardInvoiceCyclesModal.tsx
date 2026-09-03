@@ -951,7 +951,8 @@ function buildRowsFromStore(params: {
       if (!competenciaBR.trim()) {
         const suggested = creditCardRebuildFromImportHistoryService.suggestReferenceMonth(
           log.file_name,
-          log.imported_details as unknown[]
+          log.imported_details as unknown[],
+          Number(account.dia_fechamento) || undefined
         );
         if (suggested) {
           competenciaBR = `${suggested.slice(5, 7)}/${suggested.slice(0, 4)}`;

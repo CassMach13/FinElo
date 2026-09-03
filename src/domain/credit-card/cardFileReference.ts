@@ -42,3 +42,25 @@ export const parseCreditCardReferenceFromFileName = (fileName: string): { dueYea
   if (month < 1 || month > 12) return null;
   return { dueYear: year, dueMonth: month };
 };
+
+/**
+ * Vencimento DECLARADO pelo nome do arquivo, no formato ISO (ex.:
+ * `Nubank_2026-06-18.csv`). Alguns emissores nomeiam o export pela data de
+ * vencimento da fatura, não pela competência — e essa data é autoritativa
+ * quando presente: não é inferência sobre o conteúdo, é o que o emissor
+ * declarou. `parseCreditCardReferenceFromFileName` acima não reconhece este
+ * formato (procura `mmm-aaaa` ou `mm-aaaa`); esta função existe só para o
+ * padrão `aaaa-mm-dd`, sem disputar com aquela.
+ */
+export const parseDueDateFromIsoFileName = (fileName: string): string | null => {
+  const match = /(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/.exec(fileName);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  const year = Number(y);
+  const month = Number(m);
+  const day = Number(d);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const valido =
+    date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day;
+  return valido ? `${y}-${m}-${d}` : null;
+};
