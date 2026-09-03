@@ -45,7 +45,7 @@ import {
   computePeriodDelta,
   formatComparisonValue,
 } from '../../utils/periodComparison';
-import { computeBudgetStatus } from '../../utils/dashboardBudget';
+import { computeBudgetStatus, computeBudgetStatusTotal } from '../../utils/dashboardBudget';
 import {
   computeAccountsTotalAsOf,
   computeAssetsTotals,
@@ -406,6 +406,13 @@ const DashboardView: React.FC = () => {
     if (!compareBudgetStatus) return new Map<string, number>();
     return new Map(compareBudgetStatus.map((item) => [item.Categoria, item.spent]));
   }, [compareBudgetStatus]);
+
+  /** Soma de todas as categorias orçadas — a visão total ao lado da categorizada. */
+  const budgetTotal = useMemo(() => computeBudgetStatusTotal(budgetStatus), [budgetStatus]);
+  const compareBudgetTotal = useMemo(
+    () => (compareBudgetStatus ? computeBudgetStatusTotal(compareBudgetStatus) : null),
+    [compareBudgetStatus]
+  );
 
   // Últimas Transações
   const recentTransactions = useMemo(() => {
@@ -894,6 +901,105 @@ const DashboardView: React.FC = () => {
                   <span>Risco / Estouro</span>
                 </div>
               </div>
+
+              {(() => {
+                const totalConsumedPct =
+                  budgetTotal.limit > 0 ? ((budgetTotal.spent / budgetTotal.limit) * 100).toFixed(1) : '0.0';
+                const compareTotalDelta =
+                  compareEnabled && compareBudgetTotal
+                    ? buildCompactComparisonDeltaLabel(
+                        computePeriodDelta(budgetTotal.spent, compareBudgetTotal.spent),
+                        'lower_better'
+                      )
+                    : null;
+
+                return (
+                  <div className="pb-4 mb-1 border-b border-slate-700/50">
+                    <div
+                      className={`grid gap-3 items-center ${
+                        compareEnabled
+                          ? 'grid-cols-1 md:grid-cols-[minmax(0,120px)_minmax(0,1fr)_minmax(0,200px)_minmax(0,160px)]'
+                          : 'grid-cols-1 sm:grid-cols-4'
+                      }`}
+                    >
+                      <span className="font-bold text-light">Total</span>
+                      <div className={compareEnabled ? '' : 'col-span-2'}>
+                        <ProgressBar
+                          value={budgetTotal.spent}
+                          max={budgetTotal.limit}
+                          expectedPacing={budgetTotal.pacingRatio}
+                        />
+                      </div>
+                      {compareEnabled && compareBudgetTotal ? (
+                        <>
+                          <div className="rounded-lg px-3 py-2.5 text-right bg-accent/[0.06] border border-accent/20 min-w-0">
+                            <p className="text-[9px] font-bold uppercase text-accent truncate mb-1">
+                              {dateLabelShort}
+                            </p>
+                            <p className="text-sm leading-tight tabular-nums">
+                              <span
+                                className={
+                                  budgetTotal.spent > budgetTotal.limit
+                                    ? 'text-danger font-bold'
+                                    : 'text-gray-200'
+                                }
+                              >
+                                {formatCurrency(budgetTotal.spent)}
+                              </span>
+                              <span className="text-gray-500 text-xs">
+                                {' '}
+                                / {formatCurrency(budgetTotal.limit)}
+                              </span>
+                            </p>
+                            <p className="text-[10px] text-gray-400">{totalConsumedPct}% consumido</p>
+                            {compareTotalDelta && (
+                              <p
+                                className={`text-[10px] font-semibold mt-1 ${
+                                  compareTotalDelta.tone === 'positive'
+                                    ? 'text-accent'
+                                    : compareTotalDelta.tone === 'negative'
+                                      ? 'text-danger'
+                                      : 'text-gray-500'
+                                }`}
+                              >
+                                {compareTotalDelta.label}
+                              </p>
+                            )}
+                          </div>
+                          <div className="rounded-lg px-3 py-2.5 text-right bg-black/25 border border-white/8 min-w-0">
+                            <p className="text-[9px] font-bold uppercase text-slate-400 truncate mb-1">
+                              {compareDateLabelShort}
+                            </p>
+                            <p className="text-sm text-slate-300 font-semibold tabular-nums">
+                              {formatCurrency(compareBudgetTotal.spent)}
+                            </p>
+                            <p className="text-[10px] text-gray-500">gasto no período</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="col-span-1 text-right flex flex-col justify-center gap-0.5">
+                          <div className="text-sm leading-tight">
+                            <span
+                              className={
+                                budgetTotal.spent > budgetTotal.limit
+                                  ? 'text-danger font-bold'
+                                  : 'text-gray-300'
+                              }
+                            >
+                              {formatCurrency(budgetTotal.spent)}
+                            </span>
+                            <span className="text-gray-500 hidden sm:inline">
+                              {' '}
+                              / {formatCurrency(budgetTotal.limit)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400">{totalConsumedPct}% consumido</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {budgetStatus.map(item => {
                 const compareSpent = compareBudgetMap.get(item.Categoria) || 0;

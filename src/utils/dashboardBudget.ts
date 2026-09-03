@@ -54,3 +54,25 @@ export function computeBudgetStatus(
     })
     .sort((a, b) => b.spent / b.adjustedLimit - a.spent / a.adjustedLimit);
 }
+
+export interface BudgetStatusTotal {
+  spent: number;
+  limit: number;
+  pacingRatio: number;
+}
+
+/**
+ * Soma de todas as categorias orçadas no período — quanto do orçamento
+ * TOTAL foi consumido, ao lado da visão categorizada que já existia.
+ *
+ * `pacingRatio` é o mesmo em todo item de `computeBudgetStatus` (depende só
+ * de `referenceDate`/`dateRange`, nunca do orçamento em si) — por isso somar
+ * "ritmos" não faria sentido; usa-se o de qualquer item, ou 1.0 sem nenhum
+ * orçamento configurado.
+ */
+export function computeBudgetStatusTotal(items: BudgetStatusItem[]): BudgetStatusTotal {
+  const spent = items.reduce((acc, item) => acc + item.spent, 0);
+  const limit = items.reduce((acc, item) => acc + item.adjustedLimit, 0);
+  const pacingRatio = items.length > 0 ? items[0].pacingRatio : 1.0;
+  return { spent, limit, pacingRatio };
+}
