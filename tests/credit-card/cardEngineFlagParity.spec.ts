@@ -145,7 +145,10 @@ function oraculo(transactions: Transaction[]) {
     const total = round2(m.deb - m.est);
     const deficit = round2(Math.max(0, total - m.pag));
     const excedente = total > 0.005 && round2(Math.max(0, m.pag - total)) >= 1 ? round2(m.pag - total) : 0;
-    const aplicado = round2(Math.min(credito, deficit));
+    // Um excedente sem procedência só explica a distribuição de uma liquidação
+    // entre ciclos. Sem pagamento nenhum na competência não há o que distribuir,
+    // e a fatura fica em aberto pelo valor cheio.
+    const aplicado = m.pag > 0 ? round2(Math.min(credito, deficit)) : 0;
     aberto = round2(aberto + round2(deficit - aplicado));
     credito = round2(credito - aplicado + excedente);
   }

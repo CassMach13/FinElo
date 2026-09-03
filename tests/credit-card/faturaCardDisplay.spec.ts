@@ -109,15 +109,23 @@ describe('valor principal do card é o saldo em aberto, não o total bruto', () 
     expect(d.limiteDisponivel).toBe(round2(LIMITE - 250));
   });
 
-  it('crédito de mês anterior também abate o valor exibido', () => {
-    // Junho: fatura 300, pago 500 -> 200 de crédito. Julho: fatura 400 -> restam 200.
+  /**
+   * Um excedente SEM procedência não é crédito gastável — é diferença no livro 2.
+   * Enquanto ninguém provar a natureza dele, a fatura seguinte que não recebeu
+   * pagamento nenhum aparece pelo valor cheio, e o excedente fica visível em
+   * «A CONCILIAR». Classificá-lo como crédito econômico (uma decisão do usuário,
+   * um clique) o move para o livro 1, e aí ele abate normalmente.
+   */
+  it('excedente sem procedência NÃO abate o valor exibido sozinho', () => {
+    // Junho: fatura 300, pago 500 -> 200 sem natureza provada. Julho: fatura 400,
+    // nada pago -> a obrigação é a fatura inteira.
     const d = exibir([
       compra('2026-06-05', 300),
       pagamento('2026-06-25', 500),
       compra('2026-07-05', 400),
     ]);
 
-    expect(d.faturaAtual).toBe(200);
+    expect(d.faturaAtual).toBe(400);
   });
 
   it('estorno abate o valor exibido', () => {

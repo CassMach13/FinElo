@@ -15,6 +15,13 @@
  * resolução explícita. Uma diferença sem natureza provada nunca vira, sozinha,
  * nem dívida vencida nem crédito gastável.
  *
+ * Daí a invariante da FRONTEIRA, que vale enunciar sozinha: o suspense não é
+ * pagamento, não é crédito econômico, não é limite disponível e não abate dívida
+ * por si só. Havendo liquidação observada, ele pode explicar a DISTRIBUIÇÃO dela
+ * entre ciclos — o mesmo dinheiro contado com folga num mês e em falta no
+ * seguinte. Não havendo liquidação alguma, não existe nada a redistribuir, e a
+ * obrigação em aberto é o valor cheio.
+ *
  * O alcance da proveniência tem um limite que vale escrever: ela governa o
  * tratamento da INCERTEZA, não a existência econômica das transações. Compras,
  * tarifas e estornos importados são fatos econômicos como quaisquer outros e
@@ -336,9 +343,32 @@ export function computeTwoLedgerBalances(
         suspenseInCents = surplusCents;
       }
     } else if (economicDueCents > 0) {
-      // Falta pagar. A parte que uma diferença anterior explica é reconciliação,
-      // não dívida — as duas se cancelam dentro do livro 2. O resto é dívida real.
-      suspenseOutCents = Math.min(suspenseBalanceCents, economicDueCents);
+      /**
+       * Falta pagar — e aqui está a fronteira entre os dois livros.
+       *
+       * O suspense pode explicar a DISTRIBUIÇÃO de uma liquidação entre ciclos:
+       * a convenção faz o arquivo do mês N+1 quitar o mês N, então um pagamento
+       * atribuído com folga a um ciclo aparece em falta no seguinte, e os dois
+       * lados são o MESMO dinheiro visto de dois lugares. Compensar isso não
+       * atravessa livro nenhum: cancela uma diferença contra a outra dentro do
+       * livro 2.
+       *
+       * Mas isso pressupõe que exista liquidação a redistribuir. Sem NENHUM
+       * pagamento reconhecido, não há dinheiro que possa ter caído no ciclo
+       * errado — há apenas uma fatura inteira em aberto. Deixar o suspense
+       * abater aí seria o próprio ato que este módulo proíbe: uma diferença sem
+       * natureza provada virando crédito gastável, reduzindo a obrigação
+       * bancária real e o limite utilizado.
+       *
+       * A porta é CATEGÓRICA, não um threshold: pergunta se houve liquidação,
+       * nunca quanto. E lê a mesma liquidação que o livro 1 já reconhece —
+       * pagamentos observados e confirmação de valor —, sem inventar uma segunda
+       * fonte de verdade.
+       */
+      const houveLiquidacaoObservada = recognizedPaymentsCents > 0;
+      if (houveLiquidacaoObservada) {
+        suspenseOutCents = Math.min(suspenseBalanceCents, economicDueCents);
+      }
       economicOpenBalanceCents = economicDueCents - suspenseOutCents;
     }
 

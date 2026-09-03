@@ -90,7 +90,7 @@ describe('economic_credit — move valor para o livro 1 conservando', () => {
   it('sem a resolução o abatimento vem do livro 2, não do crédito', () => {
     const sem = computeTwoLedgerBalances([
       comExcedente('2026-01', 1000, 1100),
-      comExcedente('2026-02', 300, 0),
+      comExcedente('2026-02', 500, 200),
     ]);
     const com = resolvido();
 
@@ -260,7 +260,7 @@ describe('bank_adjustment encerra o valor e ele não compensa mais nada', () => 
   const serie = (resolucoes: ReconciliationResolutionInput[]) =>
     computeTwoLedgerBalances([
       comExcedente('2026-01', 1000, 1100, resolucoes),
-      comExcedente('2026-02', 100, 0),
+      comExcedente('2026-02', 300, 200),
     ]);
 
   it('A · com bank_adjustment, o déficit posterior de 100 aparece inteiro', () => {
@@ -538,11 +538,11 @@ describe('o limite só se move quando há efeito econômico', () => {
   it('declarar a diferença como não-dinheiro devolve o déficit posterior', () => {
     const sem = computeTwoLedgerBalances([
       comExcedente('2026-01', 1000, 1100),
-      comExcedente('2026-02', 300, 0),
+      comExcedente('2026-02', 400, 100),
     ]);
     const com = computeTwoLedgerBalances([
       comExcedente('2026-01', 1000, 1100, [{ kind: 'bank_adjustment', resolvedAmountCents: c(100) }]),
-      comExcedente('2026-02', 300, 0),
+      comExcedente('2026-02', 400, 100),
     ]);
 
     // Sem resolução, os 100 compensavam parte do déficit de 300.
