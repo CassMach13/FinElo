@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Transaction, ImportConfig, MappingRule } from '../types';
 import { parseOFX } from './parsers/ofxParser';
+import { extractInstallments } from '../domain/installments/installmentMarker';
 
 interface ParseResult {
   newTransactions: Omit<Transaction, 'ID_Transacao'>[];
@@ -101,38 +102,6 @@ const parseValue = (valueStr: string): number | null => {
   return isNaN(value) ? null : value;
 };
 
-// Helper to find and extract installment info like "1/12" from a string
-const extractInstallments = (description: string, transactionDate?: Date): { current?: number, total?: number, cleanedDescription: string } => {
-  const regex = /\s*\(?(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\)?\s*$/; // Matches (X/Y) or (X de Y) at the end of the string
-  const match = description.match(regex);
-
-  if (match) {
-    const current = parseInt(match[1], 10);
-    const total = parseInt(match[2], 10);
-
-    // Validação 1: Parcela atual não pode ser maior que o total, e ambos devem ser > 0.
-    if (current > total || current === 0 || total === 0) {
-      return { cleanedDescription: description };
-    }
-
-    // Validação 2: Se os números correspondem exatamente ao Dia/Mês da transação,
-    // é muito provável que seja a data repetida na descrição (ex: 01/04 em 01 de Abril), e não uma parcela.
-    if (transactionDate) {
-      const day = transactionDate.getDate();
-      const month = transactionDate.getMonth() + 1; // 0-indexed
-      if (current === day && total === month) {
-        return { cleanedDescription: description };
-      }
-    }
-
-    return {
-      current,
-      total,
-      cleanedDescription: description.replace(regex, '').trim()
-    };
-  }
-  return { cleanedDescription: description };
-}
 
 // Helper to normalize date for comparison, handling YYYY-MM-DD string as Local time
 const getNormalizedTime = (dateInput: string | Date): number => {
