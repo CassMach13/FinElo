@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import { Transaction, MappingRule } from '../../types';
 import { parseCreditCardFileTotals } from '../../utils/parseCreditCardFileTotals';
 import { parseOFX } from './ofxParser';
+import { extractInstallments as extrairMarcadorNaDescricao } from '../../domain/installments/installmentMarker';
 
 export interface NativeBankConfig {
   id: string;
@@ -23,6 +24,13 @@ export interface NativeBankConfig {
   descColIndices: number[];
   valueColIndex: number;
   installmentsColIndex?: number;
+  /**
+   * Ler a parcela do TEXTO da descrição quando o arquivo não traz coluna
+   * própria — "... - Parcela 2/6". Opt-in por emissor, e só depois de
+   * conferir o formato real dele: em conta corrente o mesmo `X/Y` no fim
+   * da descrição costuma ser data, não parcela.
+   */
+  installmentsFromDescription?: boolean;
   portadorColIndex?: number;
   invertValues: boolean;
   numberFormat?: 'US' | 'BR'; // BR: 1.234,56 | US: 1,234.56
@@ -301,6 +309,10 @@ export const NATIVE_BANK_CONFIGS: NativeBankConfig[] = [
     invertValues: true, // Values in CSV: Positive = Expense, Negative = Payment/Refund
     numberFormat: 'BR', // Export Nubank: "273,37", "24,90", "- 669,86"
     ignoreRowsContaining: [],
+    // Fatura do Nubank escreve a parcela no título: "... - Parcela 2/6".
+    // Conferido na base real: 29 descrições casam, todas parcelamento de
+    // verdade, nenhum falso positivo.
+    installmentsFromDescription: true,
     signatureStrings: ['date,title,amount'],
   },
   {
@@ -1060,7 +1072,27 @@ export function parseNativeBankCSV(
     }
 
     // Installments
-    const installInfo = extractInstallments(rawInstallments, cleanedDate);
+    let installInfo = extractInstallments(rawInstallments, cleanedDate);
+
+    // O arquivo não trouxe coluna de parcela? Alguns emissores escrevem a
+    // parcela no próprio texto ("... - Parcela 2/6"). Só para quem declarou o
+    // opt-in, e NUNCA por cima do que a coluna explícita já informou: campo do
+    // arquivo vence texto. Se o texto não reconhecer, fica undefined como hoje
+    // — em dúvida não se inventa parcela.
+    if (
+      bankConfig.installmentsFromDescription &&
+      installInfo.current === undefined &&
+      rawDesc
+    ) {
+      const doTexto = extrairMarcadorNaDescricao(rawDesc, cleanedDate);
+      if (doTexto.current !== undefined && doTexto.total !== undefined) {
+        installInfo = {
+          current: doTexto.current,
+          total: doTexto.total,
+          cleanedDesc: installInfo.cleanedDesc,
+        };
+      }
+    }
 
     // Value direction
     let finalValue = cleanedValue;
