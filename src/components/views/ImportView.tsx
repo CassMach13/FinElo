@@ -23,6 +23,15 @@ import {
   resolveAutomaticCardReferenceMonth,
 } from '../../utils/cardImportReference';
 import { buildFileImportFingerprint } from '../../utils/importBatchIntegrity';
+import {
+  aplicarEscolhasDeParcela,
+  construirSugestoesDeParcela,
+  type ParcelaImportada,
+  type SugestaoDeParcela,
+} from '../../domain/installments/installmentSuggestions';
+import InstallmentSuggestionModal, {
+  type EscolhasDeParcela,
+} from '../modals/InstallmentSuggestionModal';
 
 // --- BankCard: reusable card with favorite star toggle ---
 interface BankCardProps {
@@ -107,6 +116,42 @@ const ImportView: React.FC = () => {
   const [paymentDateModalOpen, setPaymentDateModalOpen] = useState(false);
   const [saveConfigModalOpen, setSaveConfigModalOpen] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Sugestão de parcela irmã: fica pendente enquanto o usuário decide.
+  // `resolver` devolve as escolhas para `processFile`, ou null se ele cancelar
+  // — cancelar não importa nada.
+  const [pendingInstallmentSuggestions, setPendingInstallmentSuggestions] = useState<{
+    sugestoes: SugestaoDeParcela[];
+    resolver: (escolhas: EscolhasDeParcela | null) => void;
+  } | null>(null);
+
+  const pedirEscolhaDeParcelas = (sugestoes: SugestaoDeParcela[]) =>
+    new Promise<EscolhasDeParcela | null>((resolve) => {
+      setPendingInstallmentSuggestions({ sugestoes, resolver: resolve });
+    });
+
+  /**
+   * Última parada antes de gravar: alguma parcela do arquivo continua uma
+   * compra que o usuário já classificou?
+   *
+   * Sem candidato, devolve o lote intacto e ninguém vê nada. Com candidatos,
+   * quem decide é o usuário — e só descrição e categoria mudam.
+   * Devolve `null` se ele cancelar, e aí nada é gravado.
+   */
+  const revisarParcelasIrmas = async <T extends ParcelaImportada>(
+    novas: T[],
+    contaDestino: string | null
+  ): Promise<T[] | null> => {
+    const sugestoes = construirSugestoesDeParcela(novas, contaDestino, transactions);
+    if (sugestoes.length === 0) return novas;
+
+    setIsLoading(false);
+    const escolhas = await pedirEscolhaDeParcelas(sugestoes);
+    setIsLoading(true);
+    if (!escolhas) return null;
+
+    return aplicarEscolhasDeParcela(novas, sugestoes, escolhas);
+  };
 
   // Step management: 'bank-select' → choose bank or go manual; 'upload' → manual file pick; 'mapping' → map columns
   const [step, setStep] = useState<'bank-select' | 'upload' | 'mapping'>('bank-select');
@@ -543,6 +588,18 @@ const ImportView: React.FC = () => {
           });
           return;
         }
+        const transacoesParaImportar = await revisarParcelasIrmas(
+          result.newTransactions,
+          selectedNativeAccountId || null
+        );
+        if (!transacoesParaImportar) {
+          setNotification({
+            type: 'error',
+            message: 'Importação cancelada. Nenhum lançamento foi gravado.',
+          });
+          return;
+        }
+
         const fakeConfig = {
           id: bankCfg.id,
           Nome_Fonte: bankCfg.name,
@@ -552,7 +609,7 @@ const ImportView: React.FC = () => {
           ID_Conta_Associada: selectedNativeAccountId || null
         };
         const importResult = await addMultipleTransactions(
-          result.newTransactions,
+          transacoesParaImportar,
           fakeConfig as any,
           selectedFile.name,
           result.ignoredItems,
@@ -745,8 +802,20 @@ const ImportView: React.FC = () => {
           Tem_Cabecalho: mapping.hasHeader,
           Linhas_Ignorar_Inicio: mapping.skipLines
         };
-        const importResult = await addMultipleTransactions(
+        const transacoesParaImportar = await revisarParcelasIrmas(
           result.newTransactions,
+          (effectiveConfig as ImportConfig).ID_Conta_Associada || null
+        );
+        if (!transacoesParaImportar) {
+          setNotification({
+            type: 'error',
+            message: 'Importação cancelada. Nenhum lançamento foi gravado.',
+          });
+          return;
+        }
+
+        const importResult = await addMultipleTransactions(
+          transacoesParaImportar,
           effectiveConfig as any,
           file!.name,
           result.ignoredItems,
@@ -1604,6 +1673,24 @@ const ImportView: React.FC = () => {
                 );
                 await processFile(date, cardCycle);
               }
+            }}
+          />
+        )
+      }
+
+      {
+        pendingInstallmentSuggestions && (
+          <InstallmentSuggestionModal
+            sugestoes={pendingInstallmentSuggestions.sugestoes}
+            onConfirm={(escolhas) => {
+              const { resolver } = pendingInstallmentSuggestions;
+              setPendingInstallmentSuggestions(null);
+              resolver(escolhas);
+            }}
+            onCancel={() => {
+              const { resolver } = pendingInstallmentSuggestions;
+              setPendingInstallmentSuggestions(null);
+              resolver(null);
             }}
           />
         )
