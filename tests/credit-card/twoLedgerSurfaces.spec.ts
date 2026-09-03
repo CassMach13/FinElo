@@ -113,9 +113,9 @@ describe('limite', () => {
   });
 
   it('suspense também não libera limite que a dívida ocupa', () => {
-    // Excedente de 500 em julho, dívida de 300 em setembro sem relação: o
-    // suspense compensa até onde alcança, e o resto continua consumindo limite.
-    const p = projetar([comp('2026-07', 400, 900), comp('2026-09', 800, 0)]);
+    // Excedente de 500 em julho; setembro cobra 900 e recebe 100, restando 800.
+    // O suspense compensa até onde alcança, e o resto continua consumindo limite.
+    const p = projetar([comp('2026-07', 400, 900), comp('2026-09', 900, 100)]);
 
     expect(p.competences[1].economicOpenBalanceCents).toBe(c(300));
     expect(p.economicUsedCents).toBe(c(300));
@@ -520,38 +520,46 @@ describe('as duas portas do carry econômico', () => {
   });
 
   /**
-   * Sem procedência o saldo exibido acaba no mesmo lugar — porque a diferença do
-   * livro 2 compensa o déficit seguinte, que é comportamento aprovado. O que muda
-   * é POR QUAL LIVRO isso aconteceu, e é essa distinção que precisa ser visível:
-   * com procedência há crédito econômico aplicado e nada a conciliar; sem ela há
-   * consumo de suspense e conciliação pendente.
+   * A segunda competência da série NÃO recebeu pagamento nenhum. Sem liquidação
+   * observada não há distribuição entre ciclos que o suspense possa explicar —
+   * então ele não abate nada, e a fatura aparece pelo valor cheio.
+   *
+   * Esta era a porta dos fundos do carry: a procedência era exigida para o
+   * excedente virar crédito, e o mesmo excedente sem procedência pagava a fatura
+   * seguinte assim mesmo. Enquanto ela existiu, `carryIsSupported` era enfeite.
    */
-  it('sem nenhuma das duas portas, o abatimento vem do livro 2, não do crédito', () => {
+  it('sem nenhuma das duas portas, e sem pagamento, o suspense não abate nada', () => {
     const r = serie({});
 
     expect(r.economicCarryCents).toBe(0);
     expect(r.competences[1].priorCreditAppliedCents).toBe(0);
-    expect(r.competences[1].suspenseOutCents).toBe(c(500));
-    expect(r.competences[1].reconciliationStatus).toBe('unreconciled');
+    expect(r.competences[1].suspenseOutCents).toBe(0);
+    expect(r.competences[1].economicOpenBalanceCents).toBe(c(800));
+    expect(r.suspenseBalanceCents).toBe(c(500));
+    expect(r.competences[1].reconciliationStatus).toBe('reconciled');
   });
 
-  it('o saldo coincide, mas a classificação separa os dois caminhos', () => {
+  it('o saldo NÃO coincide: a procedência decide o número, não só o rótulo', () => {
     const comProva = serie(comAutoridade);
     const semProva = serie({});
 
-    // Mesmo número na tela...
-    expect(semProva.competences[1].economicOpenBalanceCents).toBe(
-      comProva.competences[1].economicOpenBalanceCents
-    );
-
-    // ...e origens completamente diferentes.
+    // Com prova, o excedente é crédito e abate: 800 − 500.
     expect(comProva.competences[1].priorCreditAppliedCents).toBe(c(500));
     expect(comProva.competences[1].suspenseOutCents).toBe(0);
-    expect(comProva.competences[1].reconciliationStatus).toBe('reconciled');
+    expect(comProva.competences[1].economicOpenBalanceCents).toBe(c(300));
+    expect(comProva.suspenseBalanceCents).toBe(0);
 
+    // Sem prova, o excedente fica no livro 2 e a dívida é a fatura inteira.
     expect(semProva.competences[1].priorCreditAppliedCents).toBe(0);
-    expect(semProva.competences[1].suspenseOutCents).toBe(c(500));
-    expect(semProva.competences[1].reconciliationStatus).toBe('unreconciled');
+    expect(semProva.competences[1].suspenseOutCents).toBe(0);
+    expect(semProva.competences[1].economicOpenBalanceCents).toBe(c(800));
+    expect(semProva.suspenseBalanceCents).toBe(c(500));
+
+    // A diferença entre os dois é exatamente o excedente sem natureza provada.
+    expect(
+      semProva.competences[1].economicOpenBalanceCents -
+        comProva.competences[1].economicOpenBalanceCents
+    ).toBe(semProva.suspenseBalanceCents);
   });
 
   it('as duas portas produzem exatamente o mesmo resultado econômico', () => {

@@ -196,11 +196,12 @@ describe('livro econômico', () => {
 
   it('crédito econômico abate antes de qualquer suspense', () => {
     // 2026-01 tem autoridade e gera carry de 100. 2026-02 não tem autoridade e
-    // gera suspense de 50. 2026-03 deve 300: o carry provado entra primeiro.
+    // gera suspense de 50. 2026-03 cobra 400 e recebe 100: o carry provado entra
+    // primeiro e o suspense só alcança o que sobra.
     const r = computeTwoLedgerBalances([
       comAutoridade('2026-01', 400, 400, 500),
       manual('2026-02', 200, 250),
-      manual('2026-03', 300, 0),
+      manual('2026-03', 400, 100),
     ]);
     const marco = r.competences[2];
 

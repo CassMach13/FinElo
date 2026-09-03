@@ -98,16 +98,36 @@ describe('oráculo: limite utilizado e disponível', () => {
     expect(d.limiteUsadoPct).toBe(0);
   });
 
-  it('pagamento a maior não pode reduzir o limite disponível abaixo do devido', () => {
-    // Junho: fatura 1000, pagos 1500 (500 a mais). Julho: fatura 800.
+  /**
+   * Um excedente SEM procedência não é crédito gastável — é diferença no livro 2.
+   * Enquanto ninguém provar a natureza dele, a fatura seguinte que não recebeu
+   * pagamento nenhum aparece pelo valor cheio, e o excedente fica visível em
+   * «A CONCILIAR». Classificá-lo como crédito econômico (uma decisão do usuário,
+   * um clique) o move para o livro 1, e aí ele abate normalmente.
+   */
+  it('pagamento a maior sem procedência não devolve limite sozinho', () => {
+    // Junho: fatura 1000, pagos 1500 (500 a mais). Julho: fatura 800, nada pago.
     const d = display([
       compra('2026-06-05', 1000),
       pagamento('2026-06-25', 1500),
       compra('2026-07-05', 800),
     ]);
 
-    // Oráculo: gastou 1800, pagou 1500, deve 300 -> 9700 disponíveis.
-    expect(d.limiteDisponivel).toBe(round2(LIMITE - 300));
+    // A fatura de julho ocupa limite inteira; os 500 ficam no livro 2.
+    expect(d.limiteDisponivel).toBe(round2(LIMITE - 800));
+  });
+
+  it('o mesmo excedente, uma vez pago julho em parte, explica a distribuição', () => {
+    // Julho recebe 300: há liquidação, e o excedente de junho explica o resto.
+    const d = display([
+      compra('2026-06-05', 1000),
+      pagamento('2026-06-25', 1500),
+      compra('2026-07-05', 800),
+      pagamento('2026-07-25', 300),
+    ]);
+
+    // 800 − 300 pagos − 500 explicados pelo livro 2 = nada em aberto.
+    expect(d.limiteDisponivel).toBe(LIMITE);
   });
 
   it('limite disponível nunca fica negativo, mesmo estourando o limite', () => {
