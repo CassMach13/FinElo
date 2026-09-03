@@ -133,6 +133,28 @@ export function competenciasComDiferencaAcionavel(
   return new Map(fila.filter((f) => f.resta > 0).map((f) => [f.ref, f.resta]));
 }
 
+/**
+ * Quanto ESTA competência ainda tem de diferença que precisa de decisão.
+ *
+ * A pergunta que o modal de conciliação faz. Ele oferecia o delta BRUTO da
+ * competência — e na conta piloto isso convidava a classificar R$ 77,80 quando
+ * a cadeia já havia devolvido tudo menos R$ 0,94. Resolver o bruto move dinheiro
+ * que não existe mais.
+ *
+ * Não há regra nova aqui: é a mesma fila que decide o selo «A CONCILIAR» e o
+ * diagnóstico, consultada pela competência. Ter uma segunda conta de centavos
+ * foi exatamente o que pôs três telas dizendo três números.
+ *
+ * Zero significa «nada a resolver», e é resposta legítima: uma competência que
+ * apenas CONSUMIU diferença anterior não tem o que classificar.
+ */
+export function valorAcionavelDaCompetencia(
+  competences: ReadonlyArray<DiferencaPorCompetencia>,
+  referenceMonth: string
+): number {
+  return competenciasComDiferencaAcionavel(competences).get(referenceMonth) ?? 0;
+}
+
 export const centsToCurrency = (cents: number): number => Math.round(cents) / 100;
 
 function toLedgerInput(
