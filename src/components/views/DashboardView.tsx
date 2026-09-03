@@ -888,18 +888,31 @@ const DashboardView: React.FC = () => {
                 </p>
               )}
               <div className="flex flex-wrap gap-4 mb-4 text-[10px] text-gray-400 border-b border-slate-700/50 pb-3">
-                <div className="flex items-center gap-1.5" title="Gastos dentro do ritmo esperado para a data atual.">
-                  <div className="w-2 h-2 rounded-full bg-accent"></div>
-                  <span>No Foco</span>
-                </div>
-                <div className="flex items-center gap-1.5" title="Atenção: Ritmo de gastos ligeiramente acima do ideal (5% a 20%).">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                  <span>Atenção</span>
-                </div>
-                <div className="flex items-center gap-1.5" title="Crítico: Ritmo de gastos muito alto (>20%) ou limite já estourado.">
-                  <div className="w-2 h-2 rounded-full bg-danger"></div>
-                  <span>Risco / Estouro</span>
-                </div>
+                {[
+                  {
+                    color: 'bg-accent',
+                    label: 'No Foco',
+                    explicacao: 'Ritmo de gastos até 5% acima do esperado para a data atual.',
+                  },
+                  {
+                    color: 'bg-yellow-500',
+                    label: 'Atenção',
+                    explicacao: 'Ritmo de gastos ligeiramente acima do ideal — de 5% a 20% acima do esperado para a data atual.',
+                  },
+                  {
+                    color: 'bg-danger',
+                    label: 'Risco / Estouro',
+                    explicacao: 'Ritmo de gastos muito alto — mais de 20% acima do esperado para a data atual — ou limite já estourado.',
+                  },
+                ].map(({ color, label, explicacao }) => (
+                  <div key={label} className="group/legend relative flex items-center gap-1.5 cursor-help">
+                    <div className={`w-2 h-2 rounded-full ${color}`}></div>
+                    <span>{label}</span>
+                    <div className="absolute left-0 top-full mt-2 hidden w-56 p-3 bg-slate-950/98 backdrop-blur-xl text-[10px] leading-relaxed text-slate-300 normal-case rounded-xl shadow-2xl border border-white/10 group-hover/legend:block z-[9999] pointer-events-none">
+                      {explicacao}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {(() => {
