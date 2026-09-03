@@ -36,8 +36,12 @@ export interface CompetenceProjection {
   // ---- livro 1 ----
   statementTotalCents: number;
   recognizedPaymentsCents: number;
+  /** Crédito PROVADO de competências anteriores aplicado aqui. */
+  priorCreditAppliedCents: number;
   economicOpenBalanceCents: number;
   economicStatus: EconomicStatus;
+  /** Crédito econômico disponível DEPOIS desta competência. */
+  economicCarryAfterCents: number;
 
   // ---- livro 2 ----
   reconciliationStatus: ReconciliationStatus;
@@ -204,8 +208,10 @@ export function projectCardTwoLedger(
       dueDate: origem?.dueDate ?? null,
       statementTotalCents: c.statementTotalCents,
       recognizedPaymentsCents: c.recognizedPaymentsCents,
+      priorCreditAppliedCents: c.priorCreditAppliedCents,
       economicOpenBalanceCents: c.economicOpenBalanceCents,
       economicStatus: c.economicStatus,
+      economicCarryAfterCents: c.economicCarryCents,
       reconciliationStatus: c.reconciliationStatus,
       unresolvedReconciliationDeltaCents: c.unresolvedReconciliationDeltaCents,
       reconciliationAdjustmentCents: c.reconciliationAdjustmentCents,

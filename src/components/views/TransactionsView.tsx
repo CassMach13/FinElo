@@ -74,6 +74,7 @@ import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/pa
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import SmartTransactionFiltersPanel from '../transactions/SmartTransactionFiltersPanel';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
+import { withCanonicalEconomicBalances } from '../transactions/competenceHistoryEconomicSource';
 import FamilyOwnerBadge from '../ui/FamilyOwnerBadge';
 import FamilyOwnerAuditPanel from '../ui/FamilyOwnerAuditPanel';
 import TransactionOwnerGroupHeader from '../ui/TransactionOwnerGroupHeader';
@@ -344,13 +345,40 @@ const TransactionsView: React.FC = () => {
     useState<CompetenceHistoryCard | null>(null);
   const [selectedCompetenceRef, setSelectedCompetenceRef] = useState<string | null>(null);
 
+  /**
+   * Resolucoes ativas por conta e competencia. O card projeta com elas, senao
+   * ignora o que o usuario resolveu e o selo A CONCILIAR nunca sai da tela.
+   *
+   * Declaradas aqui, acima do historico, porque agora as DUAS superficies
+   * projetam com o mesmo estado — era so o card quem as conhecia, e por isso
+   * resolver uma diferenca movia um numero e nao o outro.
+   */
+  const [resolucoesPorConta, setResolucoesPorConta] = useState<
+    Record<string, Record<string, Array<{ kind: string; resolvedAmountCents?: number; authoritativeStatementTotalCents?: number }>>>
+  >({});
+
+  /**
+   * A porta do piloto.
+   *
+   * O frontend do fluxo de reconciliacao foi publicado antes do backend: o
+   * merge em main dispara deploy de producao, e o banco ainda nao tem as
+   * tabelas nem a Edge Function. Enquanto isso, NENHUMA superficie do fluxo
+   * pode aparecer para quem nao tem a flag — nem o selo, nem o acesso, nem a
+   * consulta que hoje erra no console porque a tabela nao existe.
+   *
+   * Reutiliza a flag que ja existe. A projecao financeira pura continua rodando
+   * para todos: ela e o que mantem os numeros corretos, e nao depende de nada
+   * que falte em producao.
+   */
+  const reconciliacaoHabilitada = isCreditCardEngineEnabled(user);
+
   const loadImportHistoryCompetenceCards = useCallback(
     async (account: Account) => {
       const ownerUserId = account.user_id;
       const userPaymentConfirmations = ownerUserId
         ? await listCompetencePaymentConfirmations(ownerUserId, account.id)
         : [];
-      return creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
         accountId: account.id,
         account,
         accounts,
@@ -362,8 +390,30 @@ const TransactionsView: React.FC = () => {
           refundKeywords: currentCreditKeywords,
         },
       });
+
+      /**
+       * O saldo exibido vem da projecao economica canonica — a mesma que o card
+       * usa. Sem isto o historico mostraria o `openBalance` do carry legado, e
+       * as duas telas diriam obrigacoes diferentes para a mesma fatura.
+       *
+       * O TOTAL da fatura nao e tocado: continua sendo o statement.
+       */
+      return withCanonicalEconomicBalances(cards, {
+        resolutionsByMonth: reconciliacaoHabilitada
+          ? (resolucoesPorConta[account.id] as never)
+          : undefined,
+      });
     },
-    [accounts, transactions, importLogs, competenceConfirmRevision, currentPaymentKeywords, currentCreditKeywords]
+    [
+      accounts,
+      transactions,
+      importLogs,
+      competenceConfirmRevision,
+      currentPaymentKeywords,
+      currentCreditKeywords,
+      reconciliacaoHabilitada,
+      resolucoesPorConta,
+    ]
   );
 
   const openMotorInvoiceHistoryModal = useCallback((account: Account) => {
@@ -1920,29 +1970,6 @@ const TransactionsView: React.FC = () => {
   const [diagnosticoAberto, setDiagnosticoAberto] = useState<
     { accountId: string; diagnosticos: CardDiagnostic[] } | null
   >(null);
-  /**
-   * Resolucoes ativas por conta e competencia. O card projeta com elas, senao
-   * ignora o que o usuario resolveu e o selo A CONCILIAR nunca sai da tela.
-   */
-  const [resolucoesPorConta, setResolucoesPorConta] = useState<
-    Record<string, Record<string, Array<{ kind: string; resolvedAmountCents?: number; authoritativeStatementTotalCents?: number }>>>
-  >({});
-
-  /**
-   * A porta do piloto.
-   *
-   * O frontend do fluxo de reconciliacao foi publicado antes do backend: o
-   * merge em main dispara deploy de producao, e o banco ainda nao tem as
-   * tabelas nem a Edge Function. Enquanto isso, NENHUMA superficie do fluxo
-   * pode aparecer para quem nao tem a flag — nem o selo, nem o acesso, nem a
-   * consulta que hoje erra no console porque a tabela nao existe.
-   *
-   * Reutiliza a flag que ja existe. A projecao financeira pura continua rodando
-   * para todos: ela e o que mantem os numeros corretos, e nao depende de nada
-   * que falte em producao.
-   */
-  const reconciliacaoHabilitada = isCreditCardEngineEnabled(user);
-
   // Recarrega quando o motor do cartao e invalidado — inclusive apos resolver
   // ou desfazer, que e o que faz o selo sair (ou voltar) na tela.
   useEffect(() => {
