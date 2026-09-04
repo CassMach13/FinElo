@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import Card from '../ui/Card';
 import { AdminCrmUser } from '../../types';
+import { ultimaAtividadeExibida } from '../../domain/activity/userActivityPing';
 
 type SortKey = keyof AdminCrmUser;
 
@@ -10,7 +11,7 @@ const AdminDashboard: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({
-        key: 'last_sign_in_at',
+        key: 'last_activity_at',
         direction: 'asc' // O default é asc para os mais antigas vir primeiro
     });
 
@@ -47,7 +48,7 @@ const AdminDashboard: React.FC = () => {
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
 
-        if (sortConfig.key === 'last_sign_in_at' || sortConfig.key === 'created_at') {
+        if (sortConfig.key === 'last_sign_in_at' || sortConfig.key === 'last_activity_at' || sortConfig.key === 'created_at') {
             // Se for nulo conta como 0 (o começo dos tempos), assim eles ficam topo do ASC (mais tempo sem acessar).
             const aDate = aValue ? new Date(aValue as string).getTime() : 0;
             const bDate = bValue ? new Date(bValue as string).getTime() : 0;
@@ -122,8 +123,11 @@ const AdminDashboard: React.FC = () => {
                                 <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('created_at')}>
                                     <div className="flex items-center">Data de Cadastro <SortIcon columnKey="created_at"/></div>
                                 </th>
+                                <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('last_activity_at')}>
+                                    <div className="flex items-center text-cyan-500 font-bold">Última Atividade <SortIcon columnKey="last_activity_at"/></div>
+                                </th>
                                 <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('last_sign_in_at')}>
-                                    <div className="flex items-center text-cyan-500 font-bold">Último Acesso <SortIcon columnKey="last_sign_in_at"/></div>
+                                    <div className="flex items-center">Último Login <SortIcon columnKey="last_sign_in_at"/></div>
                                 </th>
                             </tr>
                         </thead>
@@ -196,23 +200,28 @@ const AdminDashboard: React.FC = () => {
                                             {new Date(user.created_at).toLocaleDateString('pt-BR')}
                                         </td>
                                         <td className="px-6 py-4">
-                                            {user.last_sign_in_at ? (
+                                            {ultimaAtividadeExibida(user) ? (
                                                 <span className={`px-2 py-0.5 rounded-full text-xs border ${
-                                                    (new Date().getTime() - new Date(user.last_sign_in_at).getTime()) < 3 * 24 * 60 * 60 * 1000 
-                                                        ? 'bg-green-500/10 border-green-500/30 text-green-400' 
+                                                    (new Date().getTime() - new Date(ultimaAtividadeExibida(user)!).getTime()) < 3 * 24 * 60 * 60 * 1000
+                                                        ? 'bg-green-500/10 border-green-500/30 text-green-400'
                                                         : 'bg-slate-800 border-slate-700 text-gray-500'
                                                 }`}>
-                                                    {new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit' })}
+                                                    {new Date(ultimaAtividadeExibida(user)!).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit' })}
                                                 </span>
                                             ) : (
                                                 <span className="text-gray-600 italic">Nunca acessou</span>
                                             )}
                                         </td>
+                                        <td className="px-6 py-4 text-gray-500">
+                                            {user.last_sign_in_at
+                                                ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                                                : <span className="italic">nunca</span>}
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                                         Nenhum usuário encontrado na busca.
                                     </td>
                                 </tr>

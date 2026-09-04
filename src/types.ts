@@ -394,6 +394,8 @@ export interface AdminCrmUser {
   full_name: string | null;
   created_at: string;
   last_sign_in_at: string | null;
+  /** Última atividade observada no app. Cai em `last_sign_in_at` para quem ainda não registrou nenhuma. */
+  last_activity_at: string | null;
   plan_type: string | null;
   tier: string | null;
   plan_status: string | null;
