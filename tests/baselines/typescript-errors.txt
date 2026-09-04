@@ -11,6 +11,4 @@ src/services/creditCardDirectedPayment.ts TS2741: Property 'Descricao_Original' 
 src/services/creditCardManualMotorSync.ts TS2305: Module '"../types"' has no exported member 'User'.
 src/services/creditCardRebuildFromImportHistoryService.ts TS2339: Property 'Card_Reference_Label' does not exist on type 'unknown'.
 src/services/creditCardRebuildFromImportHistoryService.ts TS2339: Property 'Card_Reference_Label' does not exist on type 'unknown'.
-src/services/parsers/nativeBankParsers.ts TS2304: Cannot find name 'installInfo'.
-src/services/parsers/nativeBankParsers.ts TS2304: Cannot find name 'installInfo'.
 src/services/parserService.ts TS2367: This comparison appears to be unintentional because the types '"Conta"' and '"Cartão de Crédito"' have no overlap.
