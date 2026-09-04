@@ -942,6 +942,22 @@ export function parseNativeBankCSV(
         }
         continue;
       }
+
+      // Parcelamento: mesma leitura que todo emissor faz — a coluna própria,
+      // quando a config declara uma. O Bradesco não declara, então isto rende
+      // "sem informação de parcelamento", que é o resultado correto: o arquivo
+      // não informa, e nada é inferido daqui.
+      //
+      // Esta linha existia e foi apagada sem querer em 2867e00, junto com a
+      // guarda acima, deixando `installInfo` sem declaração nenhuma — o que
+      // derrubava a importação com ReferenceError na primeira linha válida
+      // (issue #31). Restaurada SEM a leitura por texto do Histórico: essa
+      // leitura não está provada para este emissor.
+      const rawInstallments = bankConfig.installmentsColIndex !== undefined
+        ? (row[bankConfig.installmentsColIndex] || '').trim()
+        : '';
+      const installInfo = extractInstallments(rawInstallments, cleanedDate);
+
       const finalValue = bankConfig.invertValues ? -cleanedValue : cleanedValue;
       const finalType: 'Renda' | 'Despesa' = finalValue >= 0 ? 'Renda' : 'Despesa';
 
