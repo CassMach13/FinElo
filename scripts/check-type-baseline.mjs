@@ -2,6 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import {
+  CODIGOS_PROIBIDOS,
+  avaliarBaseline,
+  reprovado,
+} from './typeBaselinePolicy.mjs';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, '..');
@@ -35,40 +40,33 @@ const expectedDiagnostics = readFileSync(baselinePath, 'utf8')
   .filter(Boolean)
   .sort();
 
-const currentSet = new Map();
-const expectedSet = new Map();
+const veredito = avaliarBaseline(currentDiagnostics, expectedDiagnostics);
+const { added, removed, forbidden } = veredito;
 
-for (const diagnostic of currentDiagnostics) {
-  currentSet.set(diagnostic, (currentSet.get(diagnostic) || 0) + 1);
-}
-for (const diagnostic of expectedDiagnostics) {
-  expectedSet.set(diagnostic, (expectedSet.get(diagnostic) || 0) + 1);
-}
-
-const added = [];
-const removed = [];
-const allDiagnostics = new Set([...currentSet.keys(), ...expectedSet.keys()]);
-
-for (const diagnostic of allDiagnostics) {
-  const currentCount = currentSet.get(diagnostic) || 0;
-  const expectedCount = expectedSet.get(diagnostic) || 0;
-
-  for (let index = expectedCount; index < currentCount; index += 1) {
-    added.push(diagnostic);
-  }
-  for (let index = currentCount; index < expectedCount; index += 1) {
-    removed.push(diagnostic);
-  }
-}
-
-if (added.length === 0 && removed.length === 0) {
+if (!reprovado(veredito)) {
   console.log(
     `Baseline TypeScript preservado: ${currentDiagnostics.length} diagnóstico(s) conhecido(s), nenhum novo.`
   );
   process.exit(0);
 }
 
-console.error('O conjunto de diagnósticos TypeScript mudou.');
+if (forbidden.length > 0) {
+  console.error(
+    `Diagnóstico de símbolo inexistente (${CODIGOS_PROIBIDOS.join(', ')}) — nunca aceito, nem registrado no baseline:`
+  );
+  for (const diagnostic of [...forbidden].sort()) {
+    console.error(`! ${diagnostic}`);
+  }
+  console.error('');
+  console.error(
+    'Isto não é dívida de tipagem: o símbolo não existe, e a linha lança ReferenceError quando executada. Corrija o código — não registre no baseline.'
+  );
+}
+
+if (added.length > 0 || removed.length > 0) {
+  if (forbidden.length > 0) console.error('');
+  console.error('O conjunto de diagnósticos TypeScript mudou.');
+}
 
 if (added.length > 0) {
   console.error('\nNovos diagnósticos:');
