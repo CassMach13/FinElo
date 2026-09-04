@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { supabase } from './supabaseClient';
 import { classifyAuthInit, shouldDeferStartupAuthEvent } from './utils/authSessionOutcome';
 import { useAppStore } from './hooks/useAppStore';
+import { registrarAtividadeDoUsuario } from './services/userActivityService';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -104,6 +105,13 @@ const AppContent: React.FC = () => {
       if (_event === 'SIGNED_IN') {
         stableFetchAllData();
       }
+
+      // Entrada no app autenticado — inclusive quando a sessão e apenas
+      // restaurada do storage, que e o caso de quem nunca desloga e por isso
+      // nunca aparecia como ativo no CRM.
+      if (session?.user) {
+        registrarAtividadeDoUsuario();
+      }
     });
 
     return () => {
@@ -137,6 +145,8 @@ const AppContent: React.FC = () => {
       if (document.visibilityState === 'visible' && user) {
         console.log('%c[Sync] %cApp visível, recarregando dados para garantir sincronia...', 'color: yellow; font-weight: bold;', 'color: cyan;');
         stableFetchAllData();
+        // Aba voltou à frente com usuário logado: evidência de uso real.
+        registrarAtividadeDoUsuario();
       }
     };
 
