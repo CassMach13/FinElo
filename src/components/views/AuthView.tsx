@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient';
 import Button from '../ui/Button';
 import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
 import Input from '../ui/Input';
+import { metadadosDeCadastro, validarNomeDeCadastro } from '../../domain/auth/signupProfile';
 
 // Combina a declaração da função com a exportação padrão.
 export default function AuthView(): React.ReactElement {
@@ -13,6 +14,7 @@ export default function AuthView(): React.ReactElement {
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(searchParams.get('view') === 'signup');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [nome, setNome] = useState('');
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -53,6 +55,13 @@ export default function AuthView(): React.ReactElement {
     event.preventDefault();
     setError(null); setMessage(null); setLoading(true);
 
+    const erroNoNome = validarNomeDeCadastro(nome);
+    if (erroNoNome) {
+      setError(erroNoNome);
+      setLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('As senhas não conferem.');
       setLoading(false);
@@ -64,6 +73,8 @@ export default function AuthView(): React.ReactElement {
       password,
       options: {
         emailRedirectTo: getRedirectUrl('/app'),
+        // Mesmo endereço que o login do Google já preenche e que o CRM já lê.
+        data: metadadosDeCadastro(nome),
       },
     });
 
@@ -244,6 +255,19 @@ export default function AuthView(): React.ReactElement {
                   </div>
 
                   <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-3">
+                    {isSignUp && (
+                      <Input
+                        label="Nome"
+                        id="nome"
+                        type="text"
+                        autoComplete="name"
+                        placeholder="Como podemos te chamar?"
+                        value={nome}
+                        onChange={(e) => setNome(e.target.value)}
+                        disabled={loading}
+                        className="py-2.5 text-sm"
+                      />
+                    )}
                     <Input
                       label="Email"
                       id="email"
