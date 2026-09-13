@@ -1,5 +1,6 @@
 import * as xlsx from 'xlsx';
 import { Investment } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 export interface XpReconciliation {
     /** Official total from the broker's report header (includes cash + all positions) */
@@ -17,6 +18,14 @@ export interface XpParseResult {
     reconciliation: XpReconciliation | null;
 }
 
+/**
+ * Labels XP uses for the position/balance column, normalized (lowercase, no accents).
+ * Header detection and column mapping MUST share this list: from the Aug/2026 export on,
+ * XP renamed "Posição" to "Saldo" and "Posição a mercado" to "Saldo a mercado"; the column
+ * map already knew "saldo", but the header check did not, so no section was ever read.
+ */
+const VALUE_COLUMN_LABELS = ['posicao', 'posicao a mercado', 'saldo', 'saldo a mercado', 'reserva bruta'];
+
 export const xpInvestmentParser = {
     /**
      * Parses an XP Investimentos Excel file (.xlsx) and extracts the investment positions.
@@ -25,20 +34,22 @@ export const xpInvestmentParser = {
      * @param fileBuffer The raw ArrayBuffer of the uploaded Excel file
      * @param referenceMonth The user-selected month these balances belong to (e.g. '2026-02-01')
      * @returns Array of partial Investments valid for database insertion
+     * @throws when a section's positions do not add up to the subtotal XP prints on its title row
      * 
      * === SPREADSHEET STRUCTURE MAP (based on actual dump) ===
      * Row 0: account/date metadata
      * Row 2: "Vinicius..., este é o seu patrimônio", "Total investido histórico", ...
      * Row 3: "R$ 565.357,57", ... (summary totals - SKIP)
-     * Row 5: ["Ações", null, ..., "R$ 19.425,33"]  ← SECTION TITLE (col[1] is null)
-     * Row 7: ["3,4% | Alternativos", "Posição", "% Alocação", ...]  ← COLUMN HEADER ROW
+     * Row 5: ["Ações", null, ..., "R$ 19.425,33"]  ← SECTION TITLE (col[1] is null, last cell = subtotal)
+     * Row 7: ["3,4% | Alternativos", "Posição", "% Alocação", ...]  ← COLUMN HEADER ROW ("Saldo" since Aug/2026)
      * Row 8: ["RDOR3", "R$ 6.730,10", ...]  ← PRODUCT ROW
      * ...repeat for each section...
      * 
      * Key Rules:
      * - Section titles: col[0] matches a known category name AND col[1] is null/empty
-     * - Column header rows: anywhere in the joined row text we find "posição" or "reserva bruta"
+     * - Column header rows: a cell is a known value-column label (or the row mentions "posição"/"reserva bruta")
      * - Product rows: anything else inside a known section once we have a colMap
+     * - Fail closed: every section subtotal must be matched by the positions read from it
      */
     async parseExcel(fileBuffer: ArrayBuffer, referenceMonth: string): Promise<XpParseResult> {
         const workbook = xlsx.read(fileBuffer, { type: 'array' });
@@ -73,6 +84,11 @@ export const xpInvestmentParser = {
             monthlyYield: -1,
         };
 
+        // Subtotal XP prints on each section title row, against what was actually read from it.
+        type SectionCheck = { name: string; expectedCents: number; parsedCents: number; rows: number };
+        const sectionChecks: SectionCheck[] = [];
+        let currentSection: SectionCheck | null = null;
+
         // Known top-level category names exactly as they appear in col[0] of section title rows.
         // Keys are normalized (lowercase, no accents) to avoid encoding issues.
         const CATEGORY_NAMES: Record<string, string> = {
@@ -104,7 +120,9 @@ export const xpInvestmentParser = {
         };
 
         const isColumnHeaderRow = (row: any[]): boolean => {
-            const joined = normalize(row.map((c: any) => String(c || '').trim()).join('|'));
+            const cells = row.map((c: any) => normalize(String(c || '').trim()));
+            if (cells.some((cell: string) => VALUE_COLUMN_LABELS.includes(cell))) return true;
+            const joined = cells.join('|');
             return joined.includes('posicao') || joined.includes('reserva bruta');
         };
 
@@ -124,9 +142,7 @@ export const xpInvestmentParser = {
                 const normCell = normalize(cell);
 
                 // Balance/position value column
-                if (normCell === 'posicao' || normCell === 'posicao a mercado') {
-                    if (map.value === -1) map.value = i;
-                } else if (normCell === 'reserva bruta' || normCell === 'saldo') {
+                if (VALUE_COLUMN_LABELS.includes(normCell)) {
                     if (map.value === -1) map.value = i;
                 }
 
@@ -160,6 +176,7 @@ export const xpInvestmentParser = {
                 if (
                     !isMonthlyYieldCol &&
                     (normCell === 'taxa a mercado' ||
+                        normCell === 'rentabilidade a mercado' ||
                         normCell === 'rentabilidade liquida' ||
                         normCell === 'rentabilidade' ||
                         normCell === 'rentabilidade (%)' ||
@@ -210,7 +227,6 @@ export const xpInvestmentParser = {
             if (rowIndex < 5) continue;
 
             const first = String(row[0] || '').trim();
-            const firstLower = first.toLowerCase();
 
             // Step 1: Section title → update category, reset column map
             if (isSectionTitle(row)) {
@@ -227,6 +243,22 @@ export const xpInvestmentParser = {
                     application: -1,
                     monthlyYield: -1,
                 };
+
+                // The subtotal sits in the last filled cell of the title row
+                currentSection = null;
+                for (let i = row.length - 1; i > 0; i--) {
+                    const cell = String(row[i] ?? '');
+                    if (cell.includes('R$')) {
+                        currentSection = {
+                            name: currentCategory,
+                            expectedCents: Math.round(this.parseCurrency(cell) * 100),
+                            parsedCents: 0,
+                            rows: 0,
+                        };
+                        sectionChecks.push(currentSection);
+                        break;
+                    }
+                }
                 continue;
             }
 
@@ -236,8 +268,9 @@ export const xpInvestmentParser = {
                 continue;
             }
 
-            // Step 3: Skip total/subtotal rows
-            if (firstLower.includes('total') || firstLower.includes('subtotal')) continue;
+            // Step 3: Skip total/subtotal rows. Match only the start of the cell: product names
+            // may contain the word, e.g. "Western Asset Total Credit Advisory FIC".
+            if (/^(sub)?total\b/.test(normalize(first))) continue;
 
             // Step 4: Skip until we have both a category and a column map
             if (!currentCategory || colMap.value === -1) continue;
@@ -284,7 +317,25 @@ export const xpInvestmentParser = {
                 }
 
                 investments.push(inv);
+                if (currentSection) {
+                    currentSection.parsedCents += Math.round(numericValue * 100);
+                    currentSection.rows++;
+                }
             }
+        }
+
+        // ── Fail closed: each section must add up to the subtotal XP printed ──────
+        // XP rounds every displayed value to the cent, so n rows plus the subtotal can
+        // drift by at most (n + 1) / 2 cents. Anything beyond that is a position the
+        // importer did not read (renamed column, skipped row) and must not be saved.
+        const openSections = sectionChecks.filter(
+            s => Math.abs(s.expectedCents - s.parsedCents) > Math.floor((s.rows + 1) / 2)
+        );
+        if (openSections.length > 0) {
+            const detail = openSections
+                .map(s => `${s.name}: a XP informa ${formatCurrency(s.expectedCents / 100)}, foram lidos ${formatCurrency(s.parsedCents / 100)}`)
+                .join('; ');
+            throw new Error(`A planilha não fecha com os totais da XP (${detail}). Nada foi importado para não gravar um saldo incompleto.`);
         }
 
         // ── Finalize reconciliation ───────────────────────────────────────────
