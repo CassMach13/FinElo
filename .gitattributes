@@ -1,0 +1,2 @@
+supabase/migrations/20260913135022_secure_support_attachments.sql text eol=lf
+supabase/rollbacks/20260913135022_secure_support_attachments_down.sql text eol=lf

@@ -2,9 +2,13 @@ import React, { useEffect, useState } from 'react';
 import Card from './../ui/Card';
 import Button from './../ui/Button';
 import { useAppStore } from './../../hooks/useAppStore';
-import { SupportTicket } from './../../types';
 import { TourButton } from '../TourButton';
 import AdminDashboard from '../admin/AdminDashboard';
+import SupportAttachmentLink from '../support/SupportAttachmentLink';
+import {
+    runSupportSubmission,
+    SUPPORT_ATTACHMENT_ACCEPT,
+} from '../../services/supportAttachmentService';
 
 const AdminTicketsView: React.FC = () => {
     const { fetchAllTickets, supportTickets, updateSupportTicketStatus, sendMessage } = useAppStore();
@@ -13,14 +17,38 @@ const AdminTicketsView: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
     const [replyText, setReplyText] = useState('');
+    const [replyFile, setReplyFile] = useState<File | null>(null);
+    const [replyFileInputVersion, setReplyFileInputVersion] = useState(0);
+    const [isSendingReply, setIsSendingReply] = useState(false);
 
     useEffect(() => {
         fetchAllTickets();
     }, []);
 
-    const handleSendMessage = async (ticketId: string, message: string, file?: File | null) => {
-        if (!message.trim() && !file) return;
-        await sendMessage(ticketId, message, file || undefined);
+    const handleSendMessage = async (ticketId: string) => {
+        if ((!replyText.trim() && !replyFile) || isSendingReply) return;
+        setIsSendingReply(true);
+        try {
+            await runSupportSubmission(
+                () => sendMessage(ticketId, replyText, replyFile || undefined),
+                () => {
+                    setReplyText('');
+                    setReplyFile(null);
+                    setReplyFileInputVersion((version) => version + 1);
+                }
+            );
+        } catch {
+            // O store já exibiu um erro seguro. Texto e arquivo permanecem para nova tentativa.
+        } finally {
+            setIsSendingReply(false);
+        }
+    };
+
+    const handleSelectTicket = (ticketId: string) => {
+        setSelectedTicketId(ticketId);
+        setReplyText('');
+        setReplyFile(null);
+        setReplyFileInputVersion((version) => version + 1);
     };
 
     const filteredTickets = supportTickets.filter(ticket => {
@@ -112,7 +140,7 @@ const AdminTicketsView: React.FC = () => {
                             {filteredTickets.map(ticket => (
                                 <div
                                     key={ticket.id}
-                                    onClick={() => setSelectedTicketId(ticket.id)}
+                                    onClick={() => handleSelectTicket(ticket.id)}
                                     className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedTicketId === ticket.id
                                         ? 'bg-purple-500/10 border-purple-500/50'
                                         : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
@@ -189,17 +217,13 @@ const AdminTicketsView: React.FC = () => {
                                         <span className="text-[10px] uppercase font-bold text-gray-500 ml-1">Descrição Inicial</span>
                                         <div className="bg-slate-800/80 border border-slate-700/50 p-4 rounded-2xl rounded-tl-none">
                                             <p className="text-sm text-slate-300 whitespace-pre-wrap">{selectedTicket.description}</p>
-                                            {selectedTicket.attachment_url && (
+                                            {(selectedTicket.attachment_path || selectedTicket.attachment_url) && (
                                                 <div className="mt-3 pt-3 border-t border-slate-700/50">
-                                                    <a href={selectedTicket.attachment_url} target="_blank" rel="noopener noreferrer" className="inline-block">
-                                                        {selectedTicket.attachment_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                                            <img src={selectedTicket.attachment_url} alt="Anexo" className="max-w-xs rounded-lg border border-slate-700" />
-                                                        ) : (
-                                                            <span className="text-xs text-purple-400 underline flex items-center gap-1">
-                                                                📎 Ver arquivo em nova aba
-                                                            </span>
-                                                        )}
-                                                    </a>
+                                                    <SupportAttachmentLink
+                                                        attachment_path={selectedTicket.attachment_path}
+                                                        attachment_url={selectedTicket.attachment_url}
+                                                        label="Ver arquivo em nova aba"
+                                                    />
                                                 </div>
                                             )}
                                         </div>
@@ -220,17 +244,13 @@ const AdminTicketsView: React.FC = () => {
                                                     : 'bg-slate-800 border-slate-700 text-slate-300 rounded-tl-none'
                                                     }`}>
                                                     {msg.message}
-                                                    {msg.attachment_url && (
+                                                    {(msg.attachment_path || msg.attachment_url) && (
                                                         <div className={`mt-2 pt-2 border-t ${!isUser ? 'border-purple-500' : 'border-slate-700'}`}>
-                                                            <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="inline-block">
-                                                                {msg.attachment_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                                                    <img src={msg.attachment_url} alt="Anexo" className="max-w-[200px] rounded-md border border-slate-700" />
-                                                                ) : (
-                                                                    <span className={`text-xs underline ${!isUser ? 'text-purple-200' : 'text-purple-400'}`}>
-                                                                        📎 Ver anexo
-                                                                    </span>
-                                                                )}
-                                                            </a>
+                                                            <SupportAttachmentLink
+                                                                attachment_path={msg.attachment_path}
+                                                                attachment_url={msg.attachment_url}
+                                                                label="Ver anexo"
+                                                            />
                                                         </div>
                                                     )}
                                                 </div>
@@ -247,55 +267,38 @@ const AdminTicketsView: React.FC = () => {
                                             <textarea
                                                 placeholder="Digite sua resposta..."
                                                 className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 resize-none h-20"
-                                                value={replyText}
+                                                 value={replyText}
                                                 onChange={(e) => setReplyText(e.target.value)}
+                                                disabled={isSendingReply}
                                                 onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                                                         e.preventDefault();
-                                                        const attachmentInput = (e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement);
-                                                        const file = attachmentInput?.files?.[0];
-                                                        
-                                                        handleSendMessage(selectedTicket.id, replyText, file);
-                                                        setReplyText('');
-                                                        if (attachmentInput) attachmentInput.value = '';
-                                                        const label = e.currentTarget.parentElement?.querySelector('.file-label');
-                                                        if (label) label.textContent = '📎 Anexar arquivo';
+                                                        void handleSendMessage(selectedTicket.id);
                                                     }
                                                 }}
                                             />
                                             <div className="flex items-center gap-3 px-1">
                                                 <div className="relative group">
                                                     <input
+                                                        key={replyFileInputVersion}
                                                         type="file"
                                                         className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                                                        onChange={(e) => {
-                                                            const fileName = e.target.files?.[0]?.name;
-                                                            const label = e.target.parentElement?.querySelector('.file-label');
-                                                            if (label) label.textContent = fileName ? `📎 ${fileName}` : '📎 Anexar arquivo';
-                                                        }}
+                                                        accept={SUPPORT_ATTACHMENT_ACCEPT}
+                                                        disabled={isSendingReply}
+                                                        onChange={(event) => setReplyFile(event.target.files?.[0] ?? null)}
                                                     />
-                                                    <div className="file-label px-3 py-1 bg-slate-800 rounded-lg border border-slate-700 text-[10px] text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">
-                                                        📎 Anexar arquivo
+                                                    <div className="px-3 py-1 bg-slate-800 rounded-lg border border-slate-700 text-[10px] text-gray-400 hover:text-purple-400 transition-colors cursor-pointer max-w-xs truncate">
+                                                        {replyFile ? `📎 ${replyFile.name}` : '📎 Anexar arquivo'}
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex flex-col justify-end">
                                             <Button
-                                                onClick={(e) => {
-                                                    const container = e.currentTarget.parentElement?.previousElementSibling;
-                                                    const attachmentInput = container?.querySelector('input[type="file"]') as HTMLInputElement;
-                                                    const file = attachmentInput?.files?.[0];
-                                                    
-                                                    handleSendMessage(selectedTicket.id, replyText, file);
-                                                    setReplyText('');
-                                                    if (attachmentInput) attachmentInput.value = '';
-                                                    const label = container?.querySelector('.file-label');
-                                                    if (label) label.textContent = '📎 Anexar arquivo';
-                                                }}
-                                                disabled={!replyText.trim()}
+                                                onClick={() => void handleSendMessage(selectedTicket.id)}
+                                                disabled={isSendingReply || (!replyText.trim() && !replyFile)}
                                             >
-                                                Enviar
+                                                {isSendingReply ? 'Enviando...' : 'Enviar'}
                                             </Button>
                                         </div>
                                     </div>

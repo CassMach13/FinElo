@@ -335,7 +335,10 @@ export interface SupportMessage {
   ticket_id: string;
   sender_id: string;
   message: string;
-  attachment_url?: string;
+  /** Referência interna no bucket privado `support-attachments`. */
+  attachment_path?: string | null;
+  /** Compatibilidade de leitura com referências públicas legadas. */
+  attachment_url?: string | null;
   created_at: string;
   is_admin_reply?: boolean; // Helper to distinguish in UI easily
 }
@@ -348,7 +351,10 @@ export interface SupportTicket {
   subject: string;
   description: string;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
-  attachment_url?: string;
+  /** Referência interna no bucket privado `support-attachments`. */
+  attachment_path?: string | null;
+  /** Compatibilidade de leitura com referências públicas legadas. */
+  attachment_url?: string | null;
   created_at: string;
   updated_at: string;
   admin_response?: string; // Legacy/Deprecated
