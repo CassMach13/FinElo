@@ -77,6 +77,21 @@ import { resolveCardImportCycleCoordinates } from '../utils/cardImportReference'
 import { withCardImportCycleMetadata } from '../utils/cardImportCycleMetadata';
 import { unknownErrorMessage } from '../utils/unknownError';
 import { normalizeClassifierKeywords } from '../domain/credit-card/metadataContext';
+import {
+  createSupportMessageRecord,
+  createSupportTicketRecord,
+  getSupportAttachmentAccess as resolveSupportAttachmentAccess,
+  supportAttachmentDiagnostic,
+  SupportAttachmentError,
+  supportAttachmentUserMessage,
+  uploadTicketAttachment as uploadSupportTicketAttachment,
+  type NewSupportTicketInput,
+  type SupportAttachmentAccess,
+  type SupportAttachmentReference,
+  type SupportAttachmentState,
+  type SupportAttachmentTarget,
+  type SupportWriteResult,
+} from '../services/supportAttachmentService';
 
 const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
   resolveAtomicImportEnabled(user, async () => {
@@ -297,7 +312,7 @@ interface AppState {
   supportTickets: SupportTicket[];
   fetchSupportTickets: () => Promise<void>; // Fetch own tickets
   fetchAllTickets: () => Promise<void>; // Admin: Fetch all tickets
-  createSupportTicket: (ticket: Omit<SupportTicket, 'id' | 'user_id' | 'status' | 'created_at' | 'updated_at'>, file?: File) => Promise<void>;
+  createSupportTicket: (ticket: NewSupportTicketInput, file?: File) => Promise<SupportWriteResult>;
   updateSupportTicketStatus: (ticketId: string, status: SupportTicket['status']) => Promise<void>;
 
   // Subscription
@@ -307,8 +322,14 @@ interface AppState {
   isWealth: boolean; // Helper computed property for Wealth tier
   unlimitedSync: boolean; // NEW: Premium VIP sync bypass
   respondToTicket?: (ticketId: string) => Promise<void>; // Deprecated
-  sendMessage: (ticketId: string, message: string, file?: File) => Promise<void>;
-  uploadTicketAttachment: (file: File) => Promise<string | null>;
+  sendMessage: (ticketId: string, message: string, file?: File) => Promise<SupportWriteResult>;
+  uploadTicketAttachment: (
+    file: File,
+    target: SupportAttachmentTarget
+  ) => Promise<Extract<SupportAttachmentState, { status: 'uploaded' }>>;
+  getSupportAttachmentAccess: (
+    reference: SupportAttachmentReference
+  ) => Promise<SupportAttachmentAccess>;
 
   // Admin Dashboard
   adminMetrics: AdminMetrics | null;
@@ -3274,26 +3295,27 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   createSupportTicket: async (ticketData, file?: File) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    let attachment_url = undefined;
-    if (file) {
-      attachment_url = await get().uploadTicketAttachment(file) || undefined;
+    if (!user) {
+      const error = new SupportAttachmentError(
+        'unauthenticated',
+        'persistence',
+        'Authenticated user is required to create a support ticket.'
+      );
+      await appAlert(supportAttachmentUserMessage(error), 'Erro', 'danger');
+      throw error;
     }
 
-    const { error } = await supabase.from('support_tickets').insert([{
-      ...ticketData,
-      user_id: user.id,
-      attachment_url,
-      status: 'open' // Default status
-    }]);
-
-    if (error) {
-      console.error('Erro ao criar chamado:', error);
-      await appAlert('Erro ao criar chamado: ' + error.message, 'Erro', 'danger');
-    } else {
+    try {
+      const result = await createSupportTicketRecord(supabase, user.id, ticketData, file, {
+        upload: get().uploadTicketAttachment,
+      });
       await get().fetchSupportTickets();
       await appAlert('Chamado aberto com sucesso! Acompanhe na aba "Meus Chamados".', 'Sucesso', 'success');
+      return result;
+    } catch (error) {
+      console.error('[SupportAttachment]', supportAttachmentDiagnostic(error));
+      await appAlert(supportAttachmentUserMessage(error), 'Erro', 'danger');
+      throw error;
     }
   },
 
@@ -3310,7 +3332,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   sendMessage: async (ticketId, message, file) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      const error = new SupportAttachmentError(
+        'unauthenticated',
+        'persistence',
+        'Authenticated user is required to send a support message.'
+      );
+      await appAlert(supportAttachmentUserMessage(error), 'Erro', 'danger');
+      throw error;
+    }
 
     // 1. Check if locked BEFORE inserting
     const { supportTickets, fetchAllTickets, fetchSupportTickets } = get();
@@ -3320,64 +3350,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (ticket && (ticket.status === 'resolved' || ticket.status === 'closed')) {
       if (!isAdmin) {
         await appAlert(`Este chamado está encerrado (Protocolo: ${ticket.protocol}). Por favor, abra um novo chamado informando este protocolo.`, 'Aviso', 'warning');
-        return;
+        throw new SupportAttachmentError(
+          'message-insert-failed',
+          'persistence',
+          'Closed support ticket does not accept user messages.'
+        );
       }
     }
 
-    let attachment_url = undefined;
-    if (file) {
-      attachment_url = await get().uploadTicketAttachment(file) || undefined;
-    }
-
-    // 2. Insert message
-    const { error } = await supabase.from('support_messages').insert([{
-      ticket_id: ticketId,
-      sender_id: user.id,
-      attachment_url,
-      message
-    }]);
-
-    if (error) {
-      console.error('Erro ao enviar mensagem:', error);
-      await appAlert('Erro ao enviar mensagem: ' + error.message, 'Erro', 'danger');
-      return;
-    }
-
-    // 3. Refresh tickets to show new message
-    if (isAdmin) await fetchAllTickets();
-    else await fetchSupportTickets();
-  },
-
-  uploadTicketAttachment: async (file) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      const result = await createSupportMessageRecord(supabase, user.id, ticketId, message, file, {
+        upload: get().uploadTicketAttachment,
+      });
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `ticket-attachments/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images') // Using existing bucket or need to create one. 
-                        // The user usually has a 'images' or 'attachments' bucket.
-                        // Based on standard supabase setup, 'images' is common.
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error('Error uploading file:', uploadError);
-        return null;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
+      if (isAdmin) await fetchAllTickets();
+      else await fetchSupportTickets();
+      return result;
     } catch (error) {
-      console.error('Upload error:', error);
-      return null;
+      console.error('[SupportAttachment]', supportAttachmentDiagnostic(error));
+      await appAlert(supportAttachmentUserMessage(error), 'Erro', 'danger');
+      throw error;
     }
   },
+
+  uploadTicketAttachment: async (file, target) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new SupportAttachmentError(
+        'unauthenticated',
+        'upload',
+        'Authenticated user is required to upload a support attachment.'
+      );
+    }
+    return uploadSupportTicketAttachment(supabase, user.id, target, file);
+  },
+
+  getSupportAttachmentAccess: async (reference) =>
+    resolveSupportAttachmentAccess(supabase, reference),
 
   respondToTicket: async () => { console.warn('Deprecated'); }, // Placeholder logic
 

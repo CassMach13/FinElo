@@ -7,6 +7,25 @@ import Select from './../ui/Select';
 import { useAppStore } from './../../hooks/useAppStore';
 import { TourButton } from '../TourButton';
 import HelpCenterBrowse from '../help/HelpCenterBrowse';
+import SupportAttachmentLink from '../support/SupportAttachmentLink';
+import {
+    runSupportSubmission,
+    SUPPORT_ATTACHMENT_ACCEPT,
+} from '../../services/supportAttachmentService';
+
+interface ReplyDraft {
+    message: string;
+    file: File | null;
+    isSending: boolean;
+    fileInputVersion: number;
+}
+
+const emptyReplyDraft = (): ReplyDraft => ({
+    message: '',
+    file: null,
+    isSending: false,
+    fileInputVersion: 0,
+});
 
 const HelpView: React.FC = () => {
     const { createSupportTicket, fetchSupportTickets, supportTickets, sendMessage, user } = useAppStore();
@@ -18,33 +37,61 @@ const HelpView: React.FC = () => {
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [hasFileAcceptance, setHasFileAcceptance] = useState(false);
+    const [newTicketFileInputVersion, setNewTicketFileInputVersion] = useState(0);
+    const [replyDrafts, setReplyDrafts] = useState<Record<string, ReplyDraft>>({});
 
     useEffect(() => {
         fetchSupportTickets();
     }, [fetchSupportTickets]);
 
-    const handleSendMessage = async (ticketId: string, message: string, file?: File | null) => {
-        if (!message.trim() && !file) return;
-        await sendMessage(ticketId, message, file || undefined);
+    const replyDraftFor = (ticketId: string): ReplyDraft =>
+        replyDrafts[ticketId] ?? emptyReplyDraft();
+
+    const updateReplyDraft = (ticketId: string, patch: Partial<ReplyDraft>) => {
+        setReplyDrafts((current) => ({
+            ...current,
+            [ticketId]: { ...(current[ticketId] ?? emptyReplyDraft()), ...patch },
+        }));
+    };
+
+    const handleSendMessage = async (ticketId: string) => {
+        const draft = replyDraftFor(ticketId);
+        if ((!draft.message.trim() && !draft.file) || draft.isSending) return;
+        updateReplyDraft(ticketId, { isSending: true });
+        try {
+            await runSupportSubmission(
+                () => sendMessage(ticketId, draft.message, draft.file || undefined),
+                () => updateReplyDraft(ticketId, {
+                    message: '',
+                    file: null,
+                    fileInputVersion: draft.fileInputVersion + 1,
+                })
+            );
+        } catch {
+            // O store já exibiu um erro seguro. O rascunho permanece intacto.
+        } finally {
+            updateReplyDraft(ticketId, { isSending: false });
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await createSupportTicket({
-                type,
-                subject,
-                description
-            }, file || undefined);
-            setSubject('');
-            setDescription('');
-            setType('question');
-            setFile(null);
-            setHasFileAcceptance(false);
-            setActiveTab('history');
-        } catch (error) {
-            console.error(error);
+            await runSupportSubmission(
+                () => createSupportTicket({ type, subject, description }, file || undefined),
+                () => {
+                    setSubject('');
+                    setDescription('');
+                    setType('question');
+                    setFile(null);
+                    setHasFileAcceptance(false);
+                    setNewTicketFileInputVersion((version) => version + 1);
+                    setActiveTab('history');
+                }
+            );
+        } catch {
+            // O store já exibiu um erro seguro. O formulário permanece intacto.
         } finally {
             setIsLoading(false);
         }
@@ -112,10 +159,11 @@ const HelpView: React.FC = () => {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-400 mb-1">Tipo de Solicitação</label>
-                                <Select
-                                    value={type}
-                                    onChange={(e) => setType(e.target.value as 'question' | 'bug' | 'feature')}
-                                >
+                                 <Select
+                                     value={type}
+                                     onChange={(e) => setType(e.target.value as 'question' | 'bug' | 'feature')}
+                                     disabled={isLoading}
+                                 >
                                     <option value="question">Dúvida Geral</option>
                                     <option value="bug">Reportar Problema (Bug)</option>
                                     <option value="feature">Sugestão de Melhoria</option>
@@ -126,9 +174,10 @@ const HelpView: React.FC = () => {
                                 <Input
                                     value={subject}
                                     onChange={(e) => setSubject(e.target.value)}
-                                    placeholder="Resumo do problema..."
-                                    required
-                                />
+                                     placeholder="Resumo do problema..."
+                                     required
+                                     disabled={isLoading}
+                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-400 mb-1">Descrição Detalhada</label>
@@ -136,18 +185,21 @@ const HelpView: React.FC = () => {
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 transition-colors min-h-[150px]"
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Descreva o que aconteceu, passos para reproduzir, etc..."
-                                    required
-                                />
+                                     placeholder="Descreva o que aconteceu, passos para reproduzir, etc..."
+                                     required
+                                     disabled={isLoading}
+                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-400 mb-1">Anexar Imagem ou Arquivo (Opcional)</label>
                                 <input
+                                    key={newTicketFileInputVersion}
                                     type="file"
                                     className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-cyan-500/10 file:text-cyan-400 hover:file:bg-cyan-500/20 transition-all"
-                                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                    accept="image/*,.pdf,.doc,.docx"
-                                />
+                                     onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                     accept={SUPPORT_ATTACHMENT_ACCEPT}
+                                     disabled={isLoading}
+                                 />
                                 {file && (
                                     <div className="mt-4 p-4 bg-slate-800/80 border border-slate-700/80 rounded-lg shadow-inner">
                                         <p className="text-xs text-cyan-400 bg-cyan-900/30 border border-cyan-500/20 px-3 py-2 rounded-md w-fit mb-3 flex items-center gap-2">
@@ -157,10 +209,11 @@ const HelpView: React.FC = () => {
                                             <input
                                                 type="checkbox"
                                                 className="mt-0.5 w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-500 bg-slate-900 cursor-pointer"
-                                                checked={hasFileAcceptance}
-                                                onChange={(e) => setHasFileAcceptance(e.target.checked)}
-                                                required
-                                            />
+                                                 checked={hasFileAcceptance}
+                                                 onChange={(e) => setHasFileAcceptance(e.target.checked)}
+                                                 required
+                                                 disabled={isLoading}
+                                             />
                                             <span className="text-[11px] leading-relaxed text-slate-400 group-hover:text-slate-300 transition-colors">
                                                 <strong className="text-slate-200 block mb-1">Termo de Consentimento e Isenção de Responsabilidade (LGPD)</strong>
                                                 Ao anexar este documento, declaro expressamente que estou enviando informações confidenciais ou sensíveis por minha livre e espontânea vontade, exclusivamente com a finalidade de viabilizar o suporte técnico. Adicionalmente, concordo em <strong>isentar a FinElo e seus controladores</strong> de toda e qualquer responsabilidade civil ou criminal por eventuais perdas, danos ou vazamentos decorrentes do envio voluntário desta documentação específica no ambiente de atendimento.
@@ -185,9 +238,10 @@ const HelpView: React.FC = () => {
                         ) : (
                             supportTickets.map(ticket => {
                                 const hasMessages = ticket.messages && ticket.messages.length > 0;
-                                const sortedMessages = hasMessages ? [...ticket.messages!].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) : [];
-                                const lastMsg = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1] : null;
-                                const hasNewReply = hasMessages && lastMsg && lastMsg.sender_id !== ticket.user_id;
+                                 const sortedMessages = hasMessages ? [...ticket.messages!].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) : [];
+                                 const lastMsg = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1] : null;
+                                 const hasNewReply = hasMessages && lastMsg && lastMsg.sender_id !== ticket.user_id;
+                                 const replyDraft = replyDraftFor(ticket.id);
 
                                 return (
                                     <Card key={ticket.id} className={`transition-all cursor-default border-l-4 ${hasNewReply ? 'border-l-cyan-400 bg-cyan-900/10 border-cyan-500/30' : 'border-l-slate-600 hover:bg-slate-800/50'}`}>
@@ -223,19 +277,14 @@ const HelpView: React.FC = () => {
 
                                         <div className="bg-slate-900/50 p-4 rounded-lg text-sm text-slate-300 mb-4 whitespace-pre-wrap border border-slate-700/50">
                                             {ticket.description}
-                                            {ticket.attachment_url && (
+                                            {(ticket.attachment_path || ticket.attachment_url) && (
                                                 <div className="mt-4 pt-4 border-t border-slate-700">
                                                     <p className="text-xs text-slate-500 mb-2 uppercase font-bold">Anexo:</p>
-                                                    <a href={ticket.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors w-fit">
-                                                        {ticket.attachment_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                                            <img src={ticket.attachment_url} alt="Anexo" className="max-w-xs rounded-lg border border-slate-700 shadow-lg" />
-                                                        ) : (
-                                                            <>
-                                                                <span className="text-xl">📄</span>
-                                                                <span className="underline">Ver arquivo anexado</span>
-                                                            </>
-                                                        )}
-                                                    </a>
+                                                    <SupportAttachmentLink
+                                                        attachment_path={ticket.attachment_path}
+                                                        attachment_url={ticket.attachment_url}
+                                                        label="Ver arquivo anexado"
+                                                    />
                                                 </div>
                                             )}
                                         </div>
@@ -250,18 +299,13 @@ const HelpView: React.FC = () => {
                                                             <div className={`p-3 rounded-xl max-w-[90%] text-sm ${isMe ? 'bg-slate-700 text-slate-200 rounded-tr-none' : 'bg-cyan-900/40 border border-cyan-500/30 text-cyan-100 rounded-tl-none'
                                                                 }`}>
                                                                 {msg.message}
-                                                                {msg.attachment_url && (
+                                                                {(msg.attachment_path || msg.attachment_url) && (
                                                                     <div className={`mt-2 pt-2 border-t ${isMe ? 'border-slate-600' : 'border-cyan-500/20'}`}>
-                                                                        <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
-                                                                            {msg.attachment_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                                                                <img src={msg.attachment_url} alt="Anexo" className="max-w-[200px] rounded-md border border-slate-700" />
-                                                                            ) : (
-                                                                                <>
-                                                                                    <span>📎</span>
-                                                                                    <span className="underline line-clamp-1">Anexo</span>
-                                                                                </>
-                                                                            )}
-                                                                        </a>
+                                                                        <SupportAttachmentLink
+                                                                            attachment_path={msg.attachment_path}
+                                                                            attachment_url={msg.attachment_url}
+                                                                            label="Ver anexo"
+                                                                        />
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -288,60 +332,51 @@ const HelpView: React.FC = () => {
                                                         Abrir Novo Chamado
                                                     </button>
                                                 </div>
-                                            ) : (
-                                                <>
-                                                    <div className="flex-1 flex flex-col gap-2">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Responder..."
-                                                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    const val = e.currentTarget.value;
-                                                                    const attachmentInput = (e.currentTarget.parentElement?.nextElementSibling?.querySelector('input[type="file"]') as HTMLInputElement);
-                                                                    const fileAtt = attachmentInput?.files?.[0];
-
-                                                                    if (val.trim() || fileAtt) {
-                                                                        handleSendMessage(ticket.id, val, fileAtt);
-                                                                        e.currentTarget.value = '';
-                                                                        if (attachmentInput) attachmentInput.value = '';
-                                                                    }
-                                                                }
-                                                            }}
-                                                        />
-                                                        <div className="flex items-center justify-between px-1">
-                                                            <div className="relative group">
-                                                                <input
-                                                                    type="file"
-                                                                    className="absolute inset-0 opacity-0 cursor-pointer w-8 h-8"
-                                                                    onChange={(e) => {
-                                                                        const fileName = e.target.files?.[0]?.name;
-                                                                        const label = e.target.parentElement?.querySelector('.file-label');
-                                                                        if (label) label.textContent = fileName ? `📎 ${fileName}` : '📎';
-                                                                    }}
-                                                                />
-                                                                <div className="file-label h-8 flex items-center px-3 bg-slate-800 rounded-md border border-slate-700 text-[10px] text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer">
-                                                                    📎 Anexar imagem
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Button size="sm" className="h-fit mt-1" onClick={(e) => {
-                                                        const container = e.currentTarget.previousElementSibling;
-                                                        const input = container?.querySelector('input[type="text"]') as HTMLInputElement;
-                                                        const attachmentInput = container?.querySelector('input[type="file"]') as HTMLInputElement;
-                                                        const fileObj = attachmentInput?.files?.[0];
-
-                                                        if (input && (input.value.trim() || fileObj)) {
-                                                            handleSendMessage(ticket.id, input.value, fileObj);
-                                                            input.value = '';
-                                                            if (attachmentInput) attachmentInput.value = '';
-                                                            const label = container?.querySelector('.file-label');
-                                                            if (label) label.textContent = '📎 Anexar documento';
-                                                        }
-                                                    }}>
-                                                        Enviar
-                                                    </Button>
+                                             ) : (
+                                                 <>
+                                                     <div className="flex-1 flex flex-col gap-2">
+                                                         <input
+                                                             type="text"
+                                                             placeholder="Responder..."
+                                                             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-colors"
+                                                             value={replyDraft.message}
+                                                             onChange={(event) => updateReplyDraft(ticket.id, { message: event.target.value })}
+                                                             disabled={replyDraft.isSending}
+                                                             onKeyDown={(e) => {
+                                                                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                                                                     e.preventDefault();
+                                                                     void handleSendMessage(ticket.id);
+                                                                 }
+                                                             }}
+                                                         />
+                                                         <div className="flex items-center justify-between px-1">
+                                                             <div className="relative group">
+                                                                 <input
+                                                                     key={`${ticket.id}-${replyDraft.fileInputVersion}`}
+                                                                     type="file"
+                                                                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                                                     accept={SUPPORT_ATTACHMENT_ACCEPT}
+                                                                     disabled={replyDraft.isSending}
+                                                                     onChange={(event) => updateReplyDraft(ticket.id, {
+                                                                         file: event.target.files?.[0] ?? null,
+                                                                     })}
+                                                                 />
+                                                                 <div className="h-8 flex items-center px-3 bg-slate-800 rounded-md border border-slate-700 text-[10px] text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer max-w-full">
+                                                                     <span className="truncate">
+                                                                         {replyDraft.file ? `📎 ${replyDraft.file.name}` : '📎 Anexar imagem ou documento'}
+                                                                     </span>
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                     </div>
+                                                     <Button
+                                                         size="sm"
+                                                         className="h-fit mt-1"
+                                                         onClick={() => void handleSendMessage(ticket.id)}
+                                                         disabled={replyDraft.isSending || (!replyDraft.message.trim() && !replyDraft.file)}
+                                                     >
+                                                         {replyDraft.isSending ? 'Enviando...' : 'Enviar'}
+                                                     </Button>
                                                     <div className="w-full mt-2 pl-1">
                                                         <p className="text-[9px] text-slate-500 leading-tight">
                                                             <strong>Aviso de Privacidade:</strong> Ao optar por anexar e enviar arquivos nesta conversa, você consente com o compartilhamento e isenta a FinElo de responsabilidade sobre o tráfego destes dados sensíveis de suporte (LGPD).
