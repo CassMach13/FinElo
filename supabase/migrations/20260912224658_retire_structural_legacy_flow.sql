@@ -12,7 +12,16 @@
 begin;
 
 do $retirement_preflight$
+declare
+  v_bad_owner_count integer;
 begin
+  if session_user <> 'postgres'
+     or current_user <> 'postgres' then
+    raise exception
+      'A migration deve iniciar com session_user e current_user postgres.'
+      using errcode = '42501';
+  end if;
+
   if pg_catalog.to_regnamespace('finelo_structural_internal') is null
      or pg_catalog.to_regclass(
        'finelo_structural_internal.credit_card_entry_reconciliation_snapshots'
@@ -28,19 +37,104 @@ begin
      ) is null
      or pg_catalog.to_regprocedure(
        'public.rollback_credit_card_structural_entries_atomic_v1(uuid)'
+     ) is null
+     or pg_catalog.to_regprocedure(
+       'finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()'
+     ) is null
+     or pg_catalog.to_regprocedure(
+       'public.get_atomic_card_structural_entry_feature_state()'
      ) is null then
     raise exception
       'O contrato estrutural legado esperado nao existe neste banco. Aposentadoria cancelada.'
       using errcode = '55000';
   end if;
 
-  if not exists (
+  if exists (
     select 1
     from pg_catalog.pg_roles r
-    where r.rolname = 'finelo_structural_entry_gateway'
+    where r.rolname in (
+      'finelo_structural_entry_gateway',
+      'finelo_structural_entry_executor'
+    )
+      and (
+        r.rolcanlogin or r.rolinherit or r.rolbypassrls
+        or r.rolsuper or r.rolcreatedb or r.rolcreaterole
+        or r.rolreplication
+      )
+  ) or (
+    select pg_catalog.count(*)
+    from pg_catalog.pg_roles r
+    where r.rolname in (
+      'finelo_structural_entry_gateway',
+      'finelo_structural_entry_executor'
+    )
+  ) <> 2 then
+    raise exception
+      'Os owners estruturais esperados nao existem ou possuem atributos elevados.'
+      using errcode = '55000';
+  end if;
+
+  if (
+    select pg_catalog.count(*)
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname in (
+      'finelo_structural_entry_gateway',
+      'finelo_structural_entry_executor'
+    )
+      and member_role.rolname = 'postgres'
+      and m.admin_option
+      and not m.inherit_option
+      and not m.set_option
+  ) <> 2
+  or exists (
+    select 1
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname in (
+      'finelo_structural_entry_gateway',
+      'finelo_structural_entry_executor'
+    )
+      and member_role.rolname = 'postgres'
+      and (
+        not m.admin_option or m.inherit_option or m.set_option
+      )
   ) then
     raise exception
-      'O gateway estrutural legado esperado nao existe. Aposentadoria cancelada.'
+      'Memberships de postgres nos owners estruturais divergiram do preflight esperado.'
+      using errcode = '55000';
+  end if;
+
+  select pg_catalog.count(*)
+  into v_bad_owner_count
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where (
+    n.nspname = 'public'
+    and p.oid in (
+      'public.get_atomic_card_structural_entry_feature_state()'::pg_catalog.regprocedure,
+      'public.reconcile_credit_card_structural_entries_atomic_v1(uuid,text,text,jsonb)'::pg_catalog.regprocedure,
+      'public.rollback_credit_card_structural_entries_atomic_v1(uuid)'::pg_catalog.regprocedure
+    )
+    and pg_catalog.pg_get_userbyid(p.proowner) <> 'finelo_structural_entry_gateway'
+  ) or (
+    n.nspname = 'finelo_structural_internal'
+    and p.oid in (
+      'finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)'::pg_catalog.regprocedure,
+      'finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)'::pg_catalog.regprocedure
+    )
+    and pg_catalog.pg_get_userbyid(p.proowner) <> 'finelo_structural_entry_executor'
+  ) or (
+    n.nspname = 'finelo_structural_internal'
+    and p.oid = 'finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()'::pg_catalog.regprocedure
+    and pg_catalog.pg_get_userbyid(p.proowner) <> 'postgres'
+  );
+
+  if v_bad_owner_count <> 0 then
+    raise exception
+      'Os owners das funcoes estruturais legadas divergiram do contrato esperado.'
       using errcode = '55000';
   end if;
 
@@ -49,13 +143,103 @@ begin
     from pg_catalog.pg_roles r
     where r.rolname = 'finelo_structural_retirement_executor'
   ) then
-    create role finelo_structural_retirement_executor;
+    create role finelo_structural_retirement_executor
+      nologin noinherit nobypassrls connection limit 0;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_roles r
+    where r.rolname = 'finelo_structural_retirement_executor'
+      and not r.rolcanlogin
+      and not r.rolinherit
+      and not r.rolbypassrls
+      and not r.rolsuper
+      and not r.rolcreatedb
+      and not r.rolcreaterole
+      and not r.rolreplication
+      and r.rolconnlimit = 0
+  ) or (
+    select pg_catalog.count(*)
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname = 'finelo_structural_retirement_executor'
+      and member_role.rolname = 'postgres'
+      and m.admin_option
+      and not m.inherit_option
+      and not m.set_option
+  ) <> 1 or exists (
+    select 1
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname = 'finelo_structural_retirement_executor'
+      and (
+        member_role.rolname <> 'postgres'
+        or not m.admin_option
+        or m.inherit_option
+        or m.set_option
+      )
+  ) then
+    raise exception
+      'O executor de aposentadoria ou sua membership canonica divergiram do contrato ADMIN TRUE, INHERIT FALSE, SET FALSE.'
+      using errcode = '55000';
   end if;
 end;
 $retirement_preflight$;
 
-alter role finelo_structural_retirement_executor
-  nologin noinherit nobypassrls connection limit 0;
+create temporary table finelo_structural_membership_baseline
+on commit drop
+as
+select
+  owner_role.rolname as owner_role_name,
+  member_role.rolname as member_role_name,
+  grantor_role.rolname as grantor_role_name,
+  m.admin_option,
+  m.inherit_option,
+  m.set_option
+from pg_catalog.pg_auth_members m
+join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+join pg_catalog.pg_roles member_role on member_role.oid = m.member
+join pg_catalog.pg_roles grantor_role on grantor_role.oid = m.grantor
+where owner_role.rolname in (
+  'finelo_structural_entry_gateway',
+  'finelo_structural_entry_executor',
+  'finelo_structural_retirement_executor'
+)
+  and member_role.rolname = 'postgres';
+
+create function pg_temp.restore_finelo_structural_membership_v1(
+  p_owner_role_name text
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $restore_membership$
+declare
+  v_original_grantor text;
+begin
+  select b.grantor_role_name
+  into strict v_original_grantor
+  from pg_temp.finelo_structural_membership_baseline b
+  where b.owner_role_name = p_owner_role_name
+    and b.member_role_name = 'postgres';
+
+  if v_original_grantor = current_user then
+    execute pg_catalog.format(
+      'revoke set option for %I from postgres granted by current_user',
+      p_owner_role_name
+    );
+  else
+    execute pg_catalog.format(
+      'revoke %I from postgres granted by current_user',
+      p_owner_role_name
+    );
+  end if;
+end;
+$restore_membership$;
 
 -- Estado global, independente de JWT. Os CHECKs tornam impossivel reabilitar
 -- aplicacao ou rollback por um UPDATE acidental.
@@ -456,22 +640,10 @@ begin
 end;
 $retire$;
 
-revoke all on function
-  finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(
-    uuid, uuid, uuid, text, integer, text, uuid
-  )
-  from public, anon, authenticated, service_role,
-    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
-
 grant usage on schema finelo_structural_internal to service_role;
-grant execute on function
-  finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(
-    uuid, uuid, uuid, text, integer, text, uuid
-  )
-  to service_role;
 
 grant finelo_structural_retirement_executor to postgres
-  with set true, inherit false;
+  with set true;
 grant create on schema finelo_structural_internal
   to finelo_structural_retirement_executor;
 alter table finelo_structural_internal.credit_card_entry_reconciliation_retirements
@@ -480,16 +652,34 @@ alter function
   finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(
     uuid, uuid, uuid, text, integer, text, uuid
   ) owner to finelo_structural_retirement_executor;
+set local role finelo_structural_retirement_executor;
+revoke all on function
+  finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(
+    uuid, uuid, uuid, text, integer, text, uuid
+  )
+  from public, anon, authenticated, service_role,
+    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
+grant execute on function
+  finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(
+    uuid, uuid, uuid, text, integer, text, uuid
+  )
+  to service_role;
+reset role;
 revoke create on schema finelo_structural_internal
   from finelo_structural_retirement_executor;
-revoke finelo_structural_retirement_executor from postgres;
+select pg_temp.restore_finelo_structural_membership_v1(
+  'finelo_structural_retirement_executor'
+);
 
 -- Porta publica minima para supabase.rpc(). SECURITY INVOKER significa que o
 -- wrapper nao eleva privilegio: somente service_role tem EXECUTE e acesso ao
 -- executor privado.
 grant finelo_structural_entry_gateway to postgres
-  with set true, inherit false;
+  with set true;
 grant create on schema public to finelo_structural_entry_gateway;
+grant usage on schema finelo_structural_internal
+  to finelo_structural_entry_gateway;
+set local role finelo_structural_entry_gateway;
 create or replace function public.retire_credit_card_structural_snapshot_v1(
   p_snapshot_id uuid,
   p_account_id uuid,
@@ -522,11 +712,13 @@ revoke all on function public.retire_credit_card_structural_snapshot_v1(
 grant execute on function public.retire_credit_card_structural_snapshot_v1(
   uuid, uuid, uuid, text, integer, text, uuid
 ) to service_role;
-alter function public.retire_credit_card_structural_snapshot_v1(
-  uuid, uuid, uuid, text, integer, text, uuid
-) owner to finelo_structural_entry_gateway;
+reset role;
 revoke create on schema public from finelo_structural_entry_gateway;
-revoke finelo_structural_entry_gateway from postgres;
+revoke usage on schema finelo_structural_internal
+  from finelo_structural_entry_gateway;
+select pg_temp.restore_finelo_structural_membership_v1(
+  'finelo_structural_entry_gateway'
+);
 
 -- Mata o recurso no banco, mesmo para clientes antigos, JWTs antigos e
 -- chamadas diretas que ainda conhecam os nomes das RPCs.
@@ -540,21 +732,18 @@ as $feature$
   select 'retired'::text;
 $feature$;
 
-create or replace function public.get_atomic_card_structural_entry_feature_state()
-returns text
-language sql
-stable
-security invoker
-set search_path = ''
-as $feature$
-  select 'retired'::text;
-$feature$;
+revoke all on function
+  finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()
+  from public, anon, authenticated, service_role,
+    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
 
-revoke all on function public.get_atomic_card_structural_entry_feature_state()
-  from public, anon, authenticated, service_role;
-grant execute on function public.get_atomic_card_structural_entry_feature_state()
-  to authenticated;
-
+grant finelo_structural_entry_executor to postgres
+  with set true;
+grant create on schema finelo_structural_internal
+  to finelo_structural_entry_executor;
+grant usage on schema finelo_structural_internal
+  to finelo_structural_entry_executor;
+set local role finelo_structural_entry_executor;
 create or replace function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
   p_account_id uuid,
   p_expected_revision text,
@@ -587,6 +776,41 @@ begin
     using errcode = '0A000';
 end;
 $retired_rollback$;
+
+revoke all on function
+  finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+    uuid, text, text, jsonb
+  )
+  from public, anon, authenticated, service_role,
+    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
+revoke all on function
+  finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
+  from public, anon, authenticated, service_role,
+    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
+reset role;
+revoke create on schema finelo_structural_internal
+  from finelo_structural_entry_executor;
+revoke usage on schema finelo_structural_internal
+  from finelo_structural_entry_executor;
+select pg_temp.restore_finelo_structural_membership_v1(
+  'finelo_structural_entry_executor'
+);
+
+grant finelo_structural_entry_gateway to postgres
+  with set true;
+grant create on schema public to finelo_structural_entry_gateway;
+grant usage on schema finelo_structural_internal
+  to finelo_structural_entry_gateway;
+set local role finelo_structural_entry_gateway;
+create or replace function public.get_atomic_card_structural_entry_feature_state()
+returns text
+language sql
+stable
+security invoker
+set search_path = ''
+as $feature$
+  select 'retired'::text;
+$feature$;
 
 create or replace function public.reconcile_credit_card_structural_entries_atomic_v1(
   p_account_id uuid,
@@ -623,25 +847,22 @@ begin
 end;
 $retired_rollback$;
 
-revoke all on function
-  finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()
-  from public, anon, authenticated, service_role,
-    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
-revoke all on function
-  finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
-    uuid, text, text, jsonb
-  )
-  from public, anon, authenticated, service_role,
-    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
-revoke all on function
-  finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
-  from public, anon, authenticated, service_role,
-    finelo_structural_entry_gateway, finelo_structural_retirement_executor;
+revoke all on function public.get_atomic_card_structural_entry_feature_state()
+  from public, anon, authenticated, service_role;
+grant execute on function public.get_atomic_card_structural_entry_feature_state()
+  to authenticated;
 revoke all on function public.reconcile_credit_card_structural_entries_atomic_v1(
   uuid, text, text, jsonb
 ) from public, anon, authenticated, service_role;
 revoke all on function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
   from public, anon, authenticated, service_role;
+reset role;
+revoke create on schema public from finelo_structural_entry_gateway;
+revoke usage on schema finelo_structural_internal
+  from finelo_structural_entry_gateway;
+select pg_temp.restore_finelo_structural_membership_v1(
+  'finelo_structural_entry_gateway'
+);
 
 revoke insert, update, delete on table
   finelo_structural_internal.credit_card_entry_reconciliation_snapshots
@@ -655,6 +876,7 @@ revoke usage on schema finelo_structural_internal
 
 do $retirement_assertions$
 declare
+  v_bad_function_count integer;
   v_retirement_owner text;
 begin
   if not exists (
@@ -746,11 +968,24 @@ begin
     and p.proname = 'retire_credit_card_structural_snapshot_v1_impl';
 
   if v_retirement_owner <> 'finelo_structural_retirement_executor'
+     or pg_catalog.pg_get_userbyid(
+       (
+         select c.relowner
+         from pg_catalog.pg_class c
+         where c.oid = pg_catalog.to_regclass(
+           'finelo_structural_internal.credit_card_entry_reconciliation_retirements'
+         )
+       )
+     ) is distinct from 'finelo_structural_retirement_executor'
      or exists (
        select 1
        from pg_catalog.pg_roles r
        where r.rolname = 'finelo_structural_retirement_executor'
-         and (r.rolcanlogin or r.rolinherit or r.rolbypassrls)
+          and (
+            r.rolcanlogin or r.rolinherit or r.rolbypassrls
+            or r.rolsuper or r.rolcreatedb or r.rolcreaterole
+            or r.rolreplication or r.rolconnlimit <> 0
+          )
      )
      or exists (
        select 1
@@ -778,13 +1013,165 @@ begin
     raise exception 'Owner, BYPASSRLS ou search_path da aposentadoria e inseguro.';
   end if;
 
-  if exists (
+  if (
+    select pg_catalog.count(*)
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname in (
+      'finelo_structural_entry_gateway',
+      'finelo_structural_entry_executor',
+      'finelo_structural_retirement_executor'
+    )
+      and member_role.rolname = 'postgres'
+      and m.admin_option
+      and not m.inherit_option
+      and not m.set_option
+  ) <> 3
+  or exists (
     select 1
     from pg_catalog.pg_auth_members m
-    join pg_catalog.pg_roles role on role.oid = m.roleid
-    where role.rolname = 'finelo_structural_retirement_executor'
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname in (
+      'finelo_structural_entry_gateway',
+      'finelo_structural_entry_executor',
+      'finelo_structural_retirement_executor'
+    )
+      and member_role.rolname = 'postgres'
+      and (
+        not m.admin_option or m.inherit_option or m.set_option
+      )
+  )
+  or exists (
+    select 1
+    from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+    join pg_catalog.pg_roles member_role on member_role.oid = m.member
+    where owner_role.rolname = 'finelo_structural_retirement_executor'
+      and member_role.rolname <> 'postgres'
+  )
+  or exists (
+    select 1
+    from pg_temp.finelo_structural_membership_baseline b
+    where not exists (
+      select 1
+      from pg_catalog.pg_auth_members m
+      join pg_catalog.pg_roles owner_role on owner_role.oid = m.roleid
+      join pg_catalog.pg_roles member_role on member_role.oid = m.member
+      join pg_catalog.pg_roles grantor_role on grantor_role.oid = m.grantor
+      where owner_role.rolname = b.owner_role_name
+        and member_role.rolname = b.member_role_name
+        and grantor_role.rolname = b.grantor_role_name
+        and m.admin_option = b.admin_option
+        and m.inherit_option = b.inherit_option
+        and m.set_option = b.set_option
+    )
   ) then
-    raise exception 'O papel de aposentadoria permaneceu concedido a outro papel.';
+    raise exception 'As memberships estruturais nao foram restauradas exatamente.';
+  end if;
+
+  with expected(signature, expected_owner, expected_security_definer) as (
+    values
+      ('finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()', 'postgres', false),
+      ('finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)', 'finelo_structural_entry_executor', true),
+      ('finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)', 'finelo_structural_entry_executor', true),
+      ('public.get_atomic_card_structural_entry_feature_state()', 'finelo_structural_entry_gateway', false),
+      ('public.reconcile_credit_card_structural_entries_atomic_v1(uuid,text,text,jsonb)', 'finelo_structural_entry_gateway', false),
+      ('public.rollback_credit_card_structural_entries_atomic_v1(uuid)', 'finelo_structural_entry_gateway', false),
+      ('finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(uuid,uuid,uuid,text,integer,text,uuid)', 'finelo_structural_retirement_executor', true),
+      ('public.retire_credit_card_structural_snapshot_v1(uuid,uuid,uuid,text,integer,text,uuid)', 'finelo_structural_entry_gateway', false)
+  )
+  select pg_catalog.count(*)
+  into v_bad_function_count
+  from expected e
+  left join pg_catalog.pg_proc p
+    on p.oid = pg_catalog.to_regprocedure(e.signature)
+  where p.oid is null
+     or pg_catalog.pg_get_userbyid(p.proowner) <> e.expected_owner
+     or p.prosecdef is distinct from e.expected_security_definer
+     or not exists (
+       select 1
+       from pg_catalog.unnest(coalesce(p.proconfig, '{}'::text[])) cfg(setting)
+       where cfg.setting in ('search_path=', 'search_path=""')
+     );
+
+  if v_bad_function_count <> 0 then
+    raise exception 'Owner, SECURITY ou search_path de uma funcao final divergiu.';
+  end if;
+
+  if exists (
+    select 1
+    from (values ('public'), ('anon'), ('authenticated'), ('service_role')) caller(role_name)
+    cross join (values
+      ('public.reconcile_credit_card_structural_entries_atomic_v1(uuid,text,text,jsonb)'),
+      ('public.rollback_credit_card_structural_entries_atomic_v1(uuid)'),
+      ('finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()'),
+      ('finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)'),
+      ('finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)')
+    ) blocked(signature)
+    where pg_catalog.has_function_privilege(
+      caller.role_name,
+      blocked.signature,
+      'EXECUTE'
+    )
+  ) then
+    raise exception 'Uma funcao aposentada ou privada manteve EXECUTE externo.';
+  end if;
+
+  if exists (
+    select 1
+    from (values ('public'), ('anon'), ('authenticated'), ('service_role')) caller(role_name)
+    cross join (values
+      ('finelo_structural_internal.structural_legacy_flow_state'),
+      ('finelo_structural_internal.credit_card_entry_reconciliation_retirements')
+    ) protected_table(table_name)
+    cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE')) privilege_row(privilege_name)
+    where pg_catalog.has_table_privilege(
+      caller.role_name,
+      protected_table.table_name,
+      privilege_row.privilege_name
+    )
+  ) then
+    raise exception 'Uma tabela privada recebeu privilegio externo adicional.';
+  end if;
+
+  if pg_catalog.has_function_privilege(
+       'public',
+       'finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(uuid,uuid,uuid,text,integer,text,uuid)',
+       'EXECUTE'
+     )
+     or pg_catalog.has_function_privilege(
+       'anon',
+       'finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(uuid,uuid,uuid,text,integer,text,uuid)',
+       'EXECUTE'
+     )
+     or pg_catalog.has_function_privilege(
+       'authenticated',
+       'finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(uuid,uuid,uuid,text,integer,text,uuid)',
+       'EXECUTE'
+     )
+     or not pg_catalog.has_function_privilege(
+       'service_role',
+       'finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl(uuid,uuid,uuid,text,integer,text,uuid)',
+       'EXECUTE'
+     )
+     or pg_catalog.has_function_privilege(
+       'service_role',
+       'finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()',
+       'EXECUTE'
+     )
+     or pg_catalog.has_function_privilege(
+       'service_role',
+       'finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(uuid,text,text,jsonb)',
+       'EXECUTE'
+     )
+     or pg_catalog.has_function_privilege(
+       'service_role',
+       'finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)',
+       'EXECUTE'
+     ) then
+    raise exception 'A ACL privada final concedeu execucao fora do desenho minimo.';
   end if;
 end;
 $retirement_assertions$;

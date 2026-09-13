@@ -1,10 +1,10 @@
 \set ON_ERROR_STOP on
 
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin bypassrls;
-create role finelo_structural_entry_executor nologin noinherit nobypassrls;
-create role finelo_structural_entry_gateway nologin noinherit nobypassrls;
+-- Pre-condicao do harness PostgreSQL 17: anon, authenticated, service_role,
+-- gateway e executor ja existem; postgres recebeu gateway/executor de um
+-- administrador externo com ADMIN TRUE, INHERIT FALSE e SET TRUE apenas para
+-- construir os owners do estado anterior. O harness restaura SET FALSE antes
+-- de executar a migration sob teste.
 
 create schema auth;
 create schema finelo_structural_internal;
@@ -106,39 +106,32 @@ grant update (transaction_id, statement_id, entry_type)
   to finelo_structural_entry_executor;
 
 create function finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()
-returns text language sql as $$ select 'enabled'::text $$;
+returns text language sql security invoker set search_path = ''
+as $$ select 'enabled'::text $$;
 
 create function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
   uuid, text, text, jsonb
 )
-returns jsonb language sql as $$ select '{}'::jsonb $$;
+returns jsonb language sql security definer set search_path = ''
+as $$ select '{}'::jsonb $$;
 
 create function finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
-returns jsonb language sql as $$ select '{}'::jsonb $$;
+returns jsonb language sql security definer set search_path = ''
+as $$ select '{}'::jsonb $$;
 
 create function public.get_atomic_card_structural_entry_feature_state()
-returns text language sql as $$ select 'enabled'::text $$;
+returns text language sql security invoker set search_path = ''
+as $$ select 'enabled'::text $$;
 
 create function public.reconcile_credit_card_structural_entries_atomic_v1(
   uuid, text, text, jsonb
 )
-returns jsonb language sql as $$ select '{}'::jsonb $$;
+returns jsonb language sql security invoker set search_path = ''
+as $$ select '{}'::jsonb $$;
 
 create function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
-returns jsonb language sql as $$ select '{}'::jsonb $$;
-
-alter function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
-  uuid, text, text, jsonb
-) owner to finelo_structural_entry_executor;
-alter function finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
-  owner to finelo_structural_entry_executor;
-alter function public.get_atomic_card_structural_entry_feature_state()
-  owner to finelo_structural_entry_gateway;
-alter function public.reconcile_credit_card_structural_entries_atomic_v1(
-  uuid, text, text, jsonb
-) owner to finelo_structural_entry_gateway;
-alter function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
-  owner to finelo_structural_entry_gateway;
+returns jsonb language sql security invoker set search_path = ''
+as $$ select '{}'::jsonb $$;
 
 grant execute on function public.get_atomic_card_structural_entry_feature_state()
   to authenticated;
@@ -154,3 +147,25 @@ grant execute on function
 grant execute on function
   finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
   to authenticated;
+
+grant create on schema finelo_structural_internal
+  to finelo_structural_entry_executor;
+grant create on schema public
+  to finelo_structural_entry_gateway;
+alter function finelo_structural_internal.reconcile_credit_card_structural_entries_atomic_v1_impl(
+  uuid, text, text, jsonb
+) owner to finelo_structural_entry_executor;
+alter function finelo_structural_internal.rollback_credit_card_structural_entries_atomic_v1_impl(uuid)
+  owner to finelo_structural_entry_executor;
+alter function public.get_atomic_card_structural_entry_feature_state()
+  owner to finelo_structural_entry_gateway;
+alter function public.reconcile_credit_card_structural_entries_atomic_v1(
+  uuid, text, text, jsonb
+) owner to finelo_structural_entry_gateway;
+alter function public.rollback_credit_card_structural_entries_atomic_v1(uuid)
+  owner to finelo_structural_entry_gateway;
+
+revoke create on schema finelo_structural_internal
+  from finelo_structural_entry_executor;
+revoke create on schema public
+  from finelo_structural_entry_gateway;

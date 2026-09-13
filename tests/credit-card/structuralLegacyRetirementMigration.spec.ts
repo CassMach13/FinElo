@@ -68,9 +68,22 @@ describe('aposentadoria do fluxo estrutural legado', () => {
   });
 
   it('usa executor privado mínimo e wrapper público sem elevação', () => {
+    expect(migration).toContain("session_user <> 'postgres'");
+    expect(migration.match(/with set true;/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(migration.match(/restore_finelo_structural_membership_v1\(/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(migration).toContain('revoke set option for %I from postgres granted by current_user');
+    expect(migration).toContain('revoke %I from postgres granted by current_user');
+    expect(migration).toContain('set local role finelo_structural_entry_executor;');
+    expect(migration).toContain('set local role finelo_structural_entry_gateway;');
+    expect(migration).toContain('set local role finelo_structural_retirement_executor;');
+    expect(migration).not.toContain('revoke finelo_structural_entry_gateway from postgres;');
+    expect(migration).not.toContain('revoke finelo_structural_entry_executor from postgres;');
+    expect(migration).not.toContain('revoke finelo_structural_retirement_executor from postgres;');
+    expect(migration).toContain('create role finelo_structural_retirement_executor');
     expect(migration).toContain(
-      'alter role finelo_structural_retirement_executor\n  nologin noinherit nobypassrls connection limit 0;'
+      'membership canonica divergiram do contrato ADMIN TRUE, INHERIT FALSE, SET FALSE.'
     );
+    expect(migration).toContain(') <> 3');
     expect(migration).toContain(
       'create or replace function finelo_structural_internal.retire_credit_card_structural_snapshot_v1_impl('
     );
@@ -84,10 +97,14 @@ describe('aposentadoria do fluxo estrutural legado', () => {
     );
     expect(migration).toMatch(/create or replace function public\.retire_credit_card_structural_snapshot_v1\([\s\S]+?security invoker[\s\S]+?set search_path = ''/);
     expect(migration).toContain(
-      ') to service_role;\nalter function public.retire_credit_card_structural_snapshot_v1('
+      ') to service_role;\nreset role;'
     );
     expect(migration).toContain("v_request_role is distinct from 'service_role'");
     expect(migration).not.toMatch(/alter role finelo_structural_retirement_executor\s+bypassrls/i);
+    expect(migration).toContain(
+      "('finelo_structural_internal.get_atomic_card_structural_entry_feature_state_impl()', 'postgres', false)"
+    );
+    expect(migration).toContain('As memberships estruturais nao foram restauradas exatamente.');
   });
 
   it('serializa intenção e cartão e mantém rollback fail-closed', () => {
@@ -98,6 +115,12 @@ describe('aposentadoria do fluxo estrutural legado', () => {
     expect(rollback).toContain('existe decisao de aposentadoria');
     expect(rollback).toContain('existe snapshot estrutural ativo');
     expect(rollback).toContain('Mantidos intencionalmente:');
+    expect(rollback).toContain('set local role finelo_structural_entry_gateway;');
+    expect(rollback).toContain('set local role finelo_structural_retirement_executor;');
+    expect(rollback).not.toContain('drop role if exists finelo_structural_retirement_executor;');
+    expect(rollback).not.toContain('revoke finelo_structural_retirement_executor from postgres;');
+    expect(rollback).toContain('O rollback nao restaurou exatamente as memberships estruturais.');
+    expect(rollback).not.toContain('revoke finelo_structural_entry_gateway from postgres;');
     expect(rollback).not.toContain('grant execute on function public.reconcile_credit_card_structural_entries_atomic_v1');
     expect(rollback).not.toContain('grant execute on function public.rollback_credit_card_structural_entries_atomic_v1');
     expect(rollback).not.toMatch(/update\s+public\.(?:transactions|credit_card_entries|credit_card_payments|credit_card_statements)/i);

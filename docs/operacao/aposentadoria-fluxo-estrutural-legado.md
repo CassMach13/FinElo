@@ -34,6 +34,12 @@ subject, data/hora, revisão, quantidade e chave de idempotência.
 `service_role` recebe `EXECUTE`. A própria implementação também valida a claim
 `role=service_role`; app metadata e flags do JWT não autorizam a operação.
 
+No PostgreSQL 17, `postgres` mantém memberships canônicas em gateway, executor
+e retirement executor com `ADMIN TRUE`, `INHERIT FALSE` e `SET FALSE`. A
+migration altera temporariamente somente `SET` para executar os blocos de cada
+owner, retorna imediatamente a `postgres` e restaura o grantor e os três bits
+originais antes do commit. Qualquer divergência aborta a transação inteira.
+
 ## Plano controlado de staging
 
 ### 1. Preflight somente leitura
@@ -67,7 +73,8 @@ Validar na mesma etapa:
 - wrapper público `SECURITY INVOKER`;
 - implementação privada `SECURITY DEFINER`, owner
   `finelo_structural_retirement_executor`, `search_path=''`;
-- role dedicado sem login, inherit ou bypass RLS;
+- role dedicado sem login, inherit ou bypass RLS, com membership canônica de
+  `postgres` em `ADMIN TRUE`, `INHERIT FALSE`, `SET FALSE`;
 - RLS habilitada e forçada nas tabelas privadas;
 - advisors de segurança e desempenho sem alerta novo atribuível à migration.
 

@@ -43,8 +43,26 @@ insert into finelo_structural_internal.credit_card_entry_reconciliation_snapshot
 alter table finelo_structural_internal.credit_card_entry_reconciliation_snapshots
   enable trigger trg_reject_legacy_snapshot_mutation;
 
-select dblink_connect('retire_a', 'dbname=' || current_database());
-select dblink_connect('retire_b', 'dbname=' || current_database());
+select dblink_connect(
+  'retire_a',
+  pg_catalog.format(
+    'host=%s port=%s dbname=%I user=%I',
+    pg_catalog.inet_server_addr(),
+    pg_catalog.current_setting('port'),
+    pg_catalog.current_database(),
+    current_user
+  )
+);
+select dblink_connect(
+  'retire_b',
+  pg_catalog.format(
+    'host=%s port=%s dbname=%I user=%I',
+    pg_catalog.inet_server_addr(),
+    pg_catalog.current_setting('port'),
+    pg_catalog.current_database(),
+    current_user
+  )
+);
 select dblink_exec(
   'retire_a',
   'set request.jwt.claims = ''{"role":"service_role","sub":"concurrency-a"}''; set request.jwt.claim.role = ''service_role'';'
