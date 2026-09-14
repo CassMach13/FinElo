@@ -433,12 +433,15 @@ const InvestmentsView: React.FC = () => {
                 referenceMonth={currentDate}
             />
 
-            <InvestmentImportModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                referenceMonth={currentDate}
-                onImportSuccess={() => fetchInvestments(currentDate)}
-            />
+            {/* Montado só enquanto aberto: fechar descarta a sessão de importação inteira */}
+            {isImportModalOpen && (
+                <InvestmentImportModal
+                    isOpen
+                    onClose={() => setIsImportModalOpen(false)}
+                    referenceMonth={currentDate}
+                    onImportSuccess={() => fetchInvestments(currentDate)}
+                />
+            )}
 
             {/* Mobile Floating Action Button (FAB) */}
             <button
