@@ -1,10 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
-import { Investment } from '../../types';
-import { xpInvestmentParser, XpReconciliation } from '../../services/parsers/xpInvestmentParser';
+import { xpInvestmentParser } from '../../services/parsers/xpInvestmentParser';
 import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
 import { formatCurrency } from '../../utils/formatters';
 import { investmentService } from '../../services/investmentService';
+import {
+    canConfirmImport,
+    createInvestmentImportSession,
+    ImportSessionDeps,
+    toReferenceMonth,
+} from './investmentImportSession';
 
 interface InvestmentImportModalProps {
     isOpen: boolean;
@@ -12,6 +17,18 @@ interface InvestmentImportModalProps {
     referenceMonth: Date;
     onImportSuccess: () => void;
 }
+
+const importDeps: ImportSessionDeps = {
+    async parse(institution, buffer, referenceMonth) {
+        if (institution !== 'XP') {
+            throw new Error('Instituição ainda não suportada para importação automática.');
+        }
+        return xpInvestmentParser.parseExcel(buffer, referenceMonth);
+    },
+    isAlreadyImported: (userId, institution, referenceMonth, fileName) =>
+        investmentService.checkIfFileAlreadyImported(userId, institution, referenceMonth, fileName),
+    saveBatch: (rows) => investmentService.importInvestmentsBatch(rows),
+};
 
 const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
     isOpen,
@@ -22,98 +39,38 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
     const { user } = useAppStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [selectedInstitution, setSelectedInstitution] = useState('XP');
-    const [file, setFile] = useState<File | null>(null);
-    const [parsedInvestments, setParsedInvestments] = useState<Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] | null>(null);
-    const [reconciliation, setReconciliation] = useState<XpReconciliation | null>(null);
+    const visibleMonth = toReferenceMonth(referenceMonth);
+    const [session] = useState(() => createInvestmentImportSession(importDeps, visibleMonth));
+    const state = useSyncExternalStore(session.subscribe, session.getState);
 
-    const [isParsing, setIsParsing] = useState(false);
-    const [isImporting, setIsImporting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    // Abrir, fechar ou trocar o mês exibido sempre começa uma sessão limpa.
+    useEffect(() => {
+        session.open(visibleMonth);
+    }, [session, isOpen, visibleMonth]);
 
     if (!isOpen) return null;
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { parsedInvestments, reconciliation, error } = state;
+    const selectedInstitution = state.institution;
+    const isParsing = state.status === 'parsing';
+    const isImporting = state.status === 'importing';
+    const canConfirm = canConfirmImport(state, visibleMonth);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
-        if (!selectedFile) return;
+        if (selectedFile) void session.selectFile(selectedFile);
+    };
 
-        setFile(selectedFile);
-        setError(null);
-        setParsedInvestments(null);
-        setReconciliation(null);
-        setIsParsing(true);
-
-        try {
-            const buffer = await selectedFile.arrayBuffer();
-
-            // Determine the reference month string
-            const year = referenceMonth.getFullYear();
-            const monthNum = String(referenceMonth.getMonth() + 1).padStart(2, '0');
-            const refString = `${year}-${monthNum}-01`;
-
-            let parsed: Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] = [];
-
-            if (selectedInstitution === 'XP') {
-                const result = await xpInvestmentParser.parseExcel(buffer, refString);
-                parsed = result.investments;
-                setReconciliation(result.reconciliation);
-            } else {
-                throw new Error('Instituição ainda não suportada para importação automática.');
-            }
-
-            if (parsed.length === 0) {
-                throw new Error('Nenhum investimento encontrado. Verifique se a planilha está no formato correto da corretora.');
-            }
-
-            // Atribui o nome do arquivo a cada registro
-            const parsedWithFile = parsed.map(inv => ({
-                ...inv,
-                source_file: selectedFile.name
-            }));
-
-            setParsedInvestments(parsedWithFile);
-        } catch (err: any) {
-            setError(err.message || 'Erro ao processar o arquivo.');
-            setFile(null);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        } finally {
-            setIsParsing(false);
-        }
+    const handleClose = () => {
+        session.close();
+        onClose();
     };
 
     const handleImport = async () => {
-        if (!user || !parsedInvestments || parsedInvestments.length === 0) return;
-
-        setIsImporting(true);
-        setError(null);
-
-        try {
-            // 1. Prepare data with user_id
-            const finalData = parsedInvestments.map(inv => ({
-                ...inv,
-                user_id: user.id
-            }));
-
-            const refString = parsedInvestments[0].reference_month;
-
-            // 2. Check if this exact file was already imported
-            const fileName = parsedInvestments[0].source_file;
-            if (fileName) {
-                const isDuplicate = await investmentService.checkIfFileAlreadyImported(user.id, selectedInstitution, refString, fileName);
-                if (isDuplicate) {
-                    throw new Error(`O arquivo "${fileName}" já foi importado para ${selectedInstitution} neste mês.`);
-                }
-            }
-
-            // 3. Insert new data (APPEND instead of replace)
-            await investmentService.importInvestmentsBatch(finalData as any);
-
+        if (!user) return;
+        if (await session.confirm(user.id, visibleMonth) === 'imported') {
             onImportSuccess();
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Erro ao salvar os investimentos no banco de dados.');
-        } finally {
-            setIsImporting(false);
         }
     };
 
@@ -130,7 +87,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                         <h2 className="text-xl font-bold text-white">Importar Planilha de Investimentos</h2>
                         <p className="text-sm text-gray-400 mt-1">Carregar dados para {monthStr}</p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors" disabled={isImporting || isParsing}>
+                    <button onClick={handleClose} className="text-gray-400 hover:text-white transition-colors" disabled={isImporting || isParsing}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -144,7 +101,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                 <label className="block text-sm font-medium text-gray-300 mb-2">Corretora/Banco</label>
                                 <select
                                     value={selectedInstitution}
-                                    onChange={(e) => setSelectedInstitution(e.target.value)}
+                                    onChange={(e) => session.selectInstitution(e.target.value)}
                                     className="w-full bg-primary border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none"
                                     disabled={isParsing}
                                 >
@@ -158,6 +115,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 <input
+                                    key={state.sessionId}
                                     type="file"
                                     ref={fileInputRef}
                                     onChange={handleFileChange}
@@ -310,16 +268,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                 <div className="p-6 border-t border-slate-700/50 flex justify-between gap-3 bg-slate-800/30 shrink-0">
                     <button
                         type="button"
-                        onClick={() => {
-                            if (parsedInvestments) {
-                                setParsedInvestments(null);
-                                setReconciliation(null);
-                                setFile(null);
-                                if (fileInputRef.current) fileInputRef.current.value = '';
-                            } else {
-                                onClose();
-                            }
-                        }}
+                        onClick={() => (parsedInvestments ? session.back() : handleClose())}
                         disabled={isImporting || isParsing}
                         className="px-4 py-2 rounded-lg font-medium text-gray-400 hover:text-white transition-colors"
                     >
@@ -329,7 +278,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                     {parsedInvestments && (
                         <button
                             onClick={handleImport}
-                            disabled={isImporting}
+                            disabled={isImporting || !canConfirm}
                             className="px-6 py-2 rounded-lg font-medium bg-highlight hover:bg-highlight-hover text-white transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-highlight/20"
                         >
                             {isImporting ? (
