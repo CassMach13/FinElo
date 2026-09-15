@@ -94,6 +94,11 @@ import {
 } from '../../utils/familyOwnerPreferences';
 import { mergeMotorSnapshotWithManualLedger } from '../../services/creditCardManualMotorSync';
 import {
+  canEditTransactionField,
+  formatInstallmentLabel,
+  isManualTransaction,
+} from '../../domain/transactions/transactionEditPolicy';
+import {
   buildTransactionFiltersCollapsedSummary,
   VIEW_SCOPE_HINTS,
   VIEW_SCOPE_LABELS,
@@ -216,9 +221,6 @@ const isDebugTargetTx = (origin?: string | null, amount?: number | null) => {
   const normalizedAmount = Math.abs(Number(amount || 0));
   return normalizedOrigin.includes(DEBUG_TARGET_ORIGIN) && Math.abs(normalizedAmount - DEBUG_TARGET_AMOUNT) < 0.001;
 };
-
-const isManualTransaction = (transaction: Pick<Transaction, 'Origem'>) =>
-  String(transaction.Origem || 'manual').trim().toLowerCase() === 'manual';
 
 const TransactionsView: React.FC = () => {
   const {
@@ -2471,7 +2473,7 @@ const TransactionsView: React.FC = () => {
         Tipo: t.Tipo || '',
         Valor: t.Valor,
         Conta: t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta desconhecida' : 'Sem conta',
-        Parcelas: t.Parcela_Atual ? `${t.Parcela_Atual}/${t.Total_Parcelas || 1}` : '',
+        Parcelas: formatInstallmentLabel(t.Parcela_Atual, t.Total_Parcelas),
         Tags: t.Tags ? t.Tags.join(', ') : '',
         Observações: t.Observacoes || '',
       };
@@ -3492,7 +3494,7 @@ const TransactionsView: React.FC = () => {
                     </div>
                     {t.Total_Parcelas && t.Total_Parcelas > 1 && (
                       <span className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
-                        {t.Parcela_Atual || 1}/{t.Total_Parcelas}
+                        {formatInstallmentLabel(t.Parcela_Atual, t.Total_Parcelas)}
                       </span>
                     )}
                   </div>
@@ -3519,7 +3521,7 @@ const TransactionsView: React.FC = () => {
           <SwipeableItem
             key={t.ID_Transacao}
             className="rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b]"
-            leftActions={[
+            leftActions={manual ? [
               {
                 label: 'Editar',
                 icon: (
@@ -3533,7 +3535,7 @@ const TransactionsView: React.FC = () => {
                   setNewTransactionModalOpen(true);
                 }
               }
-            ]}
+            ] : []}
             rightActions={[
               {
                 label: 'Excluir',
@@ -4682,7 +4684,9 @@ const EditableCell: React.FC<EditableCellProps> = ({
   }, [transaction, field]);
 
   // Regras de edição
-  const isEditable = field !== 'Fonte' && (transaction.Origem === 'manual' || !nonEditableFields.includes(field));
+  const isEditable =
+    canEditTransactionField(transaction, field) &&
+    (isManualTransaction(transaction) || !nonEditableFields.includes(field));
 
   const categoryTypeMap = useMemo(() => new Map(categories.map(c => [c.Nome_Categoria, c.Tipo])), [categories]);
   const categoryTypeColorMap: Record<Category['Tipo'], string> = { Renda: 'text-accent', Despesa: 'text-danger', Ambos: 'text-highlight' };
@@ -4726,7 +4730,9 @@ const EditableCell: React.FC<EditableCellProps> = ({
     }
     if (type === 'date') return new Date(value as Date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
     if (type === 'number') return formatCurrency(value as number);
-    if (type === 'installments') return `${transaction.Parcela_Atual || 1}/${transaction.Total_Parcelas || 1}`;
+    if (type === 'installments') {
+      return formatInstallmentLabel(transaction.Parcela_Atual, transaction.Total_Parcelas);
+    }
     return String(value || '-');
   };
 
