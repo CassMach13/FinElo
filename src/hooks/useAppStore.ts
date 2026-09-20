@@ -3571,9 +3571,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     }, 0);
     
     const paidCount = linkedTransactions.length;
+    const remainingBalanceCents = Math.round(Math.max(0, (asset.financed_amount || 0) - totalPaid) * 100);
+
+    // Compare currency in cents so binary rounding does not trigger a write.
+    if (
+      asset.remaining_balance != null &&
+      Math.round(asset.remaining_balance * 100) === remainingBalanceCents &&
+      asset.paid_installments === paidCount
+    ) return;
 
     const updatedData = {
-      remaining_balance: Math.max(0, (asset.financed_amount || 0) - totalPaid),
+      remaining_balance: remainingBalanceCents / 100,
       paid_installments: paidCount,
       updated_at: new Date().toISOString()
     };
