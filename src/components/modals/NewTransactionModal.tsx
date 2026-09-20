@@ -25,6 +25,11 @@ import {
 } from '../../services/creditCardDirectedPayment';
 import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso, inferUserTargetCompetenceOnPaymentEdit } from '../../services/creditCardManualCompetence';
 import { addMonthsToDateOnly, parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
+import {
+  resolveInstallmentMetadataForSave,
+  resolveOriginalDescriptionForSave,
+  resolveTransactionSourceForSave,
+} from '../../domain/transactions/transactionEditPolicy';
 
 interface NewTransactionModalProps {
   onClose: () => void;
@@ -534,6 +539,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         totalParcelas = loopCount;
       }
 
+      const installmentMetadata = resolveInstallmentMetadataForSave(initialTransaction, {
+        current: parcelaAtual,
+        total: totalParcelas,
+      });
+
       let descricaoOriginal = description;
       if (isCreditCardAccount && cardEntryKind === 'refund' && refundReferenceMonth) {
         descricaoOriginal = buildDirectedRefundDescription(refundReferenceMonth, description);
@@ -567,10 +577,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         Categoria: transaction.Categoria,
         Tipo: transaction.Tipo,
         Valor: finalValue,
-        Parcela_Atual: parcelaAtual,
-        Total_Parcelas: totalParcelas,
-        Fonte: 'Manual',
-        Descricao_Original: descricaoOriginal,
+        Parcela_Atual: installmentMetadata.current,
+        Total_Parcelas: installmentMetadata.total,
+        Fonte: resolveTransactionSourceForSave(initialTransaction),
+        Descricao_Original: resolveOriginalDescriptionForSave(
+          initialTransaction,
+          descricaoOriginal
+        ),
         linked_asset_id: transaction.linked_asset_id || undefined,
       });
     }
