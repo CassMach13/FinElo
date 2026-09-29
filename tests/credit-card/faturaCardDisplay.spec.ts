@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeAccountCardDisplay } from '../../src/components/transactions/accountBalanceCardMetrics';
 import type { Account, Transaction } from '../../src/types';
 
@@ -14,9 +14,33 @@ import type { Account, Transaction } from '../../src/types';
  * «Uso do limite» e «disponível» seguem considerando todas as competências em aberto,
  * inclusive futuras, de propósito.
  *
- * Todos os cenários usam `hoje` fixo em 2026-09-01 via vencimentos construídos
- * relativamente a essa data, para não dependerem do relógio de quem roda os testes.
+ * Todos os cenários assumem `hoje` = 2026-09-01: julho (vence 28/08) já venceu e
+ * agosto (vence 28/09) ainda não.
+ *
+ * Isso estava só escrito aqui — o relógio nunca foi congelado de fato, e
+ * `computeAccountCardDisplay` lê `new Date()`. A suíte passava porque a data real
+ * calhava de cair na janela em que as afirmações continuavam verdadeiras. Em
+ * 2026-09-28 a janela fechou: `diasParaVencer` virou 0 e o caso "fatura a vencer"
+ * quebrou, sem nenhuma mudança de produção. Agora o relógio é congelado de
+ * verdade, no mesmo 2026-09-01 que o arquivo sempre descreveu.
+ *
+ * `2026-09-01T12:00:00Z` (meio-dia) porque a produção deriva o dia pelo fuso
+ * LOCAL de quem roda: ao meio-dia UTC, qualquer fuso de UTC-12 a UTC+11 vê
+ * 2026-09-01, e mesmo em UTC+12..+14, que veriam 02/09, todas as afirmações
+ * continuam verdadeiras.
  */
+
+const HOJE = new Date('2026-09-01T12:00:00Z');
+
+beforeEach(() => {
+  // `toFake: ['Date']` mantém timers reais — só a data é congelada.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(HOJE);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const LIMITE = 10000;
 const round2 = (v: number) => Math.round(v * 100) / 100;
