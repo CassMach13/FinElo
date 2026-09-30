@@ -28,7 +28,6 @@ import { supabase } from '../../supabaseClient';
 
 import { formatCurrency, formatCurrencySigned, getCurrencyColorClass } from '../../utils/formatters';
 import {
-  formatDateOnlyPtBr,
   localTodayIso,
   parseDateOnlyLocal,
   toDateOnlyIso,
@@ -57,8 +56,13 @@ import {
   saveCompetencePaymentConfirmation,
   type CompetencePaymentConfirmation,
 } from '../../services/competenceInvoiceUserConfirmations';
-import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import {
+  buildTransactionExportRows,
+  getTransactionExportColumns,
+} from '../../domain/export/transactionExport';
+import { serializeTransactionsCsv } from '../../domain/export/transactionCsv';
+import { buildTransactionExportFileName } from '../../domain/export/transactionExportFileName';
+import { downloadBlob } from '../../utils/downloadFile';
 import CreditCardInvoiceCyclesModal from '../modals/CreditCardInvoiceCyclesModal';
 import AccountModal from './AccountModal';
 import CategoryModal from '../modals/CategoryModal';
@@ -2462,55 +2466,59 @@ const TransactionsView: React.FC = () => {
     return map;
   }, [accounts]);
 
-  const processDataForExport = (dataToExport: Transaction[]) => {
-    return dataToExport.map((t) => {
-      const row: Record<string, string | number> = {
-        Data: formatDateOnlyPtBr(t.Data, ''),
-        'Descrição Personalizada (Usuário)': t.Nome_Fantasia || '',
-        'Descrição Original (Banco)': t.Descricao_Original || '',
-        Categoria: t.Categoria || '',
-        Tipo: t.Tipo || '',
-        Valor: t.Valor,
-        Conta: t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta desconhecida' : 'Sem conta',
-        Parcelas: t.Parcela_Atual ? `${t.Parcela_Atual}/${t.Total_Parcelas || 1}` : '',
-        Tags: t.Tags ? t.Tags.join(', ') : '',
-        Observações: t.Observacoes || '',
-      };
-      if (familyOwnerContext.showAttribution) {
-        const profile = familyOwnerContext.getProfile(
-          familyOwnerContext.getTransactionOwnerId(t)
+  /**
+   * Exportação de dados (A902). Sempre o conjunto FILTRADO INTEIRO — não só a
+   * página visível — na mesma ordem da tabela. A semântica das colunas vive em
+   * domain/export; CSV e Excel só serializam o mesmo modelo.
+   */
+  const buildExportData = () => ({
+    rows: buildTransactionExportRows(filteredTransactions, {
+      accounts,
+      getOwnerLabel: familyOwnerContext.showAttribution
+        ? (t) => familyOwnerContext.getProfile(familyOwnerContext.getTransactionOwnerId(t))?.label
+        : undefined,
+    }),
+    columns: getTransactionExportColumns(familyOwnerContext.showAttribution),
+  });
+
+  const runExport = async (extension: 'csv' | 'xlsx') => {
+    if (filteredTransactions.length === 0) {
+      await appAlert('Nenhuma transação no filtro atual para exportar.', 'Exportação', 'warning');
+      return;
+    }
+    try {
+      const { rows, columns } = buildExportData();
+      const fileName = buildTransactionExportFileName(transactionFilters, extension);
+      if (extension === 'csv') {
+        downloadBlob(
+          new Blob([serializeTransactionsCsv(rows, columns)], { type: 'text/csv;charset=utf-8;' }),
+          fileName
         );
-        row.Responsável = profile?.label || '';
+        return;
       }
-      return row;
-    });
-  };
-
-  const handleExportCSV = () => {
-    const data = processDataForExport(filteredTransactions);
-    const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `transacoes_filtradas_${localTodayIso()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleExportExcel = () => {
-    const data = processDataForExport(filteredTransactions);
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Transações");
-    XLSX.writeFile(workbook, `transacoes_filtradas_${localTodayIso()}.xlsx`);
+      // O ExcelJS (~1 MB) só é baixado agora, no clique — ver domain/export/transactionXlsx.ts.
+      const { buildTransactionsXlsx } = await import('../../domain/export/transactionXlsx');
+      const bytes = await buildTransactionsXlsx(rows, columns);
+      downloadBlob(
+        new Blob([bytes], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+        fileName
+      );
+    } catch (error) {
+      console.error('[Exportação] Falha ao gerar o arquivo:', error);
+      await appAlert(
+        'Não foi possível gerar o arquivo. Tente novamente; nenhum dado foi alterado.',
+        'Exportação',
+        'danger'
+      );
+    }
   };
 
   const handleExportChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    if (value === 'csv') handleExportCSV();
-    if (value === 'excel') handleExportExcel();
+    if (value === 'csv') void runExport('csv');
+    if (value === 'excel') void runExport('xlsx');
     // Reset select value
     e.target.value = '';
   };
