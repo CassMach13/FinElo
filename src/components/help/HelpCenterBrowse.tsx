@@ -18,6 +18,8 @@ import {
 
 interface HelpCenterBrowseProps {
   onOpenSupport: () => void;
+  /** Tópico que abre já expandido (vindo de outra tela, ex.: importação). */
+  initialExpandedId?: string | null;
 }
 
 const GUIDE_SEARCH_HINT = {
@@ -147,12 +149,12 @@ function CreditCardGuidePanel({
   );
 }
 
-const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport }) => {
+const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, initialExpandedId = null }) => {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const guideRef = useRef<HTMLDivElement | null>(null);
   const [query, setQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<HelpSectionId | 'all'>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(initialExpandedId);
   const [guideExpanded, setGuideExpanded] = useState(false);
 
   const filteredTopics = useMemo(
