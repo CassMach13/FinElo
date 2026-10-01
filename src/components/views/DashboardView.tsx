@@ -3,7 +3,8 @@ import { useAppStore } from './../../hooks/useAppStore';
 import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 
 import { autoStartTour } from '../../services/tourService';
-import { loadDemoData } from '../../services/demoDataService';
+import FirstStepsCard from '../onboarding/FirstStepsCard';
+import { dismissPatch, getFirstStepsState, resumePatch, startedPatch } from '../../domain/onboarding/firstSteps';
 import { Category, Transaction, Account } from './../../types';
 import Card from './../ui/Card';
 import ProgressBar from './../ui/ProgressBar';
@@ -63,7 +64,7 @@ import CategoryModal from '../modals/CategoryModal';
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
-  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData } = useAppStore();
+  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
   const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
 
@@ -78,12 +79,41 @@ const DashboardView: React.FC = () => {
     return localStorage.getItem('hideAssetReviewAlert') !== 'true';
   });
 
-  // Auto-start tour logic
+  // Primeiros passos: derivado dos dados reais; só a preferência de exibição fica em user_metadata.
+  const firstSteps = useMemo(
+    () =>
+      getFirstStepsState({
+        ready: initialDataLoadStatus === 'ready',
+        transactions,
+        metadata: user?.user_metadata,
+      }),
+    [initialDataLoadStatus, transactions, user?.user_metadata]
+  );
+
+  // Registra (uma vez) que o usuário viu o bloco ainda sem dados: é o que o mantém visível, e
+  // evoluindo, depois da primeira importação. Quem já tinha dados antes desta versão não passa por aqui.
   useEffect(() => {
-    if (initialDataLoadStatus === 'ready') {
+    if (firstSteps.shouldMarkStarted) void updateUserPreferences(startedPatch());
+  }, [firstSteps.shouldMarkStarted, updateUserPreferences]);
+
+  // Auto-start tour logic. Sem dados o onboarding tem prioridade; quem já usa o app mantém o
+  // comportamento de sempre.
+  useEffect(() => {
+    if (firstSteps.allowAutoTour) {
       autoStartTour('dashboard');
     }
-  }, [initialDataLoadStatus]);
+  }, [firstSteps.allowAutoTour]);
+
+  const handleFirstStepsReview = () => {
+    setCurrentView('transactions');
+  };
+  const handleFirstStepsViewMonth = () => {
+    document.getElementById('dashboard-kpis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const handleFirstStepsHowToDownload = () => {
+    setHelpIntent({ tab: 'topics', topicId: 'import-how' });
+    setCurrentView('help');
+  };
 
   const handleDismissAssetAlert = () => {
     setShowAssetReviewAlert(false);
@@ -615,23 +645,28 @@ const DashboardView: React.FC = () => {
         {printHeader.compare && <p className="text-sm text-gray-300">{printHeader.compare}</p>}
       </div>
 
-      {/* Empty State / Demo Data CTA */}
-      {dashboardDataDisplayState === 'empty' && (
-        <div className="bg-gradient-to-r from-secondary to-primary/50 rounded-xl p-6 border border-accent/20 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
-          <div className="flex items-center gap-4">
-            <div className="bg-accent/20 p-3 rounded-full">
-              <span className="text-2xl">🚀</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-light">Novo por aqui?</h3>
-              <p className="text-gray-400 text-sm">Carregue dados de exemplo para ver o poder do FinElo em ação instantaneamente.</p>
-            </div>
-          </div>
+      {/* Primeiros passos (substitui o antigo CTA de demonstração, que gravava dados fictícios na conta real) */}
+      {firstSteps.visible && (
+        <FirstStepsCard
+          phase={firstSteps.phase}
+          steps={firstSteps.steps}
+          uncategorizedCount={firstSteps.uncategorizedCount}
+          onImport={() => setCurrentView('import')}
+          onManual={() => setNewTransactionModalOpen(true)}
+          onHowToDownload={handleFirstStepsHowToDownload}
+          onReview={handleFirstStepsReview}
+          onViewMonth={handleFirstStepsViewMonth}
+          onDismiss={() => void updateUserPreferences(dismissPatch())}
+        />
+      )}
+      {firstSteps.canResume && (
+        <div className="flex justify-end mb-4 no-print">
           <button
-            onClick={loadDemoData}
-            className="px-6 py-2 bg-accent hover:bg-accent/80 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-accent/20 whitespace-nowrap"
+            type="button"
+            onClick={() => void updateUserPreferences(resumePatch())}
+            className="text-sm font-medium text-accent hover:text-accent/80 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
           >
-            Carregar Demo
+            Retomar primeiros passos
           </button>
         </div>
       )}

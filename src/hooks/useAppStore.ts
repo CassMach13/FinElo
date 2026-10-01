@@ -213,6 +213,19 @@ async function removeImportedCardArtifacts(opts: {
 
 
 // Interface para o estado da nossa aplicação
+/**
+ * Para onde a Central de Ajuda deve abrir quando outra tela a chama (por exemplo "Não sabe como
+ * baixar seu extrato?" na importação). Transitória: o HelpView consome e limpa ao abrir.
+ */
+export interface HelpIntent {
+  tab: 'topics' | 'new';
+  /** Id de um tópico de `helpCenterContent` para abrir já expandido. */
+  topicId?: string;
+  /** Pré-preenche o assunto e o tipo do novo chamado. */
+  subject?: string;
+  ticketType?: 'question' | 'bug' | 'feature';
+}
+
 interface AppState {
   transactions: Transaction[];
   user: User | null;
@@ -339,6 +352,8 @@ interface AppState {
   // Navigation & UI State
   currentView: AppView;
   setCurrentView: (view: AppView) => void;
+  helpIntent: HelpIntent | null;
+  setHelpIntent: (intent: HelpIntent | null) => void;
 
   // Family Plan Acceptance
   pendingInvites: FamilyMember[];
@@ -462,6 +477,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   transactionFilters: getDefaultTransactionFilters(),
   currentView: 'dashboard',
   setCurrentView: (view) => set({ currentView: view }),
+  helpIntent: null,
+  setHelpIntent: (intent) => set({ helpIntent: intent }),
 
   pendingInvites: [],
   founderCount: 0,

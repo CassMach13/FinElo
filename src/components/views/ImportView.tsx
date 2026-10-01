@@ -11,6 +11,7 @@ import Button from './../ui/Button';
 import Modal from './../ui/Modal';
 import Input from './../ui/Input';
 import Select from './../ui/Select';
+import ImportSuccessPanel from '../onboarding/ImportSuccessPanel';
 import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
 import { isOpenFinanceEnabled } from '../../services/featureFlagService';
@@ -104,7 +105,7 @@ const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSel
 );
 
 const ImportView: React.FC = () => {
-  const { user, importConfigs, transactions, mappingRules, addMultipleTransactions, importLogs, isPremium, unlimitedSync, accounts, addAccount, setCurrentView, updateUserPreferences } = useAppStore();
+  const { user, importConfigs, transactions, mappingRules, addMultipleTransactions, importLogs, isPremium, unlimitedSync, accounts, addAccount, setCurrentView, updateUserPreferences, setHelpIntent } = useAppStore();
 
   const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
   const hasUnlimitedAccess = unlimitedSync || isAdmin;
@@ -115,7 +116,7 @@ const ImportView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [paymentDateModalOpen, setPaymentDateModalOpen] = useState(false);
   const [saveConfigModalOpen, setSaveConfigModalOpen] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string; summary?: { imported: number; ignored: number } } | null>(null);
 
   // Sugestão de parcela irmã: fica pendente enquanto o usuário decide.
   // `resolver` devolve as escolhas para `processFile`, ou null se ele cancelar
@@ -217,6 +218,32 @@ const ImportView: React.FC = () => {
     });
   };
 
+
+  // Ajuda contextual e pedido de banco: reutilizam a Central de Ajuda / suporte que já existem.
+  const openHowToDownloadHelp = () => {
+    setHelpIntent({ tab: 'topics', topicId: 'import-how' });
+    setCurrentView('help');
+  };
+  const openBankRequestSupport = () => {
+    setHelpIntent({
+      tab: 'new',
+      ticketType: 'feature',
+      subject: 'Pedido de suporte a um novo banco',
+    });
+    setCurrentView('help');
+  };
+
+  // Painel de sucesso depois de importar: orienta o próximo passo em vez de parar no aviso.
+  const renderImportSuccess = () =>
+    notification?.type === 'success' && notification.summary && notification.summary.imported > 0 ? (
+      <ImportSuccessPanel
+        imported={notification.summary.imported}
+        ignored={notification.summary.ignored}
+        onReviewTransactions={() => setCurrentView('transactions')}
+        onViewDashboard={() => setCurrentView('dashboard')}
+        onImportAnother={() => setNotification(null)}
+      />
+    ) : null;
 
   // Belvo Widget State
   const [isBelvoLoading, setIsBelvoLoading] = useState(false);
@@ -625,6 +652,7 @@ const ImportView: React.FC = () => {
         setNotification({
           type: 'success',
           message: `✅ Importação concluída! ${importResult.imported} novas transações, ${importResult.ignored} ignoradas.`,
+          summary: { imported: importResult.imported, ignored: importResult.ignored },
         });
       } else {
         setNotification({
@@ -830,6 +858,7 @@ const ImportView: React.FC = () => {
         setNotification({
           type: 'success',
           message: `Importação concluída! ${importResult.imported} novas, ${importResult.ignored} ignoradas.`,
+          summary: { imported: importResult.imported, ignored: importResult.ignored },
         });
         setStep('bank-select');
         setSaveConfigModalOpen(true);
@@ -893,6 +922,7 @@ const ImportView: React.FC = () => {
           {/* ── STEP: BANK SELECTION ─────────────────────────────────────────── */}
           {step === 'bank-select' && (
             <>
+              {!selectedNativeBank && renderImportSuccess()}
               {hasMigrationNotice && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
                   <span className="text-2xl">💡</span>
@@ -910,6 +940,13 @@ const ImportView: React.FC = () => {
                   <div>
                     <h2 className="text-xl font-bold text-white mb-1">Selecione o Banco ou Cartão</h2>
                     <p className="text-sm text-gray-400">Escolha a fonte do seu extrato para uma importação automática, sem configurações manuais.</p>
+                    <button
+                      type="button"
+                      onClick={openHowToDownloadHelp}
+                      className="mt-2 text-sm font-medium text-highlight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight rounded"
+                    >
+                      Não sabe como baixar o arquivo do seu banco?
+                    </button>
                   </div>
 
                   <div className="space-y-5">
@@ -1092,15 +1129,16 @@ const ImportView: React.FC = () => {
 
                     <div>
                       <p className="text-white font-semibold text-sm">🏦 Meu banco não está na lista</p>
-                      <p className="text-gray-400 text-xs mt-0.5">Fale com o suporte ou crie um mapeamento manual clicando na grade acima.</p>
+                      <p className="text-gray-400 text-xs mt-0.5">Abra um pedido de suporte aqui no FinElo ou crie um mapeamento manual clicando na grade acima.</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
-                      <a
-                        href="mailto:suporte@finelo.com.br?subject=Solicitação de Integração Nativa&body=Olá! Gostaria de solicitar a integração nativa para o banco: [NOME DO BANCO]"
-                        className="text-xs font-semibold px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition"
+                      <button
+                        type="button"
+                        onClick={openBankRequestSupport}
+                        className="text-xs font-semibold px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight"
                       >
-                        📬 Solicitar Integração
-                      </a>
+                        Pedir meu banco
+                      </button>
                     </div>
                   </div>
 
@@ -1196,6 +1234,13 @@ const ImportView: React.FC = () => {
                     <div>
                       <h3 className="text-white font-bold">{selectedNativeBank.name}</h3>
                       <p className="text-gray-400 text-sm">{selectedNativeBank.description}</p>
+                      <button
+                        type="button"
+                        onClick={openHowToDownloadHelp}
+                        className="mt-1 text-xs font-medium text-highlight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight rounded"
+                      >
+                        Não sabe como baixar o arquivo do seu banco?
+                      </button>
                     </div>
                   </div>
 
@@ -1351,7 +1396,8 @@ const ImportView: React.FC = () => {
                     />
                   )}
 
-                  {notification && (
+                  {renderImportSuccess()}
+                  {notification && !renderImportSuccess() && (
                     <div className={`p-3 rounded-lg text-sm text-center ${notification.type === 'success' ? 'bg-green-800/50 text-green-200 border border-green-700' : 'bg-red-800/50 text-red-200 border border-red-700'
                       }`}>
                       {notification.message}

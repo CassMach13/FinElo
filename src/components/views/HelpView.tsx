@@ -28,12 +28,14 @@ const emptyReplyDraft = (): ReplyDraft => ({
 });
 
 const HelpView: React.FC = () => {
-    const { createSupportTicket, fetchSupportTickets, supportTickets, sendMessage, user } = useAppStore();
-    const [activeTab, setActiveTab] = useState<'topics' | 'new' | 'history'>('topics');
+    const { createSupportTicket, fetchSupportTickets, supportTickets, sendMessage, user, helpIntent, setHelpIntent } = useAppStore();
+    // Intenção vinda de outra tela (artigo do extrato, pedido de banco). Lida uma vez, na abertura.
+    const [initialIntent] = useState(helpIntent);
+    const [activeTab, setActiveTab] = useState<'topics' | 'new' | 'history'>(initialIntent?.tab ?? 'topics');
     const [isLoading, setIsLoading] = useState(false);
 
-    const [type, setType] = useState<'question' | 'bug' | 'feature'>('question');
-    const [subject, setSubject] = useState('');
+    const [type, setType] = useState<'question' | 'bug' | 'feature'>(initialIntent?.ticketType ?? 'question');
+    const [subject, setSubject] = useState(initialIntent?.subject ?? '');
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [hasFileAcceptance, setHasFileAcceptance] = useState(false);
@@ -43,6 +45,10 @@ const HelpView: React.FC = () => {
     useEffect(() => {
         fetchSupportTickets();
     }, [fetchSupportTickets]);
+
+    useEffect(() => {
+        if (initialIntent) setHelpIntent(null);
+    }, [initialIntent, setHelpIntent]);
 
     const replyDraftFor = (ticketId: string): ReplyDraft =>
         replyDrafts[ticketId] ?? emptyReplyDraft();
@@ -150,7 +156,7 @@ const HelpView: React.FC = () => {
 
             <div className="min-h-[400px]">
                 {activeTab === 'topics' && (
-                    <HelpCenterBrowse onOpenSupport={() => setActiveTab('new')} />
+                    <HelpCenterBrowse onOpenSupport={() => setActiveTab('new')} initialExpandedId={initialIntent?.topicId ?? null} />
                 )}
 
                 {activeTab === 'new' && (
