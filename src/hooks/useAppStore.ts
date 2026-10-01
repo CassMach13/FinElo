@@ -77,6 +77,7 @@ import { resolveCardImportCycleCoordinates } from '../utils/cardImportReference'
 import { withCardImportCycleMetadata } from '../utils/cardImportCycleMetadata';
 import { unknownErrorMessage } from '../utils/unknownError';
 import { normalizeClassifierKeywords } from '../domain/credit-card/metadataContext';
+import { isManualTransaction, sanitizeTransactionUpdate } from '../domain/transactions/transactionEditPolicy';
 import {
   createSupportMessageRecord,
   createSupportTicketRecord,
@@ -2269,14 +2270,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateTransaction: async (updatedTransaction) => {
-    const { ID_Transacao, ...fieldsToUpdate } = updatedTransaction; 
-    
+    const { ID_Transacao, ...requestedFieldsToUpdate } = updatedTransaction;
+
     // Pegar o estado anterior para identificar o asset antigo
     const oldTransaction = get().transactions.find(t => t.ID_Transacao === ID_Transacao);
-    const oldAssetId = oldTransaction?.linked_asset_id;
+    if (!oldTransaction) {
+      // Sem o registro atual não dá para saber se é importada: recusa em vez de gravar às cegas.
+      console.error('Transação não encontrada; atualização recusada.');
+      return;
+    }
+
+    // Defesa em profundidade: a UI já restringe, mas o contrato vale para qualquer chamador.
+    // Importada só aceita os campos amigáveis que mudaram; manual passa como sempre.
+    const fieldsToUpdate = sanitizeTransactionUpdate(oldTransaction, requestedFieldsToUpdate);
+    if (!isManualTransaction(oldTransaction) && Object.keys(fieldsToUpdate).length === 0) return;
+
+    const oldAssetId = oldTransaction.linked_asset_id;
 
     let payload = fieldsToUpdate;
-    if (oldTransaction && fieldsToUpdate.Data_Pagamento !== undefined) {
+    if (fieldsToUpdate.Data_Pagamento !== undefined) {
       const account = get().accounts.find(
         (a) => a.id === (fieldsToUpdate.ID_Conta as string | undefined) || oldTransaction.ID_Conta
       );

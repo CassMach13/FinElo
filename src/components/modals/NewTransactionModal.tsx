@@ -25,6 +25,7 @@ import {
 } from '../../services/creditCardDirectedPayment';
 import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso, inferUserTargetCompetenceOnPaymentEdit } from '../../services/creditCardManualCompetence';
 import { addMonthsToDateOnly, parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
+import { isManualTransaction } from '../../domain/transactions/transactionEditPolicy';
 
 interface NewTransactionModalProps {
   onClose: () => void;
@@ -63,6 +64,9 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 }) => {
   const { addMappingRule } = useAppStore();
   const editTransactionId = initialTransaction?.ID_Transacao ?? null;
+  // Importada: só nome, categoria, vínculo e data de pagamento mudam (transactionEditPolicy). O resto
+  // descreve a linha do banco e fica travado aqui, em vez de ser regravado a partir do formulário.
+  const isImportedEdit = Boolean(initialTransaction) && !isManualTransaction(initialTransaction);
 
   const getTodayString = () => {
     const today = new Date();
@@ -450,6 +454,33 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isImportedEdit) {
+      // Não passa pelo gerador de lançamentos manuais (recorrência, tipo de lançamento no cartão,
+      // marcador de competência): ele reescreveria parcela, fonte e descrição original.
+      const importedErrors: Record<string, string> = {};
+      if (!transaction.Nome_Fantasia.trim()) importedErrors.Nome_Fantasia = 'A descrição é obrigatória.';
+      if (!transaction.Categoria) importedErrors.Categoria = 'A categoria é obrigatória.';
+      setErrors(importedErrors);
+      if (Object.keys(importedErrors).length > 0 || isSaving) return;
+
+      setIsSaving(true);
+      try {
+        const paymentDate = transaction.Data_Pagamento ? parseDateOnlyLocal(transaction.Data_Pagamento) : undefined;
+        await onSave([
+          {
+            Nome_Fantasia: transaction.Nome_Fantasia.trim(),
+            Categoria: transaction.Categoria,
+            linked_asset_id: transaction.linked_asset_id || undefined,
+            Data_Pagamento: paymentDate ?? undefined,
+          } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
+        ]);
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     if (!validate() || isSaving) return;
 
     if (
@@ -646,7 +677,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     return 'Valor (R$)';
   };
 
-  const mustPickCardEntryKind = isCreditCardAccount && !cardEntryKind;
+  // Importada não escolhe o tipo de lançamento no cartão (o seletor fica travado): não bloqueia o Salvar.
+  const mustPickCardEntryKind = !isImportedEdit && isCreditCardAccount && !cardEntryKind;
 
   const submitDisabled =
     isSaving ||
@@ -676,6 +708,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       }
     >
       <form id="new-transaction-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        {isImportedEdit && (
+          <p className="rounded-xl border border-slate-600/60 bg-slate-800/60 p-3 text-xs leading-relaxed text-slate-300">
+            Lançamento importado do seu banco: aqui você pode alterar a descrição, a categoria, o vínculo com
+            patrimônio e a data de pagamento. Valor, data da compra, conta e parcelas vêm do arquivo e ficam
+            como foram importados.
+          </p>
+        )}
         {!initialTransaction && onPayCreditCardInvoice && creditCardAccounts.length > 0 && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-3">
             <p className="text-xs text-emerald-100/95 leading-relaxed">
@@ -723,6 +762,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             value={transaction.Data}
             onChange={handleChange}
             error={errors.Data}
+            disabled={isImportedEdit}
             title={
               isCreditCardAccount
                 ? 'Data em que a compra ou estorno ocorreu'
@@ -768,6 +808,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               value={transaction.ID_Conta}
               onChange={handleChange}
               error={errors.ID_Conta}
+              disabled={isImportedEdit}
             >
               <option value="" disabled>
                 Selecione uma conta...
@@ -806,6 +847,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               value={cardEntryKind}
               onChange={(e) => handleCardKindChange(e.target.value as CardManualEntryKind)}
               error={errors.cardEntryKind}
+              disabled={isImportedEdit}
             >
               <option value="" disabled>
                 Selecione o tipo...
@@ -906,7 +948,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             value={transaction.Tipo}
             onChange={handleChange}
             error={errors.Tipo}
-            disabled={cardEntryKind === 'refund'}
+            disabled={isImportedEdit || cardEntryKind === 'refund'}
           >
             <option value="" disabled>
               Selecione...
@@ -966,6 +1008,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             value={transaction.Valor}
             onChange={handleChange}
             error={errors.Valor}
+            disabled={isImportedEdit}
             placeholder="0,00"
           />
           {isInstallment && transaction.Valor && !isNaN(parseFloat(transaction.Valor)) && (
@@ -1007,6 +1050,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 id="isRecurrent"
                 checked={isRecurrent}
                 onChange={(e) => setIsRecurrent(e.target.checked)}
+                disabled={isImportedEdit}
                 className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-highlight focus:ring-accent"
               />
               <label htmlFor="isRecurrent" className="text-sm font-medium text-gray-200 cursor-pointer select-none">
