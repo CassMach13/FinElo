@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient';
 import { classifyAuthInit, shouldDeferStartupAuthEvent } from './utils/authSessionOutcome';
 import { useAppStore } from './hooks/useAppStore';
 import { registrarAtividadeDoUsuario } from './services/userActivityService';
+import { trackAppSessionStarted } from './services/productAnalytics';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -138,6 +139,12 @@ const AppContent: React.FC = () => {
       };
     }
   }, []);
+
+  // Sessão de produto: o app está aberto com um usuário autenticado. Vale para login novo e para sessão
+  // restaurada na carga (nesse caso o ouvinte de auth não passa por aqui). Um evento por sessão do navegador.
+  useEffect(() => {
+    if (isAuthReady && user?.id) void trackAppSessionStarted();
+  }, [isAuthReady, user?.id]);
 
   // Sincronização automática quando o app volta ao primeiro plano (resolve conflito de múltiplas instâncias)
   useEffect(() => {

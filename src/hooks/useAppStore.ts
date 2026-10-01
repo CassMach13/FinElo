@@ -78,6 +78,7 @@ import { withCardImportCycleMetadata } from '../utils/cardImportCycleMetadata';
 import { unknownErrorMessage } from '../utils/unknownError';
 import { normalizeClassifierKeywords } from '../domain/credit-card/metadataContext';
 import { isManualTransaction, sanitizeTransactionUpdate } from '../domain/transactions/transactionEditPolicy';
+import { trackProductEvent } from '../services/productAnalytics';
 import {
   createSupportMessageRecord,
   createSupportTicketRecord,
@@ -1789,6 +1790,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else if (data) {
       console.log('%c[Store: addAccount] 2. Sucesso! Resposta do Supabase:', 'color: #33cc33', data[0]);
       const newAccount = data[0] as Account;
+      // Só depois de a conta existir no banco. Sem nome, banco, saldo nem tipo.
+      void trackProductEvent('account_created');
       set((state) => {
         const newState = { accounts: [...state.accounts, newAccount] };
         console.log('%c[Store: addAccount] 3. Estado atualizado. Novo array de contas:', 'color: #3399ff', newState.accounts);

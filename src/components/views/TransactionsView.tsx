@@ -73,6 +73,7 @@ import CardDiagnosticsModal from '../modals/CardDiagnosticsModal';
 import type { CardDiagnostic } from '../../domain/credit-card/cardDiagnostics';
 import { formatInstallmentCell } from '../../domain/installments/installmentDisplay';
 import { formatDateCell } from '../../utils/formatDateCell';
+import { trackProductEvent } from '../../services/productAnalytics';
 import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
@@ -2896,6 +2897,8 @@ const TransactionsView: React.FC = () => {
         Descricao_Original: t.Nome_Fantasia,
       }));
       await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
+      // Só depois de gravar. Nenhum conteúdo do lançamento.
+      void trackProductEvent('manual_transaction_created');
       setNewTransactionModalOpen(false);
     } catch (err) {
       console.error('Erro ao salvar lançamento manual:', err);

@@ -4,6 +4,7 @@ import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 
 import { autoStartTour } from '../../services/tourService';
 import FirstStepsCard from '../onboarding/FirstStepsCard';
+import { trackProductEvent, trackProductMilestone } from '../../services/productAnalytics';
 import { dismissPatch, getFirstStepsState, resumePatch, startedPatch } from '../../domain/onboarding/firstSteps';
 import { Category, Transaction, Account } from './../../types';
 import Card from './../ui/Card';
@@ -95,6 +96,28 @@ const DashboardView: React.FC = () => {
   useEffect(() => {
     if (firstSteps.shouldMarkStarted) void updateUserPreferences(startedPatch());
   }, [firstSteps.shouldMarkStarted, updateUserPreferences]);
+
+  // O bloco foi de fato apresentado: milestone de primeira exposição (idempotente por usuário).
+  useEffect(() => {
+    if (firstSteps.visible) void trackProductMilestone('onboarding_viewed', { version: 1 });
+  }, [firstSteps.visible]);
+
+  // Primeira Dashboard com dado REAL (demo não conta: mesma identificação do onboarding).
+  useEffect(() => {
+    if (initialDataLoadStatus === 'ready' && firstSteps.hasRealData) {
+      void trackProductMilestone('first_dashboard_with_real_data');
+    }
+  }, [initialDataLoadStatus, firstSteps.hasRealData]);
+
+  // "Agora não" e "Retomar" só viram evento quando a ação é essa (concluir no passo 3 não é dispensar).
+  const handleFirstStepsDismiss = () => {
+    void updateUserPreferences(dismissPatch());
+    if (firstSteps.phase !== 'view') void trackProductEvent('onboarding_dismissed', { version: 1 });
+  };
+  const handleFirstStepsResume = () => {
+    void updateUserPreferences(resumePatch());
+    void trackProductEvent('onboarding_resumed', { version: 1 });
+  };
 
   // Auto-start tour logic. Sem dados o onboarding tem prioridade; quem já usa o app mantém o
   // comportamento de sempre.
@@ -519,6 +542,8 @@ const DashboardView: React.FC = () => {
       Descricao_Original: t.Nome_Fantasia,
     }));
     await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
+    // Só depois de gravar. Nenhum conteúdo do lançamento.
+    void trackProductEvent('manual_transaction_created');
     setNewTransactionModalOpen(false);
   };
 
@@ -656,14 +681,14 @@ const DashboardView: React.FC = () => {
           onHowToDownload={handleFirstStepsHowToDownload}
           onReview={handleFirstStepsReview}
           onViewMonth={handleFirstStepsViewMonth}
-          onDismiss={() => void updateUserPreferences(dismissPatch())}
+          onDismiss={handleFirstStepsDismiss}
         />
       )}
       {firstSteps.canResume && (
         <div className="flex justify-end mb-4 no-print">
           <button
             type="button"
-            onClick={() => void updateUserPreferences(resumePatch())}
+            onClick={handleFirstStepsResume}
             className="text-sm font-medium text-accent hover:text-accent/80 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
           >
             Retomar primeiros passos

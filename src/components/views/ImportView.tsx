@@ -12,6 +12,7 @@ import Modal from './../ui/Modal';
 import Input from './../ui/Input';
 import Select from './../ui/Select';
 import ImportSuccessPanel from '../onboarding/ImportSuccessPanel';
+import { trackProductEvent, type ImportFailureStage } from '../../services/productAnalytics';
 import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
 import { isOpenFinanceEnabled } from '../../services/featureFlagService';
@@ -290,6 +291,7 @@ const ImportView: React.FC = () => {
   const handleOpenFinanceConnect = () => {
     if (!isPremium) { setShowPaywallModal('basic'); return; }
     if (!hasUnlimitedAccess && pluggyConnections.length >= 1) { setShowPaywallModal('extra_bank'); return; }
+    void trackProductEvent('open_finance_started');
     setShowConsentModal(true);
   };
 
@@ -550,6 +552,7 @@ const ImportView: React.FC = () => {
     } catch (error) {
       console.error(error);
       setNotification({ type: 'error', message: 'Erro ao ler arquivo.' });
+      void trackProductEvent('import_failed', { stage: 'file' });
       setIsLoading(false);
     }
   };
@@ -563,6 +566,9 @@ const ImportView: React.FC = () => {
   ) => {
     setIsLoading(true);
     setNotification(null);
+    // Uma tentativa de importação começou (arquivo escolhido, processamento iniciado). Sem banco, nome nem conteúdo.
+    void trackProductEvent('import_started');
+    let failureStage: ImportFailureStage = 'parse';
     try {
       const result = parseNativeBankCSV(content, bankCfg, transactions, mappingRules, paymentDate, selectedFile.name);
       let resolvedCardCycle = cardCycle;
@@ -576,6 +582,7 @@ const ImportView: React.FC = () => {
             type: 'error',
             message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
           });
+          void trackProductEvent('import_failed', { stage: 'mapping' });
           return;
         }
 
@@ -635,6 +642,7 @@ const ImportView: React.FC = () => {
           Linhas_Ignorar_Inicio: bankCfg.skipLines,
           ID_Conta_Associada: selectedNativeAccountId || null
         };
+        failureStage = 'persist';
         const importResult = await addMultipleTransactions(
           transacoesParaImportar,
           fakeConfig as any,
@@ -654,15 +662,19 @@ const ImportView: React.FC = () => {
           message: `✅ Importação concluída! ${importResult.imported} novas transações, ${importResult.ignored} ignoradas.`,
           summary: { imported: importResult.imported, ignored: importResult.ignored },
         });
+        // Importação útil = entrou ao menos uma linha. Só duplicadas não conta como concluída.
+        if (importResult.imported > 0) void trackProductEvent('import_completed');
       } else {
         setNotification({
           type: 'error',
           message: `Nenhuma transação encontrada. Verifique se o arquivo está no formato correto para ${bankCfg.name}.`,
         });
+        void trackProductEvent('import_failed', { stage: 'parse' });
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Erro desconhecido';
       setNotification({ type: 'error', message: `Falha na importação: ${msg}` });
+      void trackProductEvent('import_failed', { stage: failureStage });
     } finally {
       setIsLoading(false);
       const input = document.getElementById('native-file-upload') as HTMLInputElement;
@@ -728,6 +740,7 @@ const ImportView: React.FC = () => {
 
   const handleSmartImport = async () => {
     if (hasReachedLimit) {
+      void trackProductEvent('import_failed', { stage: 'quota' });
       await appAlert("Você atingiu o limite de 1 importação gratuita por mês. Assine o Premium para importações ilimitadas!", "Aviso", "warning");
       return;
     }
@@ -763,6 +776,8 @@ const ImportView: React.FC = () => {
   const processFile = async (paymentDate?: Date, cardCycle?: CardImportCycleInput) => {
     setIsLoading(true);
     setNotification(null);
+    void trackProductEvent('import_started');
+    let failureStage: ImportFailureStage = 'parse';
     try {
       const config = importConfigs.find(c => c.Nome_Fonte === selectedConfigSource) || null;
       const manualMappingConfig: {
@@ -800,6 +815,7 @@ const ImportView: React.FC = () => {
             type: 'error',
             message: 'Não foi possível determinar a competência automaticamente. Selecione o modo manual.',
           });
+          void trackProductEvent('import_failed', { stage: 'mapping' });
           return;
         }
 
@@ -842,6 +858,7 @@ const ImportView: React.FC = () => {
           return;
         }
 
+        failureStage = 'persist';
         const importResult = await addMultipleTransactions(
           transacoesParaImportar,
           effectiveConfig as any,
@@ -860,6 +877,7 @@ const ImportView: React.FC = () => {
           message: `Importação concluída! ${importResult.imported} novas, ${importResult.ignored} ignoradas.`,
           summary: { imported: importResult.imported, ignored: importResult.ignored },
         });
+        if (importResult.imported > 0) void trackProductEvent('import_completed');
         setStep('bank-select');
         setSaveConfigModalOpen(true);
       } else {
@@ -867,11 +885,13 @@ const ImportView: React.FC = () => {
           type: 'success',
           message: `Nenhuma transação encontrada no arquivo. Verifique o mapeamento das colunas.`,
         });
+        void trackProductEvent('import_failed', { stage: 'mapping' });
       }
     } catch (error) {
       console.error(error);
       const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
       setNotification({ type: 'error', message: `Falha na importação: ${errorMessage}` });
+      void trackProductEvent('import_failed', { stage: failureStage });
     } finally {
       setIsLoading(false);
       setFile(null);
