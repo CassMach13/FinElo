@@ -99,7 +99,7 @@ const CategorySpendChart: React.FC<ChartProps> = ({
 
           if (!compareData) {
             return (
-              <div key={item.name} className="flex flex-col gap-1.5 w-full">
+              <div key={item.name} className="flex flex-col gap-1.5 w-full print:break-inside-avoid">
                 <div className="flex justify-between items-end w-full text-xs gap-2">
                   <span className="font-semibold text-gray-300 truncate max-w-[45%]" title={item.name}>
                     {item.name}
@@ -117,7 +117,7 @@ const CategorySpendChart: React.FC<ChartProps> = ({
           return (
             <div
               key={item.name}
-              className="rounded-xl border border-white/5 bg-slate-900/30 p-3 space-y-2.5"
+              className="rounded-xl border border-white/5 bg-slate-900/30 p-3 space-y-2.5 print:break-inside-avoid"
             >
               <span className="font-semibold text-gray-200 text-sm truncate block" title={item.name}>
                 {item.name}
