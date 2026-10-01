@@ -45,6 +45,7 @@ import {
   computePeriodDelta,
   formatComparisonValue,
 } from '../../utils/periodComparison';
+import { buildDashboardPrintHeader } from '../../utils/dashboardPrintHeader';
 import { computeBudgetStatus, computeBudgetStatusTotal } from '../../utils/dashboardBudget';
 import {
   computeAccountsTotalAsOf,
@@ -256,6 +257,16 @@ const DashboardView: React.FC = () => {
     const labelMode = comparePeriodLabelMode(viewMode, comparePreset);
     return formatDashboardPeriodLabel(labelMode ?? 'custom', compareDateRange);
   }, [compareDateRange, comparePreset, viewMode]);
+
+  /** Cabeçalho que só aparece na impressão ("Exportar PDF"): o período dos números. */
+  const printHeader = useMemo(
+    () =>
+      buildDashboardPrintHeader(
+        { label: dateLabel, range: dateRange },
+        compareDateRange ? { label: compareDateLabel, range: compareDateRange } : null
+      ),
+    [dateLabel, dateRange, compareDateLabel, compareDateRange]
+  );
 
   const dateLabelShort = useMemo(
     () => formatCompactPeriodLabel(dateRange),
@@ -593,6 +604,17 @@ const DashboardView: React.FC = () => {
         </div>
       </div>
 
+      {/*
+        Cabeçalho SÓ DA IMPRESSÃO. O bloco "Período selecionado" acima é `no-print` e o
+        seletor de período é `print:hidden`; sem isto o PDF saía sem dizer de quando são
+        os números. Invisível na tela (`hidden`), visível ao imprimir (`print:block`).
+      */}
+      <div id="dashboard-print-header" className="hidden print:block">
+        <p className="text-sm text-gray-400">{printHeader.title}</p>
+        <p className="text-lg text-white">{printHeader.period}</p>
+        {printHeader.compare && <p className="text-sm text-gray-300">{printHeader.compare}</p>}
+      </div>
+
       {/* Empty State / Demo Data CTA */}
       {dashboardDataDisplayState === 'empty' && (
         <div className="bg-gradient-to-r from-secondary to-primary/50 rounded-xl p-6 border border-accent/20 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
@@ -679,7 +701,7 @@ const DashboardView: React.FC = () => {
 
       {/* Bank Identifier Alert */}
       {accountsWithMissingBank.length > 0 && (
-        <div className="bg-gradient-to-r from-highlight/30 to-accent/20 rounded-xl p-5 border border-highlight/30 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
+        <div className="no-print bg-gradient-to-r from-highlight/30 to-accent/20 rounded-xl p-5 border border-highlight/30 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
           <div className="flex items-center gap-4">
             <div className="bg-highlight/20 p-3 rounded-full flex-shrink-0">
                 <span className="text-2xl">🏦</span>

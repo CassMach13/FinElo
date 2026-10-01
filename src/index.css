@@ -106,11 +106,21 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     opacity: 0 !important;
   }
 
-  /* 5. Dashboard Grid Reconstruction */
+  /*
+   * 5. Dashboard KPIs.
+   *
+   * `#dashboard-kpis` NÃO é uma grade de cards: seus filhos são SEÇÕES (a grade dos KPIs
+   * principais, a das secundárias, o monitoramento de orçamento, o patrimônio), cada uma
+   * com o seu próprio grid. A regra antiga o transformava em `grid` de 3 colunas
+   * (`1fr 1fr 1fr`), o que jogava as 4 seções lado a lado em colunas de ~250 px e
+   * espremia os cards de dentro (~115 px de largura por ~470 px de altura, com o valor
+   * empurrado para o fundo). Era um resquício de quando os filhos eram os próprios cards.
+   *
+   * Empilhar as seções em bloco deixa cada uma usar a largura da página; o espaçamento
+   * entre elas continua vindo do `space-y-6` do próprio elemento.
+   */
   #dashboard-kpis {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr 1fr !important; /* 3 columns for A4 */
-    gap: 15px !important;
+    display: block !important;
     margin: 0 0 1.5rem 0 !important;
     width: 100% !important;
   }
@@ -137,9 +147,14 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 
   /* 7. PROGRESS BARS & GRAPHICAL BAR FIX */
   /* Force SOLID colors for backgrounds in print as gradients/opacity usually fail */
-  .bg-emerald-500\/80, .bg-emerald-500, .bg-success { background-color: #10b981 !important; width: initial; }
-  .bg-rose-500\/80, .bg-rose-500, .bg-danger { background-color: #f43f5e !important; width: initial; }
-  .bg-highlight\/80, .bg-highlight, .bg-accent { background-color: #38b2ac !important; width: initial; }
+  /*
+   * Estas regras só trocam a COR. Elas traziam também `width: initial`, que anulava o
+   * `w-full` das colunas de Tendência e de Receita vs. Despesa (largura 0 no PDF: o
+   * gráfico saía só com os rótulos dos meses). Largura não é papel de regra de cor.
+   */
+  .bg-emerald-500\/80, .bg-emerald-500, .bg-success { background-color: #10b981 !important; }
+  .bg-rose-500\/80, .bg-rose-500, .bg-danger { background-color: #f43f5e !important; }
+  .bg-highlight\/80, .bg-highlight, .bg-accent { background-color: #38b2ac !important; }
   .bg-yellow-500 { background-color: #eab308 !important; }
   
   /* Select specific inner divs of progress bars */
@@ -149,6 +164,23 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     min-width: 2px !important;
     opacity: 1 !important;
     visibility: visible !important;
+  }
+
+  /*
+   * Trilha da barra de "Despesas por Categoria" (`w-full h-2 bg-slate-800`). Ela também casa
+   * com `.bg-slate-800` da regra 6, que a trata como card (padding 1.25rem, `height: auto`):
+   * a trilha virava uma caixa de ~42 px e o preenchimento `h-full` colapsava para altura 0,
+   * deixando a barra invisível. Três classes de especificidade vencem a regra 6 mesmo com
+   * ambas `!important`, sem depender da ordem.
+   */
+  .w-full.h-2.bg-slate-800 {
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    border: 0 !important;
+    height: 0.5rem !important;
+    min-height: 0.5rem !important;
+    border-radius: 9999px !important;
+    overflow: hidden !important;
   }
 
   /* 8. Text Restoration */
@@ -164,13 +196,32 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   .text-danger, [class*="text-red-500"] { color: #f56565 !important; }
   .text-gray-400, .text-gray-500 { color: #94a3b8 !important; }
 
-  /* 9. Chart Rendering Fix */
-  canvas, svg, .recharts-responsive-container {
-    max-width: 100% !important;
-    width: 100% !important;
-    height: 350px !important;
-    visibility: visible !important;
-    overflow: visible !important;
-    display: block !important;
+  /*
+   * 9. Gráficos.
+   *
+   * Havia aqui `canvas, svg, .recharts-responsive-container { height: 350px !important;
+   * width: 100% }`. A Dashboard NÃO usa canvas, SVG nem Recharts para gráficos: as
+   * barras e colunas são HTML/CSS (`PeriodCompareColumns` etc.). Logo, todo `svg` da
+   * página é ÍCONE, e a regra inflava cada um deles de 16–20 px para 350 px — 7 ícones
+   * na Dashboard de staging — desmontando os cards de KPI no PDF.
+   *
+   * Por isso a regra genérica foi removida em vez de estreitada: não existe nenhuma
+   * visualização em SVG/canvas que precise dela. Se um dia houver, o tamanho de
+   * impressão deve vir de uma classe EXPLÍCITA no próprio gráfico (ex.: `.print-chart`),
+   * nunca de um seletor global por tag.
+   */
+
+  /*
+   * 10. `.no-print` tem que ter a ÚLTIMA palavra.
+   *
+   * A regra 4 esconde header, nav, `.no-print` etc. com `display: none !important`, mas a
+   * regra 6 (`.bg-secondary`, `.card`, …) vem depois, tem a mesma especificidade e também é
+   * `!important` (`display: block; height: auto`). O cabeçalho mobile e a barra de navegação
+   * têm `bg-secondary`: o `display: none` perdia, sobravam só `visibility: hidden` e
+   * `opacity: 0`, e os dois continuavam ocupando espaço — uma faixa em branco de ~74 px no
+   * topo e outra de ~42 px no fim do PDF. Esta regra, por vir por último, decide o empate.
+   */
+  .no-print {
+    display: none !important;
   }
 }
