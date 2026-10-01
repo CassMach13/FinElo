@@ -35,6 +35,10 @@
 -- * Milestones são idempotentes por `(user_id, dedupe_key)`. Eventos repetíveis
 --   usam `dedupe_key` nulo.
 -- * Sem backfill: a coleta começa no deploy desta migration.
+-- * O CONTRATO V1 É IMPOSTO PELO BANCO, não só pelo app: só os 12 eventos oficiais são aceitos, e
+--   cada um só com as properties previstas. Quem chamar o PostgREST direto, contornando o
+--   frontend, não consegue gravar evento novo nem propriedade fora do contrato (e-mail, arquivo,
+--   valor…). Sem enum nem tabela de tipos: é uma constraint CHECK, fácil de ampliar numa V2.
 
 CREATE TABLE IF NOT EXISTS public.product_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -49,10 +53,30 @@ CREATE TABLE IF NOT EXISTS public.product_events (
     CHECK (dedupe_key IS NULL OR char_length(dedupe_key) BETWEEN 1 AND 120),
   CONSTRAINT product_events_properties_object
     CHECK (jsonb_typeof(properties) = 'object'),
-  -- Propriedades são um objeto pequeno de lista fechada; o contrato forte mora no
-  -- TypeScript. Isto só impede um payload gigante por engano.
+  -- Defesa em profundidade: objeto e pequeno. O que é aceito de fato é o contrato V1 abaixo.
   CONSTRAINT product_events_properties_small
     CHECK (octet_length(properties::text) <= 1024)
+);
+
+-- Contrato V1 (autoridade do que é aceito). Dropar antes de criar mantém a migration reaplicável
+-- também onde a tabela já existia sem esta constraint (ex.: staging).
+--   * 8 eventos sem properties           -> exatamente {}
+--   * 3 eventos de onboarding            -> exatamente {"version": 1}
+--   * import_failed                      -> exatamente {"stage": <lista fechada>}
+ALTER TABLE public.product_events DROP CONSTRAINT IF EXISTS product_events_contract_v1;
+ALTER TABLE public.product_events ADD CONSTRAINT product_events_contract_v1 CHECK (
+  (event_name IN (
+     'app_session_started', 'account_created', 'import_started', 'import_completed',
+     'manual_transaction_created', 'open_finance_started', 'open_finance_completed',
+     'first_dashboard_with_real_data'
+   ) AND properties = '{}'::jsonb)
+  OR (event_name IN ('onboarding_viewed', 'onboarding_dismissed', 'onboarding_resumed')
+      AND properties = '{"version": 1}'::jsonb)
+  OR (event_name = 'import_failed'
+      AND properties ? 'stage'
+      AND (properties - 'stage') = '{}'::jsonb
+      AND jsonb_typeof(properties -> 'stage') = 'string'
+      AND (properties ->> 'stage') IN ('file', 'parse', 'mapping', 'persist', 'quota', 'unknown'))
 );
 
 COMMENT ON TABLE public.product_events IS

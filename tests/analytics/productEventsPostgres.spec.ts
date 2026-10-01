@@ -155,11 +155,11 @@ describe('product_events — restrições de conteúdo e ciclo de vida', () => {
   it('properties tem que ser objeto pequeno; o nome do evento tem formato fixo', async () => {
     const db = await createDatabase();
     await assume(db, 'authenticated', USER_ID);
-    await expect(insertAs(db, USER_ID, 'import_failed', null, '[1,2]')).rejects.toThrow(/properties_object/);
-    await expect(insertAs(db, USER_ID, 'import_failed', null, '"texto"')).rejects.toThrow(/properties_object/);
+    await expect(insertAs(db, USER_ID, 'import_failed', null, '[1,2]')).rejects.toThrow(/violates check constraint/i);
+    await expect(insertAs(db, USER_ID, 'import_failed', null, '"texto"')).rejects.toThrow(/violates check constraint/i);
     const grande = JSON.stringify({ stage: 'x'.repeat(2000) });
-    await expect(insertAs(db, USER_ID, 'import_failed', null, grande)).rejects.toThrow(/properties_small/);
-    await expect(insertAs(db, USER_ID, 'Evento Livre')).rejects.toThrow(/event_name_format/);
+    await expect(insertAs(db, USER_ID, 'import_failed', null, grande)).rejects.toThrow(/violates check constraint/i);
+    await expect(insertAs(db, USER_ID, 'Evento Livre')).rejects.toThrow(/violates check constraint/i);
     await insertAs(db, USER_ID, 'import_failed', null, '{"stage":"parse"}');
     expect(await total(db)).toBe(1);
   });
@@ -181,5 +181,88 @@ describe('product_events — restrições de conteúdo e ciclo de vida', () => {
     await db.exec(rollback);
     const r = await db.query<{ t: string | null }>("select to_regclass('public.product_events')::text as t");
     expect(r.rows[0].t).toBeNull();
+  });
+});
+
+describe('product_events — o banco impõe o contrato V1', () => {
+  const VALIDOS: [string, string][] = [
+    ['app_session_started', '{}'],
+    ['account_created', '{}'],
+    ['import_started', '{}'],
+    ['import_completed', '{}'],
+    ['manual_transaction_created', '{}'],
+    ['open_finance_started', '{}'],
+    ['open_finance_completed', '{}'],
+    ['first_dashboard_with_real_data', '{}'],
+    ['onboarding_viewed', '{"version": 1}'],
+    ['onboarding_dismissed', '{"version": 1}'],
+    ['onboarding_resumed', '{"version": 1}'],
+    ['import_failed', '{"stage": "parse"}'],
+  ];
+
+  it('A. cada um dos 12 eventos oficiais é aceito com o seu payload', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    for (const [nome, props] of VALIDOS) await insertAs(db, USER_ID, nome, null, props);
+    expect(await total(db)).toBe(12);
+  });
+
+  it('A2. todos os estágios de import_failed da lista fechada são aceitos', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    for (const stage of ['file', 'parse', 'mapping', 'persist', 'quota', 'unknown']) {
+      await insertAs(db, USER_ID, 'import_failed', null, JSON.stringify({ stage }));
+    }
+    expect(await total(db)).toBe(6);
+  });
+
+  it('B. evento desconhecido é rejeitado, mesmo com nome bem formado', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    await expect(insertAs(db, USER_ID, 'qualquer_evento_novo')).rejects.toThrow(/product_events_contract_v1/);
+    expect(await total(db)).toBe(0);
+  });
+
+  it('C. evento sem properties rejeita qualquer propriedade', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    for (const [nome] of VALIDOS.filter(([, p]) => p === '{}')) {
+      await expect(insertAs(db, USER_ID, nome, null, '{"x": 1}'), nome).rejects.toThrow(/contract_v1/);
+    }
+    expect(await total(db)).toBe(0);
+  });
+
+  it('D. onboarding só aceita {"version": 1}', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    for (const nome of ['onboarding_viewed', 'onboarding_dismissed', 'onboarding_resumed']) {
+      await expect(insertAs(db, USER_ID, nome, null, '{"version": 2}'), nome).rejects.toThrow(/contract_v1/);
+      await expect(insertAs(db, USER_ID, nome, null, '{"version": 1, "extra": true}'), nome).rejects.toThrow(/contract_v1/);
+      await expect(insertAs(db, USER_ID, nome, null, '{}'), nome).rejects.toThrow(/contract_v1/);
+    }
+    expect(await total(db)).toBe(0);
+  });
+
+  it('E. import_failed rejeita estágio desconhecido, chave adicional, estágio ausente e tipo errado', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    for (const props of ['{"stage": "ENOENT: arquivo.csv"}', '{"stage": "parse", "message": "x"}', '{}', '{"stage": 1}']) {
+      await expect(insertAs(db, USER_ID, 'import_failed', null, props), props).rejects.toThrow(/contract_v1/);
+    }
+    expect(await total(db)).toBe(0);
+  });
+
+  it('F. payload potencialmente sensível é rejeitado pelo PostgreSQL', async () => {
+    const db = await createDatabase();
+    await assume(db, 'authenticated', USER_ID);
+    for (const props of [
+      '{"filename": "extrato.csv"}',
+      '{"email": "a@b.com", "filename": "x.csv", "valor": 123}',
+      '{"stage": "parse", "filename": "extrato.csv"}',
+    ]) {
+      await expect(insertAs(db, USER_ID, 'import_failed', null, props), props).rejects.toThrow(/contract_v1/);
+      await expect(insertAs(db, USER_ID, 'import_completed', null, props), props).rejects.toThrow(/contract_v1/);
+    }
+    expect(await total(db)).toBe(0);
   });
 });
