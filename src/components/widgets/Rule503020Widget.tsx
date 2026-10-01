@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import ProgressBar from '../ui/ProgressBar';
 import { Transaction, Category } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
+import { formatPercentOfIncome, hasValidIncomeBase, percentOfIncome } from '../../utils/rule503020Percentages';
 
 interface Rule503020CompareInput {
   label: string;
@@ -64,17 +65,18 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
     return compute503020Split(compare.operationalExpenses, compare.savings, categoryMap);
   }, [compare, categoryMap]);
 
-  const base = income > 0 ? income : 1;
-  const pctEssentials = (data.essentials / base) * 100;
-  const pctLifestyle = (data.lifestyle / base) * 100;
-  const pctSavings = (data.savings / base) * 100;
+  // Sem renda positiva não há proporção a calcular: percentual indisponível (null), sem base fabricada.
+  const hasBase = hasValidIncomeBase(income);
+  const pctEssentials = percentOfIncome(data.essentials, income);
+  const pctLifestyle = percentOfIncome(data.lifestyle, income);
+  const pctSavings = percentOfIncome(data.savings, income);
 
-  const compareBase = compare && compare.income > 0 ? compare.income : 1;
-  const comparePctEssentials = compareData ? (compareData.essentials / compareBase) * 100 : 0;
-  const comparePctLifestyle = compareData ? (compareData.lifestyle / compareBase) * 100 : 0;
-  const comparePctSavings = compareData ? (compareData.savings / compareBase) * 100 : 0;
+  const comparePctEssentials = compareData ? percentOfIncome(compareData.essentials, compare?.income) : null;
+  const comparePctLifestyle = compareData ? percentOfIncome(compareData.lifestyle, compare?.income) : null;
+  const comparePctSavings = compareData ? percentOfIncome(compareData.savings, compare?.income) : null;
 
-  const renderDeltaLine = (currentPct: number, previousPct: number, lowerIsBetter = false) => {
+  const renderDeltaLine = (currentPct: number | null, previousPct: number | null, lowerIsBetter = false) => {
+    if (currentPct === null || previousPct === null) return null;
     const delta = currentPct - previousPct;
     const improved = lowerIsBetter ? delta < 0 : delta > 0;
     const tone = delta === 0 ? 'text-gray-500' : improved ? 'text-accent' : 'text-danger';
@@ -90,14 +92,16 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
   const renderValueColumn = (
     label: string,
     amount: number,
-    pct: number,
+    pct: number | null,
     targetPct: number,
     variant: 'primary' | 'compare',
     higherIsBad = true,
     deltaLine?: React.ReactNode
   ) => {
     const pctClass =
-      variant === 'primary'
+      pct === null
+        ? 'text-gray-500'
+        : variant === 'primary'
         ? higherIsBad
           ? pct > targetPct
             ? 'text-danger'
@@ -121,7 +125,7 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
           {label}
         </p>
         <p className="font-semibold text-light text-sm tabular-nums">{formatCurrency(amount)}</p>
-        <p className={`text-xs ${pctClass}`}>{pct.toFixed(1)}% da Renda</p>
+        <p className={`text-xs ${pctClass}`}>{formatPercentOfIncome(pct)}</p>
         {deltaLine}
       </div>
     );
@@ -133,10 +137,10 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
     titleColor: string,
     barColor: string,
     value: number,
-    pct: number,
+    pct: number | null,
     targetPct: number,
     compareValue: number,
-    comparePct: number,
+    comparePct: number | null,
     lowerIsBetter: boolean
   ) => (
     <div
@@ -151,7 +155,7 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
         <span className="block text-xs text-gray-500">{meta}</span>
       </div>
       <div className={compareData ? '' : 'col-span-2'}>
-        <ProgressBar value={value} max={base * (targetPct / 100)} color={barColor} />
+        <ProgressBar value={hasBase ? value : 0} max={hasBase ? income * (targetPct / 100) : 1} color={barColor} />
       </div>
       {compareData ? (
         <>
@@ -169,8 +173,8 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
       ) : (
         <div className="text-right flex flex-col justify-center">
           <span className="font-semibold text-light">{formatCurrency(value)}</span>
-          <span className={`text-xs ${pct > targetPct && lowerIsBetter ? 'text-danger' : 'text-gray-400'}`}>
-            {pct.toFixed(1)}% da Renda
+          <span className={`text-xs ${pct !== null && pct > targetPct && lowerIsBetter ? 'text-danger' : 'text-gray-400'}`}>
+            {formatPercentOfIncome(pct)}
           </span>
         </div>
       )}
@@ -218,13 +222,13 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
         false
       )}
 
-      {income === 0 && (
+      {!hasBase && (
         <p className="text-center text-xs text-gray-500 mt-2">
-          Sem renda registrada no período para calcular as porcentagens.
+          Sem renda no período para calcular os percentuais do método 50-30-20.
         </p>
       )}
 
-      {(pctEssentials + pctLifestyle + pctSavings) > 100.5 && income > 0 && (
+      {hasBase && ((pctEssentials ?? 0) + (pctLifestyle ?? 0) + (pctSavings ?? 0)) > 100.5 && (
         <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
           <div className="flex items-center gap-2 mb-1">
             <svg
@@ -240,7 +244,7 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
               />
             </svg>
             <span className="text-sm font-bold text-yellow-500">
-              Total Utilizado: {(pctEssentials + pctLifestyle + pctSavings).toFixed(1)}%
+              Total Utilizado: {((pctEssentials ?? 0) + (pctLifestyle ?? 0) + (pctSavings ?? 0)).toFixed(1)}%
             </span>
           </div>
           <p className="text-xs text-gray-400">

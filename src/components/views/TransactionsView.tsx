@@ -72,6 +72,7 @@ import { ReconciliationFlow } from '../modals/ReconciliationFlow';
 import CardDiagnosticsModal from '../modals/CardDiagnosticsModal';
 import type { CardDiagnostic } from '../../domain/credit-card/cardDiagnostics';
 import { formatInstallmentCell } from '../../domain/installments/installmentDisplay';
+import { formatDateCell } from '../../utils/formatDateCell';
 import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
@@ -4733,7 +4734,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     if (displayMap && value) {
       return displayMap.get(value as string) || String(value);
     }
-    if (type === 'date') return new Date(value as Date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    if (type === 'date') return formatDateCell(value as Date | string | null | undefined);
     if (type === 'number') return formatCurrency(value as number);
     if (type === 'installments') return formatInstallmentCell(transaction.Parcela_Atual, transaction.Total_Parcelas);
     return String(value || '-');
