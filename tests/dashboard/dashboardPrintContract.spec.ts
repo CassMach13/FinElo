@@ -149,6 +149,38 @@ describe('CSS de impressão — o que continua escondido', () => {
   });
 });
 
+describe('Paginação do PDF — blocos que não podem ser cortados', () => {
+  const print = printBlock(css);
+  const card = read('src/components/ui/Card.tsx');
+  const categorias = read('src/components/charts/CategorySpendChart.tsx');
+
+  it('o Card é indivisível na impressão e mantém o título junto do conteúdo', () => {
+    // Os cards de seção (Orçamento, Tendência, Categorias…) têm a classe `bg-secondary/30`, que a
+    // regra 6 (`.bg-secondary`) não casa: sem isto o card era fatiado no meio do gráfico.
+    expect(card).toContain('print:break-inside-avoid');
+    expect(card).toContain('mb-6 flex items-center justify-between print:break-after-avoid');
+  });
+
+  it('listas roláveis fluem entre páginas, depois da regra 6, para não deixar título órfão', () => {
+    // A regra 6 marca `overflow-*-auto` como `avoid`; uma lista expandida maior que a página
+    // era empurrada inteira para a página seguinte, deixando o título do card sozinho.
+    const lista = selectors(print);
+    const regra6 = lista.findIndex((s) => s.includes('.bg-secondary'));
+    const fluxo = lista.findIndex((s, i) => i > regra6 && s.includes('[class*="overflow-y-auto"]'));
+    expect(regra6, 'regra 6').toBeGreaterThanOrEqual(0);
+    expect(fluxo, 'regra de fluxo posterior à regra 6').toBeGreaterThan(regra6);
+    const limpo = semComentarios(print);
+    expect(limpo.lastIndexOf('break-inside: auto !important')).toBeGreaterThan(
+      limpo.indexOf('break-inside: avoid !important')
+    );
+  });
+
+  it('cada linha de categoria (as duas variantes) e de orçamento é indivisível', () => {
+    expect(categorias.split('print:break-inside-avoid').length - 1).toBe(2);
+    expect(dashboard).toContain('<div key={item.id} className="print:break-inside-avoid">');
+  });
+});
+
 describe('DashboardView — cabeçalho só da impressão', () => {
   it('existe um bloco invisível na tela e visível ao imprimir', () => {
     const match = dashboard.match(/<div id="dashboard-print-header" className="([^"]+)">/);

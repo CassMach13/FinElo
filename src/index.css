@@ -145,6 +145,19 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     width: 100% !important;
   }
 
+  /*
+   * Paginação. A regra 6 acima marca como indivisível (`break-inside: avoid`) tudo que tem
+   * `overflow-*-auto`. Na tela isso é uma lista rolável (ex.: categorias, `max-h-[320px]`); na
+   * impressão ela é expandida e pode ficar maior que uma página. Um bloco indivisível maior que a
+   * página é empurrado inteiro para a página seguinte e deixa o título do card sozinho no fim da
+   * anterior. A caixa volta a poder quebrar; o que não pode ser cortado é cada LINHA (classe
+   * `print:break-inside-avoid` na linha) e o card como um todo (`Card`, quando cabe numa página).
+   */
+  [class*="overflow-y-auto"], [class*="overflow-x-auto"], .overflow-auto {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
   /* 7. PROGRESS BARS & GRAPHICAL BAR FIX */
   /* Force SOLID colors for backgrounds in print as gradients/opacity usually fail */
   /*

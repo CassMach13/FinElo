@@ -1049,7 +1049,7 @@ const DashboardView: React.FC = () => {
                   item.adjustedLimit > 0 ? ((item.spent / item.adjustedLimit) * 100).toFixed(1) : '0.0';
 
                 return (
-                  <div key={item.id}>
+                  <div key={item.id} className="print:break-inside-avoid">
                     <div
                       className={`grid gap-3 items-center ${
                         compareEnabled
