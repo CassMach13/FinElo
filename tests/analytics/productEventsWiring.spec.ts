@@ -107,6 +107,17 @@ describe('fiação dos demais eventos (contrato)', () => {
     expect(evento).toBeGreaterThan(gate);
   });
 
+  it('Open Finance: só depois de gravar (resultado de confirmReviewedTransactions), antes do callback, sem await', () => {
+    const modal = read('src/components/modals/OpenFinanceReviewModal.tsx');
+    const confirmou = modal.indexOf('await confirmReviewedTransactions(');
+    const evento = modal.indexOf('void trackOpenFinanceCompleted(res);', confirmou);
+    const callback = modal.indexOf('onSuccess(res.inserted, res.merged);', confirmou);
+    expect(confirmou).toBeGreaterThan(0);
+    expect(evento).toBeGreaterThan(confirmou);
+    expect(callback).toBeGreaterThan(evento);
+    expect(modal.split('trackOpenFinanceCompleted').length - 1).toBe(2);
+  });
+
   it('a sessão registra o evento junto com a atividade do usuário', () => {
     expect(app).toContain('if (isAuthReady && user?.id) void trackAppSessionStarted();');
     // import + efeito: o ouvinte de auth não chama mais (a sessão restaurada na carga nunca chegava ali)
@@ -147,7 +158,7 @@ describe('revisão de privacidade: toda chamada de tracking do código', () => {
   it('só eventos do contrato v1 são usados', () => {
     const permitidos = new Set([
       'onboarding_viewed', 'onboarding_dismissed', 'onboarding_resumed', 'account_created', 'import_started',
-      'import_completed', 'import_failed', 'manual_transaction_created', 'open_finance_started',
+      'import_completed', 'import_failed', 'manual_transaction_created', 'open_finance_started', 'open_finance_completed',
       'first_dashboard_with_real_data',
     ]);
     for (const call of calls) {

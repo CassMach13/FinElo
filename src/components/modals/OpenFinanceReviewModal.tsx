@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import { PluggyTransactionDraft, PluggyConnection, PluggyConfidence } from '../../types';
 import { fetchTransactionsForReview, confirmReviewedTransactions, updatePluggyConnectionAccount, updateAccountCreditDetails } from '../../services/openFinanceService';
 import { useAppStore } from '../../hooks/useAppStore';
+import { trackOpenFinanceCompleted } from '../../services/productAnalytics';
 
 interface Props {
     isOpen: boolean;
@@ -91,6 +92,8 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
             const res = await confirmReviewedTransactions(user.id, drafts, selectedAccount);
             setResult(res);
             setStep('done');
+            // Só depois de gravar, e só se entrou transação nova. Fire-and-forget: nunca afeta a sincronização.
+            void trackOpenFinanceCompleted(res);
             onSuccess(res.inserted, res.merged);
         } catch (err: any) {
             setError(err.message || 'Erro ao salvar transações');

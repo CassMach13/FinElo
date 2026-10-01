@@ -14,6 +14,7 @@ import {
   resetProductAnalyticsForTests,
   sanitizeProperties,
   trackAppSessionStarted,
+  trackOpenFinanceCompleted,
   trackProductEvent,
   trackProductMilestone,
   type ProductEventName,
@@ -108,6 +109,7 @@ describe('privacidade por construção', () => {
       'import_completed',
       'manual_transaction_created',
       'open_finance_started',
+      'open_finance_completed',
       'first_dashboard_with_real_data',
     ];
     for (const nome of semPropriedades) expect(sanitizeProperties(nome, hostil), nome).toEqual({});
@@ -197,5 +199,35 @@ describe('app_session_started — a marca só é consumida com usuário autentic
   it('chamadas simultâneas registram uma vez só', async () => {
     await Promise.all([trackAppSessionStarted(), trackAppSessionStarted(), trackAppSessionStarted()]);
     expect(mocks.insert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('open_finance_completed — só com transação nova persistida', () => {
+  it('A. inserted > 0 dispara, sem properties', async () => {
+    await trackOpenFinanceCompleted({ inserted: 5, merged: 2 });
+    expect(mocks.insert).toHaveBeenCalledTimes(1);
+    expect(mocks.insert).toHaveBeenCalledWith({
+      user_id: 'user-1',
+      event_name: 'open_finance_completed',
+      dedupe_key: null,
+      properties: {},
+    });
+  });
+
+  it('B. só merged (lançamento manual que já existia) não dispara', async () => {
+    await trackOpenFinanceCompleted({ inserted: 0, merged: 3 });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('C. nada inserido nem mesclado não dispara', async () => {
+    await trackOpenFinanceCompleted({ inserted: 0, merged: 0 });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('D. falha do analytics não derruba a sincronização', async () => {
+    mocks.insert.mockRejectedValue(new Error('rede'));
+    await expect(trackOpenFinanceCompleted({ inserted: 1, merged: 0 })).resolves.toBeUndefined();
+    mocks.getSession.mockRejectedValue(new Error('sessão'));
+    await expect(trackOpenFinanceCompleted({ inserted: 1, merged: 0 })).resolves.toBeUndefined();
   });
 });

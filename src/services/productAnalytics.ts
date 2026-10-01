@@ -45,6 +45,7 @@ export interface ProductEventContract {
   import_failed: { stage: ImportFailureStage };
   manual_transaction_created: NoProps;
   open_finance_started: NoProps;
+  open_finance_completed: NoProps;
   first_dashboard_with_real_data: NoProps;
 }
 
@@ -130,6 +131,15 @@ export function trackProductEvent<E extends Exclude<ProductEventName, ProductMil
   ...args: keyof ProductEventContract[E] extends never ? [] : [properties: ProductEventContract[E]]
 ): Promise<void> {
   return insertEvent(name, args[0], null);
+}
+
+/**
+ * Sucesso real do Open Finance: pelo menos uma transação NOVA persistida. `merged` (vínculo com um
+ * lançamento manual que já existia) não é dado novo e não conta. Sem quantidade, banco nem ids.
+ */
+export function trackOpenFinanceCompleted(result: { inserted: number; merged: number }): Promise<void> {
+  if (!(result.inserted > 0)) return Promise.resolve();
+  return trackProductEvent('open_finance_completed');
 }
 
 /** Milestones já enviados nesta aba: poupa a ida ao banco quando um efeito roda de novo. */
