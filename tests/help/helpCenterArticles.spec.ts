@@ -286,3 +286,78 @@ describe('Lote 2 — duplicatas, competência e lançamento manual', () => {
     expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(400 * 1024);
   });
 });
+
+describe('Lote 3 — pagar fatura do cartão', () => {
+  const t = () => topic('tx-pay-invoice');
+  const text = () => JSON.stringify(t().article) + t().answer;
+  const code = () =>
+    [
+      'src/components/modals/PayCreditCardInvoiceModal.tsx',
+      'src/components/views/TransactionsView.tsx',
+      'src/components/transactions/AccountBalanceCard.tsx',
+      'src/components/modals/CategoryModal.tsx',
+      'src/components/views/SettingsView.tsx',
+    ]
+      .map(read)
+      .join(' ');
+
+  it('artigo estruturado, passos na ordem do fluxo e imagens existentes', () => {
+    expect(t().title).toBe('Como pago a fatura do meu cartão no FinElo?');
+    expect(t().article!.steps!.map((s) => s.title)).toEqual([
+      'Localize o cartão',
+      'Escolha a fatura e a conta',
+      'Confirme categoria, data e valor',
+      'Registre o pagamento',
+    ]);
+    expect(t().article!.before![0].title).toBe('Antes de começar');
+    const images = [...t().article!.steps!.map((s) => s.image), t().article!.resultImage].filter(Boolean) as HelpImage[];
+    expect(images).toHaveLength(3);
+    images.forEach((img) => {
+      expect(fs.existsSync(path.join(root, 'public', img.src)), img.src).toBe(true);
+      expect(img.alt.length).toBeGreaterThan(25);
+    });
+  });
+
+  it('todos os nomes da interface citados existem no código', () => {
+    [
+      'Pagar',
+      'Fatura atual',
+      'Fatura a pagar',
+      'Conta de origem do pagamento',
+      'Categoria do pagamento',
+      'Data do pagamento',
+      'Valor pago (R$)',
+      'Registrar pagamento',
+      'Pagamento registrado com sucesso.',
+      'Entrada (Renda)',
+      'Gerenciar Categorias',
+      'Cartões de crédito',
+      'Pagamento de Fatura',
+      'Pagamento Fatura',
+    ].forEach((label) => expect(code(), label).toContain(label));
+  });
+
+  it('descreve o que o produto grava: duas linhas, entrada no cartão e saída na conta', () => {
+    const src = read('src/components/views/TransactionsView.tsx');
+    expect(src).toContain("Nome_Fantasia: 'Pagamento de Fatura'");
+    expect(src).toContain('Nome_Fantasia: `Pagamento Fatura — ${account.Nome_Conta}`');
+    expect(text()).toContain('dois lançamentos');
+    expect(text()).toContain('exclua as duas linhas');
+  });
+
+  it('o botão Pagar só existe com fatura em aberto, como o texto diz', () => {
+    expect(read('src/components/transactions/AccountBalanceCard.tsx')).toContain('faturaAtual > 0 && onPayInvoice');
+    expect(text()).toContain('maior que zero');
+  });
+
+  it('não ensina mais a lançar o pagamento como Renda; o app redireciona para Pagar', () => {
+    expect(text()).not.toMatch(/lance manualmente como Renda/i);
+    expect(text()).toContain('Não lance como Renda');
+    expect(read('src/components/modals/NewTransactionModal.tsx')).toContain('Usar fluxo Pagar fatura?');
+  });
+
+  it('CTA leva a Transações', () => {
+    expect(t().action).toBe('navigate');
+    expect(getNavigateLabel(t().navigateTo!)).toBe('Ir para Transações');
+  });
+});
