@@ -5,6 +5,7 @@ import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
 import { autoStartTour } from '../../services/tourService';
 import FirstStepsCard from '../onboarding/FirstStepsCard';
 import { trackProductEvent, trackProductMilestone } from '../../services/productAnalytics';
+import { buildManualEntryPayload } from '../../domain/transactions/manualEntryPayload';
 import { dismissPatch, getFirstStepsState, resumePatch, startedPatch } from '../../domain/onboarding/firstSteps';
 import { Category, Transaction, Account } from './../../types';
 import Card from './../ui/Card';
@@ -527,20 +528,7 @@ const DashboardView: React.FC = () => {
   const displayName = getFirstName();
 
   const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
-    const payloads = newTransactions.map((t) => ({
-      Data: t.Data,
-      ID_Conta: t.ID_Conta,
-      Data_Pagamento: t.Data_Pagamento,
-      Nome_Fantasia: t.Nome_Fantasia,
-      Categoria: t.Categoria,
-      Tipo: t.Tipo,
-      Valor: t.Valor,
-      Parcela_Atual: t.Parcela_Atual,
-      Total_Parcelas: t.Total_Parcelas,
-      Fonte: t.Fonte,
-      Origem: 'manual' as const,
-      Descricao_Original: t.Nome_Fantasia,
-    }));
+    const payloads = newTransactions.map(buildManualEntryPayload);
     await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
     // Só depois de gravar. Nenhum conteúdo do lançamento.
     void trackProductEvent('manual_transaction_created');

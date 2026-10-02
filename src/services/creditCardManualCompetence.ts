@@ -240,6 +240,15 @@ export function prepareManualPurchaseCompetenceOnPaymentDateEdit(
   if (!isPurchase && !isRefund) return fields;
   if (account.Tipo_Conta !== 'Cartão de Crédito') return fields;
 
+  /**
+   * Estorno com competência escolhida: a escolha vence a data.
+   *
+   * No estorno a data de pagamento é a própria data do lançamento, não uma fatura. Deduzir
+   * a fatura dela (regra da compra, abaixo) trocava a competência que o usuário escolheu no
+   * formulário por outra, só porque a data mudou. Sem marcador, segue a dedução de sempre.
+   */
+  if (isRefund && parseDirectedCompetenceFromPayment(fields as Transaction)) return fields;
+
   const newPay = toLocalDateIso(fields.Data_Pagamento as string | Date);
   const oldPay = oldTx.Data_Pagamento ? toLocalDateIso(oldTx.Data_Pagamento) : '';
   if (!newPay || newPay === oldPay) return fields;

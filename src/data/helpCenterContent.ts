@@ -407,7 +407,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'transactions',
     title: 'Como lanço estorno ou reembolso no cartão?',
     answer:
-      'Cadastre como Renda na mesma conta do cartão, com a data do crédito no banco. Isso reduz a fatura do período, como um estorno real.',
+      'Em Transações, use Adicionar Lançamento e escolha a conta do cartão. Em Tipo de lançamento no cartão, selecione Estorno ou crédito na fatura e, em Competência da fatura (estorno), a fatura que deve receber o crédito.',
     keywords: ['estorno', 'reembolso', 'crédito', 'renda', 'devolução'],
   },
   {

@@ -361,3 +361,18 @@ describe('Lote 3 — pagar fatura do cartão', () => {
     expect(getNavigateLabel(t().navigateTo!)).toBe('Ir para Transações');
   });
 });
+
+describe('estorno no cartão — resposta curta', () => {
+  it('não ensina mais a lançar estorno como Renda e usa os nomes do formulário', () => {
+    const t = topic('tx-refund');
+    expect(t.article).toBeUndefined();
+    expect(t.answer).not.toMatch(/como Renda/i);
+    const form = read('src/components/modals/NewTransactionModal.tsx');
+    ['Adicionar Lançamento', 'Tipo de lançamento no cartão', 'Estorno ou crédito na fatura', 'Competência da fatura (estorno)'].forEach(
+      (label) => {
+        expect(t.answer, label).toContain(label);
+        expect(form, label).toContain(label);
+      }
+    );
+  });
+});
