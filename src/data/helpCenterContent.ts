@@ -309,10 +309,82 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'tx-pay-invoice',
     section: 'transactions',
-    title: 'Como registrar o pagamento da fatura?',
+    title: 'Como pago a fatura do meu cartão no FinElo?',
     answer:
-      'No card do cartão, use o botão PAGAR e informe data e valor. Ou lance manualmente como Renda com descrição/categoria "Pagamento de Fatura" na conta do cartão.',
-    keywords: ['pagar', 'pagamento', 'quitar', 'fatura', 'boleto'],
+      'No FinElo, pagar a fatura é um registro: você escolhe a fatura, a conta de onde o dinheiro saiu e o valor, e o FinElo abate a fatura. O app não movimenta dinheiro no banco.',
+    keywords: ['pagar', 'pagamento', 'quitar', 'fatura', 'cartão', 'boleto', 'registrar pagamento'],
+    action: 'navigate',
+    navigateTo: 'transactions',
+    article: {
+      before: [
+        {
+          title: 'Antes de começar',
+          items: [
+            'Você precisa de um cartão de crédito com fatura em aberto: o botão **Pagar** só aparece quando a **Fatura atual** é maior que zero.',
+            'Uma conta corrente ou poupança, para indicar de onde saiu o pagamento.',
+            'Uma categoria de **Renda** para o pagamento, como "Pagamento de Fatura". Ainda não tem? Crie em **Configurações**, em **Gerenciar Categorias**, escolhendo o tipo **Entrada (Renda)**.',
+          ],
+        },
+      ],
+      steps: [
+        {
+          title: 'Localize o cartão',
+          text: 'Abra **Transações**. Na seção **Cartões de crédito**, confira a **Fatura atual** do cartão e clique em **Pagar**.',
+          image: {
+            src: '/help/card-payment/01-card-com-botao-pagar.webp',
+            alt: 'Card do cartão de crédito em Transações com a Fatura atual e os botões Histórico e Pagar',
+            width: 465,
+            height: 168,
+          },
+        },
+        {
+          title: 'Escolha a fatura e a conta',
+          text: 'Em **Fatura a pagar**, escolha a competência que você está quitando. A mais antiga em aberto já vem marcada. Em **Conta de origem do pagamento**, escolha a conta de onde o dinheiro saiu.',
+        },
+        {
+          title: 'Confirme categoria, data e valor',
+          text: 'Escolha a **Categoria do pagamento** e confira a **Data do pagamento** e o **Valor pago (R$)**. O valor já vem com o total em aberto: altere se pagou menos ou mais. Se pagar mais, o excedente vira crédito nas faturas seguintes.',
+          image: {
+            src: '/help/card-payment/02-modal-pagar-fatura.webp',
+            alt: 'Janela Pagar fatura do cartão com a fatura 09/2026 em aberto, conta de origem, categoria, data e valor pago preenchidos',
+            width: 512,
+            height: 846,
+          },
+        },
+        {
+          title: 'Registre o pagamento',
+          text: 'Clique em **Registrar pagamento**. Aparece **Pagamento registrado com sucesso.** e a **Fatura atual** do cartão diminui pelo valor pago. Se você pagou tudo, ela zera e o botão **Pagar** some.',
+        },
+      ],
+      result:
+        'O FinElo cria dois lançamentos em **Transações**: uma entrada **Pagamento de Fatura** no cartão, que abate a fatura, e uma saída **Pagamento Fatura — nome do cartão** na conta de origem.',
+      resultImage: {
+        src: '/help/card-payment/03-lancamentos-do-pagamento.webp',
+        alt: 'Dois lançamentos do pagamento na lista de Transações: a entrada no cartão e a saída na conta de origem, com o mesmo valor',
+        width: 1105,
+        height: 118,
+      },
+      after: [
+        {
+          title: 'O que o FinElo não faz',
+          items: [
+            'Ele não paga o boleto nem move dinheiro no banco. Faça o pagamento no banco e registre aqui.',
+          ],
+        },
+        {
+          title: 'Para desfazer um pagamento',
+          items: [
+            'Em **Transações**, exclua as duas linhas do pagamento: a do cartão e a da conta de origem. Excluir só uma deixa a outra no lugar.',
+          ],
+        },
+        {
+          title: 'Não lance como Renda',
+          items: [
+            'Não registre o pagamento como **Renda** em **Adicionar Lançamento**. Ao tentar, o FinElo sugere usar o fluxo **Pagar**, onde você escolhe qual fatura está quitando.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'tx-history',
