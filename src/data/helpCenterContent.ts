@@ -12,6 +12,42 @@ export type HelpSectionId =
 
 export type HelpTopicAction = 'none' | 'guides' | 'navigate' | 'support';
 
+/** Screenshot de um passo. O arquivo fica em `public/help/<assunto>/` e é servido pela raiz. */
+export interface HelpImage {
+  src: string;
+  /** Descreve o que a tela mostra, para quem não vê a imagem. */
+  alt: string;
+  caption?: string;
+  width: number;
+  height: number;
+}
+
+export interface HelpStep {
+  title: string;
+  /** Aceita **negrito** para os nomes exatos da interface. */
+  text?: string;
+  image?: HelpImage;
+}
+
+/** Bloco curto de apoio, como "Antes de começar" ou "Se algo der errado". */
+export interface HelpBlock {
+  title: string;
+  items: string[];
+}
+
+/**
+ * Conteúdo guiado opcional. O `answer` do tópico continua sendo o resumo (e o que a busca lê);
+ * tópicos sem `article` seguem como resposta curta.
+ */
+export interface HelpArticle {
+  before?: HelpBlock[];
+  steps?: HelpStep[];
+  /** O que a pessoa deve ver ao terminar. */
+  result?: string;
+  resultImage?: HelpImage;
+  after?: HelpBlock[];
+}
+
 export interface HelpTopic {
   id: string;
   section: HelpSectionId;
@@ -21,6 +57,24 @@ export interface HelpTopic {
   action?: HelpTopicAction;
   navigateTo?: AppView;
   featured?: boolean;
+  article?: HelpArticle;
+}
+
+/** Nome de cada tela como aparece no menu, para o botão "Ir para…" dizer o destino real. */
+export const HELP_VIEW_LABELS: Record<AppView, string> = {
+  dashboard: 'Dashboard',
+  import: 'Importar',
+  transactions: 'Transações',
+  investments: 'Investimentos',
+  settings: 'Configurações',
+  help: 'Central de Ajuda',
+  admin: 'Chamados (Admin)',
+  pricing: 'Gerenciar Conta',
+  success: 'Assinatura',
+};
+
+export function getNavigateLabel(view: AppView): string {
+  return `Ir para ${HELP_VIEW_LABELS[view]}`;
 }
 
 export interface HelpSectionMeta {
@@ -104,10 +158,42 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'general',
     title: 'Por onde começo no FinElo?',
     answer:
-      '1) Crie suas contas em Configurações. 2) Cadastre categorias. 3) Lance transações em Transações ou importe extratos em Importar. 4) Acompanhe o resumo no Dashboard.',
+      'Comece trazendo seus dados: com o extrato do banco importado, o FinElo monta o seu mês em poucos minutos. São três passos.',
     keywords: ['começar', 'início', 'primeiros passos', 'configurar', 'novo usuário'],
     action: 'navigate',
-    navigateTo: 'settings',
+    navigateTo: 'dashboard',
+    article: {
+      steps: [
+        {
+          title: 'Traga seus dados',
+          text: 'Na **Dashboard**, o bloco **Primeiros passos** mostra o caminho. Clique em **Importar meu extrato** e siga as etapas. Se ainda não tiver uma conta cadastrada, você cria durante a importação.',
+          image: {
+            src: '/help/getting-started/01-primeiros-passos.webp',
+            alt: 'Bloco Primeiros passos na Dashboard, com os passos Traga seus dados, Confira o que entrou e Veja seu mês e o botão Importar meu extrato',
+            width: 1105,
+            height: 301,
+          },
+        },
+        {
+          title: 'Confira o que entrou',
+          text: 'Abra **Transações** e dê uma olhada nas categorias. Isso deixa os números certos.',
+        },
+        {
+          title: 'Veja seu mês',
+          text: 'Volte à **Dashboard** para ver entradas, saídas e onde você mais gastou.',
+        },
+      ],
+      after: [
+        {
+          title: 'Outras formas de começar',
+          items: [
+            'Prefere digitar? Clique em **Prefiro lançar manualmente** e registre despesas e receitas uma a uma.',
+            'Se a **Conexão Automática (Open Finance)** aparecer na tela **Importar**, ela conecta o seu banco direto. É um recurso dos planos PRO e Wealth.',
+            'Fechou o bloco com **Agora não**? Use **Retomar primeiros passos** na Dashboard.',
+          ],
+        },
+      ],
+    },
   },
 
   // —— Dashboard ——
@@ -214,12 +300,87 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'import-how',
     section: 'import',
-    title: 'Como importo extrato do banco?',
+    title: 'Como importar meu extrato?',
     answer:
-      'Aba Importar → envie CSV, Excel (.xlsx) ou OFX → escolha a conta → revise categorias e duplicatas → confirme. O sistema aprende regras conforme você corrige.',
-    keywords: ['importar', 'extrato', 'csv', 'excel', 'ofx', 'upload', 'arquivo'],
+      'Traga as movimentações do seu banco para o FinElo sem digitar uma por uma. Você só precisa do arquivo do extrato (conta) ou da fatura (cartão), baixado no app ou no site do banco.',
+    keywords: ['importar', 'extrato', 'fatura', 'csv', 'excel', 'ofx', 'upload', 'arquivo', 'baixar', 'banco'],
     action: 'navigate',
     navigateTo: 'import',
+    article: {
+      before: [
+        {
+          title: 'Antes de começar',
+          items: [
+            'Tenha o arquivo do banco salvo no celular ou no computador.',
+            'Os formatos dependem da forma de importação: os bancos da lista aceitam **.csv**, **.xlsx** e **.xls**; a opção **Mapeamento** também aceita **.ofx**.',
+            'No plano **Basic** (grátis), você pode fazer **1 importação por mês**. Nos planos **PRO** e **Wealth**, as importações são ilimitadas.',
+          ],
+        },
+        {
+          title: 'Como consigo o arquivo no meu banco?',
+          items: [
+            'Abra o app ou o site do seu banco.',
+            'Procure por **Extrato** (conta) ou **Fatura** (cartão de crédito).',
+            'Escolha o período e use a opção de exportar ou baixar, de preferência em CSV ou Excel.',
+            'Salve o arquivo e volte ao FinElo.',
+          ],
+        },
+      ],
+      steps: [
+        {
+          title: 'Escolha o banco ou cartão',
+          text: 'No menu, clique em **Importar**. Em **Selecione o Banco ou Cartão**, clique no banco de onde veio o arquivo. Se ele não estiver na lista, use **Mapeamento** ou clique em **Pedir meu banco**.',
+          image: {
+            src: '/help/import/01-selecionar-banco.webp',
+            alt: 'Tela Importar Extrato com o uso mensal gratuito e a lista de bancos em Selecione o Banco ou Cartão',
+            width: 1168,
+            height: 565,
+          },
+        },
+        {
+          title: 'Escolha a conta de destino',
+          text: 'Em **Conta de Destino**, escolha a conta que vai receber as transações. Ainda não tem uma? Clique em **+ Nova Conta**, dê um nome e salve. Para fatura de cartão, informe também o **Vencimento da Fatura**.',
+          image: {
+            src: '/help/import/02-conta-de-destino.webp',
+            alt: 'Janela Importação Automática com o campo Conta de Destino, o link + Nova Conta e a área para enviar o arquivo',
+            width: 576,
+            height: 561,
+          },
+        },
+        {
+          title: 'Envie o arquivo',
+          text: 'Clique em **Clique para enviar o extrato** e selecione o arquivo baixado do banco.',
+        },
+        {
+          title: 'Confirme a importação',
+          text: 'O FinElo mostra o arquivo, a conta e quantas linhas vão entrar. Confira e clique em **Confirmar e Importar**.',
+          image: {
+            src: '/help/import/03-confirmar-importacao.webp',
+            alt: 'Janela Confirmar Importação com o nome do arquivo, a conta escolhida e o número de linhas novas',
+            width: 672,
+            height: 352,
+          },
+        },
+      ],
+      result:
+        'As transações entram na conta escolhida e aparecem em **Transações**, prontas para você conferir as categorias. Nos planos PRO e Wealth, a tela mostra **Importação concluída** com atalhos para **Conferir transações** e **Ver minha Dashboard**. No plano Basic, a tela Importar passa a mostrar **Limite Gratuito Atingido**: isso só indica que a importação do mês já foi usada.',
+      resultImage: {
+        src: '/help/import/04-transacoes-importadas.webp',
+        alt: 'Lista de Transações com os lançamentos importados do extrato, ainda sem categoria',
+        width: 1105,
+        height: 478,
+      },
+      after: [
+        {
+          title: 'Se algo der errado',
+          items: [
+            '**Limite Gratuito Atingido** antes de importar: no plano Basic, a próxima importação fica disponível no mês seguinte.',
+            '**Arquivo já importado**: o FinElo não grava o mesmo arquivo duas vezes e avisa quando isso acontece.',
+            '**Nenhuma transação encontrada**: confira se escolheu o banco certo e se o arquivo é o extrato baixado do banco.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'import-competence',

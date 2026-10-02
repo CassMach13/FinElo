@@ -1,14 +1,16 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAppStore } from '../../hooks/useAppStore';
 import CreditCardHelpGuide from './CreditCardHelpGuide';
+import HelpArticleContent from './HelpArticleContent';
 import {
   HELP_SEARCH_SUGGESTIONS,
   HELP_SECTIONS,
   HELP_TOPICS,
   filterHelpTopics,
+  getNavigateLabel,
   getSectionMeta,
   groupTopicsBySection,
   topicMatchesQuery,
@@ -62,7 +64,8 @@ function TopicCard({
 
   return (
     <div
-      className={`rounded-xl border transition-colors ${
+      id={`help-topic-${topic.id}`}
+      className={`rounded-xl border transition-colors scroll-mt-4 ${
         expanded ? 'border-cyan-500/35 bg-cyan-950/15' : 'border-white/10 bg-white/[0.02] hover:border-white/20'
       }`}
     >
@@ -87,8 +90,9 @@ function TopicCard({
         </div>
       </button>
       {expanded ? (
-        <div className="px-4 pb-4 pt-0 ml-8 space-y-3">
+        <div className="px-4 pb-4 pt-0 sm:ml-8 space-y-3">
           <p className="text-sm text-slate-400 leading-relaxed">{topic.answer}</p>
+          {topic.article ? <HelpArticleContent article={topic.article} /> : null}
           {topic.action && topic.action !== 'none' ? (
             <Button
               type="button"
@@ -98,8 +102,8 @@ function TopicCard({
             >
               {topic.action === 'guides'
                 ? 'Ver guia completo'
-                : topic.action === 'navigate'
-                  ? `Ir para ${section.label}`
+                : topic.action === 'navigate' && topic.navigateTo
+                  ? getNavigateLabel(topic.navigateTo)
                   : 'Abrir chamado'}
             </Button>
           ) : null}
@@ -156,6 +160,15 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
   const [sectionFilter, setSectionFilter] = useState<HelpSectionId | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(initialExpandedId);
   const [guideExpanded, setGuideExpanded] = useState(false);
+
+  // Quem chega de outra tela (ex.: "Não sabe como baixar seu extrato?") vê o tópico aberto, não o topo da lista.
+  useEffect(() => {
+    if (!initialExpandedId) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`help-topic-${initialExpandedId}`)?.scrollIntoView({ block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [initialExpandedId]);
 
   const filteredTopics = useMemo(
     () => filterHelpTopics(HELP_TOPICS, query, sectionFilter),
