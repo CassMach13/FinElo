@@ -486,7 +486,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'import',
     title: 'O FinElo pode importar a mesma transação duas vezes?',
     answer:
-      'O FinElo reconhece um arquivo repetido pelo nome e recusa a importação. Se o mesmo extrato voltar com outro nome, as transações podem entrar de novo, e você precisa excluir o lote repetido.',
+      'O FinElo bloqueia a repetição do mesmo arquivo. Se o mesmo extrato for salvo com outro nome, ele pode ser importado novamente e gerar lançamentos repetidos.',
     keywords: ['duplicata', 'duplicado', 'repetido', 'já importado', 'importar de novo', 'excluir importação'],
     action: 'navigate',
     navigateTo: 'settings',
@@ -504,7 +504,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         },
         {
           title: 'Se o mesmo extrato voltar com outro nome',
-          text: 'O FinElo reconhece a repetição pelo nome, não pelo conteúdo. Com outro nome, as transações entram de novo e aparecem em dobro em **Transações**.',
+          text: 'No fluxo validado aqui, o mesmo extrato com outro nome foi aceito e os lançamentos entraram novamente, aparecendo em dobro em **Transações**. Por isso, não renomeie um arquivo apenas para contornar o aviso: faça isso somente quando ele for realmente outro, como um extrato de período diferente.',
           image: {
             src: '/help/duplicates/02-lancamentos-repetidos.webp',
             alt: 'Lista de Transações com lançamentos repetidos, como Assinatura Exemplo e Farmacia Exemplo aparecendo duas vezes',
