@@ -11,6 +11,10 @@ export interface ImportSuccessPanelProps {
   onReviewTransactions: () => void;
   onViewDashboard: () => void;
   onImportAnother: () => void;
+  /** Falso quando a cota gratuita do mês acabou: não oferecemos uma ação que o plano não permite. */
+  canImportAnother?: boolean;
+  /** Aviso secundário, ex.: a importação gratuita do mês foi usada. */
+  quotaNote?: string;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -21,6 +25,8 @@ const ImportSuccessPanel: React.FC<ImportSuccessPanelProps> = ({
   onReviewTransactions,
   onViewDashboard,
   onImportAnother,
+  canImportAnother = true,
+  quotaNote,
 }) => (
   <section
     role="status"
@@ -40,6 +46,7 @@ const ImportSuccessPanel: React.FC<ImportSuccessPanelProps> = ({
       <p className="text-xs text-green-100/70 mt-1">
         Dê uma olhada rápida nas categorias para os números ficarem certos.
       </p>
+      {quotaNote ? <p className="text-xs text-green-100/70 mt-1">{quotaNote}</p> : null}
     </div>
     <div className="flex flex-col sm:flex-row gap-2">
       <Button onClick={onReviewTransactions} className="sm:w-auto w-full">
@@ -48,9 +55,11 @@ const ImportSuccessPanel: React.FC<ImportSuccessPanelProps> = ({
       <Button variant="secondary" onClick={onViewDashboard} className="sm:w-auto w-full">
         Ver minha Dashboard
       </Button>
-      <Button variant="secondary" onClick={onImportAnother} className="sm:w-auto w-full">
-        Importar outro arquivo
-      </Button>
+      {canImportAnother ? (
+        <Button variant="secondary" onClick={onImportAnother} className="sm:w-auto w-full">
+          Importar outro arquivo
+        </Button>
+      ) : null}
     </div>
   </section>
 );
