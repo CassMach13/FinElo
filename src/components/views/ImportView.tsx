@@ -12,6 +12,7 @@ import Modal from './../ui/Modal';
 import Input from './../ui/Input';
 import Select from './../ui/Select';
 import ImportSuccessPanel from '../onboarding/ImportSuccessPanel';
+import { getImportGate } from '../../domain/imports/importGate';
 import { trackProductEvent, type ImportFailureStage } from '../../services/productAnalytics';
 import AccountModal from './AccountModal';
 import { TourButton } from '../TourButton';
@@ -243,6 +244,8 @@ const ImportView: React.FC = () => {
         onReviewTransactions={() => setCurrentView('transactions')}
         onViewDashboard={() => setCurrentView('dashboard')}
         onImportAnother={() => setNotification(null)}
+        canImportAnother={gate.canImportAnother}
+        quotaNote={gate.quotaExhausted ? 'Você utilizou sua importação gratuita deste mês.' : undefined}
       />
     ) : null;
 
@@ -414,7 +417,8 @@ const ImportView: React.FC = () => {
     }).length;
   }, [importLogs]);
 
-  const hasReachedLimit = !isPremium && importsThisMonth >= 1;
+  // O sucesso de uma importação que acabou de acontecer não pode ser trocado pelo aviso de limite.
+  const gate = getImportGate({ isPremium, importsThisMonth, lastSuccess: notification?.summary });
 
   // Apply saved config to mapping state
   React.useEffect(() => {
@@ -739,7 +743,7 @@ const ImportView: React.FC = () => {
   };
 
   const handleSmartImport = async () => {
-    if (hasReachedLimit) {
+    if (gate.quotaExhausted) {
       void trackProductEvent('import_failed', { stage: 'quota' });
       await appAlert("Você atingiu o limite de 1 importação gratuita por mês. Assine o Premium para importações ilimitadas!", "Aviso", "warning");
       return;
@@ -916,9 +920,9 @@ const ImportView: React.FC = () => {
       {!isPremium && (
         <div className="bg-slate-800 p-3 rounded-lg flex justify-between items-center text-sm mb-4 border border-slate-700">
           <span className="text-gray-300">
-            Uso mensal gratuito: <strong className={hasReachedLimit ? "text-red-400" : "text-green-400"}>{importsThisMonth}/1</strong> importações.
+            Uso mensal gratuito: <strong className={gate.quotaExhausted ? "text-red-400" : "text-green-400"}>{importsThisMonth}/1</strong> importações.
           </span>
-          {!hasReachedLimit ? (
+          {!gate.quotaExhausted ? (
             <span className="text-xs text-blue-400">Você tem 1 importação grátis restante.</span>
           ) : (
             <span className="text-xs text-red-400 font-bold">Limite atingido.</span>
@@ -926,7 +930,9 @@ const ImportView: React.FC = () => {
         </div>
       )}
 
-      {hasReachedLimit ? (
+      {gate.successOnly ? (
+        renderImportSuccess()
+      ) : gate.showLimitBlock ? (
         <Card className="border border-red-500/30 bg-red-500/10 text-center py-10">
           <div className="mb-4 text-4xl">🚫</div>
           <h3 className="text-xl font-bold text-white mb-2">Limite Gratuito Atingido</h3>

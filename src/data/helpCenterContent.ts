@@ -363,7 +363,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         },
       ],
       result:
-        'As transações entram na conta escolhida e aparecem em **Transações**, prontas para você conferir as categorias. Nos planos PRO e Wealth, a tela mostra **Importação concluída** com atalhos para **Conferir transações** e **Ver minha Dashboard**. No plano Basic, a tela Importar passa a mostrar **Limite Gratuito Atingido**: isso só indica que a importação do mês já foi usada.',
+        'As transações entram na conta escolhida e aparecem em **Transações**, prontas para você conferir as categorias. A tela mostra **Importação concluída** com atalhos para **Conferir transações** e **Ver minha Dashboard**. No plano Basic, ela também avisa que a importação gratuita do mês foi usada; a partir daí, ao abrir **Importar** de novo, aparece **Limite Gratuito Atingido** até o mês seguinte.',
       resultImage: {
         src: '/help/import/04-transacoes-importadas.webp',
         alt: 'Lista de Transações com os lançamentos importados do extrato, ainda sem categoria',
