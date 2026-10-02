@@ -222,10 +222,63 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'transactions',
     title: 'Como lanço uma despesa ou receita manualmente?',
     answer:
-      'Em Transações, toque em Adicionar lançamento. Escolha o tipo (Despesa ou Renda), conta, data, valor e categoria. Salve — o lançamento entra na lista e no Dashboard.',
-    keywords: ['lançar', 'manual', 'adicionar', 'despesa', 'receita', 'criar'],
+      'Para registrar uma despesa ou receita sem importar arquivo, abra Adicionar Lançamento em Transações, preencha os campos e salve.',
+    keywords: ['lançar', 'manual', 'adicionar', 'despesa', 'receita', 'criar', 'lançamento', 'sem importar'],
     action: 'navigate',
     navigateTo: 'transactions',
+    article: {
+      before: [
+        {
+          title: 'Antes de começar',
+          items: [
+            'Você precisa de pelo menos uma **Conta** e uma **Categoria**. Ainda não tem? Crie na hora, pelos botões **+ Conta** e **+ Categoria** do próprio formulário.',
+          ],
+        },
+      ],
+      steps: [
+        {
+          title: 'Abra o formulário',
+          text: 'No menu, clique em **Transações** e depois em **Adicionar Lançamento**, no canto superior direito.',
+          image: {
+            src: '/help/manual-entry/01-botao-adicionar-lancamento.webp',
+            alt: 'Canto superior direito da tela Transações com o botão Adicionar Lançamento ao lado de Exportar',
+            width: 393,
+            height: 68,
+          },
+        },
+        {
+          title: 'Preencha os campos',
+          text: 'Informe **Data da Compra**, **Conta**, **Descrição**, **Tipo** (**Despesa (Saída)** ou **Renda (Entrada)**), **Categoria** e **Valor (R$)**. Todos são obrigatórios. Digite o valor sem sinal: o **Tipo** define se é saída ou entrada.',
+          image: {
+            src: '/help/manual-entry/02-formulario-preenchido.webp',
+            alt: 'Janela Adicionar Lançamento preenchida com data, conta, descrição, tipo Despesa, categoria e valor',
+            width: 448,
+            height: 984,
+          },
+        },
+        {
+          title: 'Salve',
+          text: 'Clique em **Salvar**.',
+        },
+      ],
+      result:
+        'O lançamento aparece no topo da lista em **Transações**, com a categoria que você escolheu, e entra nos totais da **Dashboard**. Para corrigir depois, use o ícone de lápis na linha do lançamento.',
+      resultImage: {
+        src: '/help/manual-entry/03-lancamento-na-lista.webp',
+        alt: 'Lista de Transações com o novo lançamento no topo, com a categoria escolhida e o ícone de lápis para editar',
+        width: 1105,
+        height: 217,
+      },
+      after: [
+        {
+          title: 'Outras opções do formulário',
+          items: [
+            '**Repetir este lançamento?** gera várias linhas de uma vez: **Parcelado (Compra 10x)** ou **Fixo Mensal (Recorrente)**.',
+            'Em conta de cartão de crédito, escolha também o **Tipo de lançamento no cartão**: compra, estorno ou pagamento de fatura. Para pagar a fatura, use o botão **Pagar** no card do cartão.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'tx-filter',
@@ -385,18 +438,95 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'import-competence',
     section: 'import',
-    title: 'O que é competência na revisão da importação?',
+    title: 'O que é competência da fatura do cartão?',
     answer:
-      'É o mês da fatura do cartão (ex.: 03/2025). Confira antes de confirmar — competência errada desorganiza o histórico de faturas.',
-    keywords: ['competência', 'mês', 'fatura', 'revisão', 'mm/aaaa'],
+      'Competência é o mês a que uma fatura de cartão pertence. É por ela que o FinElo junta as compras de uma mesma fatura no histórico do cartão.',
+    keywords: ['competência', 'mês', 'fatura', 'cartão', 'vencimento', 'histórico', 'aaaa-mm'],
+    article: {
+      steps: [
+        {
+          title: 'O que ela significa',
+          text: 'Cada fatura tem uma competência. Exemplo: um arquivo com compras de 29/08 a 20/09 e vencimento em 10/10/2026 tem a competência **2026-09** (**09/2026** no histórico). Todas essas compras ficam juntas nessa fatura, mesmo a de agosto.',
+        },
+        {
+          title: 'Na importação do cartão',
+          text: 'Informe o **Vencimento da Fatura**. Em **Competência da fatura**, deixe **Automática**: com o vencimento informado, o FinElo usa o mês anterior a ele (vencimento em 10/10, competência 2026-09). Ou escolha **Definir manualmente** e preencha **Competência (AAAA-MM)**, indicado para arquivos antigos.',
+          image: {
+            src: '/help/competence/01-vencimento-e-competencia.webp',
+            alt: 'Janela de importação de cartão com o campo Vencimento da Fatura e as opções de Competência da fatura, Automática e Definir manualmente',
+            width: 576,
+            height: 763,
+          },
+        },
+        {
+          title: 'No histórico do cartão',
+          text: 'Em **Transações**, no card do cartão, clique em **Histórico**. Cada fatura aparece com a **Competência**, o vencimento e o total.',
+          image: {
+            src: '/help/competence/02-competencia-no-historico.webp',
+            alt: 'Janela Histórico de faturas com a competência 09/2026, o vencimento em 10/10/2026 e o total da fatura',
+            width: 672,
+            height: 789,
+          },
+        },
+      ],
+      after: [
+        {
+          title: 'Quando conferir',
+          items: [
+            'Confira a **Competência da fatura** na janela **Confirmar Importação**, antes de gravar.',
+            'Se o arquivo tiver compras de mais de um mês, o FinElo avisa em **Confirmar Competência Automática**. Isso é comum quando a fatura fecha no começo do mês.',
+            'Competência errada fica no mês errado do histórico. Para corrigir, abra o **Histórico** do cartão e use **Ajustar competências por arquivo**.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'import-duplicate',
     section: 'import',
-    title: 'O sistema detectou duplicatas na importação',
+    title: 'O FinElo pode importar a mesma transação duas vezes?',
     answer:
-      'Na revisão, marque duplicatas para não importar de novo. Se já importou antes, exclua o lote em Configurações → Histórico de importações ou ajuste na lista de transações.',
-    keywords: ['duplicata', 'duplicado', 'repetido', 'já importado'],
+      'O FinElo bloqueia a repetição do mesmo arquivo. Se o mesmo extrato for salvo com outro nome, ele pode ser importado novamente e gerar lançamentos repetidos.',
+    keywords: ['duplicata', 'duplicado', 'repetido', 'já importado', 'importar de novo', 'excluir importação'],
+    action: 'navigate',
+    navigateTo: 'settings',
+    article: {
+      steps: [
+        {
+          title: 'Se você repetir o arquivo',
+          text: 'Importar de novo um arquivo com o mesmo nome é recusado com o aviso **Arquivo já importado anteriormente**, e nada é gravado. A mensagem sugere renomear o arquivo: só faça isso se ele for realmente outro, como o extrato de outro período.',
+          image: {
+            src: '/help/duplicates/01-arquivo-ja-importado.webp',
+            alt: 'Janela de importação com a mensagem Arquivo já importado anteriormente ao tentar enviar o mesmo arquivo',
+            width: 576,
+            height: 647,
+          },
+        },
+        {
+          title: 'Se o mesmo extrato voltar com outro nome',
+          text: 'No fluxo validado aqui, o mesmo extrato com outro nome foi aceito e os lançamentos entraram novamente, aparecendo em dobro em **Transações**. Por isso, não renomeie um arquivo apenas para contornar o aviso: faça isso somente quando ele for realmente outro, como um extrato de período diferente.',
+          image: {
+            src: '/help/duplicates/02-lancamentos-repetidos.webp',
+            alt: 'Lista de Transações com lançamentos repetidos, como Assinatura Exemplo e Farmacia Exemplo aparecendo duas vezes',
+            width: 1105,
+            height: 379,
+          },
+        },
+        {
+          title: 'Para desfazer a importação repetida',
+          text: 'Abra **Configurações** e, em **Histórico de Importações**, clique em **Excluir** na linha do arquivo repetido. Confirme em **Excluir Tudo**: isso apaga o registro dessa importação e todas as transações dela. O arquivo original continua como estava.',
+        },
+      ],
+      result: 'Só o lote repetido some. Confira em **Transações** se cada lançamento aparece uma única vez.',
+      after: [
+        {
+          title: 'Linhas ignoradas não são duplicatas',
+          items: [
+            'Em **Linhas ignoradas**, o FinElo conta as linhas do arquivo que não viram lançamento, como totais, saldos ou linhas sem data ou valor.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'import-rules',

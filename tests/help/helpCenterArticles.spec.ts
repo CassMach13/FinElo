@@ -183,3 +183,106 @@ describe('Artigos modernizados', () => {
     expect(t.article!.steps!.filter((s) => s.image).length).toBeLessThanOrEqual(2);
   });
 });
+
+describe('Lote 2 — duplicatas, competência e lançamento manual', () => {
+  const sources = (files: string[]) => files.map(read).join(' ');
+  const articleText = (id: string) => JSON.stringify(topic(id).article);
+  const stepTitles = (id: string) => topic(id).article!.steps!.map((s) => s.title);
+
+  it('os três tópicos têm artigo estruturado, com imagens que existem', () => {
+    ['import-duplicate', 'import-competence', 'tx-add-manual'].forEach((id) => {
+      const t = topic(id);
+      expect(t.article, id).toBeTruthy();
+      expect(t.article!.steps!.length, id).toBeGreaterThanOrEqual(3);
+      const images = [...t.article!.steps!.map((s) => s.image), t.article!.resultImage].filter(Boolean) as HelpImage[];
+      expect(images.length, id).toBeGreaterThanOrEqual(2);
+      images.forEach((img) => expect(fs.existsSync(path.join(root, 'public', img.src)), img.src).toBe(true));
+    });
+  });
+
+  it('duplicatas: recusa por nome, limite honesto e como desfazer, sem a revisão inexistente', () => {
+    expect(topic('import-duplicate').title).toBe('O FinElo pode importar a mesma transação duas vezes?');
+    expect(stepTitles('import-duplicate')).toEqual([
+      'Se você repetir o arquivo',
+      'Se o mesmo extrato voltar com outro nome',
+      'Para desfazer a importação repetida',
+    ]);
+    const text = articleText('import-duplicate') + topic('import-duplicate').answer;
+    expect(text).toContain('Arquivo já importado anteriormente');
+    expect(text).toContain('Histórico de Importações');
+    expect(text).toContain('Excluir Tudo');
+    expect(text.toLowerCase()).not.toMatch(/marque|na revisão|fingerprint|hash|parser/);
+    const code = sources(['src/hooks/useAppStore.ts', 'src/components/views/SettingsView.tsx']);
+    ['Arquivo já importado anteriormente', 'Histórico de Importações', 'Excluir Importação', 'Excluir Tudo'].forEach((label) =>
+      expect(code, label).toContain(label)
+    );
+  });
+
+  it('competência: exemplo real, formatos da interface e onde ajustar', () => {
+    expect(stepTitles('import-competence')).toEqual(['O que ela significa', 'Na importação do cartão', 'No histórico do cartão']);
+    const text = articleText('import-competence');
+    expect(text).toContain('2026-09');
+    expect(text).toContain('09/2026');
+    expect(text).not.toContain('03/2025');
+    const code = sources(['src/components/views/ImportView.tsx', 'src/components/views/TransactionsView.tsx', 'src/components/transactions/AccountBalanceCard.tsx']);
+    [
+      'Vencimento da Fatura',
+      'Competência da fatura',
+      'Definir manualmente',
+      'Competência (AAAA-MM)',
+      'Confirmar Competência Automática',
+      'Confirmar Importação',
+      'Ajustar competências por arquivo',
+      'Histórico',
+    ].forEach((label) => expect(code, label).toContain(label));
+    // Sem ação: é um conceito, não um caminho.
+    expect(topic('import-competence').action).toBeUndefined();
+  });
+
+  it('a regra do exemplo bate com o código: vencimento − 1 mês', () => {
+    const code = read('src/utils/cardImportReference.ts');
+    expect(code).toContain('previousMonth(Number(dueMatch[1]), Number(dueMatch[2]))');
+  });
+
+  it('lançamento manual: passos na ordem do formulário e nomes exatos', () => {
+    expect(stepTitles('tx-add-manual')).toEqual(['Abra o formulário', 'Preencha os campos', 'Salve']);
+    const text = articleText('tx-add-manual');
+    const form = read('src/components/modals/NewTransactionModal.tsx');
+    [
+      'Adicionar Lançamento',
+      'Data da Compra',
+      'Conta',
+      'Descrição',
+      'Despesa (Saída)',
+      'Renda (Entrada)',
+      'Categoria',
+      'Valor (R$)',
+      'Repetir este lançamento?',
+      'Parcelado (Compra 10x)',
+      'Fixo Mensal (Recorrente)',
+      'Tipo de lançamento no cartão',
+      '+ Conta',
+      '+ Categoria',
+    ].forEach((label) => {
+      expect(text, label).toContain(label);
+      expect(form + read('src/components/views/TransactionsView.tsx'), label).toContain(label);
+    });
+    // Os campos obrigatórios descritos são os que a validação exige.
+    ['Data', 'ID_Conta', 'Nome_Fantasia', 'Categoria', 'Valor', 'Tipo'].forEach((field) => expect(form).toContain('newErrors.' + field));
+  });
+
+  it('CTAs: rótulo e destino coerentes', () => {
+    expect(getNavigateLabel(topic('tx-add-manual').navigateTo!)).toBe('Ir para Transações');
+    expect(getNavigateLabel(topic('import-duplicate').navigateTo!)).toBe('Ir para Configurações');
+  });
+
+  it('assets do lote ficam fora do precache do PWA e dentro do orçamento de peso', () => {
+    expect(read('vite.config.ts')).toContain("'help/**'");
+    const dir = path.join(root, 'public/help');
+    const files = fs.readdirSync(dir, { recursive: true, withFileTypes: false } as never) as unknown as string[];
+    const sizes = files.filter((f) => String(f).endsWith('.webp')).map((f) => fs.statSync(path.join(dir, String(f))).size);
+    expect(sizes.length).toBeGreaterThanOrEqual(12);
+    expect(Math.max(...sizes)).toBeLessThan(60 * 1024);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(400 * 1024);
+  });
+});
