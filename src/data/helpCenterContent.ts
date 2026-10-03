@@ -293,7 +293,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'transactions',
     title: 'Como gerencio meu cartão de crédito?',
     answer:
-      'No card do cartão em Transações você vê Fatura atual, limite e botões HISTÓRICO e PAGAR. O guia completo cobre quem importa extrato, lança na mão ou usa os dois.',
+      'Há três formas de usar o cartão: importar o extrato, registrar compras manualmente ou combinar os dois. O guia ajuda a escolher sua rotina e conferir competência, Histórico e pagamento em Transações.',
     keywords: ['cartão', 'crédito', 'fatura', 'limite', 'histórico', 'competência'],
     action: 'guides',
     featured: true,
@@ -895,7 +895,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'help',
     title: 'Onde está o guia completo de cartão?',
     answer:
-      'Na aba Tópicos, seção Transações: expanda o bloco "Cartão de crédito no FinElo". Escolha seu perfil (importação, manual ou misto) e siga o passo a passo.',
+      'Na aba Tópicos, seção Transações: abra o bloco "Cartão de crédito no FinElo". Escolha Importação, Manual ou Misto para ver a rotina e os cuidados de cada perfil. Os títulos dos artigos indicam onde encontrar cada passo a passo.',
     keywords: ['guia', 'tutorial', 'cartão', 'passo a passo'],
     action: 'guides',
   },

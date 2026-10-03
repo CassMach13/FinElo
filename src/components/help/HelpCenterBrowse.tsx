@@ -140,7 +140,7 @@ function CreditCardGuidePanel({
           <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-400/90">Guia completo</span>
           <h3 className="font-bold text-slate-100 text-base mt-1">Cartão de crédito no FinElo</h3>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-            Importação, lançamento manual ou misto — passo a passo de conferência, pagamento e correção de faturas.
+            Importação, Manual ou Misto — encontre sua rotina e os cuidados para conferir a fatura.
           </p>
         </div>
       </button>
