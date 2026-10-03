@@ -362,17 +362,81 @@ describe('Lote 3 — pagar fatura do cartão', () => {
   });
 });
 
-describe('estorno no cartão — resposta curta', () => {
-  it('não ensina mais a lançar estorno como Renda e usa os nomes do formulário', () => {
-    const t = topic('tx-refund');
-    expect(t.article).toBeUndefined();
-    expect(t.answer).not.toMatch(/como Renda/i);
-    const form = read('src/components/modals/NewTransactionModal.tsx');
-    ['Adicionar Lançamento', 'Tipo de lançamento no cartão', 'Estorno ou crédito na fatura', 'Competência da fatura (estorno)'].forEach(
-      (label) => {
-        expect(t.answer, label).toContain(label);
-        expect(form, label).toContain(label);
-      }
+describe('Lote 3 — estorno no cartão', () => {
+  const t = () => topic('tx-refund');
+  const text = () => JSON.stringify(t().article) + t().answer;
+  const code = () =>
+    ['src/components/modals/NewTransactionModal.tsx', 'src/components/views/TransactionsView.tsx', 'src/components/views/SettingsView.tsx', 'src/components/modals/CategoryModal.tsx']
+      .map(read)
+      .join(' ');
+
+  it('artigo estruturado, passos na ordem do formulário e imagens existentes', () => {
+    expect(t().title).toBe('Como registro um estorno no cartão?');
+    expect(t().article!.before![0].title).toBe('Antes de começar');
+    expect(t().article!.steps!.map((s) => s.title)).toEqual([
+      'Abra o formulário e escolha o cartão',
+      'Escolha Estorno',
+      'Escolha a fatura que recebe o crédito',
+      'Preencha e salve',
+    ]);
+    const images = [...t().article!.steps!.map((s) => s.image), t().article!.resultImage].filter(Boolean) as HelpImage[];
+    expect(images).toHaveLength(2);
+    images.forEach((img) => {
+      expect(fs.existsSync(path.join(root, 'public', img.src)), img.src).toBe(true);
+      expect(img.alt.length).toBeGreaterThan(25);
+    });
+  });
+
+  it('todos os nomes da interface citados existem no código', () => {
+    [
+      'Adicionar Lançamento',
+      'Conta',
+      'Tipo de lançamento no cartão',
+      'Estorno ou crédito na fatura',
+      'Competência da fatura (estorno)',
+      'Data da Compra',
+      'Descrição',
+      'Categoria',
+      'Valor (R$)',
+      'Salvar',
+      'Entrada (Renda)',
+      'Gerenciar Categorias',
+      'Histórico',
+      'Compras e encargos',
+      'Estornos e créditos',
+      'Total da fatura',
+      'Pagar',
+    ].forEach((label) => {
+      expect(text(), label).toContain(label);
+    });
+    const all = code() + read('src/components/transactions/AccountBalanceCard.tsx') + read('src/components/modals/CreditCardInvoiceCyclesModal.tsx');
+    ['Tipo de lançamento no cartão', 'Estorno ou crédito na fatura', 'Competência da fatura (estorno)', 'Data da Compra', 'Valor (R$)', 'Entrada (Renda)', 'Gerenciar Categorias', 'Histórico', 'Compras e encargos', 'Estornos e créditos'].forEach(
+      (label) => expect(all.toLowerCase(), label).toContain(label.toLowerCase())
     );
+  });
+
+  it('a competência escolhida é o ponto do artigo, com o exemplo validado', () => {
+    expect(text()).toContain('mesmo que a data do crédito seja de outro mês');
+    expect(text()).toContain('02/10');
+    expect(text()).toContain('09/2026');
+    expect(text()).toContain('valor positivo');
+    expect(text()).not.toMatch(/finelo_competence|marcador|heurística|payload|ledger/i);
+  });
+
+  it('não manda lançar como Renda e não chama estorno de pagamento', () => {
+    expect(text()).not.toMatch(/lance (manualmente )?como Renda|cadastre como Renda/i);
+    expect(text()).toContain('Não é pagamento da fatura');
+    expect(text()).not.toMatch(/pagamento de fatura(?! )/i);
+  });
+
+  it('o formulário trava o Tipo e o estorno não se liga à compra original', () => {
+    const form = read('src/components/modals/NewTransactionModal.tsx');
+    expect(form).toContain("disabled={isImportedEdit || cardEntryKind === 'refund'}");
+    expect(text()).toContain('não fica ligado a ela');
+  });
+
+  it('CTA leva a Transações', () => {
+    expect(t().action).toBe('navigate');
+    expect(getNavigateLabel(t().navigateTo!)).toBe('Ir para Transações');
   });
 });
