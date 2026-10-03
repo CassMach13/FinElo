@@ -83,6 +83,10 @@ import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import SmartTransactionFiltersPanel from '../transactions/SmartTransactionFiltersPanel';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
 import { withCanonicalEconomicBalances } from '../transactions/competenceHistoryEconomicSource';
+import {
+  paidInvoiceConfirmationDialog,
+  undoPaidInvoiceConfirmationDialog,
+} from '../transactions/paidInvoiceConfirmationCopy';
 import FamilyOwnerBadge from '../ui/FamilyOwnerBadge';
 import FamilyOwnerAuditPanel from '../ui/FamilyOwnerAuditPanel';
 import TransactionOwnerGroupHeader from '../ui/TransactionOwnerGroupHeader';
@@ -485,10 +489,11 @@ const TransactionsView: React.FC = () => {
       const amount = card.openBalance;
       if (amount < 0.005) return;
 
+      const dialog = paidInvoiceConfirmationDialog(amount, card.competenceBR);
       const ok = await appConfirm(
-        `O sistema indica ${formatCurrency(amount)} em aberto na competência ${card.competenceBR}. Se você já quitou esse valor no banco (ajuste, crédito ou arredondamento), confirme para o histórico seguir como pago.`,
-        'Confirmar pagamento da fatura',
-        'Sim, está pago',
+        dialog.message,
+        dialog.title,
+        dialog.confirmText,
         'info'
       );
       if (!ok) return;
@@ -524,10 +529,11 @@ const TransactionsView: React.FC = () => {
     async (card: CompetenceHistoryCard) => {
       if (!user?.id || !motorInvoiceHistoryAccount) return;
 
+      const dialog = undoPaidInvoiceConfirmationDialog(card.userConfirmedAmount ?? 0, card.competenceBR);
       const ok = await appConfirm(
-        `Voltar a exibir o saldo automático de ${formatCurrency(card.userConfirmedAmount ?? 0)} em aberto para ${card.competenceBR}?`,
-        'Desfazer confirmação',
-        'Desfazer',
+        dialog.message,
+        dialog.title,
+        dialog.confirmText,
         'warning'
       );
       if (!ok) return;
@@ -739,9 +745,16 @@ const TransactionsView: React.FC = () => {
           <section className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3.5 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wide text-amber-200">Confirmação</h3>
             <p className="text-amber-50/95 leading-relaxed text-[13px]">
-              O fechamento automático pode não refletir o banco neste valor residual (
+              Saldo em aberto inteiro:{' '}
               <span className="tabular-nums font-semibold">{formatCurrency(card.openBalance)}</span>
-              ). Esse saldo já foi quitado na fatura (ajuste, crédito ou arredondamento)?
+              . Use esta confirmação somente se o saldo em aberto já foi pago fora do FinElo.
+            </p>
+            <p className="text-amber-50/95 leading-relaxed text-[13px]">
+              Ela zera o saldo desta competência e pode liberar o limite do cartão. Não cria lançamento
+              nem movimenta conta.
+            </p>
+            <p className="text-amber-50/95 leading-relaxed text-[13px]">
+              Para registrar de qual conta saiu o dinheiro, use Pagar. Você pode Desfazer a confirmação depois.
             </p>
             <Button
               type="button"

@@ -92,7 +92,7 @@ export const GlobalDialog: React.FC = () => {
         </div>
 
         {/* Footer fixo */}
-        <div className="flex-shrink-0 px-6 py-4 bg-slate-800/30 border-t border-slate-700/50 flex justify-end gap-3 rounded-b-2xl">
+        <div className="flex-shrink-0 px-6 py-4 bg-slate-800/30 border-t border-slate-700/50 flex flex-wrap justify-end gap-3 rounded-b-2xl">
           {!hideCancel && (
             <Button
               variant="secondary"
@@ -105,7 +105,7 @@ export const GlobalDialog: React.FC = () => {
           <Button
             variant={buttonVariantMap[variant || 'info']}
             onClick={() => closeDialog(true)}
-            className="px-5 py-2 font-bold shadow-lg"
+            className="min-w-0 max-w-full break-words px-5 py-2 font-bold shadow-lg"
           >
             {confirmText || 'OK'}
           </Button>
