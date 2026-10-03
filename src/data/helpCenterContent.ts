@@ -405,10 +405,64 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'tx-refund',
     section: 'transactions',
-    title: 'Como lanço estorno ou reembolso no cartão?',
+    title: 'Como registro um estorno no cartão?',
     answer:
-      'Em Transações, use Adicionar Lançamento e escolha a conta do cartão. Em Tipo de lançamento no cartão, selecione Estorno ou crédito na fatura e, em Competência da fatura (estorno), a fatura que deve receber o crédito.',
-    keywords: ['estorno', 'reembolso', 'crédito', 'renda', 'devolução'],
+      'Estorno é um crédito que reduz uma fatura do cartão. Você registra em Adicionar Lançamento e escolhe a fatura que deve receber o crédito.',
+    keywords: ['estorno', 'reembolso', 'crédito', 'devolução', 'cashback', 'fatura', 'cartão', 'competência'],
+    action: 'navigate',
+    navigateTo: 'transactions',
+    article: {
+      before: [
+        {
+          title: 'Antes de começar',
+          items: [
+            'Tenha o cartão de crédito cadastrado como uma conta.',
+            'O formulário pede uma **Categoria** de entrada. Ainda não tem? Crie em **Configurações**, em **Gerenciar Categorias**, com o tipo **Entrada (Renda)**.',
+          ],
+        },
+      ],
+      steps: [
+        {
+          title: 'Abra o formulário e escolha o cartão',
+          text: 'Em **Transações**, clique em **Adicionar Lançamento**. Em **Conta**, escolha o cartão.',
+        },
+        {
+          title: 'Escolha Estorno',
+          text: 'Em **Tipo de lançamento no cartão**, escolha **Estorno ou crédito na fatura**.',
+        },
+        {
+          title: 'Escolha a fatura que recebe o crédito',
+          text: 'Em **Competência da fatura (estorno)**, escolha a fatura que deve receber o estorno, mesmo que a data do crédito seja de outro mês. Exemplo: crédito recebido em 02/10 com a competência **09/2026** reduz a fatura 09/2026. O campo pode vir marcado com o mês da data: confira antes de salvar.',
+          image: {
+            src: '/help/card-refund/01-formulario-estorno.webp',
+            alt: 'Janela Adicionar Lançamento com o cartão, o tipo Estorno ou crédito na fatura, a competência 09/2026, descrição, categoria e valor preenchidos',
+            width: 448,
+            height: 1202,
+          },
+        },
+        {
+          title: 'Preencha e salve',
+          text: 'Informe a **Data da Compra** (o dia em que o crédito caiu), a **Descrição**, a **Categoria** e o **Valor (R$)**. Digite o valor positivo, como 79,90: o FinElo registra como crédito na fatura. O **Tipo** já vem travado. Clique em **Salvar**.',
+        },
+      ],
+      result:
+        'O crédito reduz a fatura da competência escolhida. Em **Transações**, no card do cartão, clique em **Histórico**: a competência mostra **Compras e encargos**, menos **Estornos e créditos**, igual ao **Total da fatura**.',
+      resultImage: {
+        src: '/help/card-refund/02-fatura-com-estorno.webp',
+        alt: 'Fatura 09/2026 no histórico do cartão com compras de R$ 402,10, estornos de R$ 79,90 e total da fatura de R$ 322,20',
+        width: 640,
+        height: 362,
+      },
+      after: [
+        {
+          title: 'O que o estorno não é',
+          items: [
+            'Não é pagamento da fatura. Para pagar, use o botão **Pagar** do card do cartão.',
+            'Não apaga nem altera a compra original: o estorno não fica ligado a ela, só reduz o total da fatura escolhida.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'tx-closing-due',
