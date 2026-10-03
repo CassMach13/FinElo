@@ -493,8 +493,9 @@ describe('Lote 4 — histórico, "Sim, está pago" e fechamento/vencimento', () 
     expect(txt).toContain('Desfazer');
     expect(txt).not.toMatch(/registra (o )?pagamento no banco|paga a fatura para você/i);
     const view = read('src/components/views/TransactionsView.tsx');
-    ['Sim, está pago', 'Confirmar pagamento da fatura', 'Confirmação', 'Desfazer confirmação', 'Pagamentos registrados'].forEach((label) =>
-      expect(view, label).toContain(label)
+    const confirmationCopy = read('src/components/transactions/paidInvoiceConfirmationCopy.ts');
+    ['Sim, está pago', 'Confirmar como pago', 'Confirmação', 'Desfazer confirmação', 'Pagamentos registrados'].forEach((label) =>
+      expect(view + confirmationCopy, label).toContain(label)
     );
     // O que o produto grava: uma confirmação por competência, sem transação.
     const handler = view.slice(view.indexOf('const handleConfirmCompetenceResidualPaid'), view.indexOf('const handleUndoCompetenceResidualPaid'));

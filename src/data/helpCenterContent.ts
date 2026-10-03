@@ -475,7 +475,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         },
         {
           title: 'Confirme',
-          text: 'Clique em **Sim, está pago** e confirme de novo na janela **Confirmar pagamento da fatura**.',
+          text: 'Clique em **Sim, está pago**. Na janela **Confirmar como pago**, confira o saldo inteiro e use o botão **Confirmar R$ …**.',
         },
       ],
       result:
