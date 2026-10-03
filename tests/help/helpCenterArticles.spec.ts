@@ -80,7 +80,7 @@ describe('Central de Ajuda — artigo com passos e screenshots', () => {
 
   it('tópicos sem article seguem válidos (só resposta curta)', () => {
     const simple = HELP_TOPICS.filter((t) => !t.article);
-    expect(simple.length).toBeGreaterThan(20);
+    expect(simple.length).toBeGreaterThan(15);
     simple.forEach((t) => expect(t.answer.length).toBeGreaterThan(0));
   });
 });
@@ -123,7 +123,7 @@ describe('Botão "Ir para…" mostra o destino real', () => {
   });
 
   it('tópicos cuja seção difere do destino agora dizem o destino', () => {
-    expect(getNavigateLabel(topic('tx-closing-due').navigateTo!)).toBe('Ir para Configurações');
+    expect(getNavigateLabel(topic('import-duplicate').navigateTo!)).toBe('Ir para Configurações');
     expect(getNavigateLabel(topic('import-rules').navigateTo!)).toBe('Ir para Configurações');
   });
 
@@ -438,5 +438,120 @@ describe('Lote 3 — estorno no cartão', () => {
   it('CTA leva a Transações', () => {
     expect(t().action).toBe('navigate');
     expect(getNavigateLabel(t().navigateTo!)).toBe('Ir para Transações');
+  });
+});
+
+describe('Lote 4 — histórico, "Sim, está pago" e fechamento/vencimento', () => {
+  const t = (id: string) => topic(id);
+  const text = (id: string) => JSON.stringify(t(id).article) + t(id).answer;
+  const stepTitles = (id: string) => t(id).article!.steps!.map((s) => s.title);
+  const code = (files: string[]) => files.map(read).join(' ');
+  const imagesOf = (id: string) =>
+    [...t(id).article!.steps!.map((s) => s.image), t(id).article!.resultImage].filter(Boolean) as HelpImage[];
+
+  it('os três artigos estão estruturados, com imagens que existem e alt útil', () => {
+    const counts: Record<string, number> = { 'tx-history': 2, 'tx-confirm-paid': 2, 'tx-closing-due': 2 };
+    Object.entries(counts).forEach(([id, n]) => {
+      expect(t(id).article, id).toBeTruthy();
+      expect(imagesOf(id), id).toHaveLength(n);
+      imagesOf(id).forEach((img) => {
+        expect(fs.existsSync(path.join(root, 'public', img.src)), img.src).toBe(true);
+        expect(img.alt.length, img.src).toBeGreaterThan(25);
+      });
+    });
+  });
+
+  it('histórico: passos na ordem da tela e nomes reais', () => {
+    expect(t('tx-history').title).toBe('Como vejo minhas faturas anteriores?');
+    expect(stepTitles('tx-history')).toEqual(['Abra o Histórico', 'Escolha o mês', 'Leia a fatura', 'Veja cada lançamento']);
+    const src = code(['src/components/views/TransactionsView.tsx', 'src/components/transactions/AccountBalanceCard.tsx', 'src/components/charts/CompetenceInvoiceBarChart.tsx']);
+    [
+      'Evolução das faturas',
+      'Composição da fatura',
+      'Compras e encargos',
+      'Estornos e créditos',
+      'Total da fatura',
+      'Saldo em aberto',
+      'Ver lançamentos desta fatura',
+      'Pagamentos, saldo e fontes',
+      'Ajustar competências por arquivo',
+      'Histórico',
+    ].forEach((label) => {
+      expect(text('tx-history'), label).toContain(label);
+      expect(src.toLowerCase() + read('src/components/modals/CreditCardInvoiceCyclesModal.tsx').toLowerCase(), label).toContain(label.toLowerCase());
+    });
+    ['Aberta', 'Paga', 'Vencida'].forEach((status) => expect(read('src/components/views/TransactionsView.tsx')).toContain("'" + status + "'"));
+  });
+
+  it('"Sim, está pago": é confirmação, não pagamento bancário nem lançamento', () => {
+    expect(t('tx-confirm-paid').title).toBe('Para que serve o "Sim, está pago"?');
+    expect(stepTitles('tx-confirm-paid')).toEqual(['Abra os detalhes da fatura', 'Confira o saldo', 'Confirme']);
+    const txt = text('tx-confirm-paid');
+    expect(txt).toContain('não cria lançamento');
+    expect(txt).toContain('Não paga nada no banco');
+    expect(txt).toContain('inteiro');
+    expect(txt).toContain('Desfazer');
+    expect(txt).not.toMatch(/registra (o )?pagamento no banco|paga a fatura para você/i);
+    const view = read('src/components/views/TransactionsView.tsx');
+    ['Sim, está pago', 'Confirmar pagamento da fatura', 'Confirmação', 'Desfazer confirmação', 'Pagamentos registrados'].forEach((label) =>
+      expect(view, label).toContain(label)
+    );
+    // O que o produto grava: uma confirmação por competência, sem transação.
+    const handler = view.slice(view.indexOf('const handleConfirmCompetenceResidualPaid'), view.indexOf('const handleUndoCompetenceResidualPaid'));
+    expect(handler).toContain('saveCompetencePaymentConfirmation');
+    expect(handler).toContain('settledAmount: amount');
+    expect(handler).toContain('const amount = card.openBalance');
+    expect(handler).not.toMatch(/addTransaction|addMultipleTransactions/);
+  });
+
+  it('fechamento e vencimento: rótulos do formulário e datas distintas', () => {
+    expect(stepTitles('tx-closing-due')).toEqual(['Abra a conta do cartão', 'Informe os dias', 'Salve e confira no card']);
+    const txt = text('tx-closing-due');
+    const modal = read('src/components/views/AccountModal.tsx');
+    [
+      'Configurações do Cartão de Crédito',
+      'Fechamento (dia do mês)',
+      'Vencimento (dia do mês)',
+      'Limite Total (R$)',
+      'Editar Conta',
+      'Sem data de fechamento, o FinElo usa o 1º do mês como início do ciclo',
+    ].forEach((label) => expect(modal, label).toContain(label));
+    ['Fechamento (dia do mês)', 'Vencimento (dia do mês)', 'Limite Total (R$)', 'Editar Conta', 'Gerenciar Contas'].forEach((label) =>
+      expect(txt, label).toContain(label)
+    );
+    expect(read('src/components/views/SettingsView.tsx')).toContain('Gerenciar Contas');
+    // Fechamento ≠ vencimento ≠ competência, cada um explicado à parte.
+    expect(txt).toMatch(/\*\*Fechamento\*\*: o dia em que o ciclo/);
+    expect(txt).toMatch(/\*\*Vencimento\*\*: o dia em que a fatura vence/);
+    expect(txt).toMatch(/\*\*Competência\*\*: o mês da fatura/);
+  });
+
+  it('coerente com os artigos já publicados', () => {
+    // Competência = mês anterior ao vencimento (vencimento 10/10 → 09/2026), como no artigo de competência.
+    expect(text('tx-closing-due')).toContain('vence em 10/10 tem a competência 09/2026');
+    expect(text('import-competence')).toContain('vencimento em 10/10/2026');
+    expect(text('import-competence')).toContain('09/2026');
+    // Pagar é o fluxo de pagamento; o "Sim, está pago" aponta para ele em vez de substituí-lo.
+    expect(text('tx-confirm-paid')).toContain('botão **Pagar**');
+    expect(text('tx-pay-invoice')).toContain('Pagamento de Fatura');
+    // Estorno continua sendo crédito na competência escolhida.
+    expect(text('tx-history')).toContain('Estornos e créditos');
+    expect(text('tx-refund')).toContain('Competência da fatura (estorno)');
+  });
+
+  it('CTAs levam a Transações', () => {
+    ['tx-history', 'tx-confirm-paid', 'tx-closing-due'].forEach((id) => {
+      expect(t(id).action, id).toBe('navigate');
+      expect(getNavigateLabel(t(id).navigateTo!), id).toBe('Ir para Transações');
+    });
+  });
+
+  it('assets do lote fora do precache e dentro do orçamento', () => {
+    expect(read('vite.config.ts')).toContain("'help/**'");
+    const dir = path.join(root, 'public/help');
+    const files = (fs.readdirSync(dir, { recursive: true }) as unknown as string[]).filter((f) => String(f).endsWith('.webp'));
+    const sizes = files.map((f) => fs.statSync(path.join(dir, String(f))).size);
+    expect(Math.max(...sizes)).toBeLessThan(60 * 1024);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(600 * 1024);
   });
 });
