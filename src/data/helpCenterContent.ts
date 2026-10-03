@@ -389,18 +389,119 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'tx-history',
     section: 'transactions',
-    title: 'Para que serve o botão HISTÓRICO no cartão?',
+    title: 'Como vejo minhas faturas anteriores?',
     answer:
-      'Abre o histórico por competência (mês da fatura): total, pagamentos e saldo em aberto. Ideal para quem importa extrato. Quem só lança na mão pode conferir pela lista filtrada e Fatura atual.',
-    keywords: ['histórico', 'competência', 'mês', 'aberto', 'paga'],
+      'O Histórico mostra cada fatura do cartão por competência, com o vencimento, o total e se ela está paga. Serve para quem importa extrato e para quem lança à mão.',
+    keywords: ['histórico', 'faturas', 'competência', 'vencimento', 'total da fatura', 'saldo em aberto', 'cartão', 'paga'],
+    action: 'navigate',
+    navigateTo: 'transactions',
+    article: {
+      steps: [
+        {
+          title: 'Abra o Histórico',
+          text: 'Em **Transações**, na seção **Cartões de crédito**, clique em **Histórico** no card do cartão.',
+        },
+        {
+          title: 'Escolha o mês',
+          text: 'Em **Evolução das faturas**, cada barra é uma competência. Toque na barra do mês para ver a fatura.',
+        },
+        {
+          title: 'Leia a fatura',
+          text: '**Competência** é o mês da fatura e **Venc.** é o vencimento. O status é **Aberta**, **Paga** ou **Vencida** (aberta e já vencida). Em **Composição da fatura**, **Compras e encargos** menos **Estornos e créditos** dá o **Total da fatura**. Embaixo, o **Saldo em aberto** é o que ainda falta pagar.',
+          image: {
+            src: '/help/card-history/01-fatura-no-historico.webp',
+            alt: 'Histórico de faturas com a competência 09/2026, vencimento 10/10/2026, compras de R$ 402,10, estornos de R$ 79,90 e total da fatura de R$ 322,20',
+            width: 604,
+            height: 332,
+          },
+        },
+        {
+          title: 'Veja cada lançamento',
+          text: 'Clique em **Ver lançamentos desta fatura** para conferir compra por compra e estorno por estorno. Em **Pagamentos, saldo e fontes**, você vê os pagamentos registrados e de onde vêm os lançamentos.',
+          image: {
+            src: '/help/card-history/02-lancamentos-da-fatura.webp',
+            alt: 'Lista Lançamentos de 09/2026 com o cartão, o vencimento, o total da fatura e cada compra e estorno marcados',
+            width: 520,
+            height: 380,
+          },
+        },
+      ],
+      result:
+        'Você vê, por competência, quanto a fatura soma e quanto ainda está em aberto. Corrigir uma competência errada é em **Ajustar competências por arquivo**, no topo do Histórico.',
+      after: [
+        {
+          title: 'Fatura atual e Histórico',
+          items: [
+            'A **Fatura atual** do card mostra a fatura em aberto agora. Depois que ela é paga, o card volta a **R$ 0,00**, e o Histórico continua mostrando a fatura com o status **Paga**.',
+            'O **Total da fatura** não muda quando você paga. Quem muda é o **Saldo em aberto**.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'tx-confirm-paid',
     section: 'transactions',
-    title: 'O que é "Sim, está pago" no histórico?',
+    title: 'Para que serve o "Sim, está pago"?',
     answer:
-      'Quando sobram centavos em aberto que você já quitou no banco (arredondamento ou ajuste), confirme na competência. A informação fica salva na nuvem e aparece em todos os seus dispositivos.',
-    keywords: ['sim está pago', 'centavos', 'residual', 'confirmar', 'sincronizar'],
+      'Serve para avisar que o saldo em aberto de uma fatura já foi pago no banco. Ele só marca a fatura como paga no Histórico: não cria lançamento nem mexe em nenhuma conta.',
+    keywords: ['sim está pago', 'confirmar pagamento', 'saldo em aberto', 'residual', 'fatura paga', 'histórico', 'desfazer'],
+    action: 'navigate',
+    navigateTo: 'transactions',
+    article: {
+      before: [
+        {
+          title: 'Antes de começar',
+          items: [
+            'Use só se o valor mostrado em **Saldo em aberto** já foi pago no banco, por exemplo um ajuste, um crédito ou um arredondamento.',
+            'O botão vale para o saldo em aberto **inteiro** da competência, não só para centavos. Confira o valor antes.',
+          ],
+        },
+      ],
+      steps: [
+        {
+          title: 'Abra os detalhes da fatura',
+          text: 'Em **Transações**, clique em **Histórico** no card do cartão e depois em **Pagamentos, saldo e fontes**.',
+        },
+        {
+          title: 'Confira o saldo',
+          text: 'Quando há saldo em aberto, aparece a caixa **Confirmação**, com o valor e o botão **Sim, está pago**.',
+          image: {
+            src: '/help/card-confirm-paid/01-confirmacao-sim-esta-pago.webp',
+            alt: 'Detalhes da fatura 09/2026 com Saldo em aberto de R$ 322,20 e a caixa Confirmação com o botão Sim, está pago',
+            width: 452,
+            height: 470,
+          },
+        },
+        {
+          title: 'Confirme',
+          text: 'Clique em **Sim, está pago** e confirme de novo na janela **Confirmar pagamento da fatura**.',
+        },
+      ],
+      result:
+        'O valor entra em **Pagamentos registrados**, o **Saldo em aberto** vai a **R$ 0,00**, a fatura fica **Paga** e o limite disponível do card volta a subir. A caixa passa a dizer "Você confirmou que R$ … já estava quitado no banco", com o link **Desfazer**.',
+      resultImage: {
+        src: '/help/card-confirm-paid/02-confirmacao-feita.webp',
+        alt: 'Detalhes da fatura com Pagamentos registrados de R$ 322,20, Saldo em aberto zerado e a mensagem de que o valor já estava quitado no banco, com o link Desfazer',
+        width: 452,
+        height: 388,
+      },
+      after: [
+        {
+          title: 'O que o "Sim, está pago" não faz',
+          items: [
+            'Não cria lançamento e não tira dinheiro de nenhuma conta. Para registrar o pagamento no FinElo, use o botão **Pagar** do card do cartão.',
+            'Não paga nada no banco: é só a sua confirmação de que já pagou.',
+          ],
+        },
+        {
+          title: 'Para desfazer',
+          items: [
+            'Clique em **Desfazer** na mesma caixa e confirme. O saldo em aberto volta a aparecer. A confirmação fica salva na sua conta e vale em todos os seus dispositivos.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'tx-refund',
@@ -467,12 +568,52 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'tx-closing-due',
     section: 'transactions',
-    title: 'Por que configurar dia de fechamento e vencimento?',
+    title: 'Como configuro o fechamento e o vencimento do cartão?',
     answer:
-      'Esses dias alinham o ciclo da fatura ao seu banco. Edite a conta do cartão em Configurações → Contas: informe fechamento, vencimento e limite.',
-    keywords: ['fechamento', 'vencimento', 'dia', 'ciclo', 'configurar cartão'],
+      'Fechamento e vencimento são dias do mês que você informa na conta do cartão. Com eles, o FinElo alinha a fatura à do seu banco.',
+    keywords: ['fechamento', 'vencimento', 'dia', 'ciclo', 'configurar cartão', 'limite', 'fatura atual'],
     action: 'navigate',
-    navigateTo: 'settings',
+    navigateTo: 'transactions',
+    article: {
+      steps: [
+        {
+          title: 'Abra a conta do cartão',
+          text: 'Em **Transações**, clique no card do cartão. Abre a janela **Editar Conta**. Também dá para ir em **Configurações**, **Gerenciar Contas** e **Editar**.',
+        },
+        {
+          title: 'Informe os dias',
+          text: 'Em **Configurações do Cartão de Crédito**, preencha **Fechamento (dia do mês)** e **Vencimento (dia do mês)**. O **Limite Total (R$)** fica no mesmo lugar. Se o fechamento do seu cartão varia, deixe esse campo em branco.',
+          image: {
+            src: '/help/card-closing-due/01-campos-do-cartao.webp',
+            alt: 'Configurações do Cartão de Crédito com Limite Total, Fechamento (dia do mês) 3 e Vencimento (dia do mês) 10',
+            width: 405,
+            height: 282,
+          },
+        },
+        {
+          title: 'Salve e confira no card',
+          text: 'Clique em **Salvar**. O card passa a mostrar quantos dias faltam para fechar e para vencer, como **Fecha 1d · dia 3** e **Vence 8d · 10/10**.',
+          image: {
+            src: '/help/card-closing-due/02-datas-no-card.webp',
+            alt: 'Card do cartão de crédito mostrando Fecha 1d dia 3 e Vence 8d 10/10',
+            width: 465,
+            height: 168,
+          },
+        },
+      ],
+      result:
+        'O card e o Histórico passam a usar os seus dias. As faturas que não vieram de extrato mostram o vencimento calculado com o dia que você informou.',
+      after: [
+        {
+          title: 'O que é cada data',
+          items: [
+            '**Fechamento**: o dia em que o ciclo da fatura fecha. Com ele, a **Fatura atual** é calculada com mais precisão. Sem ele, o FinElo usa o 1º do mês como início do ciclo.',
+            '**Vencimento**: o dia em que a fatura vence. Aparece no card e, no Histórico, como **Venc.**. Ao lançar uma compra à mão, **Fatura desta compra** é o vencimento da fatura em que ela será cobrada.',
+            '**Competência**: o mês da fatura. Uma fatura que vence em 10/10 tem a competência 09/2026.',
+          ],
+        },
+      ],
+    },
   },
 
   // —— Importar ——
