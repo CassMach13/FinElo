@@ -2,6 +2,8 @@
 export interface Transaction {
   ID_Transacao?: string;
   user_id?: string;
+  /** Identidade persistida do lote; nomes de arquivo não definem seu escopo. */
+  import_log_id?: string | null;
   ID_Conta?: string; // <-- NOVO CAMPO: Chave estrangeira para a tabela de contas
   Data: Date;
   Data_Pagamento?: Date;

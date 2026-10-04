@@ -517,7 +517,6 @@ export const creditCardEngineService = {
       .eq('account_id', input.accountId)
       .eq('source_file_name', input.origin);
     if (delLotsError) throw delLotsError;
-
     for (const statementId of statementIds) {
       await this.recalculateAndPersistStatement(statementId);
     }
@@ -537,6 +536,7 @@ export const creditCardEngineService = {
     purchaseReferenceLabel?: string;
     /** Evita recalcular o cartão inteiro a cada origem (use um recálculo ao final do lote). */
     skipRecalculateAllStatements?: boolean;
+    preserveOtherSourceEntries?: boolean;
   }): Promise<{ processed: number; statementId: string; lotId: string }> {
     const rows = await this.buildImportRowsFromTransactionsPreservingIndices({
       accountId: input.account.id,
@@ -557,6 +557,7 @@ export const creditCardEngineService = {
       paymentOverrideTransactionIds: input.paymentOverrideTransactionIds,
       refundOverrideTransactionIds: input.refundOverrideTransactionIds,
       skipRecalculateAllStatements: input.skipRecalculateAllStatements,
+      preserveOtherSourceEntries: input.preserveOtherSourceEntries,
     });
 
     return { processed: rows.length, statementId: result.statementId, lotId: result.lotId };
@@ -1001,6 +1002,7 @@ export const creditCardEngineService = {
     refundOverrideTransactionIds?: string[];
     fileTotals?: CreditCardFileTotalsInput;
     skipRecalculateAllStatements?: boolean;
+    preserveOtherSourceEntries?: boolean;
   }): Promise<{ statementId: string; lotId: string; entries: number }> {
     const ensuredCard = await this.ensureCreditCardForAccount(input.userId, input.account);
     const inferred = parseCreditCardReferenceFromFileName(input.sourceFileName);
@@ -1186,7 +1188,7 @@ export const creditCardEngineService = {
       if (entryUpdateError) throw entryUpdateError;
     }
 
-    await this.pruneOrphanEntriesForImportSource({
+    if (!input.preserveOtherSourceEntries) await this.pruneOrphanEntriesForImportSource({
       cardId: ensuredCard.id,
       sourceFileName: input.sourceFileName,
       activeSourceRowHashes: assigned.map((entry) => entry.sourceRowHash),
