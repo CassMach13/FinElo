@@ -59,7 +59,6 @@ import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
 import { collectPaginatedRows } from '../utils/paginatedFetch';
-import { findImportLogsByTransactionId, isImportedDetailRowsIncomplete } from '../utils/importLogHealth';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
 import {
   prepareManualPurchaseCompetenceOnPaymentDateEdit,
@@ -94,6 +93,8 @@ import {
   type SupportAttachmentTarget,
   type SupportWriteResult,
 } from '../services/supportAttachmentService';
+
+import { maintainImportBatch, IMPORT_BATCH_IDENTITY_MESSAGE } from '../services/importHistoryService';
 
 const readAtomicImportEligibility = async (user: User | null): Promise<boolean> =>
   resolveAtomicImportEnabled(user, async () => {
@@ -147,6 +148,7 @@ async function syncImportedCardOrigin(opts: {
   user: User;
   accountId: string;
   origin: string;
+  importLogId?: string;
   classifierOverrides?: CardClassifierOverrides;
   cardCycle?: CardImportCycleInput;
 }): Promise<void> {
@@ -154,7 +156,8 @@ async function syncImportedCardOrigin(opts: {
   const account = accounts.find((a) => a.id === opts.accountId);
   if (!account || account.Tipo_Conta !== 'Cartão de Crédito') return;
 
-  const txs = transactions.filter((t) => t.ID_Conta === opts.accountId && t.Origem === opts.origin);
+  const txs = transactions.filter((t) => t.ID_Conta === opts.accountId &&
+    (opts.importLogId ? t.import_log_id === opts.importLogId : t.Origem === opts.origin));
   const due = opts.cardCycle ? parseManualCardCycleToDue(opts.cardCycle) : {};
   const engineRules = engineClassifierRulesFromUser(opts.user);
 
@@ -164,6 +167,7 @@ async function syncImportedCardOrigin(opts: {
       account,
       origin: opts.origin,
       transactions: txs,
+      preserveOtherSourceEntries: Boolean(opts.importLogId),
       rules: engineRules,
       paymentOverrideTransactionIds: opts.classifierOverrides?.paymentTransactionIds,
       refundOverrideTransactionIds: opts.classifierOverrides?.refundTransactionIds,
@@ -1567,8 +1571,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { user } = get();
     if (!user) return { updated: 0, message: 'Usuário não autenticado.' };
 
-    await get().fetchTransactions();
-    const { importLogs, transactions, accounts } = get();
+    await get().fetchImportLogs();
+    const { importLogs } = get();
 
     const logsToProcess = onlyLogId
       ? importLogs.filter((l) => l.id === onlyLogId)
@@ -1579,85 +1583,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     let updated = 0;
+    let blocked = 0;
     for (const log of logsToProcess) {
-      const det = Array.isArray(log.imported_details) ? log.imported_details : [];
-      const key = comparableImportOriginKey(log.file_name);
-      if (!key) continue;
-      const rows = transactions.filter(
-        (t) =>
-          t.Origem &&
-          t.Origem !== 'manual' &&
-          comparableImportOriginKey(String(t.Origem)) === key
-      );
-      if (rows.length === 0) continue;
-
-      if (
-        det.length === rows.length &&
-        log.imported_count === rows.length &&
-        !isImportedDetailRowsIncomplete(det)
-      ) {
-        continue;
+      try {
+        const result = await maintainImportBatch(supabase, log.id, 'rehydrate');
+        updated += Number(result.updated_count ?? 0);
+      } catch (error) {
+        blocked += 1;
+        if (onlyLogId) return { updated: 0, message: unknownErrorMessage(error, IMPORT_BATCH_IDENTITY_MESSAGE) };
       }
-
-      const meta: Record<string, unknown> = {};
-      const fromDet = det.find(
-        (r: any) =>
-          r &&
-          typeof r === 'object' &&
-          (r.Card_Reference_Label || r.Card_Due_Date || r.Card_Cycle_Mode)
-      );
-      const keysMeta = ['Card_Cycle_Mode', 'Card_Reference_Label', 'Card_Due_Date', 'Card_Payment_Tx_Ids', 'Card_Refund_Tx_Ids'] as const;
-      if (fromDet && typeof fromDet === 'object') {
-        for (const mk of keysMeta) {
-          if ((fromDet as Record<string, unknown>)[mk] != null) meta[mk] = (fromDet as Record<string, unknown>)[mk];
-        }
-      }
-
-      const sorted = [...rows].sort((a, b) => new Date(a.Data).getTime() - new Date(b.Data).getTime());
-      const nameForAccount = (id: string | null | undefined) =>
-        id ? accounts.find((a) => a.id === id)?.Nome_Conta || null : null;
-
-      const nextDetails = sorted.map((tx) => ({
-        ID_Transacao: tx.ID_Transacao,
-        Origem: tx.Origem,
-        Data: tx.Data,
-        Descricao: tx.Descricao_Original,
-        Nome_Fantasia: tx.Nome_Fantasia,
-        Valor: tx.Valor,
-        Categoria: tx.Categoria,
-        ID_Conta: tx.ID_Conta,
-        Conta_Nome: nameForAccount(tx.ID_Conta),
-        ...meta,
-      }));
-
-      const { error } = await supabase
-        .from('import_logs')
-        .update({
-          imported_details: nextDetails,
-          imported_count: nextDetails.length,
-        })
-        .eq('id', log.id);
-      if (!error) updated += 1;
     }
 
     if (updated > 0) await get().fetchImportLogs();
 
-    if (onlyLogId) {
-      return {
-        updated,
-        message:
-          updated === 0
-            ? 'Nada foi alterado: este arquivo já está alinhado com o ledger, ou não há transações (origem não manual) com a mesma chave de arquivo.'
-            : 'Este arquivo foi reidratado: imported_details e imported_count foram alinhados às transações já guardadas.',
-      };
-    }
-
     return {
       updated,
-      message:
-        updated === 0
-          ? 'Nenhum registro precisou de reidratação (ou não há transações no ledger para estas origens).'
-          : `${updated} registro(s) de importação reidratado(s) com base nas transações guardadas.`,
+      message: `${updated} registro(s) reidratado(s) somente pelos lançamentos vinculados ao lote.` +
+        (blocked > 0 ? ` ${blocked} registro(s) preservado(s): não foi possível validar sua identidade com segurança.` : ''),
     };
   },
 
@@ -2048,22 +1990,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const atomicImportEnabled = await readAtomicImportEligibility(user);
     if (get().user?.id === user.id) set({ atomicImportEnabled });
 
-    // Compatibilidade: com a flag desligada, o fluxo atual segue igual. Em
-    // staging, a identidade passa a ser conteúdo + conta e ignora o nome.
-    if (!atomicImportEnabled) {
-      const { data: existingFileLog, error: existingFileLogError } = await supabase
-        .from('import_logs')
-        .select('id')
-        .eq('file_name', fileName)
-        .limit(1);
-      if (existingFileLogError) {
-        throw new Error(`Não foi possível validar duplicidade de arquivo: ${existingFileLogError.message}`);
-      }
-      if ((existingFileLog || []).length > 0) {
-        throw new Error(`Arquivo já importado anteriormente (${fileName}). Renomeie o arquivo se quiser importar novamente.`);
-      }
-    }
-
     const normalizeCardCycle = (input?: CardImportCycleInput): CardImportCycleInput | undefined => {
       if (!input) return undefined;
       const safeRef = input.referenceLabel && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.referenceLabel)
@@ -2096,16 +2022,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     let insertedBatch: Transaction[] = [];
     let imported_count_saved = 0;
 
+    // Rollout controls the RPC route, never content/account duplicate prevention.
+    const fingerprint =
+      options?.batchFingerprint ||
+      (await buildStructuredImportFingerprint(
+        newTransactions,
+        importConfig.ID_Conta_Associada || null
+      ));
+    if (!isSha256Fingerprint(fingerprint)) {
+      throw new Error('A impressão digital do arquivo é inválida; nenhuma transação foi gravada.');
+    }
+
     if (atomicImportEnabled) {
-      const fingerprint =
-        options?.batchFingerprint ||
-        (await buildStructuredImportFingerprint(
-          newTransactions,
-          importConfig.ID_Conta_Associada || null
-        ));
-      if (!isSha256Fingerprint(fingerprint)) {
-        throw new Error('A impressão digital do arquivo é inválida; nenhuma transação foi gravada.');
-      }
 
       const { data, error } = await supabase.rpc('import_transactions_atomic', {
         p_fingerprint: fingerprint,
@@ -2132,7 +2060,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       } | null;
       if (atomicResult?.duplicate) {
         throw new Error(
-          'Este mesmo conteúdo já foi importado anteriormente nesta conta. Renomear o arquivo não cria um novo lote.'
+          'Arquivo já importado anteriormente: este mesmo conteúdo já foi importado nesta conta. Renomear o arquivo não cria um novo lote.'
         );
       }
 
@@ -2145,79 +2073,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         : allIgnoredDetails;
       void get().fetchImportLogs();
     } else {
-      /** Erro bulk insert (quando há; `select()` vazio não indica erro se `error` vier preenchido). */
-      let bulkInsertErrorMessage: string | null = null;
-      if (transactionsWithContext.length > 0) {
-        const { data, error } = await supabase
-          .from('transactions')
-          .insert(transactionsWithContext)
-          .select();
-
-        if (error) {
-          bulkInsertErrorMessage = error.message;
-          console.error('Erro ao adicionar múltiplas transações:', error);
-        } else if (data) {
-          insertedBatch = data as Transaction[];
-          const attempted = transactionsWithContext.length;
-          const got = insertedBatch.length;
-          if (got !== attempted) {
-            console.error(
-              '[addMultipleTransactions] Divergência pós-insert: linhas tentadas:',
-              attempted,
-              'persistidas conforme retorno da API:',
-              got,
-              '— log de importação gravará apenas com len(imported_details) === imported_count.'
-            );
-          }
-        }
+      const { data, error } = await supabase.rpc('import_transactions_scoped', {
+        p_fingerprint: fingerprint,
+        p_file_name: fileName,
+        p_account_id: importConfig.ID_Conta_Associada || null,
+        p_transactions: transactionsWithContext,
+        p_total_transactions: newTransactions.length + ignoredItems.length,
+        p_ignored_details: allIgnoredDetails,
+        p_detail_context: {
+          Conta_Nome: targetAccount?.Nome_Conta || null,
+          Card_Cycle_Mode: normalizedCardCycle?.mode || null,
+          Card_Reference_Label: normalizedCardCycle?.referenceLabel || null,
+          Card_Due_Date: normalizedCardCycle?.dueDate || null,
+        },
+      });
+      if (error) throw new Error(`Importação cancelada sem gravações parciais: ${error.message}`);
+      if (data?.duplicate) {
+        throw new Error(
+          'Arquivo já importado anteriormente: este mesmo conteúdo já foi importado nesta conta. Renomear o arquivo não cria um novo lote.'
+        );
       }
-
-      const attemptedCount = transactionsWithContext.length;
-      const persistedCount = insertedBatch.length;
-      const imported_details_payload =
-        persistedCount > 0
-          ? insertedBatch.map((tx) => ({
-              ID_Transacao: tx.ID_Transacao,
-              Origem: tx.Origem ?? null,
-              Data: tx.Data,
-              Descricao: tx.Descricao_Original,
-              Nome_Fantasia: tx.Nome_Fantasia,
-              Valor: tx.Valor,
-              Categoria: tx.Categoria,
-              ID_Conta: tx.ID_Conta || null,
-              Conta_Nome: targetAccount?.Nome_Conta || null,
-              Card_Cycle_Mode: normalizedCardCycle?.mode || null,
-              Card_Reference_Label: normalizedCardCycle?.referenceLabel || null,
-              Card_Due_Date: normalizedCardCycle?.dueDate || null,
-            }))
-          : [];
-
-      if (attemptedCount > 0 && persistedCount === 0) {
-        allIgnoredDetails = [
-          ...allIgnoredDetails,
-          {
-            Motivo:
-              bulkInsertErrorMessage ??
-              'API não retornou linhas após insert (verifique erro de rede, RLS ou constraints).',
-            Esperadas: attemptedCount,
-          },
-        ];
-      }
-
-      imported_count_saved = imported_details_payload.length;
-      const logEntry = {
-        user_id: user.id,
-        file_name: fileName,
-        total_transactions: newTransactions.length + ignoredItems.length,
-        imported_count: imported_count_saved,
-        ignored_count: allIgnoredDetails.length,
-        ignored_details: allIgnoredDetails,
-        imported_details: imported_details_payload,
-      };
-
-      const { error: logError } = await supabase.from('import_logs').insert([logEntry]);
-      if (logError) console.error('Erro ao salvar log de importação:', logError);
-      else void get().fetchImportLogs();
+      insertedBatch = Array.isArray(data?.transactions) ? data.transactions : [];
+      imported_count_saved = insertedBatch.length;
+      void get().fetchImportLogs();
     }
 
     if (insertedBatch.length > 0) {
@@ -2236,17 +2114,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       const targetAccount = get().accounts.find(a => a.id === importConfig.ID_Conta_Associada);
       if (targetAccount?.Tipo_Conta === 'Cartão de Crédito') {
         try {
-          const rows = insertedBatch.map((tx, index) => ({
-            sourceRowIndex: index + 1,
-            postedDate: toDateOnlyIso(tx.Data),
-            description: tx.Descricao_Original || tx.Nome_Fantasia || '',
-            holderName: tx.Portador || undefined,
-            amount: Number(tx.Valor || 0),
-            installmentCurrent: tx.Parcela_Atual || undefined,
-            installmentTotal: tx.Total_Parcelas || undefined,
-            merchantName: tx.Nome_Fantasia || undefined,
-            transactionId: tx.ID_Transacao || undefined,
-          }));
+          const rows = await creditCardEngineService.buildImportRowsFromTransactionsPreservingIndices({
+            accountId: targetAccount.id, origin: fileName, transactions: insertedBatch,
+          });
           const cycleCoordinates = resolveCardImportCycleCoordinates(normalizedCardCycle);
           let dueYear = cycleCoordinates.dueYear;
           let dueMonth = cycleCoordinates.dueMonth;
@@ -2268,6 +2138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             purchaseReferenceLabel: cycleCoordinates.purchaseReferenceLabel,
             rules: engineClassifierRulesFromUser(user),
             fileTotals: options?.creditCardFileTotals,
+            preserveOtherSourceEntries: true,
           });
           console.log('[CardEngine] Importação processada:', {
             fileName,
@@ -2566,78 +2437,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return ids.length;
   },
 
-  deleteTransactionsByOrigin: async (origin) => {
-    const { data: authData } = await supabase.auth.getUser();
-    const authUser = authData.user;
-    if (!authUser) return;
-
-    const transactionsByOrigin = get().transactions.filter(t => t.Origem === origin);
-
-    // Identify affected assets before deletion
-    const affectedAssetIds = new Set(
-      transactionsByOrigin
-        .filter(t => t.linked_asset_id)
-        .map(t => t.linked_asset_id as string)
-    );
-
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('Origem', origin)
-      .eq('user_id', authUser.id);
-    if (error) {
-      console.error('Erro ao deletar lote de transações:', error);
-    } else {
-      set((state) => ({
-        transactions: state.transactions.filter(t => t.Origem !== origin)
-      }));
-
-      // Recalcular saldo de todos os ativos afetados
-      for (const assetId of affectedAssetIds) {
-        await get().recalculateAssetBalance(assetId);
-      }
-
-      const ledgerSync = shouldAutoSyncCreditCardLedger(authUser);
-      if (ledgerSync) {
-        const cardAccounts = get().accounts.filter(a => a.Tipo_Conta === 'Cartão de Crédito');
-        const groupedByAccount = new Map<string, Transaction[]>();
-
-        transactionsByOrigin.forEach((tx) => {
-          if (!tx.ID_Conta) return;
-          const account = cardAccounts.find((a) => a.id === tx.ID_Conta);
-          if (!account) return;
-          const current = groupedByAccount.get(account.id) || [];
-          current.push(tx);
-          groupedByAccount.set(account.id, current);
-        });
-
-        for (const [accountId, deletedTx] of groupedByAccount.entries()) {
-          const account = cardAccounts.find((a) => a.id === accountId);
-          if (!account) continue;
-
-          try {
-            await removeImportedCardArtifacts({
-              userId: authUser.id,
-              user: authUser,
-              account,
-              origin,
-              deletedTransactions: deletedTx,
-            });
-          } catch (autoError) {
-            console.error('[CardV2][Auto] Falha ao sincronizar exclusão por origem:', autoError);
-          }
-        }
-
-        if (groupedByAccount.size > 0) {
-          get().bumpCreditCardEngineRevision();
-        }
-
-        if (isCardV2ShadowEnabled(authUser)) {
-          await get().refreshCreditCardShadowDashboard();
-          await get().fetchCreditCardReprocessJobs();
-        }
-      }
-    }
+  deleteTransactionsByOrigin: async () => {
+    // An origin string cannot authorize deletion of a concrete import batch.
+    await appAlert(IMPORT_BATCH_IDENTITY_MESSAGE, 'Lote não excluído', 'warning');
   },
 
   deleteImportedBatchByTransaction: async (transactionId) => {
@@ -2652,15 +2454,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const atomicImportEnabled = await readAtomicImportEligibility(user);
-    if (get().user?.id === user.id) set({ atomicImportEnabled });
-
-    if (!atomicImportEnabled) {
-      await get().deleteTransactionsByOrigin(transaction.Origem);
-      return;
-    }
-
-    const matchingLogs = findImportLogsByTransactionId(importLogs, transactionId);
+    const matchingLogs = transaction.import_log_id
+      ? importLogs.filter((log) => log.id === transaction.import_log_id)
+      : [];
     if (matchingLogs.length !== 1) {
       await appAlert(
         matchingLogs.length === 0
@@ -2682,32 +2478,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     const log = importLogs.find((item) => item.id === logId);
     if (!log) return { updated: 0 };
 
-    const atomicImportEnabled = await readAtomicImportEligibility(user);
-    if (get().user?.id === user.id) set({ atomicImportEnabled });
-
-    if (!atomicImportEnabled) {
-      return get().reassignTransactionsAccountByOrigin(log.file_name, accountId);
-    }
-
-    const { data, error } = await supabase.rpc('reassign_import_batch_atomic', {
-      p_import_log_id: logId,
-      p_account_id: accountId,
-    });
-    if (error) {
-      console.error('Erro ao corrigir conta do lote exato:', error);
+    let result;
+    try {
+      result = await maintainImportBatch(supabase, logId, 'reassign', accountId);
+    } catch (error) {
       await appAlert(
-        `Correção cancelada sem alterar dados: ${error.message}`,
+        unknownErrorMessage(error, IMPORT_BATCH_IDENTITY_MESSAGE),
         'Conta não corrigida',
         'danger'
       );
       return { updated: 0 };
     }
 
-    const result = data as {
-      updated_count?: number;
-      active_transaction_ids?: string[];
-      imported_details?: unknown[];
-    } | null;
     const activeIds = new Set(Array.isArray(result?.active_transaction_ids) ? result!.active_transaction_ids! : []);
     const updated = Number(result?.updated_count ?? 0);
 
@@ -2732,6 +2514,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           user,
           accountId,
           origin: log.file_name,
+          importLogId: log.id,
         });
         get().bumpCreditCardEngineRevision();
       } catch (autoError) {
@@ -2742,70 +2525,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { updated };
   },
 
-  reassignTransactionsAccountByOrigin: async (origin, accountId) => {
-    const { data: authData } = await supabase.auth.getUser();
-    const authUser = authData.user;
-    if (!authUser) {
-      console.error('Usuário não autenticado para reatribuição por origem.');
-      return { updated: 0 };
-    }
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .update({ ID_Conta: accountId })
-      .eq('Origem', origin)
-      .eq('user_id', authUser.id)
-      .select('ID_Transacao');
-
-    if (error) {
-      console.error('Erro ao reatribuir conta das transações por origem:', error);
-      return { updated: 0 };
-    }
-
-    const updatedIds = new Set((data || []).map((row: any) => row.ID_Transacao));
-
-    if (updatedIds.size > 0) {
-      set((state) => ({
-        transactions: state.transactions.map((t) =>
-          updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t
-        ),
-      }));
-
-      const targetAccount = get().accounts.find((a) => a.id === accountId);
-      const shouldProcessCardLedger =
-        targetAccount?.Tipo_Conta === 'Cartão de Crédito' && shouldAutoSyncCreditCardLedger(authUser);
-
-      if (targetAccount && shouldProcessCardLedger) {
-        try {
-          const scopedTx = get().transactions
-            .filter((t) => t.Origem === origin)
-            .map((t) => (updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t))
-            .filter((t) => t.ID_Conta === accountId);
-
-          await syncImportedCardOrigin({
-            getState: () => ({
-              transactions: get().transactions.map((t) =>
-                updatedIds.has(t.ID_Transacao) ? { ...t, ID_Conta: accountId } : t
-              ),
-              accounts: get().accounts,
-            }),
-            user: authUser,
-            accountId,
-            origin,
-          });
-
-          if (isCardV2ShadowEnabled(authUser)) {
-            await get().refreshCreditCardShadowDashboard();
-            await get().fetchCreditCardReprocessJobs();
-          }
-        } catch (reprocessError) {
-          console.error('[CardV2][Auto] Falha ao reprocessar após corrigir conta:', reprocessError);
-        }
-        get().bumpCreditCardEngineRevision();
-      }
-    }
-
-    return { updated: updatedIds.size };
+  reassignTransactionsAccountByOrigin: async () => {
+    // Retained for old callers: a filename can never authorize a mutation.
+    await appAlert(IMPORT_BATCH_IDENTITY_MESSAGE, 'Conta não corrigida', 'warning');
+    return { updated: 0 };
   },
 
   // Categorias (com Supabase)
@@ -3104,28 +2827,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const atomicImportEnabled = await readAtomicImportEligibility(user);
-    if (get().user?.id === user.id) set({ atomicImportEnabled });
     let deletedTransactions: Transaction[] = [];
-
-    if (atomicImportEnabled) {
-      const { data, error } = await supabase.rpc('delete_import_batch_atomic', {
-        p_import_log_id: logId,
-      });
-      if (error) {
-        console.error('[deleteImportLog] Exclusão atômica cancelada:', error);
-        await appAlert(
-          `Exclusão cancelada sem alterar dados: ${error.message}`,
-          'Lote não excluído',
-          'danger'
-        );
-        return;
-      }
-
-      const result = data as {
-        deleted_count?: number;
-        deleted_transactions?: Transaction[];
-      } | null;
+    let affectedStatementIds: string[] = [];
+    try {
+      const result = await maintainImportBatch(supabase, logId, 'delete');
+      affectedStatementIds = result.affected_statement_ids || [];
       deletedTransactions = Array.isArray(result?.deleted_transactions)
         ? result!.deleted_transactions!
         : [];
@@ -3139,34 +2845,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         return;
       }
       console.log(`[deleteImportLog] Exclusão atômica removeu ${deletedTransactions.length} transações exatas.`);
-    } else {
-      // Compatibilidade da produção enquanto a flag permanece desligada.
-      deletedTransactions = get().transactions.filter(t => t.Origem === fileName);
-      console.log(`[deleteImportLog] Tentando excluir transações com Origem = "${fileName}"...`);
-      const { error: txError, count } = await supabase
-        .from('transactions')
-        .delete({ count: 'exact' })
-        .eq('Origem', fileName)
-        .eq('user_id', user.id);
-
-      if (txError) {
-        console.error('[deleteImportLog] Erro ao deletar transações:', txError);
-        await appAlert('Erro ao deletar transações associadas. O log não será apagado.', 'Erro', 'danger');
-        return;
-      }
-      console.log(`[deleteImportLog] Transações deletadas: ${count}`);
-
-      console.log(`[deleteImportLog] Tentando excluir log com ID = "${logId}"...`);
-      const { error: logError } = await supabase
-        .from('import_logs')
-        .delete()
-        .eq('id', logId);
-
-      if (logError) {
-        console.error('[deleteImportLog] Erro ao deletar log:', logError);
-        await appAlert('Transações deletadas, mas erro ao apagar o log. Verifique as permissões (RLS) no Supabase.', 'Erro', 'danger');
-        return;
-      }
+    } catch (error) {
+      await appAlert(unknownErrorMessage(error, IMPORT_BATCH_IDENTITY_MESSAGE), 'Lote não excluído', 'danger');
+      return;
     }
 
     console.log('[deleteImportLog] Log excluído com sucesso.');
@@ -3183,9 +2864,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       );
       set((state) => ({
         importLogs: state.importLogs.filter(l => l.id !== logId),
-        transactions: atomicImportEnabled
-          ? state.transactions.filter(t => !deletedTransactionIds.has(t.ID_Transacao))
-          : state.transactions.filter(t => t.Origem !== fileName)
+        transactions: state.transactions.filter(t => !deletedTransactionIds.has(t.ID_Transacao))
       }));
 
       console.log('[deleteImportLog] Estado local atualizado.');
@@ -3197,39 +2876,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const ledgerSync = shouldAutoSyncCreditCardLedger(user);
       if (ledgerSync) {
-        const cardAccounts = get().accounts.filter(a => a.Tipo_Conta === 'Cartão de Crédito');
-        const groupedByAccount = new Map<string, Transaction[]>();
-
-        deletedTransactions.forEach((tx) => {
-          if (!tx.ID_Conta) return;
-          const account = cardAccounts.find((a) => a.id === tx.ID_Conta);
-          if (!account) return;
-          const current = groupedByAccount.get(account.id) || [];
-          current.push(tx);
-          groupedByAccount.set(account.id, current);
-        });
-
-        for (const [accountId, deletedTx] of groupedByAccount.entries()) {
-          const account = cardAccounts.find((a) => a.id === accountId);
-          if (!account) continue;
+        // Exact projections were deleted by the RPC before their FKs became NULL.
+        // Only recalculate the affected statements; never clean up by filename.
+        for (const statementId of affectedStatementIds) {
           try {
-            await removeImportedCardArtifacts({
-              userId: user.id,
-              user,
-              account,
-              origin: fileName,
-              deletedTransactions: deletedTx,
-            });
-            if (
-              atomicImportEnabled &&
-              get().transactions.some(t => t.ID_Conta === accountId && t.Origem === fileName)
-            ) {
-              await syncImportedCardOrigin({
-                getState: () => ({ transactions: get().transactions, accounts: get().accounts }),
-                user,
-                accountId,
-                origin: fileName,
-              });
+            if (isCreditCardEngineEnabled(user)) {
+              await creditCardEngineService.recalculateAndPersistStatement(statementId);
+            } else if (isCardV2ShadowEnabled(user) || isCardV2Enabled(user)) {
+              await creditCardStatementService.recalculateStatement(statementId);
             }
           } catch (autoError) {
             console.error('[CardV2][Auto] Falha ao sincronizar exclusão de importação:', autoError);

@@ -937,10 +937,46 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'import',
     title: 'Como funcionam as regras de categorização?',
     answer:
-      'Em Configurações → Regras de mapeamento, defina padrões na descrição (ex.: "UBER" → Transporte). Na importação ou em Re-aplicar regras, o FinElo sugere categorias automaticamente.',
-    keywords: ['regra', 'mapeamento', 'categoria automática', 'uber', 'padrão'],
+      'Em Configurações → Gerenciar Regras de Mapeamento, associe um trecho da descrição a um nome e uma categoria. Salvar ou editar uma regra também aplica a alteração a lançamentos existentes que correspondam ao texto.',
+    keywords: ['regra', 'mapeamento', 'categoria automática', 'renomear', 'padrão', 'reaplicar'],
     action: 'navigate',
     navigateTo: 'settings',
+    article: {
+      before: [{
+        title: 'Antes de salvar',
+        items: [
+          'Escolha um texto específico: a condição procura um trecho da descrição original, sem distinguir maiúsculas de minúsculas.',
+          '**Salvar ou editar uma regra afeta lançamentos existentes**, não apenas importações futuras. Confira o alcance antes de confirmar.',
+        ],
+      }],
+      steps: [
+        {
+          title: 'Abra as regras',
+          text: 'Em **Configurações**, encontre **Gerenciar Regras de Mapeamento** e clique em **Adicionar Novo** para abrir **Nova Regra de Mapeamento**.',
+        },
+        {
+          title: 'Defina condição, nome e categoria',
+          text: 'Preencha **Se a descrição contiver o texto:**, **Alterar Descrição Para:** e **Classificar Como:**. Exemplo sintético: descrição contém TRANSPORTE EXEMPLO → nome Viagem exemplo → categoria Transporte. Os três campos são obrigatórios.',
+        },
+        {
+          title: 'Salve e confira os lançamentos',
+          text: 'Clique em **Salvar**. Na importação, a regra sugere nome e categoria; ao salvá-la ou editá-la, o FinElo também atualiza os lançamentos existentes correspondentes. Confira o resultado em **Transações**: valor, data, conta e descrição original não são alterados por essa aplicação.',
+        },
+        {
+          title: 'Gerencie com cuidado',
+          text: 'Você pode editar ou excluir uma regra. **Re-aplicar Todas as Regras** aplica novamente as regras aos lançamentos existentes e pede confirmação. **Verificar Duplicatas** apenas aponta regras repetidas para revisão; não as remove automaticamente.',
+        },
+      ],
+      result: 'Os lançamentos correspondentes usam o nome e a categoria definidos pela regra. Confira o resultado depois do salvamento ou da reaplicação.',
+      after: [{
+        title: 'Limites importantes',
+        items: [
+          '**Excluir uma regra não desfaz nomes e categorias já aplicados.**',
+          'Não há prioridade configurável na tela. Evite condições sobrepostas; não conte com uma ordem garantida entre regras.',
+          '**Vincular a Patrimônio (Opcional):** permite escolher um patrimônio financiado. O vínculo também é aplicado aos lançamentos correspondentes e pode afetar o saldo do patrimônio. Confira os vínculos existentes antes de salvar ou reaplicar.',
+        ],
+      }],
+    },
   },
 
   // —— Investimentos ——
@@ -959,10 +995,41 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'set-accounts',
     section: 'settings',
-    title: 'Como criar ou editar uma conta?',
+    title: 'Como crio e gerencio minhas contas?',
     answer:
-      'Configurações → Contas → Adicionar ou editar. Para cartão de crédito, informe limite, dia de fechamento e vencimento.',
-    keywords: ['conta', 'banco', 'cartão', 'criar conta', 'editar'],
+      'Abra Configurações → Gerenciar Contas para criar, editar ou arquivar uma conta. A exclusão só é permitida quando não há transações vinculadas.',
+    keywords: ['conta', 'banco', 'cartão', 'criar conta', 'editar', 'saldo inicial', 'arquivar', 'excluir', 'poupança'],
+    action: 'navigate',
+    navigateTo: 'settings',
+    article: {
+      steps: [
+        {
+          title: 'Abra Gerenciar Contas',
+          text: 'Em **Configurações → Gerenciar Contas**, clique em **Adicionar Novo** para abrir **Nova Conta**. Para alterar uma conta existente, use sua ação de edição: o formulário abre como **Editar Conta**.',
+        },
+        {
+          title: 'Escolha o tipo',
+          text: 'Informe **Nome da Conta** e **Tipo da Conta**: Conta Corrente, Poupança, Investimento, Cartão de Crédito, Cartão Alimentação, Dinheiro em Espécie ou Outro. **Banco/Instituição** é opcional; Dinheiro em Espécie fica sem vínculo bancário.',
+        },
+        {
+          title: 'Informe o ponto de partida',
+          text: 'Para uma conta bancária, informe o saldo de hoje ou use **Ou informar um saldo/gasto inicial em outra data**. O **Saldo Inicial** e a **Data do Saldo/Gasto Inicial** são a base do saldo calculado com as movimentações posteriores. Se for importar um histórico anterior, use uma data inicial anterior ao primeiro lançamento, para não contar o saldo de hoje junto com esse histórico.',
+        },
+        {
+          title: 'Salve ou edite com atenção',
+          text: 'Clique em **Salvar**. A edição permite corrigir os dados da conta e o saldo inicial, mas não move nem exclui seus lançamentos. Mudar o saldo inicial ou sua data altera a base do saldo calculado. Para cartão, o formulário pede limite, fechamento, vencimento e limite já utilizado — isso não é dinheiro disponível em uma conta bancária.',
+        },
+      ],
+      result: 'A conta aparece em **Gerenciar Contas**, pronta para ser escolhida nos lançamentos e na importação.',
+      after: [{
+        title: 'Arquivar não é excluir',
+        items: [
+          '**Arquivar** mantém o histórico e retira a conta dos resumos. **Desarquivar** permite voltar a usá-la.',
+          '**Excluir Conta** é bloqueado se houver transações vinculadas. Use Arquivar para preservar o histórico; não apague lançamentos apenas para liberar a exclusão.',
+          'Para os dias e o limite do cartão, veja **Como configuro o fechamento e o vencimento do cartão?**. Não existe uma seleção de conta padrão neste formulário.',
+        ],
+      }],
+    },
   },
   {
     id: 'set-categories',
@@ -985,16 +1052,64 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'settings',
     title: 'Histórico de importações — o que posso fazer?',
     answer:
-      'Veja cada arquivo importado, alertas e ações: Corrigir Conta (se associou ao banco errado), Reidratar histórico (alinha metadados) e Sincronizar histórico antigo (recupera logs antigos).',
-    keywords: ['histórico importação', 'reidratar', 'corrigir conta', 'alerta', 'arquivo'],
+      'Em Configurações → Histórico de Importações, consulte arquivos, contagens, detalhes e alertas. Corrigir Conta muda lançamentos; Excluir Importação não é uma limpeza apenas do histórico.',
+    keywords: ['histórico importação', 'reidratar', 'corrigir conta', 'alerta', 'arquivo', 'excluir importação', 'competência'],
+    action: 'navigate',
+    navigateTo: 'settings',
+    article: {
+      before: [{
+        title: 'Histórico não é a lista atual de transações',
+        items: [
+          'Um registro descreve uma importação. Suas contagens podem incluir lançamentos que foram excluídos depois; consulte **Transações** para ver o que existe hoje.',
+          'Se houver arquivos com o mesmo nome ou alertas de rastreio, confira os detalhes e procure suporte antes de mover, excluir ou reconstruir o histórico.',
+        ],
+      }],
+      steps: [
+        {
+          title: 'Localize o arquivo',
+          text: 'Abra **Configurações → Histórico de Importações**. A tabela mostra **Arquivo**, **Conta Escolhida**, **Data da Importação**, **Total**, **Importados**, **Ignorados** e **Alertas**. Busque pelo nome do arquivo; a tabela não tem uma coluna de competência.',
+        },
+        {
+          title: 'Leia os detalhes e alertas',
+          text: 'Use **Exibir** para consultar **Importadas no lote** e **Ignoradas**, com descrição, nome, valor e motivo. O **Status atual** pode indicar **Ativa**, **Excluída** ou **Sem ID legado**. Exibir não altera dados. Alertas como contagem inconsistente ou linhas ausentes pedem conferência, não uma nova importação automática.',
+        },
+        {
+          title: 'Corrija a conta somente quando necessário',
+          text: '**Corrigir Conta** abre **Corrigir Conta da Importação**. Escolha em **Mover transações para a conta**, clique em **Aplicar** e leia a confirmação antes de **Aplicar Correção**. Isso muda a conta dos lançamentos já importados e pode mudar os saldos por conta; não é só uma mudança no texto do histórico. Não há um botão Desfazer para essa ação. No caminho antigo, outros lotes com o mesmo nome de arquivo também podem ser atingidos: não prossiga se o alcance estiver incerto.',
+        },
+        {
+          title: 'Encontre a competência do arquivo de cartão',
+          text: 'Quando disponível, abra **Transações → Histórico** do cartão e use **Ajustar competências por arquivo**. **Salvar competências** registra competência e vencimento no histórico, sem mover, excluir ou recriar lançamentos, itens, pagamentos ou faturas. Isso não é Corrigir Conta nem uma reconstrução. Para entender o mês correto, veja **O que é competência da fatura do cartão?**.',
+        },
+      ],
+      result: 'Você distingue o que foi importado do que ainda existe e conhece o alcance de cada ação antes de confirmar.',
+      after: [
+        {
+          title: 'Atenção: exclusão também atinge lançamentos',
+          items: [
+            '**Excluir Importação → Excluir Tudo** remove o registro do histórico e os lançamentos associados. Não é uma opção para apagar apenas o histórico e não oferece Desfazer.',
+            'No caminho antigo, a seleção usa o nome do arquivo e pode atingir outros lotes homônimos. Se houver nomes repetidos ou dúvida sobre o alcance, cancele e procure suporte.',
+          ],
+        },
+        {
+          title: 'Reconstruir o histórico não recupera o arquivo',
+          items: [
+            '**Reidratar histórico de importações → Reidratar** reconstrói detalhes e contagens do histórico a partir dos lançamentos atuais. Não altera esses lançamentos, não relê o arquivo e não restaura transações excluídas. Pode substituir o retrato anterior do lote: use com orientação se houver alertas ou arquivos homônimos.',
+            '**Sincronizar Histórico Antigo** cria registros de histórico para origens importadas que ainda têm lançamentos, mas não têm registro. Não recupera o arquivo nem lançamentos apagados; a data reconstruída vem do primeiro lançamento, não necessariamente do dia do upload.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'set-reassign',
     section: 'settings',
     title: 'Importei na conta errada — como corrigir?',
     answer:
-      'Configurações → Histórico de importações → Corrigir Conta na linha do arquivo. Todas as transações daquele arquivo passam para a conta escolhida.',
+      'Configurações → Histórico de Importações → Corrigir Conta. A ação muda a conta dos lançamentos, não só o histórico, e pede confirmação. Não há Desfazer. No caminho antigo, arquivos com o mesmo nome podem compartilhar o alcance: se houver dúvida, cancele e procure suporte. Veja “Histórico de importações — o que posso fazer?” antes de aplicar.',
     keywords: ['conta errada', 'mover', 'corrigir', 'reatribuir'],
+    action: 'navigate',
+    navigateTo: 'settings',
   },
   {
     id: 'set-family',
