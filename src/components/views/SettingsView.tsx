@@ -20,7 +20,6 @@ import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 import {
-    auditImportLogLedger,
     buildImportLogAlerts,
     importedDetailsHasTransactionIds,
     isImportedDetailRowsIncomplete,
@@ -352,11 +351,7 @@ const SettingsView: React.FC = () => {
         }
 
         const accountName = accounts.find(a => a.id === reassignAccountId)?.Nome_Conta || 'conta selecionada';
-        const ledgerAudit = atomicImportEnabled
-            ? auditImportLogLedger(reassignTargetLog, transactions)
-            : null;
-
-        if (atomicImportEnabled && ledgerAudit?.activeCount === 0) {
+        if (!transactions.some(t => t.import_log_id === reassignTargetLog.id)) {
             await appAlert(
                 'Este lote não possui linhas ativas rastreáveis por ID. Nenhuma conta foi alterada.',
                 'Conta não corrigida',
@@ -366,9 +361,7 @@ const SettingsView: React.FC = () => {
         }
 
         const importDateLabel = new Date(reassignTargetLog.import_date).toLocaleString('pt-BR');
-        const confirmationMessage = atomicImportEnabled && ledgerAudit
-            ? `Esta ação moverá somente ${ledgerAudit.activeCount} linha${ledgerAudit.activeCount === 1 ? '' : 's'} ativa${ledgerAudit.activeCount === 1 ? '' : 's'} deste lote específico.\n\nArquivo: ${reassignTargetLog.file_name}\nImportado em: ${importDateLabel}\nDestino: ${accountName}\n\nOutros lotes, mesmo com nome igual, não serão alterados. Deseja continuar?`
-            : `Isso irá mover todas as transações importadas de "${reassignTargetLog.file_name}" para "${accountName}". Deseja continuar?`;
+        const confirmationMessage = `Esta ação moverá somente os lançamentos vinculados a este lote específico.\n\nArquivo: ${reassignTargetLog.file_name}\nImportado em: ${importDateLabel}\nDestino: ${accountName}\n\nOutros lotes, mesmo com nome igual, não serão alterados. Deseja continuar?`;
         const confirm = await appConfirm(
             confirmationMessage,
             'Corrigir Conta da Importação',
