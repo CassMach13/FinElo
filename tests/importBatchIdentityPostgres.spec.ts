@@ -1,15 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
+import { buildStructuredImportFingerprint } from '../src/utils/importBatchIntegrity';
+import type { Transaction } from '../src/types';
 
-const migration = readFileSync(resolve('supabase/migrations/20261004145953_persist_import_batch_identity.sql'), 'utf8');
+const migration = readFileSync(resolve('supabase/migrations/20261004154539_persist_import_batch_identity.sql'), 'utf8');
+const idempotencyMigration = readFileSync(resolve('supabase/migrations/20261005214023_scope_import_idempotency.sql'), 'utf8');
 const U = '11111111-1111-4111-8111-111111111111';
 const V = '22222222-2222-4222-8222-222222222222';
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const OTHER = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const databases: PGlite[] = [];
+// Each case boots its own WASM PostgreSQL. Keep financial assertions isolated
+// while allowing slower Windows/CI startup, not changing database lock behavior.
+vi.setConfig({ testTimeout: 20000 });
 
 // Mirrors staging column types, RLS family visibility, and SET NULL card FKs.
 const schema = `
@@ -51,16 +57,17 @@ create policy family on public.transactions to authenticated using(true) with ch
 
 async function createDB(seed?: (db: PGlite) => Promise<void>) {
   const db = new PGlite(); databases.push(db); await db.waitReady;
-  await db.exec(schema); if (seed) await seed(db); await db.exec(migration); return db;
+  await db.exec(schema); if (seed) await seed(db); await db.exec(migration); await db.exec(idempotencyMigration); return db;
 }
 async function assume(db: PGlite, user = U, role = 'authenticated') {
   await db.exec(`reset role; set role ${role}`);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [user]);
 }
 const row = { Data: '2026-08-10', Nome_Fantasia: 'Fixture', Valor: -10, Fonte: 'XP', Parcela_Atual: 2, Total_Parcelas: 3 };
-async function importBatch(db: PGlite, name = 'same.csv', data: unknown[] = [row]) {
-  const r = await db.query<{ result: { import_log: { id: string }; transactions: Record<string, unknown>[] } }>(
-    'select public.import_transactions_scoped($1,$2,$3::jsonb,$4) as result', [name,A,JSON.stringify(data),data.length]);
+async function importBatch(db: PGlite, name = 'same.csv', data: unknown[] = [row], account = A, route = 'scoped') {
+  const fingerprint = await buildStructuredImportFingerprint(data as Array<Omit<Transaction,'ID_Transacao'|'user_id'>>, account);
+  const r = await db.query<{ result: { duplicate: boolean; import_log: { id: string }; transactions: Record<string, unknown>[] } }>(
+    `select public.import_transactions_${route}($1,$2,$3,$4::jsonb,$5) as result`, [fingerprint,name,account,JSON.stringify(data),data.length]);
   return r.rows[0].result;
 }
 async function action(db: PGlite, id: string, name: string, account: string | null = null) {
@@ -76,14 +83,14 @@ describe('persistent import batch identity — PostgreSQL', () => {
   it('new same-name imports obtain separate logs and bind at INSERT, ignoring spoofed payload identity', async () => {
     const db=await createDB(); await assume(db);
     const a=await importBatch(db,'same.csv',[{...row,user_id:V,import_log_id:OTHER}]);
-    const b=await importBatch(db);
+    const b=await importBatch(db,'same.csv',[{...row,Nome_Fantasia:'B'}]);
     expect(a.import_log.id).not.toBe(b.import_log.id);
     expect(a.transactions[0].user_id).toBe(U);
     expect(a.transactions[0].import_log_id).toBe(a.import_log.id);
     expect(b.transactions[0].import_log_id).toBe(b.import_log.id);
   });
   it('reassign A cannot alter B despite same filename and account; audit metadata is retained', async () => {
-    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db);
+    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db,'same.csv',[{...row,Nome_Fantasia:'B'}]);
     const before=await db.query('select * from public.transactions where import_log_id=$1',[b.import_log.id]);
     const r=await action(db,a.import_log.id,'reassign',B); expect(r.updated_count).toBe(1);
     expect((await db.query('select * from public.transactions where import_log_id=$1',[b.import_log.id])).rows).toEqual(before.rows);
@@ -93,7 +100,7 @@ describe('persistent import batch identity — PostgreSQL', () => {
     expect((await action(db,a.import_log.id,'reassign',B)).imported_details).toEqual(details);
   });
   it('delete A removes exact projections first, preserves B, payments and shared statement identity', async () => {
-    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db);
+    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db,'same.csv',[{...row,Nome_Fantasia:'B'}]);
     for (const batch of [a,b]) for (const table of ['credit_card_entries','credit_card_statement_items']) {
       await db.query(`insert into public.${table}(user_id,transaction_id,statement_id) values($1,$2,$3)`,[U,batch.transactions[0].ID_Transacao,OTHER]);
     }
@@ -108,7 +115,7 @@ describe('persistent import batch identity — PostgreSQL', () => {
     expect((await db.query('select amount from public.credit_card_payments')).rows).toEqual([{amount:'5'}]);
   });
   it('rehydrate A uses only membership, preserves metadata and missing-row history, is idempotent', async () => {
-    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db);
+    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db,'same.csv',[{...row,Nome_Fantasia:'B'}]);
     const missing='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
     await db.query(`update public.import_logs set imported_count=2, imported_details=imported_details || $2::jsonb where id=$1`,[a.import_log.id,JSON.stringify([{ID_Transacao:missing,Card_Reference_Label:'2026-07',history:true}])]);
     await db.query(`update public.import_logs set imported_details=jsonb_set(jsonb_set(imported_details,'{0,Card_Reference_Label}','"2026-08"'),'{0,ID_Transacao}',to_jsonb(upper(imported_details->0->>'ID_Transacao'))) where id=$1`,[a.import_log.id]);
@@ -125,6 +132,7 @@ describe('persistent import batch identity — PostgreSQL', () => {
     await expect(importBatch(db,'same.csv',[row,{...row,Valor:'invalid'}])).rejects.toThrow();
     expect((await db.query('select count(*)::int as n from public.import_logs')).rows[0].n).toBe(0);
     expect((await db.query('select count(*)::int as n from public.transactions')).rows[0].n).toBe(0);
+    expect((await db.query('select count(*)::int as n from public.import_batches')).rows[0].n).toBe(0);
   });
   it('failure deleting log rolls back transaction and projection deletion', async () => {
     const db=await createDB(); await assume(db); const a=await importBatch(db);
@@ -144,7 +152,7 @@ describe('persistent import batch identity — PostgreSQL', () => {
     for (const name of ['reassign','delete','rehydrate']) await expect(action(db,a.import_log.id,name,OTHER)).rejects.toThrow(/Importação não encontrada/);
   });
   it('composite FK blocks cross-owner membership and update trigger blocks reassociation/detachment', async () => {
-    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db);
+    const db=await createDB(); await assume(db); const a=await importBatch(db); const b=await importBatch(db,'same.csv',[{...row,Nome_Fantasia:'B'}]);
     await expect(db.query('update public.transactions set import_log_id=$1 where import_log_id=$2',[b.import_log.id,a.import_log.id])).rejects.toThrow(/immutable/);
     await expect(db.query('update public.transactions set import_log_id=null where import_log_id=$1',[a.import_log.id])).rejects.toThrow(/immutable/);
     await expect(db.query('delete from public.import_logs where id=$1',[a.import_log.id])).rejects.toThrow(/foreign key/);
@@ -170,6 +178,52 @@ describe('persistent import batch identity — PostgreSQL', () => {
     for (const r of rows) expect(r).toEqual({prosecdef:false,proconfig:['search_path=""'],anon:false,service:false,auth:true});
     await assume(db,''); await expect(importBatch(db)).rejects.toThrow(/Autenticação/);
     await assume(db,'','anon'); await expect(importBatch(db)).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe('content/account idempotency — scoped rollout', () => {
+  it.each(['same.csv','renamed.csv'])('duplicate content in %s does not create any extra log, transaction or batch', async (name) => {
+    const db=await createDB(); await assume(db);
+    const first=await importBatch(db,'same.csv');
+    const second=await importBatch(db,name);
+    expect(second.duplicate).toBe(true);
+    expect(second.import_log.id).toBe(first.import_log.id);
+    expect(second.transactions).toEqual(first.transactions);
+    for (const table of ['import_logs','transactions','import_batches'])
+      expect((await db.query(`select count(*)::int as n from public.${table}`)).rows[0].n).toBe(1);
+  });
+  it('the same content in a different account is allowed by the existing fingerprint', async () => {
+    const db=await createDB(); await assume(db);
+    const first=await importBatch(db);
+    const second=await importBatch(db,'same.csv',[row],B);
+    expect(second.duplicate).toBe(false);
+    expect(second.import_log.id).not.toBe(first.import_log.id);
+    expect(second.transactions[0].ID_Conta).toBe(B);
+  });
+  it('concurrently submitted scoped/atomic requests share one reservation', async () => {
+    // PGlite queues execution; the independent-session lock test is also run on PostgreSQL 17.
+    const db=await createDB(); await assume(db);
+    const result=await Promise.all([
+      importBatch(db,'same.csv',[row],A,'scoped'),
+      importBatch(db,'renamed.csv',[row],A,'atomic'),
+    ]);
+    expect(result.map(r=>r.duplicate).sort()).toEqual([false,true]);
+    expect(result[0].import_log.id).toBe(result[1].import_log.id);
+    for (const table of ['import_logs','transactions','import_batches'])
+      expect((await db.query(`select count(*)::int as n from public.${table}`)).rows[0].n).toBe(1);
+  });
+  it.each(['scoped','atomic'])('%s rejects invalid fingerprint without reserving anything', async route => {
+    const db=await createDB(); await assume(db);
+    await expect(db.query(`select public.import_transactions_${route}($1,$2,$3,$4::jsonb,1)`,
+      ['not-a-sha256','same.csv',A,JSON.stringify([row])])).rejects.toThrow(/Fingerprint/);
+    expect((await db.query('select count(*)::int as n from public.import_batches')).rows[0].n).toBe(0);
+    expect((await db.query('select count(*)::int as n from public.import_logs')).rows[0].n).toBe(0);
+  });
+  it('no unprotected scoped signature remains callable', async () => {
+    const db=await createDB(); await assume(db);
+    expect((await db.query("select to_regprocedure('public.import_transactions_scoped(text,uuid,jsonb,integer,jsonb,jsonb)') as old")).rows[0].old).toBe(null);
+    await expect(db.query('select public.import_transactions_scoped($1::text,$2::uuid,$3::jsonb,1)',
+      ['same.csv',A,JSON.stringify([row])])).rejects.toThrow(/does not exist/);
   });
 });
 

@@ -2022,16 +2022,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     let insertedBatch: Transaction[] = [];
     let imported_count_saved = 0;
 
+    // Rollout controls the RPC route, never content/account duplicate prevention.
+    const fingerprint =
+      options?.batchFingerprint ||
+      (await buildStructuredImportFingerprint(
+        newTransactions,
+        importConfig.ID_Conta_Associada || null
+      ));
+    if (!isSha256Fingerprint(fingerprint)) {
+      throw new Error('A impressão digital do arquivo é inválida; nenhuma transação foi gravada.');
+    }
+
     if (atomicImportEnabled) {
-      const fingerprint =
-        options?.batchFingerprint ||
-        (await buildStructuredImportFingerprint(
-          newTransactions,
-          importConfig.ID_Conta_Associada || null
-        ));
-      if (!isSha256Fingerprint(fingerprint)) {
-        throw new Error('A impressão digital do arquivo é inválida; nenhuma transação foi gravada.');
-      }
 
       const { data, error } = await supabase.rpc('import_transactions_atomic', {
         p_fingerprint: fingerprint,
@@ -2072,6 +2074,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       void get().fetchImportLogs();
     } else {
       const { data, error } = await supabase.rpc('import_transactions_scoped', {
+        p_fingerprint: fingerprint,
         p_file_name: fileName,
         p_account_id: importConfig.ID_Conta_Associada || null,
         p_transactions: transactionsWithContext,
@@ -2085,6 +2088,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       });
       if (error) throw new Error(`Importação cancelada sem gravações parciais: ${error.message}`);
+      if (data?.duplicate) {
+        throw new Error(
+          'Arquivo já importado anteriormente: este mesmo conteúdo já foi importado nesta conta. Renomear o arquivo não cria um novo lote.'
+        );
+      }
       insertedBatch = Array.isArray(data?.transactions) ? data.transactions : [];
       imported_count_saved = insertedBatch.length;
       void get().fetchImportLogs();

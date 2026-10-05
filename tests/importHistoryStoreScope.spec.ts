@@ -19,6 +19,73 @@ beforeEach(() => {
     atomicImportEnabled:false,accounts:[],fetchImportLogs:vi.fn(),fetchAllData:vi.fn()} as never);
 });
 
+describe('new imports — fingerprint independent of rollout', () => {
+  function server(feature: 'enabled'|'disabled'|'error' = 'disabled') {
+    const batches=new Map<string, {transactions:Transaction[];import_log:ImportLog}>();
+    mocks.rpc.mockImplementation(async (name:string, args:Record<string,unknown>) => {
+      if (name==='get_atomic_import_feature_state') return feature==='error'
+        ? {data:null,error:{message:'feature unavailable'}}
+        : {data:feature,error:null};
+      const key=args.p_fingerprint as string;
+      expect(key).toMatch(/^[a-f0-9]{64}$/);
+      const prior=batches.get(key);
+      if (prior) return {data:{...prior,duplicate:true},error:null};
+      const id=`new-${batches.size}`;
+      const result={transactions:[{...tx(id,id),ID_Conta:args.p_account_id as string}],import_log:log(id)};
+      batches.set(key,result);
+      return {data:{...result,duplicate:false},error:null};
+    });
+    return batches;
+  }
+  it.each(['disabled','error'] as const)('%s feature never permits duplicate content or renamed content', async feature => {
+    const batches=server(feature);
+    const rows=[tx('parsed','spoof')];
+    await useAppStore.getState().addMultipleTransactions(rows,{ID_Conta_Associada:'a'} as never,'same.csv');
+    const before=useAppStore.getState().transactions;
+    for (const name of ['same.csv','renamed.csv'])
+      await expect(useAppStore.getState().addMultipleTransactions(rows,{ID_Conta_Associada:'a'} as never,name)).rejects.toThrow('Renomear');
+    expect(batches.size).toBe(1);
+    expect(useAppStore.getState().transactions).toEqual(before);
+    expect(mocks.rpc.mock.calls.filter(c=>c[0]!=='get_atomic_import_feature_state').map(c=>c[0]))
+      .toEqual(Array(3).fill('import_transactions_scoped'));
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it('disabled accepts two different contents with the same filename', async () => {
+    const batches=server();
+    for (const value of [-10,-20])
+      await useAppStore.getState().addMultipleTransactions([{...tx('parsed','spoof'),Valor:value}],{ID_Conta_Associada:'a'} as never,'same.csv');
+    expect(batches.size).toBe(2);
+    expect(useAppStore.getState().transactions.slice(-2).map(t=>t.import_log_id)).toEqual(['new-0','new-1']);
+  });
+  it('disabled allows the same content in two different accounts', async () => {
+    const batches=server();
+    for (const account of ['a','b'])
+      await useAppStore.getState().addMultipleTransactions([tx('parsed','spoof')],{ID_Conta_Associada:account} as never,'same.csv');
+    expect(batches.size).toBe(2);
+  });
+  it('enabled keeps its atomic RPC and duplicate response contract', async () => {
+    const batches=server('enabled');
+    const rows=[tx('parsed','spoof')];
+    await useAppStore.getState().addMultipleTransactions(rows,{ID_Conta_Associada:'a'} as never,'same.csv');
+    await expect(useAppStore.getState().addMultipleTransactions(rows,{ID_Conta_Associada:'a'} as never,'renamed.csv')).rejects.toThrow('Renomear');
+    expect(batches.size).toBe(1);
+    expect(mocks.rpc.mock.calls.filter(c=>c[0]!=='get_atomic_import_feature_state').map(c=>c[0]))
+      .toEqual(['import_transactions_atomic','import_transactions_atomic']);
+  });
+  it('disabled forwards the existing supplied file fingerprint unchanged', async () => {
+    server();
+    const fingerprint='a'.repeat(64);
+    await useAppStore.getState().addMultipleTransactions([tx('parsed','spoof')],{} as never,'same.csv',[],{batchFingerprint:fingerprint});
+    expect(mocks.rpc).toHaveBeenCalledWith('import_transactions_scoped',expect.objectContaining({p_fingerprint:fingerprint}));
+  });
+  it('disabled rejects malformed fingerprint before the import RPC', async () => {
+    server();
+    await expect(useAppStore.getState().addMultipleTransactions([tx('parsed','spoof')],{} as never,'same.csv',[],{batchFingerprint:'invalid'})).rejects.toThrow('inválida');
+    expect(mocks.rpc.mock.calls.map(c=>c[0])).toEqual(['get_atomic_import_feature_state']);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+});
+
 describe('import history store — no filename fallback', () => {
   it('reassign uses owned server RPC even when atomic feature is disabled; local B is unchanged', async () => {
     mocks.rpc.mockResolvedValue({data:{updated_count:1,active_transaction_ids:['ta'],imported_details:[]},error:null});
