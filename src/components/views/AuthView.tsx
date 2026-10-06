@@ -5,6 +5,8 @@ import Button from '../ui/Button';
 import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
 import Input from '../ui/Input';
 import { metadadosDeCadastro, validarNomeDeCadastro } from '../../domain/auth/signupProfile';
+import { signUpWithAcquisition, startOAuthWithAcquisition } from '../../services/acquisitionAuth';
+import { cancelOAuthAcquisition, clearAcquisition } from '../../domain/auth/acquisitionAttribution';
 
 // Combina a declaração da função com a exportação padrão.
 export default function AuthView(): React.ReactElement {
@@ -42,9 +44,11 @@ export default function AuthView(): React.ReactElement {
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null); setMessage(null); setLoading(true);
+    cancelOAuthAcquisition();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
     else {
+      clearAcquisition();
       const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
       window.location.assign(returnTo?.startsWith('/') ? returnTo : '/app');
     }
@@ -68,7 +72,7 @@ export default function AuthView(): React.ReactElement {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await signUpWithAcquisition(supabase.auth, {
       email,
       password,
       options: {
@@ -123,13 +127,7 @@ export default function AuthView(): React.ReactElement {
   // Aceita 'google' ou 'github' agora
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        // de pular do ambiente de desenvolvimento para o de produção.
-        redirectTo: getRedirectUrl('/app')
-      }
-    });
+    const { error } = await startOAuthWithAcquisition(supabase.auth, provider, isSignUp, getRedirectUrl('/app'));
     if (error) {
       setError(error.message);
       setLoading(false);
