@@ -13,6 +13,7 @@ import ProgressBar from './../ui/ProgressBar';
 import SummaryCard from './../ui/SummaryCard';
 import NetWorthSummaryCard from '../dashboard/NetWorthSummaryCard';
 import AnnualEvolutionCard from '../dashboard/AnnualEvolutionCard';
+import MonthlyChangeCard from '../dashboard/MonthlyChangeCard';
 import UpcomingEntriesCard from '../dashboard/UpcomingEntriesCard';
 import Select from './../ui/Select';
 import Input from './../ui/Input';
@@ -61,6 +62,7 @@ import type { SummaryCardComparison } from '../ui/SummaryCard';
 import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
 import { getDashboardDataDisplayState } from '../../utils/initialDataLoad';
 import { computeAnnualEvolution } from '../../utils/annualEvolution';
+import { computeMonthlyChange } from '../../utils/monthlyChange';
 import { openUpcomingInTransactions } from '../../utils/upcomingEntries';
 import { isSmartTransactionFiltersEnabled } from '../../services/featureFlagService';
 
@@ -439,6 +441,10 @@ const DashboardView: React.FC = () => {
         navigate: setCurrentView,
       }),
     [user, setCurrentView]
+  );
+  const monthlyChange = useMemo(
+    () => computeMonthlyChange({ transactions, categories: allCategories, today: todayKey }),
+    [transactions, allCategories, todayKey]
   );
   const annualEvolution = useMemo(
     () => computeAnnualEvolution({ transactions, categories: allCategories, today: todayKey }),
@@ -1260,6 +1266,8 @@ const DashboardView: React.FC = () => {
           )}
         </Card>
         </div>
+
+        <MonthlyChangeCard model={monthlyChange} />
 
         <AnnualEvolutionCard model={annualEvolution} />
 
