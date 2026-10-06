@@ -66,6 +66,7 @@ export const HELP_VIEW_LABELS: Record<AppView, string> = {
   import: 'Importar',
   transactions: 'Transações',
   investments: 'Investimentos',
+  goals: 'Objetivos',
   settings: 'Configurações',
   help: 'Central de Ajuda',
   admin: 'Chamados (Admin)',

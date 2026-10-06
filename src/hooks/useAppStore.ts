@@ -13,6 +13,7 @@ import {
   Subscription,
   AdminMetrics,
   Asset,
+  FinancialGoal,
   FamilyMember,
   AppView,
   CreditCardReprocessJob,
@@ -247,6 +248,17 @@ interface AppState {
 
   // Assets (Patrimônio)
   assets: Asset[];
+  // Objetivos financeiros (planejamento manual; carregados ao abrir a view, não em fetchAllData)
+  goals: FinancialGoal[];
+  goalsStatus: 'idle' | 'loading' | 'success' | 'error';
+  goalsUserId: string | null;
+  fetchGoals: (options?: { force?: boolean }) => Promise<void>;
+  createGoal: (input: GoalCreateInput) => Promise<boolean>;
+  updateGoal: (id: string, input: GoalEditInput) => Promise<boolean>;
+  updateGoalCurrentAmount: (id: string, currentAmount: number) => Promise<boolean>;
+  archiveGoal: (id: string) => Promise<boolean>;
+  unarchiveGoal: (id: string) => Promise<boolean>;
+  deleteGoal: (id: string) => Promise<boolean>;
   fetchAssets: () => Promise<void>;
   addAsset: (asset: Omit<Asset, 'id' | 'user_id' | 'updated_at'>) => Promise<void>;
   deleteAsset: (assetId: string) => Promise<void>;
@@ -457,6 +469,47 @@ interface AppState {
   fetchFounderCount: () => Promise<void>;
 }
 
+export interface GoalCreateInput {
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  target_date: string | null;
+}
+export type GoalEditInput = Pick<GoalCreateInput, 'name' | 'target_amount' | 'target_date'>;
+
+/** O PostgREST devolve `numeric` como número ou string conforme o driver: normaliza sempre. */
+const normalizeGoalRow = (row: unknown): FinancialGoal => {
+  const r = row as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    user_id: String(r.user_id),
+    name: String(r.name ?? ''),
+    target_amount: Number(r.target_amount) || 0,
+    current_amount: Number(r.current_amount) || 0,
+    target_date: r.target_date ? String(r.target_date).slice(0, 10) : null,
+    archived_at: r.archived_at ? String(r.archived_at) : null,
+    created_at: String(r.created_at ?? ''),
+    updated_at: String(r.updated_at ?? ''),
+  };
+};
+
+/** Atualiza um objetivo e só então o estado local (sem otimismo silencioso); erro avisa o usuário. */
+async function mutateGoal(
+  set: (fn: (state: AppState) => Partial<AppState>) => void,
+  id: string,
+  patch: Record<string, unknown>
+): Promise<boolean> {
+  const { data, error } = await supabase.from('financial_goals').update(patch).eq('id', id).select();
+  if (error || !data?.[0]) {
+    console.error('Erro ao atualizar objetivo:', error);
+    await appAlert('Não foi possível atualizar o objetivo. Tente novamente.', 'Objetivos', 'danger');
+    return false;
+  }
+  const updated = normalizeGoalRow(data[0]);
+  set((state) => ({ goals: state.goals.map((g) => (g.id === id ? updated : g)) }));
+  return true;
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // ... existing code ...
 
@@ -479,6 +532,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   initialDataLoadStatus: 'idle',
   adminMetrics: null,
   assets: [],
+  goals: [],
+  goalsStatus: 'idle',
+  goalsUserId: null,
   transactionFilters: getDefaultTransactionFilters(),
   currentView: 'dashboard',
   setCurrentView: (view) => set({ currentView: view }),
@@ -1626,6 +1682,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       creditCardStatementEntries: [],
       selectedCreditCardStatementAudit: null,
       creditCardEngineRevision: 0,
+      goals: [],
+      goalsStatus: 'idle',
+      goalsUserId: null,
       initialDataLoadStatus: 'idle',
     });
     // O redirecionamento será tratado no componente App.tsx
@@ -3180,6 +3239,74 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Assets (Patrimônio) Actions
+  // --- Objetivos financeiros (V1: manuais, pessoais, sem vínculo com transações) ---
+  fetchGoals: async (options) => {
+    const userId = get().user?.id;
+    if (!userId) return;
+    const { goalsStatus, goalsUserId } = get();
+    if (goalsStatus === 'loading') return;
+    if (goalsStatus === 'success' && goalsUserId === userId && !options?.force) return;
+
+    set({ goalsStatus: 'loading', ...(goalsUserId !== userId ? { goals: [], goalsUserId: null } : {}) });
+    const { data, error } = await supabase
+      .from('financial_goals')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (get().user?.id !== userId) return; // trocou de usuário durante a busca
+    if (error || !data) {
+      console.error('Erro ao buscar objetivos:', error);
+      set({ goalsStatus: 'error' });
+      return;
+    }
+    set({ goals: (data as unknown[]).map(normalizeGoalRow), goalsStatus: 'success', goalsUserId: userId });
+  },
+
+  createGoal: async (input) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data, error } = await supabase
+      .from('financial_goals')
+      .insert([{
+        user_id: user.id,
+        name: input.name,
+        target_amount: input.target_amount,
+        current_amount: input.current_amount,
+        target_date: input.target_date,
+      }])
+      .select();
+    if (error || !data?.[0]) {
+      console.error('Erro ao criar objetivo:', error);
+      await appAlert('Não foi possível salvar o objetivo. Tente novamente.', 'Objetivos', 'danger');
+      return false;
+    }
+    set((state) => ({ goals: [...state.goals, normalizeGoalRow(data[0])] }));
+    return true;
+  },
+
+  updateGoal: async (id, input) =>
+    mutateGoal(set, id, {
+      name: input.name,
+      target_amount: input.target_amount,
+      target_date: input.target_date,
+    }),
+
+  updateGoalCurrentAmount: async (id, currentAmount) => mutateGoal(set, id, { current_amount: currentAmount }),
+
+  archiveGoal: async (id) => mutateGoal(set, id, { archived_at: new Date().toISOString() }),
+
+  unarchiveGoal: async (id) => mutateGoal(set, id, { archived_at: null }),
+
+  deleteGoal: async (id) => {
+    const { error } = await supabase.from('financial_goals').delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao excluir objetivo:', error);
+      await appAlert('Não foi possível excluir o objetivo. Tente novamente.', 'Objetivos', 'danger');
+      return false;
+    }
+    set((state) => ({ goals: state.goals.filter((g) => g.id !== id) }));
+    return true;
+  },
+
   fetchAssets: async () => {
     const { data, error } = await supabase.from('assets').select('*').order('name');
     if (error) console.error('Erro ao buscar ativos:', error);

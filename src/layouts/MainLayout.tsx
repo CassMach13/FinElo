@@ -9,6 +9,7 @@ import AdminTicketsView from '../components/views/AdminTicketsView';
 import PricingView from '../components/views/PricingView';
 import PaymentSuccessView from '../components/views/PaymentSuccessView';
 import InvestmentsView from '../components/views/InvestmentsView';
+import GoalsView from '../components/views/GoalsView';
 import {
     DashboardIcon,
     UploadIcon,
@@ -16,7 +17,8 @@ import {
     SettingsIcon,
     LifebuoyIcon,
     TicketIcon,
-    TrendingUpIcon
+    TrendingUpIcon,
+    GoalsIcon
 } from '../components/ui/icons';
 import { NavItem } from '../components/ui/NavItem';
 import UserAccountWidget from '../components/views/UserAccountWidget';
@@ -78,6 +80,7 @@ export default function MainLayout() {
         import: <ImportView />,
         transactions: <TransactionsView />,
         investments: <InvestmentsView />,
+        goals: <GoalsView />,
         settings: <SettingsView />,
         help: <HelpView />,
         admin: isAdmin ? <AdminTicketsView /> : <DashboardView />,
@@ -133,6 +136,7 @@ export default function MainLayout() {
                         <NavItem id="nav-transactions" view="transactions" label="Transações" icon={<ArrowsUpDownIcon />} isActive={currentView === 'transactions'} onClick={() => setCurrentView('transactions')} />
                         <NavItem id="nav-import" view="import" label="Importar" icon={<UploadIcon />} isActive={currentView === 'import'} onClick={() => setCurrentView('import')} />
                         <NavItem id="nav-investments" view="investments" label="Investimentos" icon={<TrendingUpIcon />} isActive={currentView === 'investments'} onClick={() => setCurrentView('investments')} />
+                        <NavItem id="nav-goals" view="goals" label="Objetivos" icon={<GoalsIcon />} isActive={currentView === 'goals'} onClick={() => setCurrentView('goals')} />
                         <NavItem id="nav-settings" view="settings" label="Configurações" icon={<SettingsIcon />} isActive={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
                     </div>
 
