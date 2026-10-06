@@ -440,7 +440,8 @@ describe('Integração na Dashboard e layout móvel (contrato de código)', () =
     expect(netWorth).toBeGreaterThan(annual);
     // nada entre o fim do contêiner do 50-30-20 e o novo bloco
     const between = dashboard.slice(dashboard.lastIndexOf('</Card>', annual), annual);
-    expect(between.replace(/\s+/g, ' ')).toBe('</Card> </div> ');
+    // o único bloco permitido entre os dois é "O que mudou no seu mês?" (MonthlyChangeCard)
+    expect(between.replace('<MonthlyChangeCard model={monthlyChange} />', '').replace(/\s+/g, ' ')).toBe('</Card> </div> ');
   });
 
   it('calcula sobre todo o histórico, independente do período selecionado', () => {
