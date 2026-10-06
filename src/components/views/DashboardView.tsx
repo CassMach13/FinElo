@@ -13,6 +13,7 @@ import ProgressBar from './../ui/ProgressBar';
 import SummaryCard from './../ui/SummaryCard';
 import NetWorthSummaryCard from '../dashboard/NetWorthSummaryCard';
 import AnnualEvolutionCard from '../dashboard/AnnualEvolutionCard';
+import UpcomingEntriesCard from '../dashboard/UpcomingEntriesCard';
 import Select from './../ui/Select';
 import Input from './../ui/Input';
 import CategorySpendChart from './../charts/CategorySpendChart';
@@ -60,6 +61,8 @@ import type { SummaryCardComparison } from '../ui/SummaryCard';
 import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
 import { getDashboardDataDisplayState } from '../../utils/initialDataLoad';
 import { computeAnnualEvolution } from '../../utils/annualEvolution';
+import { openUpcomingInTransactions } from '../../utils/upcomingEntries';
+import { isSmartTransactionFiltersEnabled } from '../../services/featureFlagService';
 
 import NewTransactionModal from '../modals/NewTransactionModal';
 import AccountModal from './AccountModal';
@@ -428,6 +431,15 @@ const DashboardView: React.FC = () => {
   // Evolução anual: ano calendário, independe do período selecionado. A chave do dia refaz o
   // cálculo na virada do mês sem relógio nem consulta nova.
   const todayKey = localTodayIso();
+  const handleViewUpcomingInTransactions = useCallback(
+    (range: { startDate: string; endDate: string }) =>
+      openUpcomingInTransactions({
+        range,
+        smartFiltersEnabled: isSmartTransactionFiltersEnabled(user),
+        navigate: setCurrentView,
+      }),
+    [user, setCurrentView]
+  );
   const annualEvolution = useMemo(
     () => computeAnnualEvolution({ transactions, categories: allCategories, today: todayKey }),
     [transactions, allCategories, todayKey]
@@ -955,6 +967,14 @@ const DashboardView: React.FC = () => {
           )}
         />
         </div>
+
+        <UpcomingEntriesCard
+          transactions={transactions}
+          categories={allCategories}
+          accounts={accounts}
+          today={todayKey}
+          onViewInTransactions={handleViewUpcomingInTransactions}
+        />
 
         <div id="dashboard-budgets" className="grid grid-cols-1 gap-6">
         <Card title="Monitoramento de Orçamento">

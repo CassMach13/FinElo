@@ -75,3 +75,12 @@ export function addMonthsToDateOnly(value: DateOnlyValue, monthsToAdd: number): 
   const lastDay = new Date(targetYear, targetMonth + 1, 0, 12, 0, 0, 0).getDate();
   return `${targetYear}-${pad2(targetMonth + 1)}-${pad2(Math.min(day, lastDay))}`;
 }
+
+/** Soma dias em calendário civil (sem janela de 24h); data inválida devolve ''. */
+export function addDaysToDateOnly(value: DateOnlyValue, daysToAdd: number): string {
+  const iso = toDateOnlyIso(value);
+  if (!iso || !Number.isInteger(daysToAdd)) return '';
+  const [year, month, day] = iso.split('-').map(Number);
+  const target = new Date(year, month - 1, day + daysToAdd, 12, 0, 0, 0);
+  return `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
+}
