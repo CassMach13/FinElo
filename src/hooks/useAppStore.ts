@@ -493,6 +493,13 @@ const normalizeGoalRow = (row: unknown): FinancialGoal => {
   };
 };
 
+/**
+ * Geração da busca de objetivos (privada ao módulo). Cada busca que realmente começa ganha a sua;
+ * a resposta só vale se ainda for a mais recente. Distingue duas buscas do MESMO usuário
+ * (A1 pendente → B → A2 não deixa A1, que chega por último, sobrescrever A2).
+ */
+let goalsFetchGeneration = 0;
+
 /** Atualiza um objetivo e só então o estado local (sem otimismo silencioso); erro avisa o usuário. */
 async function mutateGoal(
   set: (fn: (state: AppState) => Partial<AppState>) => void,
@@ -1665,6 +1672,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Erro ao fazer log-off (mas limpando estado local):', error.message);
     }
 
+    goalsFetchGeneration += 1; // busca de objetivos em voo não vale mais depois do logout
     // Limpa o estado da aplicação SEMPRE, independente do erro no servidor
     set({
       user: null,
@@ -3248,6 +3256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (goalsStatus === 'loading' && goalsUserId === userId) return;
     if (goalsStatus === 'success' && goalsUserId === userId && !options?.force) return;
 
+    const generation = ++goalsFetchGeneration;
     set({
       goalsStatus: 'loading',
       goalsUserId: userId,
@@ -3257,8 +3266,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       .from('financial_goals')
       .select('*')
       .order('created_at', { ascending: true });
-    // Resposta tardia: se a sessão trocou (ou saiu), ela não escreve nada.
+    // Resposta tardia (sucesso ou erro): sessão trocada/encerrada ou busca mais nova já em campo.
     if (get().user?.id !== userId) return;
+    if (generation !== goalsFetchGeneration) return;
     if (error || !data) {
       console.error('Erro ao buscar objetivos:', error);
       set({ goalsStatus: 'error' });

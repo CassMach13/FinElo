@@ -397,6 +397,66 @@ describe('Objetivos — store', () => {
       expect(state().goalsUserId).toBeNull();
     });
 
+    /** A1 pendente → B → volta a A (dados mudam) → A2 nasce. A1 e A2 são do MESMO usuário. */
+    const startA1ThenBThenA2 = async () => {
+      mocks.rows = [seed('user-a', 'ga', 'Reserva antiga'), seed('user-b', 'gb', 'Do B')];
+      mocks.hold = true;
+      const a1 = state().fetchGoals();
+      await tick();
+      setUser('user-b');
+      const b = state().fetchGoals();
+      await tick();
+      setUser('user-a');
+      mocks.rows[0].name = 'Reserva nova'; // A2 vai capturar o dado novo; A1 já capturou o antigo
+      const a2 = state().fetchGoals();
+      await tick();
+      expect(mocks.pending.map((p) => p.uid)).toEqual(['user-a', 'user-b', 'user-a']);
+      return { a1, b, a2 };
+    };
+
+    it('A1 → B → A2: A2 responde primeiro e A1, tardio, não sobrescreve (mesmo usuário)', async () => {
+      const { a1, b, a2 } = await startA1ThenBThenA2();
+
+      mocks.pending[2].release(); // A2
+      await a2;
+      expect(state().goals.map((g) => g.name)).toEqual(['Reserva nova']);
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goalsUserId).toBe('user-a');
+
+      mocks.pending[1].release(); // B tardio
+      await b;
+      mocks.pending[0].release(); // A1 por último, com o dado antigo
+      await a1;
+      expect(state().goals.map((g) => g.name)).toEqual(['Reserva nova']);
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goalsUserId).toBe('user-a');
+    });
+
+    it('A1 → B → A2: erro tardio de A1 não muda o status de success para error', async () => {
+      const { a1, b, a2 } = await startA1ThenBThenA2();
+      mocks.pending[2].release();
+      await a2;
+      mocks.pending[1].release();
+      await b;
+      mocks.pending[0].release(true); // A1 falha por último
+      await a1;
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goals.map((g) => g.name)).toEqual(['Reserva nova']);
+    });
+
+    it('logout e novo login do mesmo usuário: a busca de antes do logout não vale', async () => {
+      mocks.rows = [seed('user-a', 'ga', 'Antiga')];
+      mocks.hold = true;
+      const a1 = state().fetchGoals();
+      await tick();
+      await state().signOut();
+      setUser('user-a');
+      mocks.pending[0].release();
+      await a1;
+      expect(state().goals).toEqual([]);
+      expect(state().goalsStatus).toBe('idle');
+    });
+
     it('A → B → A com a primeira busca de A ainda pendente termina com os dados de A', async () => {
       twoUsers();
       const a1 = state().fetchGoals();
