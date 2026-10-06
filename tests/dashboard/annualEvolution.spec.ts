@@ -6,7 +6,15 @@ import { describe, expect, it } from 'vitest';
 import AnnualEvolutionCard, {
   ANNUAL_EVOLUTION_DISCLAIMER,
 } from '../../src/components/dashboard/AnnualEvolutionCard';
+import AnnualEvolutionChart, {
+  MonthTooltipBody,
+  NO_DATA_LABEL,
+  buildGappedPath,
+  seriesHasData,
+  seriesValueLabel,
+} from '../../src/components/charts/AnnualEvolutionChart';
 import type { Category, Transaction } from '../../src/types';
+import { formatCurrency } from '../../src/utils/formatters';
 import {
   computeAnnualChangePercent,
   computeAnnualEvolution,
@@ -461,5 +469,150 @@ describe('Integração na Dashboard e layout móvel (contrato de código)', () =
     for (const src of [card, chart, read('src/utils/annualEvolution.ts'), read('src/utils/annualEvolutionReading.ts')]) {
       expect(src).not.toMatch(/supabase|fetch\(|localStorage|trackProductEvent/);
     }
+  });
+});
+
+describe('Evolução anual — "sem dados" é diferente de zero', () => {
+  // hoje = 15/05/2026 → jan–abr completos. 2025 não tem nada em fevereiro.
+  const TODAY_MAY = '2026-05-15';
+  const base = () => [
+    ...monthsOf(2026, [1, 2, 3, 4], 1000, 400),
+    ...monthsOf(2025, [1, 3, 4], 800, 300),
+  ];
+  const model = () => eligible(compute(base(), TODAY_MAY));
+  const feb = (m: Extract<AnnualEvolution, { status: 'eligible' }>) => m.months[1];
+
+  it('A. fevereiro do ano anterior sem lançamento: sem dados, não zero observado', () => {
+    const f = feb(model());
+    expect(f.previousCount).toBe(0);
+    expect(seriesHasData(f, 'incomePrevious')).toBe(false);
+    expect(seriesHasData(f, 'expensePrevious')).toBe(false);
+    expect(seriesValueLabel(f, 'incomePrevious')).toBe(NO_DATA_LABEL);
+    expect(seriesValueLabel(f, 'expensePrevious')).toBe(NO_DATA_LABEL);
+    expect(seriesHasData(f, 'incomeCurrent')).toBe(true);
+    expect(seriesValueLabel(f, 'incomeCurrent')).toBe(formatCurrency(1000));
+  });
+
+  it('B. ano atual sem lançamento no mês: mesma regra', () => {
+    const m = eligible(compute([...monthsOf(2026, [1, 3, 4]), ...monthsOf(2025, [1, 2, 3, 4])], TODAY_MAY));
+    const f = feb(m);
+    expect(f.currentCount).toBe(0);
+    expect(seriesValueLabel(f, 'incomeCurrent')).toBe(NO_DATA_LABEL);
+    expect(seriesValueLabel(f, 'expenseCurrent')).toBe(NO_DATA_LABEL);
+    expect(seriesValueLabel(f, 'incomePrevious')).toBe(formatCurrency(1000));
+  });
+
+  it('C. mês só com despesa: entrada R$ 0,00 é valor real, não ausência', () => {
+    const data = [...monthsOf(2026, [1, 3, 4]), tx('2026-02-10', 'Despesa', 250), ...monthsOf(2025, [1, 2, 3, 4])];
+    const f = feb(eligible(compute(data, TODAY_MAY)));
+    expect(f.incomeCurrent).toBe(0);
+    expect(f.expenseCurrent).toBe(250);
+    expect(seriesHasData(f, 'incomeCurrent')).toBe(true);
+    expect(seriesValueLabel(f, 'incomeCurrent')).toBe(formatCurrency(0));
+    expect(seriesValueLabel(f, 'incomeCurrent')).not.toBe(NO_DATA_LABEL);
+  });
+
+  it('D. mês só com renda: saída R$ 0,00 é valor real', () => {
+    const data = [...monthsOf(2026, [1, 3, 4]), tx('2026-02-10', 'Renda', 900), ...monthsOf(2025, [1, 2, 3, 4])];
+    const f = feb(eligible(compute(data, TODAY_MAY)));
+    expect(f.expenseCurrent).toBe(0);
+    expect(f.incomeCurrent).toBe(900);
+    expect(seriesValueLabel(f, 'expenseCurrent')).toBe(formatCurrency(0));
+  });
+
+  it('E. buildGappedPath quebra o trecho em cada mês sem dados', () => {
+    const P = (x: number, y: number) => ({ x, y });
+    expect(buildGappedPath([P(0, 1), P(10, 2), P(20, 3)])).toBe('M0.0,1.0L10.0,2.0L20.0,3.0');
+    expect(buildGappedPath([P(0, 1), null, P(20, 3)])).toBe('M0.0,1.0 M20.0,3.0');
+    expect(buildGappedPath([P(0, 1), P(10, 2), null, P(30, 3), P(40, 4)])).toBe('M0.0,1.0L10.0,2.0 M30.0,3.0L40.0,4.0');
+    expect(buildGappedPath([null, P(10, 2), null])).toBe('M10.0,2.0');
+    expect(buildGappedPath([null, null])).toBe('');
+  });
+
+  const html = renderToStaticMarkup(
+    React.createElement(AnnualEvolutionChart, { months: model().months, currentYear: 2026, previousYear: 2025 })
+  );
+  const paths = [...html.matchAll(/<path d="([^"]*)" fill="none"/g)].map((m) => m[1]);
+
+  it('F. a linha do ano anterior termina em janeiro, não cruza fevereiro e recomeça em março', () => {
+    // ordem do componente: entradas 2025, saídas 2025, entradas 2026, saídas 2026
+    expect(paths).toHaveLength(4);
+    for (const previous of paths.slice(0, 2)) {
+      expect(previous).toMatch(/^M[\d.]+,[\d.]+ M[\d.]+,[\d.]+L[\d.]+,[\d.]+$/);
+    }
+    // ano atual tem os quatro meses: uma linha contínua, sem quebra
+    for (const current of paths.slice(2)) {
+      expect(current).not.toContain(' M');
+      expect(current.match(/L/g)).toHaveLength(3);
+    }
+  });
+
+  it('F2. sem ponto plotado em fevereiro para o ano anterior', () => {
+    // 4 meses × 2 séries do ano atual + 3 meses × 2 séries do anterior
+    expect(html.match(/<circle /g)).toHaveLength(14);
+  });
+
+  it('G. tooltip mostra "Sem dados" no ano ausente e valores no ano com dados', () => {
+    const out = renderToStaticMarkup(
+      React.createElement(MonthTooltipBody, { month: feb(model()), currentYear: 2026, previousYear: 2025 })
+    );
+    expect(out).toContain('fevereiro');
+    expect(out.match(/Sem dados/g)).toHaveLength(2);
+    expect(out).toContain(formatCurrency(1000));
+    expect(out).toContain(formatCurrency(400));
+    for (const label of ['Entradas 2025', 'Saídas 2025']) {
+      expect(out).toMatch(new RegExp(`${label}</dt><dd[^>]*>${NO_DATA_LABEL}</dd>`));
+    }
+  });
+
+  it('G2. tooltip com zero verdadeiro mostra R$ 0,00', () => {
+    const data = [...monthsOf(2026, [1, 3, 4]), tx('2026-02-10', 'Despesa', 250), ...monthsOf(2025, [1, 2, 3, 4])];
+    const out = renderToStaticMarkup(
+      React.createElement(MonthTooltipBody, {
+        month: feb(eligible(compute(data, TODAY_MAY))),
+        currentYear: 2026,
+        previousYear: 2025,
+      })
+    );
+    expect(out).toContain(formatCurrency(0));
+    expect(out).not.toContain('Sem dados');
+  });
+
+  it('H. tabela acessível e aria-label do mês dizem "Sem dados", sem R$ 0,00 inventado', () => {
+    const febRow = /<tr><th scope="row">fevereiro<\/th>(.*?)<\/tr>/.exec(html);
+    expect(febRow).not.toBeNull();
+    const cells = [...febRow![1].matchAll(/<td>(.*?)<\/td>/g)].map((m) => m[1]);
+    // colunas: entradas atual, entradas anterior, saídas atual, saídas anterior
+    expect(cells).toEqual([formatCurrency(1000), NO_DATA_LABEL, formatCurrency(400), NO_DATA_LABEL]);
+
+    const label = /aria-label="(fevereiro: [^"]*)"/.exec(html)![1];
+    expect(label).toContain(`entradas 2025 ${NO_DATA_LABEL}`);
+    expect(label).toContain(`saídas 2025 ${NO_DATA_LABEL}`);
+    expect(label).toContain(`entradas 2026 ${formatCurrency(1000)}`);
+  });
+
+  it('I. totais e variações ficam nos meses pareados, com valores fixos', () => {
+    const m = model();
+    expect(m.pairedMonths).toEqual([1, 3, 4]);
+    expect(m.totals).toEqual({
+      incomeCurrent: 3000,
+      incomePrevious: 2400,
+      expenseCurrent: 1200,
+      expensePrevious: 900,
+    });
+    expect(m.incomeChangePercent).toBeCloseTo(25, 6);
+    expect(m.expenseChangePercent).toBeCloseTo(33.3333333, 4);
+  });
+
+  it('J. mês sem par (só 2026) não muda totais, percentuais nem a Leitura do FinElo', () => {
+    const without = model();
+    const withExtra = eligible(compute([...base(), tx('2026-02-12', 'Renda', 50000)], TODAY_MAY));
+    expect(feb(withExtra).incomeCurrent).toBe(51000); // aparece no gráfico...
+    expect(withExtra.totals).toEqual(without.totals); // ...mas não nos totais
+    expect(withExtra.incomeChangePercent).toBe(without.incomeChangePercent);
+    expect(withExtra.expenseChangePercent).toBe(without.expenseChangePercent);
+    expect(buildAnnualEvolutionReading(withExtra.incomeChangePercent, withExtra.expenseChangePercent)).toEqual(
+      buildAnnualEvolutionReading(without.incomeChangePercent, without.expenseChangePercent)
+    );
   });
 });

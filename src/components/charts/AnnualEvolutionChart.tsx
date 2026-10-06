@@ -49,6 +49,65 @@ const SERIES: Array<{ key: SeriesKey; tone: 'text-accent' | 'text-danger'; dashe
   { key: 'expenseCurrent', tone: 'text-danger', dashed: false },
 ];
 
+export const NO_DATA_LABEL = 'Sem dados';
+
+/**
+ * Ausência de dados vem SÓ da contagem de lançamentos do ano naquele mês. Valor zero com
+ * lançamentos no mês é um zero verdadeiro (ex.: mês só com despesas tem entrada R$ 0,00).
+ */
+export function seriesHasData(month: AnnualEvolutionMonth, key: SeriesKey): boolean {
+  return (key.endsWith('Current') ? month.currentCount : month.previousCount) > 0;
+}
+
+/** "R$ x" quando o ano tem dados no mês; "Sem dados" quando não tem. */
+export function seriesValueLabel(month: AnnualEvolutionMonth, key: SeriesKey): string {
+  return seriesHasData(month, key) ? formatCurrency(month[key]) : NO_DATA_LABEL;
+}
+
+/** Segmentos separados: `null` (sem dados) encerra o trecho, e a linha não atravessa o mês ausente. */
+export function buildGappedPath(points: Array<{ x: number; y: number } | null>): string {
+  let d = '';
+  let open = false;
+  for (const p of points) {
+    if (!p) {
+      open = false;
+      continue;
+    }
+    d += `${open ? 'L' : d ? ' M' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+    open = true;
+  }
+  return d;
+}
+
+export const MonthTooltipBody: React.FC<{
+  month: AnnualEvolutionMonth;
+  currentYear: number;
+  previousYear: number;
+}> = ({ month: activeMonth, currentYear, previousYear }) => (
+  <>
+    <p className="mb-1.5 font-semibold capitalize text-white">{MONTH_LONG[activeMonth.month - 1]}</p>
+    <dl className="space-y-1 tabular-nums">
+      {[
+        { label: `Entradas ${currentYear}`, key: 'incomeCurrent' as const, tone: 'text-accent' },
+        { label: `Entradas ${previousYear}`, key: 'incomePrevious' as const, tone: 'text-accent' },
+        { label: `Saídas ${currentYear}`, key: 'expenseCurrent' as const, tone: 'text-danger' },
+        { label: `Saídas ${previousYear}`, key: 'expensePrevious' as const, tone: 'text-danger' },
+      ].map((row) => (
+        <div key={row.label} className="flex justify-between gap-2">
+          <dt className="text-gray-400">{row.label}</dt>
+          <dd
+            className={`font-semibold ${
+              seriesHasData(activeMonth, row.key) ? row.tone : 'text-gray-500 font-normal'
+            }`}
+          >
+            {seriesValueLabel(activeMonth, row.key)}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  </>
+);
+
 const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYear }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -85,14 +144,14 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
   const labelEvery = innerW / Math.max(1, n - 1) < 34 ? 2 : 1;
 
   const path = (key: SeriesKey) =>
-    months.map((m, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(m[key]).toFixed(1)}`).join(' ');
+    buildGappedPath(months.map((m, i) => (seriesHasData(m, key) ? { x: x(i), y: y(m[key]) } : null)));
 
   const activeMonth = active !== null ? months[active] : null;
   const tooltipLeft =
     active === null ? 0 : Math.min(Math.max(x(active) - TOOLTIP_WIDTH / 2, 0), Math.max(0, width - TOOLTIP_WIDTH));
 
   const describe = (m: AnnualEvolutionMonth) =>
-    `${MONTH_LONG[m.month - 1]}: entradas ${currentYear} ${formatCurrency(m.incomeCurrent)}, entradas ${previousYear} ${formatCurrency(m.incomePrevious)}, saídas ${currentYear} ${formatCurrency(m.expenseCurrent)}, saídas ${previousYear} ${formatCurrency(m.expensePrevious)}`;
+    `${MONTH_LONG[m.month - 1]}: entradas ${currentYear} ${seriesValueLabel(m, 'incomeCurrent')}, entradas ${previousYear} ${seriesValueLabel(m, 'incomePrevious')}, saídas ${currentYear} ${seriesValueLabel(m, 'expenseCurrent')}, saídas ${previousYear} ${seriesValueLabel(m, 'expensePrevious')}`;
 
   return (
     <div>
@@ -178,16 +237,18 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
-              {months.map((m, i) => (
-                <circle
-                  key={m.month}
-                  cx={x(i)}
-                  cy={y(m[s.key])}
-                  r={active === i ? 4 : 2.5}
-                  fill="currentColor"
-                  opacity={s.dashed ? 0.7 : 1}
-                />
-              ))}
+              {months.map((m, i) =>
+                seriesHasData(m, s.key) ? (
+                  <circle
+                    key={m.month}
+                    cx={x(i)}
+                    cy={y(m[s.key])}
+                    r={active === i ? 4 : 2.5}
+                    fill="currentColor"
+                    opacity={s.dashed ? 0.7 : 1}
+                  />
+                ) : null
+              )}
             </g>
           ))}
 
@@ -220,20 +281,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
             className="pointer-events-none absolute top-1 z-10 rounded-lg border border-white/10 bg-primary/95 p-2.5 text-xs shadow-xl"
             style={{ left: tooltipLeft, width: TOOLTIP_WIDTH }}
           >
-            <p className="mb-1.5 font-semibold capitalize text-white">{MONTH_LONG[activeMonth.month - 1]}</p>
-            <dl className="space-y-1 tabular-nums">
-              {[
-                { label: `Entradas ${currentYear}`, value: activeMonth.incomeCurrent, tone: 'text-accent' },
-                { label: `Entradas ${previousYear}`, value: activeMonth.incomePrevious, tone: 'text-accent' },
-                { label: `Saídas ${currentYear}`, value: activeMonth.expenseCurrent, tone: 'text-danger' },
-                { label: `Saídas ${previousYear}`, value: activeMonth.expensePrevious, tone: 'text-danger' },
-              ].map((row) => (
-                <div key={row.label} className="flex justify-between gap-2">
-                  <dt className="text-gray-400">{row.label}</dt>
-                  <dd className={`font-semibold ${row.tone}`}>{formatCurrency(row.value)}</dd>
-                </div>
-              ))}
-            </dl>
+            <MonthTooltipBody month={activeMonth} currentYear={currentYear} previousYear={previousYear} />
           </div>
         )}
       </div>
@@ -253,10 +301,10 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
           {months.map((m) => (
             <tr key={m.month}>
               <th scope="row">{MONTH_LONG[m.month - 1]}</th>
-              <td>{formatCurrency(m.incomeCurrent)}</td>
-              <td>{formatCurrency(m.incomePrevious)}</td>
-              <td>{formatCurrency(m.expenseCurrent)}</td>
-              <td>{formatCurrency(m.expensePrevious)}</td>
+              <td>{seriesValueLabel(m, 'incomeCurrent')}</td>
+              <td>{seriesValueLabel(m, 'incomePrevious')}</td>
+              <td>{seriesValueLabel(m, 'expenseCurrent')}</td>
+              <td>{seriesValueLabel(m, 'expensePrevious')}</td>
             </tr>
           ))}
         </tbody>
