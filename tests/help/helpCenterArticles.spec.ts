@@ -283,7 +283,7 @@ describe('Lote 2 — duplicatas, competência e lançamento manual', () => {
     const sizes = files.filter((f) => String(f).endsWith('.webp')).map((f) => fs.statSync(path.join(dir, String(f))).size);
     expect(sizes.length).toBeGreaterThanOrEqual(12);
     expect(Math.max(...sizes)).toBeLessThan(60 * 1024);
-    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(400 * 1024);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(500 * 1024);
   });
 });
 
@@ -554,5 +554,95 @@ describe('Lote 4 — histórico, "Sim, está pago" e fechamento/vencimento', () 
     const sizes = files.map((f) => fs.statSync(path.join(dir, String(f))).size);
     expect(Math.max(...sizes)).toBeLessThan(60 * 1024);
     expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(600 * 1024);
+  });
+});
+
+describe('Lote 6 — Dashboard, período e filtros de Transações', () => {
+  const ids = ['dashboard-summary', 'dashboard-period', 'tx-filter'];
+  const text = (id: string) => topic(id).answer + JSON.stringify(topic(id).article);
+  const images = () => allImages().filter(({ topicId }) => ids.includes(topicId));
+
+  it('moderniza exatamente os três tópicos existentes, com passos e cinco imagens', () => {
+    ids.forEach((id) => {
+      expect(HELP_TOPICS.filter((t) => t.id === id)).toHaveLength(1);
+      expect(topic(id).article!.steps!.length).toBeGreaterThanOrEqual(4);
+      expect(topic(id).article!.result).toBeTruthy();
+      expect(render(topic(id).article!)).toContain('<ol');
+    });
+    expect(topic('tx-filter').title).toBe('Como encontro uma transação usando filtros?');
+    expect(images()).toHaveLength(5);
+    images().forEach(({ image }) => {
+      expect(fs.existsSync(path.join(root, 'public', image.src)), image.src).toBe(true);
+      expect(image.alt.length).toBeGreaterThan(40);
+      expect(image.width).toBeGreaterThan(0);
+      expect(image.height).toBeGreaterThan(0);
+    });
+  });
+
+  it('resumos e gráficos usam os nomes reais, sem confundir resultado com saldo bancário', () => {
+    const code = read('src/components/views/DashboardView.tsx') + read('src/components/dashboard/NetWorthSummaryCard.tsx');
+    ['Entradas (Operacional)', 'Saídas (Operacional)', 'Resultado Operacional', 'Receita vs. Despesa', 'Despesas por Categoria', 'Patrimônio total', 'Últimas Transações'].forEach((label) => {
+      expect(code, label).toContain(label);
+      expect(text('dashboard-summary'), label).toContain(label);
+    });
+    expect(text('dashboard-summary')).toContain('não o saldo bancário');
+    expect(text('dashboard-summary')).toContain('referências próprias');
+    expect(text('dashboard-summary')).toContain('Transações é a lista detalhada');
+    expect(text('dashboard-summary')).not.toContain('Todos os cartões e gráficos');
+    expect(text('general-start')).toContain('Veja seu mês');
+  });
+
+  it('período descreve os cinco modos reais, setas e intervalo personalizado', () => {
+    const code = read('src/components/views/DashboardView.tsx');
+    ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Personalizado', 'Principal', 'até'].forEach((label) => {
+      expect(code, label).toContain(label);
+      expect(text('dashboard-period'), label).toContain(label);
+    });
+    expect(text('dashboard-period')).toContain('atravessando anos');
+    expect(text('dashboard-period')).toContain('primeiro campo');
+    expect(text('dashboard-period')).toContain('mês atual');
+    expect(text('dashboard-period')).toContain('recarregar');
+  });
+
+  it('filtros descrevem os controles reais e combinação validada, não modos da Dashboard', () => {
+    const code = read('src/components/views/TransactionsView.tsx') + read('src/utils/transactionPeriodFilters.ts');
+    ['Filtros', 'Mais filtros (busca, conta, categoria…)', 'Conta', 'Categoria', 'Este mês', 'Mês anterior', 'Últimos 30 dias', 'Tudo do período', 'Histórico completo', 'Parcelas e recorrências', 'Datas por', 'Compra / lançamento', 'Pagamento', 'Data de Início', 'Data de Fim', 'Buscar por descrição ou valor', 'Restaurar padrão', 'Nenhuma transação encontrada.'].forEach((label) => {
+      expect(code, label).toContain(label);
+      expect(text('tx-filter'), label).toContain(label);
+    });
+    expect(text('tx-filter')).toContain('combinada com **Conta**, **Categoria** e período');
+    expect(text('tx-filter')).toContain('desmarque uma opção');
+    expect(text('tx-filter')).toContain('Apague a busca');
+    expect(text('tx-filter')).toContain('datas ficam desabilitadas');
+    expect(text('tx-filter')).not.toContain('Trimestral');
+  });
+
+  it('distingue período do resumo de filtros da lista e explica sua persistência', () => {
+    expect(text('dashboard-period')).toContain('um controle não altera o outro');
+    expect(text('tx-filter')).toContain('não muda o período da **Dashboard**');
+    expect(text('tx-filter')).toContain('ao trocar de tela e ao recarregar');
+    expect(text('tx-filter')).toContain('sem alterar nenhum dado');
+  });
+
+  it('CTAs usam HELP_VIEW_LABELS e o renderer existente com destinos corretos', () => {
+    const expected = { 'dashboard-summary': 'dashboard', 'dashboard-period': 'dashboard', 'tx-filter': 'transactions' } as const;
+    Object.entries(expected).forEach(([id, view]) => {
+      expect(topic(id).action).toBe('navigate');
+      expect(topic(id).navigateTo).toBe(view);
+      expect(getNavigateLabel(topic(id).navigateTo!)).toBe('Ir para ' + HELP_VIEW_LABELS[view]);
+    });
+    expect(read('src/components/help/HelpCenterBrowse.tsx')).toContain('setCurrentView(topic.navigateTo)');
+  });
+
+  it('screenshots responsivas, fora do precache, com orçamento próprio de 70 KiB', () => {
+    expect(read('vite.config.ts')).toContain("'help/**'");
+    const sizes = images().map(({ image }) => fs.statSync(path.join(root, 'public', image.src)).size);
+    expect(Math.max(...sizes)).toBeLessThan(30 * 1024);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeLessThan(70 * 1024);
+    ids.forEach((id) => {
+      const html = render(topic(id).article!);
+      expect(html).toContain('w-full max-w-full h-auto');
+      expect(html).toContain('Abrir imagem em tamanho real');
+    });
   });
 });

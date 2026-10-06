@@ -202,18 +202,101 @@ export const HELP_TOPICS: HelpTopic[] = [
     section: 'dashboard',
     title: 'O que o Dashboard mostra?',
     answer:
-      'Visão do período: entradas, saídas, saldo e gráficos por categoria. Use o seletor de período para mudar mês ou intervalo. Os valores vêm das transações lançadas ou importadas.',
-    keywords: ['dashboard', 'resumo', 'gráfico', 'mês', 'visão geral'],
+      'A Dashboard resume suas transações no período escolhido: Entradas (Operacional), Saídas (Operacional), Resultado Operacional e gráficos. O resultado não é o saldo da conta bancária.',
+    keywords: ['dashboard', 'resumo', 'gráfico', 'mês', 'visão geral', 'resultado operacional', 'entradas', 'saídas'],
     action: 'navigate',
     navigateTo: 'dashboard',
+    article: {
+      steps: [
+        {
+          title: 'Confira o período',
+          text: 'Abra **Dashboard** e confira o mês ou intervalo no controle acima dos resumos. Os números vêm das transações registradas ou importadas.',
+          image: {
+            src: '/help/dashboard-overview/01-resumo-do-periodo.webp',
+            alt: 'Dashboard em julho de 2026 com o seletor Mensal e os resumos Entradas, Saídas e Resultado Operacional da conta de exemplo',
+            caption: 'Exemplo de staging: o período aparece acima dos três resumos principais.',
+            width: 1200,
+            height: 291,
+          },
+        },
+        {
+          title: 'Leia os resumos',
+          text: '**Entradas (Operacional)** mostra receitas do período. **Saídas (Operacional)** mostra despesas. **Resultado Operacional** é a diferença entre elas, não o saldo bancário nem o patrimônio. A classificação dos lançamentos importa: transferências e investimentos têm tratamento separado.',
+        },
+        {
+          title: 'Veja os gráficos',
+          text: '**Receita vs. Despesa** compara as entradas e saídas do período. **Despesas por Categoria** ajuda a ver onde você gastou. Alguns detalhes dependem do plano e dos dados disponíveis.',
+          image: {
+            src: '/help/dashboard-overview/02-receita-vs-despesa.webp',
+            alt: 'Gráfico Receita vs. Despesa de julho com receitas de R$ 5.450,00 e despesas de R$ 2.044,60 em dados sintéticos de staging',
+            width: 1216,
+            height: 302,
+          },
+        },
+        {
+          title: 'Confira os detalhes em Transações',
+          text: 'Quer entender de onde veio um valor? Abra **Transações** pelo menu e confira os lançamentos e categorias. A Dashboard é o resumo; Transações é a lista detalhada.',
+        },
+      ],
+      result: 'Você vê o resumo do período e sabe onde conferir os lançamentos que o alimentam. Para ver outro mês, use o controle de período da **Dashboard**.',
+      after: [
+        {
+          title: 'Cada bloco tem sua referência',
+          items: [
+            'Os resumos principais, **Receita vs. Despesa** e **Últimas Transações** acompanham o período escolhido. **Patrimônio total** mostra uma posição patrimonial; gráficos de tendência têm referências próprias. Não são todos um saldo do mês.',
+            'Os resumos usam a data de pagamento quando informada; caso contrário, usam a data do lançamento. Em **Transações**, confira também **Datas por** ao procurar os detalhes.',
+            'Orçamento, método 50-30-20, investimentos e **Primeiros passos** podem aparecer conforme seus dados e plano. Comece pelos resumos e gráficos.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'dashboard-period',
     section: 'dashboard',
     title: 'Como mudar o mês ou período exibido?',
     answer:
-      'No topo do Dashboard, altere o modo de visualização (mês atual, anterior, personalizado). Todos os cartões e gráficos se atualizam conforme o período escolhido.',
-    keywords: ['período', 'mês', 'filtro', 'data', 'intervalo'],
+      'Na Dashboard, escolha Mensal, Trimestral, Semestral, Anual ou Personalizado. Use as setas para ver outro período ou informe as datas no modo Personalizado. Os resumos e o gráfico Receita vs. Despesa se atualizam.',
+    keywords: ['período', 'mês', 'filtro', 'data', 'intervalo', 'mensal', 'trimestral', 'semestral', 'anual', 'personalizado'],
+    action: 'navigate',
+    navigateTo: 'dashboard',
+    article: {
+      steps: [
+        {
+          title: 'Escolha o modo',
+          text: 'Na **Dashboard**, o controle fica acima dos resumos. Abra o seletor e escolha **Mensal**, **Trimestral**, **Semestral**, **Anual** ou **Personalizado**.',
+        },
+        {
+          title: 'Veja outro mês ou ano',
+          text: 'Em **Mensal**, use as setas ao lado do mês para voltar ou avançar. Elas também navegam pelos períodos dos outros modos, inclusive atravessando anos. Confira sempre o período mostrado.',
+        },
+        {
+          title: 'Escolha um intervalo personalizado',
+          text: 'Em **Personalizado**, informe a data inicial no primeiro campo de **Principal** e a data final no campo depois de **até**. Os resumos e **Receita vs. Despesa** mostram o intervalo escolhido.',
+          image: {
+            src: '/help/dashboard-period/01-periodo-personalizado.webp',
+            alt: 'Controle de período da Dashboard no modo Personalizado com Principal de 01/07/2026 até 31/07/2026',
+            caption: 'No modo Personalizado, confira as duas datas do intervalo.',
+            width: 1217,
+            height: 83,
+          },
+        },
+        {
+          title: 'Volte à visão do mês',
+          text: 'Selecione **Mensal** e use as setas até o mês desejado. Ao navegar para outra tela e voltar, o período permanece durante a sessão. Ao recarregar a página, a Dashboard volta a **Mensal** no mês atual.',
+        },
+      ],
+      result: 'O período exibido muda e os resumos principais e o gráfico **Receita vs. Despesa** acompanham a escolha.',
+      after: [
+        {
+          title: 'Dashboard e Transações são independentes',
+          items: [
+            'O período da **Dashboard** muda a visão resumida. O filtro de período de **Transações** limita as linhas da lista; um controle não altera o outro.',
+            'Ao conferir um valor em **Transações**, escolha ali o período e **Datas por** adequados. Outros blocos da Dashboard, como **Patrimônio total**, não são limitados da mesma forma.',
+          ],
+        },
+      ],
+    },
   },
 
   // —— Transações ——
@@ -283,10 +366,64 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'tx-filter',
     section: 'transactions',
-    title: 'Como filtrar transações por conta ou mês?',
+    title: 'Como encontro uma transação usando filtros?',
     answer:
-      'Use os filtros acima da lista: conta, categoria, período e busca por texto. Isso ajuda a conferir faturas e encontrar lançamentos específicos.',
-    keywords: ['filtrar', 'buscar', 'conta', 'mês', 'pesquisar', 'lista'],
+      'Em Transações, combine Conta, Categoria, período e Buscar por descrição ou valor. Para começar de novo, clique em Restaurar padrão. Os filtros mudam a lista, não o período da Dashboard.',
+    keywords: ['filtrar', 'buscar', 'conta', 'categoria', 'mês', 'pesquisar', 'lista', 'limpar', 'restaurar padrão'],
+    action: 'navigate',
+    navigateTo: 'transactions',
+    article: {
+      steps: [
+        {
+          title: 'Abra os filtros',
+          text: 'Em **Transações**, abra **Filtros**, acima da lista. No celular, toque também em **Mais filtros (busca, conta, categoria…)** para ver os campos adicionais.',
+        },
+        {
+          title: 'Escolha conta e categoria',
+          text: 'Abra **Conta** ou **Categoria** e marque as opções desejadas. Você pode selecionar mais de uma. O botão mostra quantas estão selecionadas.',
+        },
+        {
+          title: 'Escolha o período da lista',
+          text: 'Em **Tudo do período**, use **Este mês**, **Mês anterior** ou **Últimos 30 dias**, ou preencha **Data de Início** e **Data de Fim**. Em **Datas por**, escolha **Compra / lançamento** ou **Pagamento**. **Tudo** abre **Histórico completo**, sem limitar pelas datas.',
+        },
+        {
+          title: 'Busque e combine',
+          text: 'Digite em **Buscar por descrição ou valor**. A busca pode ser combinada com **Conta**, **Categoria** e período. **Tipo** limita a entradas ou saídas; **Parcelas e recorrências** é outra opção de visualização.',
+          image: {
+            src: '/help/transaction-filters/01-filtros-combinados.webp',
+            alt: 'Filtros de Transações combinando Este mês, busca Cafeteria, uma Conta e uma Categoria selecionadas, com o botão Restaurar padrão',
+            caption: 'Exemplo: conta + categoria + busca, dentro do período selecionado.',
+            width: 1200,
+            height: 514,
+          },
+        },
+        {
+          title: 'Confira a lista',
+          text: 'Veja a contagem em **registros de** e confira as linhas restantes. No exemplo, a combinação encontrou um único lançamento sintético.',
+          image: {
+            src: '/help/transaction-filters/02-lista-filtrada.webp',
+            alt: 'Lista filtrada com registros de 1 e somente Cafeteria Exemplo — QA Ajuda, na Conta Exemplo e categoria Restaurantes',
+            width: 1216,
+            height: 183,
+          },
+        },
+        {
+          title: 'Remova ou restaure os filtros',
+          text: 'Apague a busca ou desmarque uma opção em **Conta** ou **Categoria** para remover só aquele filtro. Para começar de novo, clique em **Restaurar padrão**: a lista volta a **Tudo do período** e **Este mês**.',
+        },
+      ],
+      result: 'Você encontra lançamentos combinando filtros, sem alterar nenhum dado. Esse período limita a lista de **Transações**; não muda o período da **Dashboard**.',
+      after: [
+        {
+          title: 'Não encontrou?',
+          items: [
+            '**Nenhuma transação encontrada.** pode ser resultado da combinação escolhida. Use **Restaurar padrão**, confira as datas ou amplie a busca.',
+            'Em **Histórico completo**, as datas ficam desabilitadas. Escolha **Tudo do período** para voltar a filtrar por intervalo.',
+            'Os filtros permanecem ao trocar de tela e ao recarregar a página. Use **Restaurar padrão** se quiser uma nova busca sem os filtros anteriores.',
+          ],
+        },
+      ],
+    },
   },
   {
     id: 'tx-credit-card-guide',
