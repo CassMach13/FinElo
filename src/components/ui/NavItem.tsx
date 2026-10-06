@@ -11,7 +11,7 @@ interface NavItemProps {
 export const NavItem: React.FC<NavItemProps> = ({ view, label, icon, isActive, onClick, badge }) => (
   <button
     onClick={onClick}
-    className={`relative flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-3 text-xs sm:text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-accent text-white' : 'text-gray-300 hover:bg-secondary hover:text-white'
+    className={`relative flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 px-1 py-1.5 sm:px-3 sm:py-3 text-xs sm:text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-accent text-white' : 'text-gray-300 hover:bg-secondary hover:text-white'
       }`}
   >
     {icon}
