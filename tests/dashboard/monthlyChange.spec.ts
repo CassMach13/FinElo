@@ -308,6 +308,22 @@ describe('Leitura do FinElo — mudança do mês', () => {
     expect(r(-5, -20).text).toBe('As saídas registradas diminuíram mais que as entradas em setembro.');
   });
 
+  it('um lado muda e o outro está estável: nomeia explicitamente os dois lados', () => {
+    const cases: Array<[string, number, number, string, string]> = [
+      ['A. entradas sobem, saídas estáveis', 12, 1, 'As entradas registradas aumentaram em setembro', 'enquanto as saídas registradas ficaram relativamente estáveis'],
+      ['B. entradas caem, saídas estáveis', -12, 1, 'As entradas registradas diminuíram em setembro', 'enquanto as saídas registradas ficaram relativamente estáveis'],
+      ['C. saídas sobem, entradas estáveis', 1, 12, 'As saídas registradas aumentaram em setembro', 'enquanto as entradas registradas ficaram relativamente estáveis'],
+      ['D. saídas caem, entradas estáveis', 1, -12, 'As saídas registradas diminuíram em setembro', 'enquanto as entradas registradas ficaram relativamente estáveis'],
+    ];
+    for (const [name, inc, exp, changed, stable] of cases) {
+      const { text } = r(inc, exp);
+      expect(text, name).toBe(`${changed}, ${stable}.`);
+      expect(text, name).toContain(changed);
+      expect(text, name).toContain(stable);
+      expect(text, name).not.toContain('outro lado');
+    }
+  });
+
   it('percentual indisponível em um lado ou nos dois', () => {
     expect(r(null, null).kind).toBe('unavailable');
     expect(r(null, 20).text).toBe('As saídas registradas aumentaram em setembro.');
@@ -325,6 +341,7 @@ describe('Leitura do FinElo — mudança do mês', () => {
         expect(text, `${i}/${e}`).toMatch(/registrad/);
         expect(text, `${i}/${e}`).not.toMatch(banned);
         expect(text).not.toMatch(/NaN|Infinity|undefined/);
+        expect(text).not.toContain('outro lado');
       }
     }
   });

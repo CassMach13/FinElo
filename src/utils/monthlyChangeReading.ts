@@ -87,9 +87,15 @@ export function buildMonthlyChangeReading(
   if (i === 'down' && e === 'up') {
     return { kind: 'mixed', text: `As saídas registradas aumentaram e as entradas registradas diminuíram em ${m}.` };
   }
-  const flat = 'enquanto o outro lado ficou relativamente estável';
-  if (i === 'up') return { kind: 'income_faster', text: `As entradas registradas aumentaram em ${m}, ${flat}.` };
-  if (i === 'down') return { kind: 'mixed', text: `As entradas registradas diminuíram em ${m}, ${flat}.` };
-  if (e === 'up') return { kind: 'expense_faster', text: `As saídas registradas aumentaram em ${m}, ${flat}.` };
-  return { kind: 'mixed', text: `As saídas registradas diminuíram em ${m}, ${flat}.` };
+  const stable = (name: 'entradas' | 'saídas') => `enquanto as ${name} registradas ficaram relativamente estáveis`;
+  if (i === 'up') {
+    return { kind: 'income_faster', text: `As entradas registradas aumentaram em ${m}, ${stable('saídas')}.` };
+  }
+  if (i === 'down') {
+    return { kind: 'mixed', text: `As entradas registradas diminuíram em ${m}, ${stable('saídas')}.` };
+  }
+  if (e === 'up') {
+    return { kind: 'expense_faster', text: `As saídas registradas aumentaram em ${m}, ${stable('entradas')}.` };
+  }
+  return { kind: 'mixed', text: `As saídas registradas diminuíram em ${m}, ${stable('entradas')}.` };
 }
