@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   failNext: null as null | 'select' | 'insert' | 'update' | 'delete',
   calls: [] as string[],
   seq: 0,
+  /** Quando true, `select` fica pendente até `release` (para controlar corridas). */
+  hold: false,
+  pending: [] as Array<{ uid: string | undefined; release: (asError?: boolean) => void }>,
 }));
 
 /** Tabela falsa que imita a RLS owner-only: cada usuário só enxerga e altera as próprias linhas. */
@@ -27,10 +30,21 @@ vi.mock('../../src/supabaseClient', () => {
     if (table !== 'financial_goals') throw new Error(`tabela inesperada: ${table}`);
     return {
       select: () => ({
-        order: async () => {
+        order: () => {
           mocks.calls.push('select');
+          const uid = mocks.currentUser?.id;
+          const snapshot = visible().map((r) => ({ ...r }));
+          if (mocks.hold) {
+            return new Promise((resolve) => {
+              mocks.pending.push({
+                uid,
+                release: (asError = false) =>
+                  resolve(asError ? { data: null, error: { message: 'late boom' } } : { data: snapshot, error: null }),
+              });
+            });
+          }
           const error = fail('select');
-          return error ? { data: null, error } : { data: visible().map((r) => ({ ...r })), error: null };
+          return Promise.resolve(error ? { data: null, error } : { data: snapshot, error: null });
         },
       }),
       insert: (payload: Row[]) => ({
@@ -116,6 +130,8 @@ beforeEach(() => {
   mocks.calls = [];
   mocks.failNext = null;
   mocks.seq = 0;
+  mocks.hold = false;
+  mocks.pending = [];
   useAppStore.setState(useAppStore.getInitialState(), true);
   setUser('user-a');
 });
@@ -280,6 +296,129 @@ describe('Objetivos — store', () => {
     setUser('user-b');
     await pending;
     expect(state().goals.map((g) => g.name)).not.toContain('Do A');
+  });
+
+  describe('troca de usuário com busca pendente', () => {
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    const twoUsers = () => {
+      mocks.rows = [seed('user-a', 'ga', 'Do A'), seed('user-b', 'gb', 'Do B')];
+      mocks.hold = true;
+    };
+
+    it('A pendente não impede B: a segunda consulta é disparada; B termina em success só com os seus', async () => {
+      twoUsers();
+      const a = state().fetchGoals();
+      await tick();
+      expect(mocks.pending.map((p) => p.uid)).toEqual(['user-a']);
+      expect(state().goalsStatus).toBe('loading');
+
+      setUser('user-b');
+      const b = state().fetchGoals();
+      await tick();
+      expect(mocks.calls.filter((c) => c === 'select')).toHaveLength(2); // B não foi barrado por "loading"
+      expect(mocks.pending.map((p) => p.uid)).toEqual(['user-a', 'user-b']);
+      expect(state().goalsUserId).toBe('user-b');
+
+      mocks.pending[0].release(); // A responde tarde
+      await a;
+      // A não consegue escrever nada: nem goals, nem status, nem dono
+      expect(state().goals).toEqual([]);
+      expect(state().goalsStatus).toBe('loading');
+      expect(state().goalsUserId).toBe('user-b');
+
+      mocks.pending[1].release();
+      await b;
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goalsUserId).toBe('user-b');
+      expect(state().goals.map((g) => g.name)).toEqual(['Do B']);
+      expect(state().goals.some((g) => g.user_id === 'user-a')).toBe(false);
+    });
+
+    it('B responde antes e A chega depois: o tardio de A não sobrescreve B', async () => {
+      twoUsers();
+      const a = state().fetchGoals();
+      await tick();
+      setUser('user-b');
+      const b = state().fetchGoals();
+      await tick();
+
+      mocks.pending[1].release();
+      await b;
+      expect(state().goals.map((g) => g.name)).toEqual(['Do B']);
+
+      mocks.pending[0].release();
+      await a;
+      expect(state().goals.map((g) => g.name)).toEqual(['Do B']);
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goalsUserId).toBe('user-b');
+    });
+
+    it('erro tardio de A não derruba o status de B', async () => {
+      twoUsers();
+      const a = state().fetchGoals();
+      await tick();
+      setUser('user-b');
+      const b = state().fetchGoals();
+      await tick();
+
+      mocks.pending[0].release(true);
+      await a;
+      expect(state().goalsStatus).toBe('loading');
+
+      mocks.pending[1].release();
+      await b;
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goals.map((g) => g.name)).toEqual(['Do B']);
+    });
+
+    it('mesma pessoa + loading não duplica a busca', async () => {
+      twoUsers();
+      const first = state().fetchGoals();
+      await tick();
+      const second = state().fetchGoals();
+      const forced = state().fetchGoals({ force: true });
+      await tick();
+      expect(mocks.calls.filter((c) => c === 'select')).toHaveLength(1);
+      mocks.pending[0].release();
+      await Promise.all([first, second, forced]);
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goals.map((g) => g.name)).toEqual(['Do A']);
+    });
+
+    it('logout durante a busca: a resposta tardia não ressuscita os objetivos', async () => {
+      twoUsers();
+      const a = state().fetchGoals();
+      await tick();
+      await state().signOut();
+      mocks.pending[0].release();
+      await a;
+      expect(state().goals).toEqual([]);
+      expect(state().goalsStatus).toBe('idle');
+      expect(state().goalsUserId).toBeNull();
+    });
+
+    it('A → B → A com a primeira busca de A ainda pendente termina com os dados de A', async () => {
+      twoUsers();
+      const a1 = state().fetchGoals();
+      await tick();
+      setUser('user-b');
+      const b = state().fetchGoals();
+      await tick();
+      setUser('user-a');
+      const a2 = state().fetchGoals();
+      await tick();
+      expect(mocks.pending.map((p) => p.uid)).toEqual(['user-a', 'user-b', 'user-a']);
+
+      mocks.pending[1].release(); // B tardio: usuário atual é A, descartado
+      await b;
+      expect(state().goals).toEqual([]);
+      mocks.pending[2].release();
+      mocks.pending[0].release();
+      await Promise.all([a1, a2]);
+      expect(state().goalsStatus).toBe('success');
+      expect(state().goalsUserId).toBe('user-a');
+      expect(state().goals.map((g) => g.name)).toEqual(['Do A']);
+    });
   });
 
   it('não entra na carga inicial (fetchAllData) e não toca em transações', () => {

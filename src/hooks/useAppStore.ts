@@ -3244,15 +3244,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const userId = get().user?.id;
     if (!userId) return;
     const { goalsStatus, goalsUserId } = get();
-    if (goalsStatus === 'loading') return;
+    // `goalsUserId` é o dono do estado/da busca em curso: um fetch pendente de A só barra outro fetch de A.
+    if (goalsStatus === 'loading' && goalsUserId === userId) return;
     if (goalsStatus === 'success' && goalsUserId === userId && !options?.force) return;
 
-    set({ goalsStatus: 'loading', ...(goalsUserId !== userId ? { goals: [], goalsUserId: null } : {}) });
+    set({
+      goalsStatus: 'loading',
+      goalsUserId: userId,
+      ...(goalsUserId !== userId ? { goals: [] } : {}),
+    });
     const { data, error } = await supabase
       .from('financial_goals')
       .select('*')
       .order('created_at', { ascending: true });
-    if (get().user?.id !== userId) return; // trocou de usuário durante a busca
+    // Resposta tardia: se a sessão trocou (ou saiu), ela não escreve nada.
+    if (get().user?.id !== userId) return;
     if (error || !data) {
       console.error('Erro ao buscar objetivos:', error);
       set({ goalsStatus: 'error' });
