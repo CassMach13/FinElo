@@ -396,6 +396,23 @@ export interface Asset {
   updated_at: string;
 }
 
+/**
+ * Objetivo financeiro (planejamento manual). `current_amount` é informado pelo usuário; não há
+ * vínculo com transações, contas ou investimentos. Status é derivado (ver `domain/goals`).
+ */
+export interface FinancialGoal {
+  id: string;
+  user_id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  /** AAAA-MM-DD: último dia do mês escolhido, ou null. */
+  target_date: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AdminCrmUser {
   id: string;
   email: string;
@@ -458,6 +475,7 @@ export type AppView =
   | 'import'
   | 'transactions'
   | 'investments'
+  | 'goals'
   | 'settings'
   | 'help'
   | 'admin'
