@@ -12,6 +12,7 @@ import Card from './../ui/Card';
 import ProgressBar from './../ui/ProgressBar';
 import SummaryCard from './../ui/SummaryCard';
 import NetWorthSummaryCard from '../dashboard/NetWorthSummaryCard';
+import AnnualEvolutionCard from '../dashboard/AnnualEvolutionCard';
 import Select from './../ui/Select';
 import Input from './../ui/Input';
 import CategorySpendChart from './../charts/CategorySpendChart';
@@ -58,6 +59,7 @@ import {
 import type { SummaryCardComparison } from '../ui/SummaryCard';
 import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
 import { getDashboardDataDisplayState } from '../../utils/initialDataLoad';
+import { computeAnnualEvolution } from '../../utils/annualEvolution';
 
 import NewTransactionModal from '../modals/NewTransactionModal';
 import AccountModal from './AccountModal';
@@ -422,6 +424,14 @@ const DashboardView: React.FC = () => {
   } = netWorthSnapshot;
 
   const summary = useMemo(() => computeOperationalSummary(chartData), [chartData]);
+
+  // Evolução anual: ano calendário, independe do período selecionado. A chave do dia refaz o
+  // cálculo na virada do mês sem relógio nem consulta nova.
+  const todayKey = localTodayIso();
+  const annualEvolution = useMemo(
+    () => computeAnnualEvolution({ transactions, categories: allCategories, today: todayKey }),
+    [transactions, allCategories, todayKey]
+  );
   const investmentSummary = useMemo(
     () => computeInvestmentSummary(investmentData),
     [investmentData]
@@ -1230,6 +1240,8 @@ const DashboardView: React.FC = () => {
           )}
         </Card>
         </div>
+
+        <AnnualEvolutionCard model={annualEvolution} />
 
         <NetWorthSummaryCard
           total={totalNetWorth}
