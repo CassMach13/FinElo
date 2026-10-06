@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { classifyAuthInit, shouldDeferStartupAuthEvent } from './utils/authSessionOutcome';
 import { useAppStore } from './hooks/useAppStore';
@@ -7,6 +7,8 @@ import { registrarAtividadeDoUsuario } from './services/userActivityService';
 import { trackAppSessionStarted } from './services/productAnalytics';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { captureAcquisition, cancelOAuthAcquisition } from './domain/auth/acquisitionAttribution';
+import { resolveOAuthAcquisition } from './services/acquisitionAuth';
 
 // Vistas Públicas
 import LandingPage from './components/views/LandingPage';
@@ -21,6 +23,7 @@ import ReloadPrompt from './components/pwa/ReloadPrompt';
 import { GlobalDialog } from './components/ui/GlobalDialog';
 
 const AppContent: React.FC = () => {
+  const acquisitionLocation = useLocation();
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const { fetchAllData, setUser, user } = useAppStore();
@@ -30,6 +33,17 @@ const AppContent: React.FC = () => {
   const initialValidationDone = useRef(false);
 
   const stableFetchAllData = useCallback(fetchAllData, [fetchAllData]);
+
+  useEffect(() => {
+    if (['/', '/login', '/pricing'].includes(acquisitionLocation.pathname)) {
+      captureAcquisition(acquisitionLocation.search);
+    }
+    if (new URLSearchParams(acquisitionLocation.search).has('error')) cancelOAuthAcquisition();
+  }, [acquisitionLocation.pathname, acquisitionLocation.search]);
+
+  useEffect(() => {
+    if (isAuthReady && user?.id) void resolveOAuthAcquisition(supabase.auth);
+  }, [isAuthReady, user?.id]);
 
   useEffect(() => {
     let active = true;
