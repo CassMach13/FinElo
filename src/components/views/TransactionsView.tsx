@@ -81,6 +81,13 @@ import { SkeletonCard } from '../ui/Skeleton';
 import { NATIVE_BANK_CONFIGS, resolveAccountBankConfig } from '../../services/parsers/nativeBankParsers';
 import AccountBalanceCard from '../transactions/AccountBalanceCard';
 import SmartTransactionFiltersPanel from '../transactions/SmartTransactionFiltersPanel';
+import RecurrencesPanel from '../transactions/RecurrencesPanel';
+import {
+  buildRecurrenceFilterPatch,
+  detectRecurrences,
+  getRecurrenceWindow,
+  type RecurrenceCandidate,
+} from '../../domain/recurrences/detectRecurrences';
 import { computeAccountCardDisplay } from '../transactions/accountBalanceCardMetrics';
 import { withCanonicalEconomicBalances } from '../transactions/competenceHistoryEconomicSource';
 import {
@@ -284,6 +291,7 @@ const TransactionsView: React.FC = () => {
     loadTransactionFiltersPanelExpanded()
   );
   const [showOwnerColumn, setShowOwnerColumn] = useState(() => loadFamilyOwnerColumnVisible());
+  const [recurrencesOpen, setRecurrencesOpen] = useState(false);
   const [groupByOwner, setGroupByOwner] = useState(() => loadFamilyGroupByOwner());
   const filtersHydratedRef = useRef<string | null>(null);
 
@@ -2585,6 +2593,34 @@ const TransactionsView: React.FC = () => {
     [applyTransactionFilters, transactionFilters.periodPreset]
   );
 
+  // Possíveis gastos recorrentes: só calcula com o painel aberto, sobre as transações já carregadas.
+  const recurrenceCandidates = useMemo(
+    () =>
+      recurrencesOpen
+        ? detectRecurrences({
+            transactions,
+            categories,
+            accounts,
+            today: localTodayIso(),
+            getOwnerId: familyOwnerContext.getTransactionOwnerId,
+          })
+        : [],
+    [recurrencesOpen, transactions, categories, accounts, familyOwnerContext.getTransactionOwnerId]
+  );
+
+  const handleViewRecurrence = useCallback(
+    (candidate: RecurrenceCandidate) => {
+      applyTransactionFilters(
+        buildRecurrenceFilterPatch(candidate, getRecurrenceWindow(localTodayIso()), {
+          filterByOwner: familyOwnerContext.showAttribution,
+        })
+      );
+      setRecurrencesOpen(false);
+      document.getElementById('transactions-table')?.scrollIntoView?.({ block: 'start' });
+    },
+    [applyTransactionFilters, familyOwnerContext.showAttribution]
+  );
+
   const handleOwnerFilter = useCallback(
     (ownerUserId: string) => {
       applyTransactionFilters({ ownerUserId });
@@ -3262,6 +3298,36 @@ const TransactionsView: React.FC = () => {
           </Card>
         )}
       </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          id="transactions-recurrences-toggle"
+          aria-expanded={recurrencesOpen}
+          aria-controls="transactions-recurrences"
+          onClick={() => setRecurrencesOpen((v) => !v)}
+          className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            recurrencesOpen
+              ? 'bg-accent text-slate-900 border-accent shadow-sm'
+              : 'bg-slate-700/90 text-slate-100 border-white/10 hover:bg-slate-600 hover:text-white'
+          }`}
+        >
+          Recorrências
+        </button>
+      </div>
+
+      {recurrencesOpen && (
+        <RecurrencesPanel
+          candidates={recurrenceCandidates}
+          getOwnerLabel={
+            familyOwnerContext.showAttribution
+              ? (ownerId) => familyOwnerContext.getProfile(ownerId)?.label
+              : undefined
+          }
+          onViewTransactions={handleViewRecurrence}
+          onClose={() => setRecurrencesOpen(false)}
+        />
+      )}
 
       {unassignedTransactionCount > 0 && (
         <div
