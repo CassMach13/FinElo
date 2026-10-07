@@ -444,3 +444,172 @@ describe('fetchTransactions antigo × marcar/desfazer (revisão de identidade)',
     expect(useAppStore.getState().isLoading).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------
+// fetchTransactions: nenhuma resposta de uma sessão antiga (ou de um fetch mais velho) é gravada no store atual.
+// ---------------------------------------------------------------------------------------------------------
+describe('fetchTransactions × sessão/geração', () => {
+  const hold = (snapshot?: Array<Record<string, any>>) => {
+    const rows = (snapshot ?? db().tables.transactions).map((r) => ({ ...r }));
+    let release!: () => void;
+    let fail = false;
+    const gate = new Promise<void>((r) => { release = r; });
+    const original = h.db.supabase.from;
+    let used = false;
+    h.db.supabase.from = (table: string) => {
+      const q = original(table);
+      if (table === 'transactions' && !used) {
+        q.range = () => {
+          used = true;
+          h.db.supabase.from = original;
+          return { then: (res: any, rej: any) => gate.then(() => (fail ? { data: null, error: { message: 'boom' } } : { data: rows, error: null })).then(res, rej) };
+        };
+      }
+      return q;
+    };
+    return { release: () => release(), releaseWithError: () => { fail = true; release(); } };
+  };
+  const ids = () => useAppStore.getState().transactions.map((t) => t.ID_Transacao);
+
+  it('A → B: a resposta tardia de A NÃO entra no estado de B', async () => {
+    seed([txRow('tx-de-A')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never });
+    const held = hold();
+    const pending = useAppStore.getState().fetchTransactions();
+    await useAppStore.getState().signOut();
+    useAppStore.setState({ user: { id: B } as never, transactions: [] as never });
+    held.release();
+    await pending;
+    expect(ids()).toEqual([]);
+  });
+
+  it('logout → o MESMO usuário A loga de novo: o snapshot da sessão antiga também NÃO entra (só o user_id não basta)', async () => {
+    seed([txRow('velho')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never });
+    const held = hold();
+    const pending = useAppStore.getState().fetchTransactions();
+    await useAppStore.getState().signOut();
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never }); // nova sessão, mesmo id
+    held.release();
+    await pending;
+    expect(ids()).toEqual([]);
+  });
+
+  it('troca de usuário SEM signOut (id diferente, geração atual): descarta e não deixa o loading preso', async () => {
+    seed([txRow('tx-de-A')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never });
+    const held = hold();
+    const pending = useAppStore.getState().fetchTransactions();
+    useAppStore.setState({ user: { id: B } as never });
+    held.release();
+    await pending;
+    expect(ids()).toEqual([]);
+    expect(useAppStore.getState().isLoading).toBe(false);
+  });
+
+  it('o fetch MAIS NOVO vence: o #1 que responde depois não sobrescreve o #2', async () => {
+    seed([txRow('v1')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never });
+    const first = hold([txRow('snapshot-velho')]);
+    const p1 = useAppStore.getState().fetchTransactions();
+    db().tables.transactions = [txRow('snapshot-novo')];
+    const p2 = useAppStore.getState().fetchTransactions(); // sem hold: responde já
+    await p2;
+    expect(ids()).toEqual(['snapshot-novo']);
+    first.release();
+    await p1;
+    expect(ids()).toEqual(['snapshot-novo']);
+  });
+
+  it('loading: um fetch stale por geração NÃO libera o isLoading enquanto o mais novo ainda está em voo', async () => {
+    seed([txRow('x')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never });
+    const first = hold([txRow('velho')]);
+    const p1 = useAppStore.getState().fetchTransactions();
+    const second = hold([txRow('novo')]);
+    const p2 = useAppStore.getState().fetchTransactions();
+    expect(useAppStore.getState().isLoading).toBe(true);
+    first.release();
+    await p1; // stale por geração
+    expect(useAppStore.getState().isLoading).toBe(true); // o #2 ainda não chegou
+    expect(ids()).toEqual([]);
+    second.release();
+    await p2;
+    expect(useAppStore.getState().isLoading).toBe(false);
+    expect(ids()).toEqual(['novo']);
+  });
+
+  it('erro de um fetch de sessão antiga: sem alerta, sem mudar o status da sessão nova, sem tocar nas transações', async () => {
+    seed([txRow('x')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never, initialDataLoadStatus: 'idle' });
+    const held = hold();
+    const pending = useAppStore.getState().fetchTransactions();
+    await useAppStore.getState().signOut();
+    useAppStore.setState({ user: { id: B } as never, transactions: [txRow('de-B')] as never, initialDataLoadStatus: 'loading' });
+    const { appAlert } = await import('../../src/hooks/useDialogStore');
+    (appAlert as any).mockClear();
+    held.releaseWithError();
+    await pending;
+    expect(appAlert).not.toHaveBeenCalled();
+    expect(useAppStore.getState().initialDataLoadStatus).toBe('loading');
+    expect(ids()).toEqual(['de-B']);
+  });
+
+  it('erro do fetch ATUAL continua tratado: alerta e status de erro', async () => {
+    seed([txRow('x')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never, initialDataLoadStatus: 'idle' });
+    const held = hold();
+    const pending = useAppStore.getState().fetchTransactions();
+    const { appAlert } = await import('../../src/hooks/useDialogStore');
+    (appAlert as any).mockClear();
+    held.releaseWithError();
+    await pending;
+    expect(appAlert).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().initialDataLoadStatus).toBe('error');
+    expect(useAppStore.getState().isLoading).toBe(false);
+  });
+
+  it('sem usuário não consulta o banco e não deixa isLoading preso', async () => {
+    useAppStore.setState({ user: null as never, transactions: [] as never });
+    db().log = [];
+    await useAppStore.getState().fetchTransactions();
+    expect(db().log.filter((l) => l.table === 'transactions')).toHaveLength(0);
+    expect(useAppStore.getState().isLoading).toBe(false);
+  });
+
+  it('a revisão de mark/undo continua independente e preservada', async () => {
+    seed([txRow('t1')]);
+    localState();
+    const held = hold();
+    const pending = useAppStore.getState().fetchTransactions();
+    await useAppStore.getState().markTransactionAsInternalMovement('t1');
+    const id = useAppStore.getState().transactions[0].economic_event_id;
+    held.release();
+    await pending;
+    expect(useAppStore.getState().transactions[0].economic_event_id).toBe(id);
+  });
+});
+
+describe('signOut e o loading de um fetch em voo', () => {
+  it('logout durante o fetch: o loading é liberado pelo próprio signOut (a resposta antiga é descartada)', async () => {
+    seed([txRow('x')]);
+    useAppStore.setState({ user: { id: A } as never, transactions: [] as never });
+    const original = h.db.supabase.from;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    h.db.supabase.from = (table: string) => {
+      const q = original(table);
+      if (table === 'transactions') q.range = () => ({ then: (res: any, rej: any) => gate.then(() => ({ data: [txRow('x')], error: null })).then(res, rej) });
+      return q;
+    };
+    const pending = useAppStore.getState().fetchTransactions();
+    expect(useAppStore.getState().isLoading).toBe(true);
+    await useAppStore.getState().signOut();
+    expect(useAppStore.getState().isLoading).toBe(false);
+    release();
+    await pending;
+    h.db.supabase.from = original;
+    expect(useAppStore.getState().transactions).toEqual([]);
+    expect(useAppStore.getState().isLoading).toBe(false);
+  });
+});

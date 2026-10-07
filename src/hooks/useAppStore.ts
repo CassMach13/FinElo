@@ -532,6 +532,8 @@ let goalsFetchGeneration = 0;
 let economicEventsFetchGeneration = 0;
 // Avança a cada marcar/desfazer BEM-SUCEDIDO: um fetchTransactions iniciado antes não pode sobrescrever o economic_event_id novo.
 let transactionEconomicIdentityRevision = 0;
+// Cada fetchTransactions leva um número; só o mais novo, da sessão que o iniciou, pode gravar. signOut avança (vale p/ o mesmo usuário relogando).
+let transactionsFetchGeneration = 0;
 
 const isManualOrigin = (t: { Origem?: string | null }) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual';
 
@@ -1736,11 +1738,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     goalsFetchGeneration += 1; // busca de objetivos em voo não vale mais depois do logout
     economicEventsFetchGeneration += 1; // idem para eventos econômicos (vale mesmo se o mesmo usuário logar de novo)
+    transactionsFetchGeneration += 1; // e para o histórico de transações (sessão antiga nunca grava na nova)
     // Limpa o estado da aplicação SEMPRE, independente do erro no servidor
     set({
       user: null,
       atomicImportEnabled: false,
       transactions: [],
+      isLoading: false, // um fetch em voo da sessão que saiu não vai liberar o loading (ele é descartado)
       accounts: [],
       categories: [],
       budgets: [],
@@ -1818,7 +1822,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Transações (agora com Supabase)
   fetchTransactions: async () => {
+    const requestedUserId = get().user?.id;
+    if (!requestedUserId) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true });
+    const generation = ++transactionsFetchGeneration;
     const identityRevisionAtStart = transactionEconomicIdentityRevision;
     try {
       const allTransactions = await collectPaginatedRows<Transaction>(async (from, to) => {
@@ -1829,6 +1839,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           .range(from, to);
         return { data: (data as Transaction[] | null) ?? null, error };
       });
+      // Há um fetch mais novo (ou o logout invalidou este): o responsável pelo loading e pelo snapshot é o outro.
+      if (generation !== transactionsFetchGeneration) return;
+      // Sessão trocada: nada da sessão antiga entra; como esta ainda é a geração atual, libera o loading que ela deixou.
+      if (get().user?.id !== requestedUserId) {
+        set({ isLoading: false });
+        return;
+      }
       if (identityRevisionAtStart !== transactionEconomicIdentityRevision) {
         // Houve marcar/desfazer depois que este snapshot começou: ele não pode reverter a mutação. Não aplica nem prende o loading.
         set({ isLoading: false });
@@ -1836,6 +1853,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       set({ transactions: allTransactions, isLoading: false });
     } catch (error) {
+      // Erro de um fetch que já não vale (sessão antiga ou fetch mais velho): sem alerta, sem status, sem tocar no estado atual.
+      if (generation !== transactionsFetchGeneration || get().user?.id !== requestedUserId) return;
       console.error('Erro ao buscar o histórico completo de transações:', error);
       set((state) => ({
         isLoading: false,
