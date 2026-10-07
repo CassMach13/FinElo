@@ -503,9 +503,9 @@ describe('guardas estáticas da 3A', () => {
     expect(read('src/hooks/useAppStore.ts')).not.toMatch(/transactionSemantics|isEconomicallyNeutral/);
   });
 
-  it('sem badge, sem ação de marcação, sem backfill (3A)', () => {
-    for (const f of ['src/components/views/TransactionsView.tsx', 'src/hooks/useAppStore.ts']) {
-      expect(read(f), f).not.toMatch(/markInternalMovement|unmarkInternalMovement|Marcar como movimentação interna|Movimentação interna/);
+  it('as políticas econômicas e o domínio de semântica não conhecem a marcação manual (3B só cria/remove eventos)', () => {
+    for (const f of ['src/domain/economics/transactionSemantics.ts', 'src/utils/dashboardMetrics.ts', 'src/utils/upcomingEntries.ts']) {
+      expect(read(f), f).not.toMatch(/markTransactionAsInternalMovement|manualEconomicIdentity|Marcar como movimentação interna/);
     }
   });
 });

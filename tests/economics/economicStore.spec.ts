@@ -153,7 +153,9 @@ describe('addTransaction — payload e retorno', () => {
   it('addMultipleTransactions e os RPCs de importação NÃO passam economic_event_id', () => {
     const store = readFileSync(resolve('src/hooks/useAppStore.ts'), 'utf8');
     const start = store.indexOf('addMultipleTransactions: async');
-    expect(store.slice(start, start + 20000)).not.toContain('economic_event_id');
+    const end = store.indexOf('updateTransaction: async', start);
+    expect(end).toBeGreaterThan(start);
+    expect(store.slice(start, end)).not.toContain('economic_event_id');
   });
 });
 
