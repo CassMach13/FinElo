@@ -32,12 +32,34 @@ export const CHART_COLORS = {
 
 export const CURVE_TENSION = 0.15;
 
-const DEFAULT_WIDTH = 640;
+// Largura inicial (antes da medição / SSR): desktop. O ResizeObserver corrige no cliente.
+const DEFAULT_WIDTH = 800;
 const PAD = { top: 16, right: 14, bottom: 26, left: 52 };
 const SURFACE = '#0e1622';
 
 const compactBRL = (value: number): string =>
   new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+
+/** Medidas responsivas (largura MEDIDA do gráfico): linha atual 2px até 760, tooltip 194/210 e topo 15/28. */
+export function chartMetrics(width: number): {
+  height: number;
+  currentStroke: number;
+  glowStroke: number;
+  tooltipWidth: number;
+  tooltipTop: number;
+  tooltipPadding: number;
+} {
+  const mobile = width <= 760;
+  const small = width < 520;
+  return {
+    height: small ? 245 : Math.min(310, Math.max(245, Math.round(width * 0.4))),
+    currentStroke: mobile ? 2 : 2.65,
+    glowStroke: mobile ? 4 : 5,
+    tooltipWidth: small ? 194 : 210,
+    tooltipTop: small ? 15 : 28,
+    tooltipPadding: small ? 11 : 14,
+  };
+}
 
 /** Teto "redondo" para o eixo Y e 4 divisões. */
 export function niceAxis(max: number): { top: number; ticks: number[] } {
@@ -165,6 +187,12 @@ export function monthChangePercent(month: AnnualEvolutionMonth, kind: 'income' |
   return computeAnnualChangePercent(month[cur], month[prev]);
 }
 
+const PeriodDash: React.FC<{ dashed?: boolean }> = ({ dashed }) => (
+  <svg width="14" height="4" aria-hidden="true" className="shrink-0">
+    <line x1="1" y1="2" x2="13" y2="2" stroke="#cbd5e1" strokeWidth="1.4" strokeLinecap="round" strokeDasharray={dashed ? '2.5 2.5' : undefined} />
+  </svg>
+);
+
 const TooltipRow: React.FC<{ label: string; color: string; month: AnnualEvolutionMonth; keyName: SeriesKey }> = ({ label, color, month, keyName }) => (
   <div className="flex items-center justify-between gap-2">
     <dt className="flex items-center gap-1.5 text-gray-400">
@@ -188,16 +216,24 @@ export const MonthTooltipBody: React.FC<{
       <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] capitalize text-white">
         {MONTH_LONG[activeMonth.month - 1]}
       </p>
-      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">Ano atual · {currentYear}</p>
+      <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">
+        <PeriodDash />
+        Ano atual · {currentYear}
+      </p>
       <dl className="mb-2 mt-1 space-y-1 tabular-nums">
         <TooltipRow label="Entradas" color={CHART_COLORS.incomeCurrent} month={activeMonth} keyName="incomeCurrent" />
         <TooltipRow label="Saídas" color={CHART_COLORS.expenseCurrent} month={activeMonth} keyName="expenseCurrent" />
       </dl>
-      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">Ano anterior · {previousYear}</p>
-      <dl className="mt-1 space-y-1 tabular-nums">
-        <TooltipRow label="Entradas" color={CHART_COLORS.incomePrevious} month={activeMonth} keyName="incomePrevious" />
-        <TooltipRow label="Saídas" color={CHART_COLORS.expensePrevious} month={activeMonth} keyName="expensePrevious" />
-      </dl>
+      <div style={{ opacity: 0.72 }} data-tooltip-previous="">
+        <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">
+          <PeriodDash dashed />
+          Ano anterior · {previousYear}
+        </p>
+        <dl className="mt-1 space-y-1 tabular-nums">
+          <TooltipRow label="Entradas" color={CHART_COLORS.incomePrevious} month={activeMonth} keyName="incomePrevious" />
+          <TooltipRow label="Saídas" color={CHART_COLORS.expensePrevious} month={activeMonth} keyName="expensePrevious" />
+        </dl>
+      </div>
       {incomeChange !== null && (
         <p className="mt-2 flex items-center justify-between border-t border-white/5 pt-2 text-[10px] text-gray-400">
           <span>Variação das entradas</span>
@@ -208,8 +244,14 @@ export const MonthTooltipBody: React.FC<{
   );
 };
 
-const LegendLine: React.FC<{ color: string; dashed?: boolean }> = ({ color, dashed }) => (
-  <svg width="20" height="8" aria-hidden="true" className="shrink-0">
+const LegendLine: React.FC<{ color: string; dashed?: boolean; glow?: boolean }> = ({ color, dashed, glow }) => (
+  <svg
+    width="20"
+    height="8"
+    aria-hidden="true"
+    className={`shrink-0${glow ? ' min-[761px]:[filter:drop-shadow(0_0_3px_var(--glow))]' : ''}`}
+    style={glow ? ({ '--glow': `${color}33` } as React.CSSProperties) : undefined}
+  >
     <line
       x1="1"
       y1="4"
@@ -224,27 +266,30 @@ const LegendLine: React.FC<{ color: string; dashed?: boolean }> = ({ color, dash
   </svg>
 );
 
-/** Legenda agrupada: MÉTRICA (cor) | PERÍODO (traço). Os anos vêm do modelo. */
+/**
+ * Legenda agrupada: MÉTRICA (cor) | PERÍODO (traço). Os anos vêm do modelo. Desktop (> 760px): solta, com os
+ * títulos dos grupos. Mobile: caixa compacta, sem os títulos.
+ */
 export const ChartLegend: React.FC<{ currentYear: number; previousYear: number }> = ({ currentYear, previousYear }) => (
   <div
-    className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-1.5 text-[11px] text-gray-300"
+    className="mt-3 flex w-full flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-lg border border-white/[0.07] bg-[rgba(12,18,29,.28)] px-2.5 py-[9px] text-[11px] text-gray-300 min-[761px]:mt-0 min-[761px]:w-auto min-[761px]:rounded-none min-[761px]:border-0 min-[761px]:bg-transparent min-[761px]:p-0"
     role="list"
     aria-label="Legenda do gráfico"
   >
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1" role="listitem">
-      <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">Métrica</span>
+      <span className="hidden text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500 min-[761px]:inline">Métrica</span>
       <span className="flex items-center gap-1.5">
-        <LegendLine color={CHART_COLORS.incomeCurrent} />
+        <LegendLine color={CHART_COLORS.incomeCurrent} glow />
         Entradas
       </span>
       <span className="flex items-center gap-1.5">
-        <LegendLine color={CHART_COLORS.expenseCurrent} />
+        <LegendLine color={CHART_COLORS.expenseCurrent} glow />
         Saídas
       </span>
     </div>
-    <span aria-hidden="true" className="hidden h-4 w-px bg-white/10 sm:block" />
+    <span aria-hidden="true" className="hidden h-4 w-px bg-white/10 min-[761px]:block" />
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1" role="listitem">
-      <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">Período</span>
+      <span className="hidden text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500 min-[761px]:inline">Período</span>
       <span className="flex items-center gap-1.5">
         <LegendLine color="#cbd5e1" />
         {currentYear}
@@ -275,10 +320,10 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
     return () => observer.disconnect();
   }, []);
 
-  const height = width < 520 ? 245 : Math.min(310, Math.max(245, Math.round(width * 0.4)));
+  const { height, currentStroke, glowStroke, tooltipWidth, tooltipTop, tooltipPadding } = chartMetrics(width);
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
-  const TOOLTIP_WIDTH = width < 520 ? 194 : 210;
+  const TOOLTIP_WIDTH = tooltipWidth;
 
   const { top, ticks } = useMemo(
     () =>
@@ -339,8 +384,8 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
   ];
 
   return (
-    <div className="min-w-0 rounded-2xl border border-slate-400/10 bg-[#0c121d]/50 p-3 sm:p-4">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+    <div className="mt-[19px] min-w-0 min-[761px]:mt-[22px]">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-0 min-[761px]:gap-y-2">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Gráfico</p>
           <h4 className="text-sm font-semibold text-gray-100">Comparativo mensal</h4>
@@ -411,7 +456,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
               d={path(s.key)}
               fill="none"
               stroke={s.color}
-              strokeWidth="5"
+              strokeWidth={glowStroke}
               strokeLinecap="round"
               strokeLinejoin="round"
               filter={`url(#ae-blur-${uid})`}
@@ -431,7 +476,8 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
               strokeDasharray="3.5 5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity="0.45"
+              opacity={hovering ? 0.26 : 0.45}
+              className="transition-opacity duration-200 motion-reduce:transition-none"
             />
           ))}
 
@@ -441,7 +487,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
               d={path(s.key)}
               fill="none"
               stroke={s.color}
-              strokeWidth="2.65"
+              strokeWidth={currentStroke}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -526,11 +572,12 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
         {activeMonth && (
           <div
             role="status"
-            className="pointer-events-none absolute top-1 z-10 rounded-xl border text-xs backdrop-blur-[10px]"
+            className="pointer-events-none absolute z-10 rounded-xl border text-xs backdrop-blur-[10px]"
             style={{
               left: tooltipLeft,
+              top: tooltipTop,
               width: TOOLTIP_WIDTH,
-              padding: width < 520 ? 11 : 14,
+              padding: tooltipPadding,
               borderColor: 'rgba(113,137,166,0.30)',
               background: 'linear-gradient(145deg, rgba(26,38,55,.98), rgba(11,18,29,.99))',
               boxShadow: '0 18px 42px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.035)',

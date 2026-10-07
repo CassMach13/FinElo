@@ -9,6 +9,7 @@ import AnnualEvolutionChart, {
   MonthTooltipBody,
   buildSmoothGappedArea,
   buildSmoothGappedPath,
+  chartMetrics,
   findPeakIndex,
   monthChangePercent,
 } from '../../src/components/charts/AnnualEvolutionChart';
@@ -248,5 +249,124 @@ describe('guardas estáticas: nenhuma biblioteca de gráficos', () => {
 
   it('a matemática do modelo continua fora do componente (sem tocar transações/Supabase)', () => {
     for (const src of [chart, card]) expect(src).not.toMatch(/supabase|fetch\(|localStorage|economic_event|transactionSemantics/);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Passe de fidelidade ao código real do Figma (só layout/estilo; nenhuma expectativa numérica).
+// ---------------------------------------------------------------------------------------------------------
+describe('fidelidade Figma — resumo', () => {
+  const card = readFileSync(resolve('src/components/dashboard/AnnualEvolutionCard.tsx'), 'utf8');
+  const model: AnnualEvolution = {
+    status: 'eligible', currentYear: 2031, previousYear: 2030, lastMonth: 3,
+    months: [month(1, { incomeCurrent: 10, expenseCurrent: 4 }), month(2, { incomeCurrent: 12, expenseCurrent: 5 }), month(3, { incomeCurrent: 14, expenseCurrent: 6 })],
+    pairedMonths: [1, 2, 3],
+    totals: { incomeCurrent: 36, incomePrevious: 18, expenseCurrent: 15, expensePrevious: 9 },
+    incomeChangePercent: 100, expenseChangePercent: 66.7,
+  };
+  const html = renderToStaticMarkup(React.createElement(AnnualEvolutionCard, { model }));
+
+  it('A. cada métrica é um grid de duas colunas (conteúdo | variação), com o título ocupando a linha toda', () => {
+    expect(html.match(/data-summary-metric/g)).toHaveLength(2);
+    expect(card).toContain('sm:grid-cols-[minmax(0,1fr)_auto]');
+    expect(card).toContain('gap-x-[18px] gap-y-[7px]');
+    expect(card).toContain('px-[17px] pb-[14px] pt-[15px]');
+    expect(card).toContain('col-span-full');
+    // a variação é uma coluna própria, alinhada embaixo/à direita no desktop
+    expect(card).toMatch(/data-metric-change=""\s+className="[^"]*sm:self-end sm:justify-end/);
+    // atual e anterior lado a lado (flex com baseline), sem empilhar tudo verticalmente
+    expect(card).toMatch(/flex min-w-0 flex-wrap items-baseline gap-x-\[clamp\(14px,3vw,36px\)\]/);
+  });
+
+  it('valor atual com o tamanho do Figma (clamp 17–21px), tabular e branco', () => {
+    expect(card).toContain('text-[length:clamp(17px,1.55vw,21px)]');
+    expect(card).not.toContain('text-2xl');
+    expect(card).toMatch(/font-bold leading-tight text-white tabular-nums/);
+  });
+
+  it('barra de destaque cobre a altura inteira e o ponto tem anel de ~13% da cor', () => {
+    expect(card).toContain('absolute inset-y-0 left-0 w-0.5');
+    expect(card).not.toContain('inset-y-3');
+    expect(card).toContain('h-[5px] w-[5px]');
+    expect(card).toContain('boxShadow: `0 0 0 3px ${color}21`');
+  });
+
+  it('anos e variação continuam vindo do modelo', () => {
+    expect(html).toContain('vs. 2030');
+    expect(html).toContain('no período');
+    expect(html).not.toMatch(/2026|2025/);
+  });
+});
+
+describe('fidelidade Figma — gráfico integrado, legenda, opacidades, traço e tooltip', () => {
+  const chartSrc = readFileSync(resolve('src/components/charts/AnnualEvolutionChart.tsx'), 'utf8');
+  const months = [month(1, { incomeCurrent: 10, expenseCurrent: 5 }), month(2, { incomeCurrent: 20, expenseCurrent: 8 }), month(3, { incomeCurrent: 15, expenseCurrent: 9 })];
+  const html = render(months);
+
+  it('B. o gráfico NÃO é um "card dentro do card": sem borda, fundo nem padding próprios', () => {
+    const wrapper = /^<div class="([^"]*)"/.exec(html)![1];
+    expect(wrapper).not.toMatch(/rounded|border|bg-|p-3|p-4|sm:p-4/);
+    expect(wrapper).toContain('mt-[19px]');
+    expect(wrapper).toContain('min-[761px]:mt-[22px]');
+    expect(chartSrc).not.toMatch(/rounded-2xl border border-slate-400\/10 bg-\[#0c121d\]\/50/);
+  });
+
+  it('C. ano anterior: 0,45 normal e 0,26 com o gráfico ativo', () => {
+    expect(html).toContain('opacity="0.45"');
+    expect(html).not.toContain('opacity="0.26"');
+    expect(chartSrc).toContain('opacity={hovering ? 0.26 : 0.45}');
+  });
+
+  it('D. traço do ano atual: 2px até 760px de largura, 2,65px acima; vem de chartMetrics', () => {
+    expect(chartMetrics(390).currentStroke).toBe(2);
+    expect(chartMetrics(760).currentStroke).toBe(2);
+    expect(chartMetrics(761).currentStroke).toBe(2.65);
+    expect(chartMetrics(1100).currentStroke).toBe(2.65);
+    expect(chartSrc).toContain('strokeWidth={currentStroke}');
+    expect(chartSrc).not.toContain('strokeWidth="2.65"');
+    expect(chartMetrics(390).glowStroke).toBeLessThan(chartMetrics(1100).glowStroke);
+  });
+
+  it('E. tooltip: topo 28px no desktop e 15px no mobile (não colado ao topo)', () => {
+    expect(chartMetrics(900).tooltipTop).toBe(28);
+    expect(chartMetrics(519).tooltipTop).toBe(15);
+    expect(chartMetrics(900).tooltipWidth).toBe(210);
+    expect(chartMetrics(519).tooltipWidth).toBe(194);
+    expect(chartSrc).toContain('top: tooltipTop');
+    expect(chartSrc).not.toMatch(/absolute top-1 /);
+  });
+
+  it('E2. tooltip: seção do ano anterior a ~0,72 e traços sólido/tracejado nos títulos', () => {
+    const body = renderToStaticMarkup(React.createElement(MonthTooltipBody, { month: months[1], currentYear: 2026, previousYear: 2025 }));
+    expect(body).toContain('data-tooltip-previous');
+    expect(body).toContain('opacity:0.72');
+    expect(body).toMatch(/stroke-dasharray="2.5 2.5"/);
+    expect(body).toContain('Ano atual · 2026');
+    expect(body).toContain('Ano anterior · 2025');
+  });
+
+  it('F. legenda: caixa compacta no mobile (com borda e fundo) e solta no desktop; títulos só no desktop', () => {
+    const legend = /<div class="([^"]*)" role="list" aria-label="Legenda do gráfico">/.exec(html)![1];
+    expect(legend).toMatch(/\brounded-lg\b/);
+    expect(legend).toMatch(/\bborder\b/);
+    expect(legend).toContain('bg-[rgba(12,18,29,.28)]');
+    expect(legend).toContain('py-[9px]');
+    expect(legend).toContain('min-[761px]:border-0');
+    expect(legend).toContain('min-[761px]:bg-transparent');
+    expect(legend).toContain('min-[761px]:p-0');
+    expect(legend).toContain('min-[761px]:rounded-none');
+    expect(html).toMatch(/<span class="hidden [^"]*min-\[761px\]:inline">Métrica<\/span>/);
+    expect(html).toMatch(/<span class="hidden [^"]*min-\[761px\]:inline">Período<\/span>/);
+  });
+
+  it('F2. swatches de Entradas/Saídas com brilho discreto (só desktop)', () => {
+    expect(html).toContain('min-[761px]:[filter:drop-shadow(0_0_3px_var(--glow))]');
+    expect(html).toContain('--glow:#49d2c733');
+  });
+
+  it('as curvas, os buracos e os rótulos de pico continuam como aprovados', () => {
+    expect(chartSrc).toContain('export const CURVE_TENSION = 0.15;');
+    expect(chartSrc).toContain('buildSmoothGappedPath(pointsOf(key), bounds)');
+    expect(html).toContain('data-peak-label="income"');
   });
 });

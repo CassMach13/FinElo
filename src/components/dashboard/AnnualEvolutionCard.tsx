@@ -38,21 +38,41 @@ const SummaryBlock: React.FC<{
   current: number;
   percent: number | null;
 }> = ({ label, color, previousYear, currentYear, previous, current, percent }) => (
-  <div className="relative min-w-0 overflow-hidden rounded-[13px] border border-slate-400/[0.12] bg-[rgba(12,18,29,.48)] py-3.5 pl-5 pr-4">
-    <span aria-hidden="true" className="absolute inset-y-3 left-0 w-0.5 rounded-full" style={{ backgroundColor: color }} />
-    <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-300">
-      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+  <div
+    data-summary-metric=""
+    className="relative grid min-w-0 grid-cols-1 gap-x-[18px] gap-y-[7px] overflow-hidden rounded-[13px] border border-slate-400/[0.12] bg-[rgba(12,18,29,.48)] px-[17px] pb-[14px] pt-[15px] sm:grid-cols-[minmax(0,1fr)_auto]"
+  >
+    <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5" style={{ backgroundColor: color }} />
+    <p className="col-span-full flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-300">
+      <span
+        aria-hidden="true"
+        className="h-[5px] w-[5px] rounded-full"
+        style={{ backgroundColor: color, boxShadow: `0 0 0 3px ${color}21` }}
+      />
       {label}
     </p>
-    <p className="mt-3 text-[11px] font-semibold text-gray-400 tabular-nums">{currentYear}</p>
-    <p className="break-words text-2xl font-bold leading-tight text-white tabular-nums" title={String(currentYear)}>
-      {formatCurrency(current)}
-    </p>
-    <p className="mt-2 text-[11px] text-gray-500 tabular-nums">vs. {previousYear}</p>
-    <p className="break-words text-sm text-gray-300 tabular-nums" title={String(previousYear)}>
-      {formatCurrency(previous)}
-    </p>
-    <p className="mt-2.5 flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums" style={{ color: percent === null ? undefined : color }}>
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-[clamp(14px,3vw,36px)] gap-y-2">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold text-gray-400 tabular-nums">{currentYear}</p>
+        <p
+          className="break-words text-[length:clamp(17px,1.55vw,21px)] font-bold leading-tight text-white tabular-nums"
+          title={String(currentYear)}
+        >
+          {formatCurrency(current)}
+        </p>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] text-gray-500 tabular-nums">vs. {previousYear}</p>
+        <p className="break-words text-sm text-gray-300 tabular-nums" title={String(previousYear)}>
+          {formatCurrency(previous)}
+        </p>
+      </div>
+    </div>
+    <p
+      data-metric-change=""
+      className="flex flex-wrap items-center gap-[5px] text-xs tabular-nums sm:self-end sm:justify-end"
+      style={{ color: percent === null ? undefined : color }}
+    >
       {percent === null ? (
         <>
           <span className="font-semibold text-gray-300">—</span>
@@ -130,7 +150,7 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
         />
       </div>
 
-      <div className="mt-4">
+      <div>
         <AnnualEvolutionChart months={model.months} currentYear={model.currentYear} previousYear={model.previousYear} />
       </div>
 
