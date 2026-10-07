@@ -5,6 +5,7 @@ import {
   Transaction,
   Category,
   Budget,
+  BudgetMonth,
   MappingRule,
   ImportConfig,
   Account,
@@ -239,6 +240,11 @@ interface AppState {
   accounts: Account[];
   categories: Category[];
   budgets: Budget[];
+  budgetMonths: BudgetMonth[];
+  /** Pedido transitório (ex.: Configurações) para abrir o Gerenciar orçamento na Dashboard. */
+  budgetManagerRequested: boolean;
+  requestBudgetManager: () => void;
+  clearBudgetManagerRequest: () => void;
   mappingRules: MappingRule[];
   importConfigs: ImportConfig[];
   importLogs: ImportLog[]; // New state
@@ -318,6 +324,11 @@ interface AppState {
   addBudget: (budget: Omit<Budget, 'id' | 'user_id'>) => Promise<void>;
   updateBudget: (budget: Budget) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
+  // Orçamento mensal (Budget V2). Estado local só muda depois do sucesso no banco.
+  fetchBudgetMonths: () => Promise<void>;
+  createBudgetMonths: (rows: Array<{ Categoria: string; year: number; month: number; amount: number }>) => Promise<boolean>;
+  updateBudgetMonthAmount: (id: string, amount: number) => Promise<boolean>;
+  deleteBudgetMonth: (id: string) => Promise<boolean>;
 
   // CRUD for Mapping Rules
   fetchMappingRules: () => Promise<void>;
@@ -500,6 +511,21 @@ const normalizeGoalRow = (row: unknown): FinancialGoal => {
  */
 let goalsFetchGeneration = 0;
 
+/** `numeric` pode chegar como string: normaliza sempre. */
+const normalizeBudgetMonthRow = (row: unknown): BudgetMonth => {
+  const r = row as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    user_id: String(r.user_id),
+    Categoria: String(r.Categoria ?? ''),
+    year: Number(r.year) || 0,
+    month: Number(r.month) || 0,
+    amount: Number(r.amount) || 0,
+    created_at: String(r.created_at ?? ''),
+    updated_at: String(r.updated_at ?? ''),
+  };
+};
+
 /** Atualiza um objetivo e só então o estado local (sem otimismo silencioso); erro avisa o usuário. */
 async function mutateGoal(
   set: (fn: (state: AppState) => Partial<AppState>) => void,
@@ -527,6 +553,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   accounts: [],
   categories: [],
   budgets: [],
+  budgetMonths: [],
+  budgetManagerRequested: false,
+  requestBudgetManager: () => set({ budgetManagerRequested: true }),
+  clearBudgetManagerRequest: () => set({ budgetManagerRequested: false }),
   mappingRules: [],
   importConfigs: [],
   importLogs: [],
@@ -1681,6 +1711,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       accounts: [],
       categories: [],
       budgets: [],
+      budgetMonths: [],
+      budgetManagerRequested: false,
       mappingRules: [],
       importConfigs: [],
       importLogs: [],
@@ -1712,6 +1744,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         get().fetchAccounts(),
         get().fetchCategories(),
         get().fetchBudgets(),
+        get().fetchBudgetMonths(),
         get().fetchMappingRules(),
         get().fetchImportConfigs(),
         get().fetchPendingInvites(),
@@ -2666,6 +2699,53 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { data, error } = await supabase.from('budgets').update(fieldsToUpdate).eq('id', id).select();
     if (error) console.error('Erro ao atualizar orçamento:', error);
     else if (data) set((state) => ({ budgets: state.budgets.map(b => b.id === id ? data[0] as Budget : b) }));
+  },
+  fetchBudgetMonths: async () => {
+    const { data, error } = await supabase.from('budget_months').select('*');
+    if (error || !data) {
+      console.error('Erro ao buscar orçamentos mensais:', error);
+      return;
+    }
+    set({ budgetMonths: (data as unknown[]).map(normalizeBudgetMonthRow) });
+  },
+  createBudgetMonths: async (rows) => {
+    if (rows.length === 0) return true;
+    // O dono é SEMPRE o usuário autenticado: ninguém cria linha em nome de outro.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data, error } = await supabase
+      .from('budget_months')
+      .insert(rows.map((r) => ({ user_id: user.id, Categoria: r.Categoria, year: r.year, month: r.month, amount: r.amount })))
+      .select();
+    if (error || !data) {
+      console.error('Erro ao criar orçamento mensal:', error);
+      await appAlert('Não foi possível salvar o orçamento do mês. Tente novamente.', 'Orçamento', 'danger');
+      return false;
+    }
+    set((state) => ({ budgetMonths: [...state.budgetMonths, ...(data as unknown[]).map(normalizeBudgetMonthRow)] }));
+    return true;
+  },
+  updateBudgetMonthAmount: async (id, amount) => {
+    // Só `amount` muda: dono, categoria, ano e mês são imutáveis (também no banco).
+    const { data, error } = await supabase.from('budget_months').update({ amount }).eq('id', id).select();
+    if (error || !data?.[0]) {
+      console.error('Erro ao atualizar orçamento mensal:', error);
+      await appAlert('Não foi possível atualizar o orçamento do mês. Tente novamente.', 'Orçamento', 'danger');
+      return false;
+    }
+    const updated = normalizeBudgetMonthRow(data[0]);
+    set((state) => ({ budgetMonths: state.budgetMonths.map((b) => (b.id === id ? updated : b)) }));
+    return true;
+  },
+  deleteBudgetMonth: async (id) => {
+    const { error } = await supabase.from('budget_months').delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao excluir orçamento mensal:', error);
+      await appAlert('Não foi possível remover o orçamento do mês. Tente novamente.', 'Orçamento', 'danger');
+      return false;
+    }
+    set((state) => ({ budgetMonths: state.budgetMonths.filter((b) => b.id !== id) }));
+    return true;
   },
   deleteBudget: async (budgetId) => {
     const { error } = await supabase.from('budgets').delete().eq('id', budgetId);
