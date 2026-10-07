@@ -1,11 +1,10 @@
 import type { Category, Transaction } from '../types';
-import { isDemoTransaction } from '../domain/onboarding/firstSteps';
+import { classifyTransaction, isAnalysisOperationalTransaction } from '../domain/economics/transactionSemantics';
 import { computeAnnualChangePercent } from './annualEvolution';
 import {
   buildCategorySets,
   computeOperationalSummary,
   getTransactionEffectiveDate,
-  toOperationalChartData,
 } from './dashboardMetrics';
 import { localTodayIso } from './dateOnly';
 
@@ -63,9 +62,6 @@ export interface MonthlyChange {
   totalExpenseDelta: number;
 }
 
-const isCountable = (t: Transaction): boolean =>
-  (t.Tipo === 'Renda' || t.Tipo === 'Despesa') && Number.isFinite(t.Valor) && t.Valor !== 0;
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const sideOf = (current: number, previous: number): MonthlyChangeSide => ({
@@ -94,9 +90,8 @@ export function computeMonthlyChange(input: {
 }): MonthlyChange {
   const { current, previous } = getComparedMonths(input.today);
   const categorySets = buildCategorySets(input.categories);
-  const operational = toOperationalChartData(
-    input.transactions.filter((t) => !isDemoTransaction(t) && isCountable(t)),
-    categorySets
+  const operational = input.transactions.filter((t) =>
+    isAnalysisOperationalTransaction(classifyTransaction(t, { categorySets }))
   );
 
   const key = (y: number, m: number) => y * 100 + m;

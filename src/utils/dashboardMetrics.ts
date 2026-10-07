@@ -1,11 +1,16 @@
 import type { Category, Transaction } from '../types';
 import type { DateRange } from './dashboardPeriod';
 import { parseDateOnlyLocal } from './dateOnly';
+import {
+  buildCategorySets,
+  isDashboardOperationalTransaction,
+  isInvestmentTransaction,
+  classifyTransaction,
+  type CategorySets,
+} from '../domain/economics/transactionSemantics';
 
-export interface CategorySets {
-  ambos: Set<string>;
-  investment: Set<string>;
-}
+export { buildCategorySets };
+export type { CategorySets };
 
 export interface OperationalSummary {
   income: number;
@@ -23,15 +28,6 @@ export interface InvestmentSummary {
 export interface DashboardPeriodMetrics {
   operational: OperationalSummary;
   investment: InvestmentSummary;
-}
-
-export function buildCategorySets(categories: Category[]): CategorySets {
-  return {
-    ambos: new Set(categories.filter((c) => c.Tipo === 'Ambos').map((c) => c.Nome_Categoria)),
-    investment: new Set(
-      categories.filter((c) => c.is_investment).map((c) => c.Nome_Categoria)
-    ),
-  };
 }
 
 export function getTransactionEffectiveDate(transaction: Transaction): Date {
@@ -58,17 +54,14 @@ export function toOperationalChartData(
   filtered: Transaction[],
   categorySets: CategorySets
 ): Transaction[] {
-  return filtered.filter(
-    (t) =>
-      !categorySets.ambos.has(t.Categoria) && !categorySets.investment.has(t.Categoria)
-  );
+  return filtered.filter((t) => isDashboardOperationalTransaction(classifyTransaction(t, { categorySets })));
 }
 
 export function toInvestmentData(
   filtered: Transaction[],
   categorySets: CategorySets
 ): Transaction[] {
-  return filtered.filter((t) => categorySets.investment.has(t.Categoria));
+  return filtered.filter((t) => isInvestmentTransaction(classifyTransaction(t, { categorySets })));
 }
 
 export function computeOperationalSummary(chartData: Transaction[]): OperationalSummary {

@@ -1,10 +1,9 @@
 import type { Category, Transaction } from '../types';
-import { isDemoTransaction } from '../domain/onboarding/firstSteps';
+import { classifyTransaction, isAnalysisOperationalTransaction } from '../domain/economics/transactionSemantics';
 import {
   buildCategorySets,
   computeOperationalSummary,
   getTransactionEffectiveDate,
-  toOperationalChartData,
 } from './dashboardMetrics';
 import { localTodayIso } from './dateOnly';
 import { computePeriodDelta } from './periodComparison';
@@ -79,9 +78,6 @@ export function computeAnnualChangePercent(current: number, previous: number): n
 }
 
 /** Lançamento que pode somar: tipo do contrato, valor finito e diferente de zero. */
-const isCountable = (t: Transaction): boolean =>
-  (t.Tipo === 'Renda' || t.Tipo === 'Despesa') && Number.isFinite(t.Valor) && t.Valor !== 0;
-
 export function computeAnnualEvolution(input: {
   transactions: Transaction[];
   categories: Category[];
@@ -107,8 +103,9 @@ export function computeAnnualEvolution(input: {
   }
 
   const categorySets = buildCategorySets(input.categories);
-  const real = input.transactions.filter((t) => !isDemoTransaction(t) && isCountable(t));
-  const operational = toOperationalChartData(real, categorySets);
+  const operational = input.transactions.filter((t) =>
+    isAnalysisOperationalTransaction(classifyTransaction(t, { categorySets }))
+  );
 
   const current: Transaction[][] = Array.from({ length: lastMonth }, () => []);
   const previous: Transaction[][] = Array.from({ length: lastMonth }, () => []);

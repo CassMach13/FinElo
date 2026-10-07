@@ -1,5 +1,5 @@
 import type { Budget, BudgetMonth, Category, Transaction } from '../../types';
-import { isDemoTransaction } from '../onboarding/firstSteps';
+import { classifyTransaction, isBudgetSpendTransaction } from '../economics/transactionSemantics';
 import { getTransactionEffectiveDate } from '../../utils/dashboardMetrics';
 import type { DateRange } from '../../utils/dashboardPeriod';
 
@@ -182,8 +182,7 @@ export function computeBudgetLines(input: {
   const endMs = range.end.getTime();
   const spentCents = new Map<string, number>();
   for (const t of transactions) {
-    if (t.Tipo !== 'Despesa' || !Number.isFinite(t.Valor) || t.Valor === 0) continue;
-    if (isDemoTransaction(t)) continue;
+    if (!isBudgetSpendTransaction(classifyTransaction(t))) continue;
     const date = getTransactionEffectiveDate(t);
     const ms = date.getTime();
     if (Number.isNaN(ms) || ms < startMs || ms > endMs) continue;
