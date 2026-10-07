@@ -385,7 +385,9 @@ describe('AnnualEvolutionCard — renderização', () => {
       expect(html).toContain(label);
     }
     expect(html).toContain('stroke-dasharray');
-    expect(html.match(/<path d="M[^"]*" fill="none"/g)?.length).toBe(4);
+    // redesign: 2 linhas atuais (2.65, sólidas) + 2 anteriores (1.3, tracejadas) + 2 brilhos atrás das atuais
+    expect(html.match(/<path d="M[^"]*" fill="none" stroke="#(49d2c7|ff7673)" stroke-width="2.65"/g)?.length).toBe(2);
+    expect(html.match(/<path d="M[^"]*" fill="none" stroke="#(6dcec8|ff9794)" stroke-width="1.3" stroke-dasharray="3.5 5"/g)?.length).toBe(2);
   });
 
   it('sem NaN, Infinity ou linguagem de diagnóstico', () => {
@@ -534,24 +536,29 @@ describe('Evolução anual — "sem dados" é diferente de zero', () => {
   const html = renderToStaticMarkup(
     React.createElement(AnnualEvolutionChart, { months: model().months, currentYear: 2026, previousYear: 2025 })
   );
-  const paths = [...html.matchAll(/<path d="([^"]*)" fill="none"/g)].map((m) => m[1]);
+  const pathOf = (color: string, width: string) =>
+    new RegExp(`<path d="([^"]*)" fill="none" stroke="${color}" stroke-width="${width}"`).exec(html)![1];
+  const paths = [pathOf('#6dcec8', '1.3'), pathOf('#ff9794', '1.3'), pathOf('#49d2c7', '2.65'), pathOf('#ff7673', '2.65')];
 
   it('F. a linha do ano anterior termina em janeiro, não cruza fevereiro e recomeça em março', () => {
     // ordem do componente: entradas 2025, saídas 2025, entradas 2026, saídas 2026
     expect(paths).toHaveLength(4);
     for (const previous of paths.slice(0, 2)) {
-      expect(previous).toMatch(/^M[\d.]+,[\d.]+ M[\d.]+,[\d.]+L[\d.]+,[\d.]+$/);
+      // janeiro isolado; mês sem dados abre novo M; março→abril é UMA curva (C) e nada atravessa o buraco
+      expect(previous).toMatch(/^M[\d.]+,[\d.]+ M[\d.]+,[\d.]+ C[\d.]+,[\d.]+ [\d.]+,[\d.]+ [\d.]+,[\d.]+$/);
+      expect(previous.match(/M/g)).toHaveLength(2);
     }
-    // ano atual tem os quatro meses: uma linha contínua, sem quebra
+    // ano atual tem os quatro meses: uma linha contínua, sem quebra, só curvas
     for (const current of paths.slice(2)) {
       expect(current).not.toContain(' M');
-      expect(current.match(/L/g)).toHaveLength(3);
+      expect(current).not.toContain('L');
+      expect(current.match(/C/g)).toHaveLength(3);
     }
   });
 
   it('F2. sem ponto plotado em fevereiro para o ano anterior', () => {
-    // 4 meses × 2 séries do ano atual + 3 meses × 2 séries do anterior
-    expect(html.match(/<circle /g)).toHaveLength(14);
+    // sem pontos permanentes: os marcadores só existem no mês ativo (hover/foco)
+    expect(html.match(/<circle /g)).toBeNull();
   });
 
   it('G. tooltip mostra "Sem dados" no ano ausente e valores no ano com dados', () => {
@@ -562,9 +569,13 @@ describe('Evolução anual — "sem dados" é diferente de zero', () => {
     expect(out.match(/Sem dados/g)).toHaveLength(2);
     expect(out).toContain(formatCurrency(1000));
     expect(out).toContain(formatCurrency(400));
-    for (const label of ['Entradas 2025', 'Saídas 2025']) {
-      expect(out).toMatch(new RegExp(`${label}</dt><dd[^>]*>${NO_DATA_LABEL}</dd>`));
+    // seções ANO ATUAL · 2026 / ANO ANTERIOR · 2025; no anterior as duas linhas dizem "Sem dados"
+    expect(out).toContain('Ano anterior · 2025');
+    const previousSection = out.slice(out.indexOf('Ano anterior · 2025'));
+    for (const label of ['Entradas', 'Saídas']) {
+      expect(previousSection).toMatch(new RegExp(`${label}</dt><dd[^>]*>${NO_DATA_LABEL}</dd>`));
     }
+    expect(out).not.toContain('Variação das entradas'); // sem base nos dois anos, sem variação
   });
 
   it('G2. tooltip com zero verdadeiro mostra R$ 0,00', () => {
