@@ -20,6 +20,21 @@ export interface Transaction {
   Tags?: string[];
   Observacoes?: string;
   linked_asset_id?: string;
+  /** Identidade econômica (metadata): evento criado por um fluxo do FinElo. Nunca inferido por valor/data/texto. */
+  economic_event_id?: string | null;
+}
+
+export type EconomicEventKind = 'own_account_transfer' | 'credit_card_payment';
+export type EconomicEventSource = 'pay_invoice_flow' | 'transfer_flow' | 'user' | 'backfill_funding_marker';
+
+export interface EconomicEvent {
+  id: string;
+  user_id: string;
+  kind: EconomicEventKind;
+  source: EconomicEventSource;
+  counterparty_account_id: string | null;
+  created_by: string;
+  created_at: string;
 }
 
 export interface Account {
