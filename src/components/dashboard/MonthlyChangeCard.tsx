@@ -9,7 +9,7 @@ export const MONTHLY_CHANGE_TITLE = 'O que mudou no seu mês?';
 export const MONTHLY_CHANGE_SUBTITLE = 'Compare o último mês completo com o mês anterior.';
 export const MONTHLY_CHANGE_EMPTY = 'Ainda não há dois meses completos de lançamentos para comparar.';
 export const MONTHLY_CHANGE_NOTE =
-  'Os valores refletem os lançamentos classificados no FinElo. Movimentos internos podem influenciar os totais quando registrados como renda ou despesa.';
+  'Movimentações internas e pagamentos de fatura identificados pelo FinElo não entram nos totais. Lançamentos ainda não identificados podem influenciá-los.';
 export const MONTHLY_CHANGE_NO_CATEGORY_CHANGE =
   'Sem mudanças relevantes nas categorias de saída entre os dois meses.';
 

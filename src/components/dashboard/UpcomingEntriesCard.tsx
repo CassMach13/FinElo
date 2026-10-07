@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { InformationCircleIcon } from '../ui/icons';
-import type { Account, Category, Transaction } from '../../types';
+import type { Account, Category, EconomicEventKind, Transaction } from '../../types';
 import {
   UPCOMING_HORIZONS,
   DEFAULT_UPCOMING_HORIZON,
@@ -148,6 +148,8 @@ interface Props {
   accounts: Account[];
   /** Data civil de hoje (AAAA-MM-DD). */
   today: string;
+  /** Eventos carregados (id → kind) para neutralizar movimentos internos conhecidos. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
   /** Abre Transações no mesmo intervalo. */
   onViewInTransactions: (range: { startDate: string; endDate: string }) => void;
   /** Só para teste/SSR. */
@@ -161,6 +163,7 @@ const UpcomingEntriesCard: React.FC<Props> = ({
   categories,
   accounts,
   today,
+  economicKindByEventId,
   onViewInTransactions,
   initialHorizon = DEFAULT_UPCOMING_HORIZON,
   initialShowAll = false,
@@ -171,8 +174,8 @@ const UpcomingEntriesCard: React.FC<Props> = ({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initialExpandedKeys));
 
   const model = useMemo(
-    () => computeUpcomingEntries({ transactions, categories, accounts, today, horizonDays: horizon }),
-    [transactions, categories, accounts, today, horizon]
+    () => computeUpcomingEntries({ transactions, categories, accounts, today, horizonDays: horizon, economicKindByEventId }),
+    [transactions, categories, accounts, today, horizon, economicKindByEventId]
   );
 
   const visible: UpcomingItem[] = showAll ? model.items : model.items.slice(0, UPCOMING_VISIBLE_COUNT);

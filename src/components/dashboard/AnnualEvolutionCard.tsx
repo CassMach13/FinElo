@@ -12,7 +12,7 @@ export const ANNUAL_EVOLUTION_TITLE = 'Evolução anual';
 export const ANNUAL_EVOLUTION_SUBTITLE =
   'Compare suas entradas e saídas registradas com o mesmo período do ano anterior.';
 export const ANNUAL_EVOLUTION_DISCLAIMER =
-  'Os valores refletem os lançamentos classificados no FinElo. Transferências ou pagamentos podem influenciar os totais quando registrados como renda ou despesa.';
+  'Movimentações internas e pagamentos de fatura identificados pelo FinElo não entram nos totais. Lançamentos ainda não identificados podem influenciá-los.';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 

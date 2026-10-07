@@ -1,5 +1,5 @@
-import type { Account, Category, Transaction } from '../../types';
-import { buildCategorySets, classifyTransaction, isRecurrenceBaseEligibleTransaction } from '../economics/transactionSemantics';
+import type { Account, Category, EconomicEventKind, Transaction } from '../../types';
+import { buildCategorySets, classifyTransaction, isRecurrenceEconomicTransaction } from '../economics/transactionSemantics';
 import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
 import type { TransactionFiltersState } from '../../utils/transactionPeriodFilters';
 
@@ -127,6 +127,8 @@ export function detectRecurrences(input: {
   today?: string;
   /** Resolve o dono de cada lançamento (padrão: `user_id`). */
   getOwnerId?: (tx: Transaction) => string | undefined;
+  /** Eventos carregados (id → kind). O marcador legado do Pagar continua valendo sem ele. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
 }): RecurrenceCandidate[] {
   const today = input.today ? toDateOnlyIso(input.today) : localTodayIso();
   if (!today) return [];
@@ -141,7 +143,7 @@ export function detectRecurrences(input: {
   const futureKeys = new Set<string>();
 
   input.transactions.forEach((tx, index) => {
-    if (!isRecurrenceBaseEligibleTransaction(classifyTransaction(tx, { categorySets }))) return;
+    if (!isRecurrenceEconomicTransaction(classifyTransaction(tx, { categorySets, economicKindByEventId: input.economicKindByEventId }))) return;
     const identity = identityOf(tx);
     if (!identity) return;
     const date = toDateOnlyIso(tx.Data);

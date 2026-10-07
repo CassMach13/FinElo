@@ -1,5 +1,5 @@
-import type { Account, Category, Transaction } from '../types';
-import { classifyTransaction, isUpcomingEligibleTransaction } from '../domain/economics/transactionSemantics';
+import type { Account, Category, EconomicEventKind, Transaction } from '../types';
+import { classifyTransaction, isUpcomingEconomicTransaction } from '../domain/economics/transactionSemantics';
 import { buildCategorySets, getTransactionEffectiveDate } from './dashboardMetrics';
 import { addDaysToDateOnly, localTodayIso, toDateOnlyIso } from './dateOnly';
 import {
@@ -95,6 +95,8 @@ export function computeUpcomingEntries(input: {
   /** Data civil de hoje; injetável. */
   today?: Date | string;
   horizonDays?: number;
+  /** Eventos carregados (id → kind). O marcador legado do Pagar continua valendo sem ele. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
 }): UpcomingEntries {
   const todayIso = typeof input.today === 'string' ? toDateOnlyIso(input.today) : localTodayIso(input.today);
   const horizonDays = input.horizonDays ?? DEFAULT_UPCOMING_HORIZON;
@@ -123,7 +125,7 @@ export function computeUpcomingEntries(input: {
   let entryCount = 0;
 
   for (const t of input.transactions) {
-    if (!isUpcomingEligibleTransaction(classifyTransaction(t, { categorySets, accountById }))) continue;
+    if (!isUpcomingEconomicTransaction(classifyTransaction(t, { categorySets, accountById, economicKindByEventId: input.economicKindByEventId }))) continue;
 
     const date = getTransactionEffectiveDate(t);
     if (Number.isNaN(date.getTime())) continue;

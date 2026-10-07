@@ -366,8 +366,9 @@ describe('AnnualEvolutionCard — renderização', () => {
     expect(html).toContain('Compare suas entradas e saídas registradas com o mesmo período do ano anterior.');
     expect(html).toContain('Jan–Set 2026 vs. Jan–Set 2025');
     expect(html).toContain(ANNUAL_EVOLUTION_DISCLAIMER);
-    expect(ANNUAL_EVOLUTION_DISCLAIMER).toContain('lançamentos classificados no FinElo');
-    expect(ANNUAL_EVOLUTION_DISCLAIMER).toContain('Transferências ou pagamentos podem influenciar os totais');
+    expect(ANNUAL_EVOLUTION_DISCLAIMER).toContain('identificados pelo FinElo não entram nos totais');
+    expect(ANNUAL_EVOLUTION_DISCLAIMER).toContain('ainda não identificados podem influenciá-los');
+    expect(ANNUAL_EVOLUTION_DISCLAIMER).not.toMatch(/todas as transferências/i);
   });
 
   it('resumos anterior → atual com variação e Leitura do FinElo', () => {
@@ -445,7 +446,7 @@ describe('Integração na Dashboard e layout móvel (contrato de código)', () =
   });
 
   it('calcula sobre todo o histórico, independente do período selecionado', () => {
-    expect(dashboard).toMatch(/computeAnnualEvolution\(\{ transactions, categories: allCategories, today: todayKey \}\)/);
+    expect(dashboard).toMatch(/computeAnnualEvolution\(\{ transactions, categories: allCategories, today: todayKey, economicKindByEventId \}\)/);
   });
 
   it('resumos empilham no mobile, textos quebram e nada força largura', () => {

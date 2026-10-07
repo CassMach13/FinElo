@@ -120,8 +120,9 @@ describe('equivalência total das políticas × predicados legados (espaço exau
 
   it('as APIs públicas de dashboardMetrics continuam equivalentes ao legado', () => {
     const all = [...universe()].filter((_, i) => i % 7 === 0);
-    expect(toOperationalChartData(all, sets)).toEqual(all.filter((t) => legacy.dashboard(t, sets)));
-    expect(toInvestmentData(all, sets)).toEqual(all.filter((t) => legacy.investment(t, sets)));
+    // 3A (intencional): a visão econômica também tira o demo. O resto continua idêntico ao legado.
+    expect(toOperationalChartData(all, sets)).toEqual(all.filter((t) => legacy.dashboard(t, sets) && !isDemoTransaction(t)));
+    expect(toInvestmentData(all, sets)).toEqual(all.filter((t) => legacy.investment(t, sets) && !isDemoTransaction(t)));
   });
 });
 
@@ -197,12 +198,12 @@ describe('economic_event_id é no-op em todos os consumidores', () => {
     expect(snap(withIds)).toBe(baseline);
   });
 
-  it('o Dashboard continua incluindo demo e o Pagar; Upcoming/Recurrences continuam fora do Pagar e do demo', () => {
+  it('3A: o Dashboard agora EXCLUI o demo (mudança intencional); o Pagar sem evento segue contando', () => {
     const rows = [
       row('2026-09-10', 'Despesa', 100, 'Mercado', { Origem: 'demo.csv' }),
       row('2026-09-11', 'Despesa', 200, 'Salário', { Descricao_Original: 'Pagamento Fatura finelo_funding_account:bank' }),
     ];
-    expect(computeDashboardPeriodMetrics(rows, categories, range).operational.expense).toBe(300);
+    expect(computeDashboardPeriodMetrics(rows, categories, range).operational.expense).toBe(200); // demo (100) fora; Pagar sem evento (200) dentro
     expect(computeAnnualEvolution({ transactions: rows, categories, today: '2026-10-07' })).toBeTruthy();
     expect(computeMonthlyChange({ transactions: rows, categories, today: '2026-10-07' }).expenseChange.amount).toBe(200); // demo fora, Pagar dentro
   });

@@ -1,7 +1,8 @@
 import { supabase } from '../supabaseClient';
 import type { EconomicEvent, EconomicEventKind, EconomicEventSource } from '../types';
 
-const COLUMNS = 'id,user_id,kind,source,counterparty_account_id,created_by,created_at';
+export const ECONOMIC_EVENT_COLUMNS = 'id,user_id,kind,source,counterparty_account_id,created_by,created_at';
+const COLUMNS = ECONOMIC_EVENT_COLUMNS;
 
 /**
  * Cria um evento econômico para o usuário autenticado.

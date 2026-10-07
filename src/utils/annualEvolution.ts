@@ -1,5 +1,5 @@
-import type { Category, Transaction } from '../types';
-import { classifyTransaction, isAnalysisOperationalTransaction } from '../domain/economics/transactionSemantics';
+import type { Category, EconomicEventKind, Transaction } from '../types';
+import { classifyTransaction, isAnalysisEconomicTransaction } from '../domain/economics/transactionSemantics';
 import {
   buildCategorySets,
   computeOperationalSummary,
@@ -83,6 +83,8 @@ export function computeAnnualEvolution(input: {
   categories: Category[];
   /** Data civil de hoje; injetável para teste e para a virada do dia. */
   today?: Date | string;
+  /** Eventos carregados (id → kind). Sem ele, nada é neutralizado. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
 }): AnnualEvolution {
   const todayIso = typeof input.today === 'string' ? input.today : localTodayIso(input.today);
   const [yearStr, monthStr] = todayIso.split('-');
@@ -104,7 +106,7 @@ export function computeAnnualEvolution(input: {
 
   const categorySets = buildCategorySets(input.categories);
   const operational = input.transactions.filter((t) =>
-    isAnalysisOperationalTransaction(classifyTransaction(t, { categorySets }))
+    isAnalysisEconomicTransaction(classifyTransaction(t, { categorySets, economicKindByEventId: input.economicKindByEventId }))
   );
 
   const current: Transaction[][] = Array.from({ length: lastMonth }, () => []);

@@ -49,6 +49,7 @@ import {
   buildFundingPaymentDescription,
 } from '../../services/creditCardDirectedPayment';
 import { registerInvoicePayment } from '../../services/payInvoiceRegistration';
+import { buildEconomicKindByEventId } from '../../domain/economics/transactionSemantics';
 import PayCreditCardInvoiceModal from '../modals/PayCreditCardInvoiceModal';
 import {
   listCompetencePaymentConfirmations,
@@ -271,6 +272,8 @@ const TransactionsView: React.FC = () => {
     creditCardEngineRevision,
     importLogs,
     bumpCreditCardEngineRevision,
+    economicEvents,
+    rememberEconomicEvent,
   } = useAppStore();
   const smartFiltersEnabled = isSmartTransactionFiltersEnabled(user);
   const filtersStorageKey = smartFiltersEnabled
@@ -1108,6 +1111,8 @@ const TransactionsView: React.FC = () => {
           },
           ],
         });
+        // O evento passa a valer já nos cálculos (sem reload): as duas pernas recém-gravadas são neutralizadas.
+        if (registration.event) rememberEconomicEvent(registration.event);
         cardLegTransactionId = registration.cardLeg?.ID_Transacao;
       } catch (error) {
         console.error('[TransactionsView] Registrar pagamento manual:', error);
@@ -1165,6 +1170,7 @@ const TransactionsView: React.FC = () => {
       user,
       accounts,
       addTransaction,
+      rememberEconomicEvent,
       updateUserPreferences,
       getCardStatements,
       payStatement,
@@ -2613,9 +2619,10 @@ const TransactionsView: React.FC = () => {
             accounts,
             today: localTodayIso(),
             getOwnerId: familyOwnerContext.getTransactionOwnerId,
+            economicKindByEventId: buildEconomicKindByEventId(economicEvents),
           })
         : [],
-    [recurrencesOpen, transactions, categories, accounts, familyOwnerContext.getTransactionOwnerId]
+    [recurrencesOpen, transactions, categories, accounts, familyOwnerContext.getTransactionOwnerId, economicEvents]
   );
 
   const handleViewRecurrence = useCallback(

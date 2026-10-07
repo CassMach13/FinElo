@@ -1,4 +1,4 @@
-import type { Account, Category, Transaction } from '../../types';
+import type { Account, Category, EconomicEvent, EconomicEventKind, Transaction } from '../../types';
 import { isDemoTransaction } from '../onboarding/firstSteps';
 import { FUNDING_ACCOUNT_OBS_PREFIX } from '../../services/creditCardDirectedPayment';
 import { isCommitmentTransaction } from '../../utils/transactionPeriodFilters';
@@ -13,6 +13,11 @@ import { isCommitmentTransaction } from '../../utils/transactionPeriodFilters';
  *   excluem o marcador do Pagar; Orçamento só olha Despesa real;
  * - NÃO neutraliza eventos econômicos: `hasEconomicEvent` é só um fato e NENHUMA política o lê;
  * - a Fase 3 mudará as políticas de forma explícita (a matriz de testes mostra exatamente quais células mudam).
+ *
+ * FASE 3A: as políticas `*_legacy` abaixo ficam congeladas (referência/caracterização). As políticas ATIVAS
+ * (`ACTIVE_TRANSACTION_VIEW_POLICIES`) acrescentam, e só isso: demo fora da visão econômica e eventos econômicos
+ * NEUTROS fora. Neutralidade exige o `kind` do evento CARREGADO (`economicKindByEventId`); ter `economic_event_id`
+ * sem o evento no mapa NÃO neutraliza (falso negativo é preferível a esconder renda/gasto).
  *
  * Puro: sem Supabase, store, React, relógio ou efeitos colaterais. Datas e dono NÃO fazem parte da classificação:
  * cada consumidor mantém a sua data efetiva (Data_Pagamento || Data, ou só Data nas Recorrências) e a sua
@@ -45,6 +50,8 @@ export interface TransactionSemanticsContext {
   categorySets?: CategorySets;
   /** Só `Tipo_Conta` é lido. Sem a conta, a transação não é considerada de cartão. */
   accountById?: ReadonlyMap<string, Pick<Account, 'Tipo_Conta'>>;
+  /** Eventos CARREGADOS (id → kind). Ausente, ou sem o id da transação → kind desconhecido → comportamento legado. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
 }
 
 export interface TransactionSemantics {
@@ -66,11 +73,27 @@ export interface TransactionSemantics {
   isCommitment: boolean;
   /** Metadata da identidade econômica (Fase 1). FATO apenas: nenhuma política da Fase 2 o usa. */
   hasEconomicEvent: boolean;
+  /** Kind do evento CARREGADO; `null` sem evento ou com evento ausente do mapa. */
+  economicKind: EconomicEventKind | null;
+  /** Neutralidade exige kind conhecido (credit_card_payment ou own_account_transfer). Nunca decidida só pelo id. */
+  isEconomicallyNeutral: boolean;
 }
 
 /** Detecção ÚNICA do marcador do Pagar (por texto estrutural gravado pelo fluxo; nunca valor/data). */
 export const hasFundingAccountMarker = (t: Pick<Transaction, 'Observacoes' | 'Descricao_Original'>): boolean =>
   [t.Observacoes, t.Descricao_Original].some((raw) => String(raw ?? '').includes(FUNDING_ACCOUNT_OBS_PREFIX));
+
+/** Kinds que a V1 trata como economicamente neutros. Um kind futuro (ex.: refund) precisa entrar aqui de forma explícita. */
+const NEUTRAL_KINDS: ReadonlySet<EconomicEventKind> = new Set<EconomicEventKind>(['credit_card_payment', 'own_account_transfer']);
+
+/** id → kind, só dos kinds conhecidos. Não carrega `source` (as políticas não o usam). */
+export function buildEconomicKindByEventId(
+  events: ReadonlyArray<Pick<EconomicEvent, 'id' | 'kind'>>
+): ReadonlyMap<string, EconomicEventKind> {
+  const map = new Map<string, EconomicEventKind>();
+  for (const e of events) if (NEUTRAL_KINDS.has(e.kind)) map.set(e.id, e.kind);
+  return map;
+}
 
 const EMPTY_SETS: CategorySets = { ambos: new Set(), investment: new Set() };
 
@@ -84,6 +107,7 @@ export function classifyTransaction(tx: Transaction, context: TransactionSemanti
   const sets = context.categorySets ?? EMPTY_SETS;
   const account = tx.ID_Conta ? context.accountById?.get(tx.ID_Conta) : undefined;
   const isCardAccount = account?.Tipo_Conta === 'Cartão de Crédito';
+  const economicKind = tx.economic_event_id ? (context.economicKindByEventId?.get(tx.economic_event_id) ?? null) : null;
   return {
     validType: tx.Tipo === 'Renda' || tx.Tipo === 'Despesa',
     validAmount: Number.isFinite(tx.Valor) && tx.Valor !== 0,
@@ -96,6 +120,8 @@ export function classifyTransaction(tx: Transaction, context: TransactionSemanti
     isCardIncome: isCardAccount && tx.Tipo === 'Renda',
     isCommitment: isCommitmentTransaction(tx),
     hasEconomicEvent: Boolean(tx.economic_event_id),
+    economicKind,
+    isEconomicallyNeutral: economicKind !== null && NEUTRAL_KINDS.has(economicKind),
   };
 }
 
@@ -147,3 +173,49 @@ export const TRANSACTION_VIEW_POLICIES: Readonly<Record<TransactionViewPolicy, (
 
 export const isIncludedByPolicy = (s: TransactionSemantics, policy: TransactionViewPolicy): boolean =>
   TRANSACTION_VIEW_POLICIES[policy](s);
+
+// ---------------------------------------------------------------------------------------------------------
+// Políticas ATIVAS (Fase 3A): as legadas + demo fora + eventos neutros conhecidos fora.
+// ---------------------------------------------------------------------------------------------------------
+
+/** KPIs, gráficos e 50-30-20 da Dashboard. */
+export const isDashboardEconomicTransaction = (s: TransactionSemantics): boolean =>
+  isDashboardOperationalTransaction(s) && !s.isDemo && !s.isEconomicallyNeutral;
+
+/** Resumo de investimentos: demo fora; a neutralidade NÃO se aplica (investimento como evento está fora da V1). */
+export const isInvestmentSummaryTransaction = (s: TransactionSemantics): boolean =>
+  isInvestmentTransaction(s) && !s.isDemo;
+
+export const isAnalysisEconomicTransaction = (s: TransactionSemantics): boolean =>
+  isAnalysisOperationalTransaction(s) && !s.isEconomicallyNeutral;
+
+export const isBudgetSpendEconomicTransaction = (s: TransactionSemantics): boolean =>
+  isBudgetSpendTransaction(s) && !s.isEconomicallyNeutral;
+
+/** Mantém o marcador legado do Pagar (fallback para linhas antigas sem evento). */
+export const isUpcomingEconomicTransaction = (s: TransactionSemantics): boolean =>
+  isUpcomingEligibleTransaction(s) && !s.isEconomicallyNeutral;
+
+/** Mantém o marcador legado do Pagar e os compromissos. */
+export const isRecurrenceEconomicTransaction = (s: TransactionSemantics): boolean =>
+  isRecurrenceBaseEligibleTransaction(s) && !s.isEconomicallyNeutral;
+
+export type ActiveTransactionViewPolicy =
+  | 'dashboard_operational'
+  | 'investment_summary'
+  | 'analysis_operational'
+  | 'budget_spend'
+  | 'upcoming'
+  | 'recurrence';
+
+export const ACTIVE_TRANSACTION_VIEW_POLICIES: Readonly<Record<ActiveTransactionViewPolicy, (s: TransactionSemantics) => boolean>> = {
+  dashboard_operational: isDashboardEconomicTransaction,
+  investment_summary: isInvestmentSummaryTransaction,
+  analysis_operational: isAnalysisEconomicTransaction,
+  budget_spend: isBudgetSpendEconomicTransaction,
+  upcoming: isUpcomingEconomicTransaction,
+  recurrence: isRecurrenceEconomicTransaction,
+};
+
+export const isIncludedByActivePolicy = (s: TransactionSemantics, policy: ActiveTransactionViewPolicy): boolean =>
+  ACTIVE_TRANSACTION_VIEW_POLICIES[policy](s);
