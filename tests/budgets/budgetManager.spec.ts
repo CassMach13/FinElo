@@ -192,6 +192,11 @@ describe('Integração (contrato de código)', () => {
   const settings = read('src/components/views/SettingsView.tsx');
   const panel = read('src/components/budgets/BudgetManagerPanel.tsx');
 
+  it('Dashboard: o mês inicial do Gerenciador passa por clampManagerMonth (sem limitar a navegação)', () => {
+    expect(dash).toMatch(/const managerInitialMonth = clampManagerMonth\(requestedManagerMonth, todayCivil\);/);
+    expect(dash).not.toMatch(/initialMonth=\{requestedManagerMonth\}/);
+  });
+
   it('Dashboard: restante/excedido, rótulo "Categorias com orçamento", CTA também no vazio, mês inicial', () => {
     expect(dash).toContain('Categorias com orçamento');
     expect(dash).toContain('Gerenciar orçamento');

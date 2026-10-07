@@ -3,6 +3,7 @@ import {
   buildBudgetIndex,
   buildManagerRows,
   canNavigateToMonth,
+  clampManagerMonth,
   computeBudgetLines,
   computeBudgetLineTotals,
   describeRemaining,
@@ -297,6 +298,18 @@ describe('Restante, excedido e dinheiro', () => {
 });
 
 describe('Elegibilidade, navegação e direitos', () => {
+  it('o Gerenciador nunca abre além do próximo mês; passado e atual ficam como estão', () => {
+    const now = { year: 2026, month: 10 };
+    const clamp = (year: number, month: number) => clampManagerMonth({ year, month }, now);
+    expect(clamp(2025, 9)).toEqual({ year: 2025, month: 9 });
+    expect(clamp(2026, 10)).toEqual({ year: 2026, month: 10 });
+    expect(clamp(2026, 11)).toEqual({ year: 2026, month: 11 });
+    expect(clamp(2026, 12)).toEqual({ year: 2026, month: 11 });
+    expect(clamp(2027, 1)).toEqual({ year: 2026, month: 11 });
+    expect(clamp(2027, 3)).toEqual({ year: 2026, month: 11 });
+    expect(clampManagerMonth({ year: 2027, month: 3 }, { year: 2026, month: 12 })).toEqual({ year: 2027, month: 1 });
+  });
+
   it('só Despesa não investimento pode receber novo orçamento mensal', () => {
     expect(cats.filter(isEligibleBudgetCategory).map((c) => c.Nome_Categoria)).toEqual(['Alimentação', 'Transporte']);
   });

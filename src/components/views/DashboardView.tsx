@@ -53,6 +53,7 @@ import {
 } from '../../utils/periodComparison';
 import { buildDashboardPrintHeader } from '../../utils/dashboardPrintHeader';
 import {
+  clampManagerMonth,
   computeBudgetLines,
   computeBudgetLineTotals,
   describeRemaining,
@@ -542,10 +543,11 @@ const DashboardView: React.FC = () => {
     const [y, m] = todayKey.split('-').map(Number);
     return { year: y, month: m };
   }, [todayKey]);
-  const managerInitialMonth =
+  const requestedManagerMonth =
     viewMode === 'monthly'
       ? { year: selectedDate.getFullYear(), month: selectedDate.getMonth() + 1 }
       : todayCivil;
+  const managerInitialMonth = clampManagerMonth(requestedManagerMonth, todayCivil);
   const budgetOwners = familyOwnerContext.showAttribution
     ? familyOwnerContext.owners.map((o) => ({ userId: o.userId, label: o.label }))
     : undefined;

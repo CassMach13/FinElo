@@ -258,6 +258,11 @@ export function canNavigateToMonth(target: CivilMonth, current: CivilMonth): boo
   return monthIndex(target) <= monthIndex(nextMonth(current));
 }
 
+/** Mês em que o Gerenciador abre: passado e atual ficam; depois do próximo mês, volta ao próximo mês. */
+export function clampManagerMonth(target: CivilMonth, current: CivilMonth): CivilMonth {
+  return canNavigateToMonth(target, current) ? target : nextMonth(current);
+}
+
 export interface ManagerRow {
   Categoria: string;
   /** Pode criar valor mensal novo para esta categoria (elegível). */
