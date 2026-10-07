@@ -34,7 +34,7 @@ import {
 } from '../../utils/familyMemberNicknames';
 
 const SettingsView: React.FC = () => {
-    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, atomicImportEnabled, transactions, fetchTransactions, fetchImportLogs, reassignTransactionsAccountByImportLog, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
+    const { categories, budgets, mappingRules, importConfigs, importLogs, assets, fetchAssets, addAsset, updateAsset, deleteAsset, addCategory, updateCategory, deleteCategory, addBudget, updateBudget, deleteBudget, addMappingRule, updateMappingRule, deleteMappingRule, addImportConfig, updateImportConfig, deleteImportConfig, deleteImportLog, addAccount, updateAccount, deleteAccount, accounts, user, atomicImportEnabled, transactions, fetchTransactions, fetchImportLogs, reassignTransactionsAccountByImportLog, reApplyAllRules, findDuplicateRules, isPremium, setCurrentView, requestBudgetManager, creditCardShadowDashboard, creditCardReprocessJobs, refreshCreditCardShadowDashboard, fetchCreditCardReprocessJobs, rebuildCreditCardByPeriod, repairImportLogsImportedDetailsFromLedger, updateUserPreferences } = useAppStore();
 
     const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -853,6 +853,23 @@ const SettingsView: React.FC = () => {
 
                 {/* 5. Gerenciar Orçamentos */}
                 <div id="settings-budgets">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] p-4">
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white">Orçamento mensal</p>
+                            <p className="text-xs text-gray-400">
+                                Defina limites para cada mês e copie do mês anterior. Este editor anual funciona como padrão quando não há um orçamento específico para o mês.
+                            </p>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                requestBudgetManager();
+                                setCurrentView('dashboard');
+                            }}
+                        >
+                            Gerenciar orçamento mensal
+                        </Button>
+                    </div>
                     <CrudCard<Budget & { id: string }>
                         title="Gerenciar Orçamentos"
                         data={budgetsWithId}

@@ -51,9 +51,24 @@ export interface Category {
 
 export interface Budget {
   id?: string;
+  /** Dono real da linha (a tabela sempre o tem); opcional só por compatibilidade com fixtures antigas. */
+  user_id?: string;
   Categoria: string;
   Valor_Limite_Mensal: number;
   ano: number;
+}
+
+/** Limite de um mês específico (Budget V2). Pessoal; prevalece sobre o `Budget` anual do mesmo dono. */
+export interface BudgetMonth {
+  id: string;
+  user_id: string;
+  Categoria: string;
+  year: number;
+  /** 1–12 */
+  month: number;
+  amount: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Investment {

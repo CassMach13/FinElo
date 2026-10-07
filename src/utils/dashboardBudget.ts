@@ -70,7 +70,9 @@ export interface BudgetStatusTotal {
  * "ritmos" não faria sentido; usa-se o de qualquer item, ou 1.0 sem nenhum
  * orçamento configurado.
  */
-export function computeBudgetStatusTotal(items: BudgetStatusItem[]): BudgetStatusTotal {
+export function computeBudgetStatusTotal(
+  items: Array<Pick<BudgetStatusItem, 'spent' | 'adjustedLimit' | 'pacingRatio'>>
+): BudgetStatusTotal {
   const spent = items.reduce((acc, item) => acc + item.spent, 0);
   const limit = items.reduce((acc, item) => acc + item.adjustedLimit, 0);
   const pacingRatio = items.length > 0 ? items[0].pacingRatio : 1.0;
