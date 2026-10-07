@@ -291,7 +291,7 @@ interface AppState {
   getAccountsWithCalculatedBalance: () => Account[];
 
   // Funções para manipular o estado (ações)
-  addTransaction: (transaction: Omit<Transaction, 'ID_Transacao' | 'Origem'> | Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'ID_Transacao' | 'Origem'> | Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => Promise<Transaction[]>;
   addMultipleTransactions: (
     newTransactions: Omit<Transaction, 'ID_Transacao' | 'user_id'>[],
     importConfig: ImportConfig,
@@ -404,7 +404,7 @@ interface AppState {
   getStatementAudit: (statementId: string) => Promise<CreditCardStatementAudit | null>;
   payStatement: (
     statementId: string,
-    paymentData: { paymentDate: string; amount: number; paymentAccountId?: string; notes?: string }
+    paymentData: { paymentDate: string; amount: number; paymentAccountId?: string; paymentTransactionId?: string; notes?: string }
   ) => Promise<CreditCardStatementV2 | null>;
   /** Grava totais conferidos na fatura (manual_totals_json) e recalcula com overlay. */
   saveStatementManualTotals: (
@@ -1963,7 +1963,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addTransaction: async (newTransactions) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return [];
 
     const transactionsArray = (Array.isArray(newTransactions) ? newTransactions : [newTransactions]) as Omit<Transaction, 'ID_Transacao' | 'Origem'>[];
 
@@ -1982,6 +1982,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       Origem: (tx as any).Origem || 'manual',
       ID_Conta: tx.ID_Conta,
       linked_asset_id: tx.linked_asset_id,
+      economic_event_id: tx.economic_event_id ?? null,
     }));
 
     const { data, error } = await supabase
@@ -2080,7 +2081,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           await get().fetchCreditCardReprocessJobs();
         }
       }
+      return addedTransactions;
     }
+    return [];
   },
 
   addMultipleTransactions: async (newTransactions, importConfig, fileName, ignoredItems = [], options) => {

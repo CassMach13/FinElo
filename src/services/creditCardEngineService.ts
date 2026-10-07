@@ -951,6 +951,8 @@ export const creditCardEngineService = {
       paymentDate: string;
       amount: number;
       paymentAccountId?: string;
+      /** Transação do ledger que representa o pagamento (perna do cartão no Pagar manual). */
+      paymentTransactionId?: string;
       source?: CreditCardPayment['source'];
       notes?: string;
     }
@@ -963,6 +965,7 @@ export const creditCardEngineService = {
       card_id: detail.statement.cardId,
       statement_id: statementId,
       payment_account_id: input.paymentAccountId || null,
+      payment_transaction_id: input.paymentTransactionId || null,
       payment_date: input.paymentDate,
       amount: safeAmount,
       source: input.source || 'manual',
