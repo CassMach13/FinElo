@@ -16,36 +16,63 @@ export const ANNUAL_EVOLUTION_DISCLAIMER =
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+const TrendIcon: React.FC<{ up: boolean }> = ({ up }) => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true" className="shrink-0">
+    <path
+      d={up ? 'M2 8.5 5 5.5l2 2L10 4M7.5 4H10v2.5' : 'M2 3.5 5 6.5l2-2L10 8M7.5 8H10V5.5'}
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+/** Cor = natureza da métrica (a mesma do gráfico), nunca bom/ruim: é só variação quantitativa. */
 const SummaryBlock: React.FC<{
   label: string;
-  tone: 'text-accent' | 'text-danger';
+  color: string;
   previousYear: number;
   currentYear: number;
   previous: number;
   current: number;
   percent: number | null;
-}> = ({ label, tone, previousYear, currentYear, previous, current, percent }) => (
-  <div className="min-w-0 rounded-xl border border-white/5 bg-black/20 p-3 sm:p-4">
-    <p className={`text-[11px] font-bold uppercase tracking-wide ${tone}`}>{label}</p>
-    <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
-      <span className="text-sm text-gray-400" title={String(previousYear)}>
-        {formatCurrency(previous)}
-      </span>
-      <span className="text-gray-500" aria-label="para">
-        →
-      </span>
-      <span className="text-lg font-bold text-white" title={String(currentYear)}>
-        {formatCurrency(current)}
-      </span>
-    </div>
-    <p className="mt-1 text-xs text-gray-400">
-      {previousYear} → {currentYear} ·{' '}
-      <span className="font-semibold text-gray-200 tabular-nums">
-        {percent === null ? '—' : formatPercentChange(percent)}
-      </span>
-      {percent === null && <span className="text-gray-500"> (sem base no ano anterior)</span>}
+}> = ({ label, color, previousYear, currentYear, previous, current, percent }) => (
+  <div className="relative min-w-0 overflow-hidden rounded-[13px] border border-slate-400/[0.12] bg-[rgba(12,18,29,.48)] py-3.5 pl-5 pr-4">
+    <span aria-hidden="true" className="absolute inset-y-3 left-0 w-0.5 rounded-full" style={{ backgroundColor: color }} />
+    <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-300">
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
+    </p>
+    <p className="mt-3 text-[11px] font-semibold text-gray-400 tabular-nums">{currentYear}</p>
+    <p className="break-words text-2xl font-bold leading-tight text-white tabular-nums" title={String(currentYear)}>
+      {formatCurrency(current)}
+    </p>
+    <p className="mt-2 text-[11px] text-gray-500 tabular-nums">vs. {previousYear}</p>
+    <p className="break-words text-sm text-gray-300 tabular-nums" title={String(previousYear)}>
+      {formatCurrency(previous)}
+    </p>
+    <p className="mt-2.5 flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums" style={{ color: percent === null ? undefined : color }}>
+      {percent === null ? (
+        <>
+          <span className="font-semibold text-gray-300">—</span>
+          <span className="text-gray-500">(sem base no ano anterior)</span>
+        </>
+      ) : (
+        <>
+          <TrendIcon up={percent >= 0} />
+          <span className="font-semibold">{formatPercentChange(percent)}</span>
+          <span className="text-gray-500">no período</span>
+        </>
+      )}
     </p>
   </div>
+);
+
+const SparkIcon: React.FC = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M8 1.5 9.6 6.4 14.5 8 9.6 9.6 8 14.5 6.4 9.6 1.5 8 6.4 6.4 8 1.5Z" fill="#49d2c7" />
+  </svg>
 );
 
 const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) => {
@@ -81,10 +108,11 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
         )}
       </div>
 
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Resumo</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SummaryBlock
           label="Entradas"
-          tone="text-accent"
+          color="#3bc6be"
           previousYear={model.previousYear}
           currentYear={model.currentYear}
           previous={model.totals.incomePrevious}
@@ -93,7 +121,7 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
         />
         <SummaryBlock
           label="Saídas"
-          tone="text-danger"
+          color="#ff6f6c"
           previousYear={model.previousYear}
           currentYear={model.currentYear}
           previous={model.totals.expensePrevious}
@@ -102,13 +130,28 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
         />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <AnnualEvolutionChart months={model.months} currentYear={model.currentYear} previousYear={model.previousYear} />
       </div>
 
-      <div className="mt-5 rounded-xl border border-white/5 bg-black/20 p-3 sm:p-4 print:break-inside-avoid">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Leitura do FinElo</p>
-        <p className="mt-1 break-words text-sm text-gray-200">{reading.text}</p>
+      <div
+        className="mt-[13px] flex items-start gap-3 rounded-[2px_10px_10px_2px] border-l-2 px-3.5 py-3 print:break-inside-avoid"
+        style={{
+          borderLeftColor: '#3bc6be',
+          background: 'linear-gradient(90deg, rgba(59,198,190,.075), rgba(12,18,29,.30) 55%)',
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: 'rgba(59,198,190,.10)' }}
+        >
+          <SparkIcon />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Leitura do FinElo</p>
+          <p className="mt-1 break-words text-sm text-gray-200">{reading.text}</p>
+        </div>
       </div>
 
       <p className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-gray-500">
