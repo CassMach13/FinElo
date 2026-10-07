@@ -52,7 +52,14 @@ import {
   formatComparisonValue,
 } from '../../utils/periodComparison';
 import { buildDashboardPrintHeader } from '../../utils/dashboardPrintHeader';
-import { computeBudgetStatus, computeBudgetStatusTotal } from '../../utils/dashboardBudget';
+import {
+  computeBudgetLines,
+  computeBudgetLineTotals,
+  describeRemaining,
+  type BudgetLine,
+} from '../../domain/budgets/monthlyBudget';
+import BudgetManagerPanel from '../budgets/BudgetManagerPanel';
+import { useFamilyOwnerContext } from '../../hooks/useFamilyOwnerContext';
 import {
   computeAccountsTotalAsOf,
   computeAssetsTotals,
@@ -73,7 +80,7 @@ import CategoryModal from '../modals/CategoryModal';
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
-  const { transactions, budgets, categories: allCategories, user, isPremium, assets, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
+  const { transactions, budgets, categories: allCategories, user, isPremium, assets, budgetMonths, createBudgetMonths, updateBudgetMonthAmount, deleteBudgetMonth, budgetManagerRequested, clearBudgetManagerRequest, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
   const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
 
@@ -479,33 +486,69 @@ const DashboardView: React.FC = () => {
     [compareEnabled, compareMetrics, compareDateLabelShort]
   );
 
-  const budgetStatus = useMemo(
-    () => computeBudgetStatus(budgets, filteredTransactions, viewMode, dateRange),
-    [budgets, filteredTransactions, viewMode, dateRange]
-  );
+  // Orçamento V2: linhas pessoais (dono + categoria); limite efetivo mensal → anual do mesmo dono.
+  const familyOwnerContext = useFamilyOwnerContext(user?.id, user?.email, accounts, transactions);
+  const toBudgetItem = (l: BudgetLine) => ({ ...l, id: l.key, adjustedLimit: l.limit });
 
-  const compareBudgetStatus = useMemo(() => {
+  const budgetLines = useMemo(
+    () =>
+      computeBudgetLines({
+        budgets,
+        budgetMonths,
+        transactions,
+        range: dateRange,
+        currentUserId: user?.id,
+        getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+      }),
+    [budgets, budgetMonths, transactions, dateRange, user?.id, familyOwnerContext.getTransactionOwnerId]
+  );
+  const budgetStatus = useMemo(() => budgetLines.map(toBudgetItem), [budgetLines]);
+
+  const compareBudgetLines = useMemo(() => {
     if (!compareDateRange) return null;
-    return computeBudgetStatus(
+    return computeBudgetLines({
       budgets,
-      compareFilteredTransactions,
-      viewMode,
-      compareDateRange,
-      compareDateRange.end
-    );
-  }, [budgets, compareFilteredTransactions, viewMode, compareDateRange]);
+      budgetMonths,
+      transactions,
+      range: compareDateRange,
+      currentUserId: user?.id,
+      getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+      referenceDate: compareDateRange.end,
+    });
+  }, [budgets, budgetMonths, transactions, compareDateRange, user?.id, familyOwnerContext.getTransactionOwnerId]);
 
+  // Chave dono + categoria: a mesma categoria de duas pessoas não colide na comparação.
   const compareBudgetMap = useMemo(() => {
-    if (!compareBudgetStatus) return new Map<string, number>();
-    return new Map(compareBudgetStatus.map((item) => [item.Categoria, item.spent]));
-  }, [compareBudgetStatus]);
+    if (!compareBudgetLines) return new Map<string, number>();
+    return new Map(compareBudgetLines.map((item) => [item.key, item.spent]));
+  }, [compareBudgetLines]);
 
-  /** Soma de todas as categorias orçadas — a visão total ao lado da categorizada. */
-  const budgetTotal = useMemo(() => computeBudgetStatusTotal(budgetStatus), [budgetStatus]);
+  /** Soma só das categorias COM orçamento (não é o gasto total do mês). */
+  const budgetTotal = useMemo(() => computeBudgetLineTotals(budgetLines), [budgetLines]);
   const compareBudgetTotal = useMemo(
-    () => (compareBudgetStatus ? computeBudgetStatusTotal(compareBudgetStatus) : null),
-    [compareBudgetStatus]
+    () => (compareBudgetLines ? computeBudgetLineTotals(compareBudgetLines) : null),
+    [compareBudgetLines]
   );
+  const budgetTotalRemaining = describeRemaining(budgetTotal.spent, budgetTotal.limit);
+
+  const [isBudgetManagerOpen, setBudgetManagerOpen] = useState(false);
+  useEffect(() => {
+    if (budgetManagerRequested) {
+      setBudgetManagerOpen(true);
+      clearBudgetManagerRequest();
+    }
+  }, [budgetManagerRequested, clearBudgetManagerRequest]);
+  const todayCivil = useMemo(() => {
+    const [y, m] = todayKey.split('-').map(Number);
+    return { year: y, month: m };
+  }, [todayKey]);
+  const managerInitialMonth =
+    viewMode === 'monthly'
+      ? { year: selectedDate.getFullYear(), month: selectedDate.getMonth() + 1 }
+      : todayCivil;
+  const budgetOwners = familyOwnerContext.showAttribution
+    ? familyOwnerContext.owners.map((o) => ({ userId: o.userId, label: o.label }))
+    : undefined;
 
   // Últimas Transações
   const recentTransactions = useMemo(() => {
@@ -984,6 +1027,14 @@ const DashboardView: React.FC = () => {
 
         <div id="dashboard-budgets" className="grid grid-cols-1 gap-6">
         <Card title="Monitoramento de Orçamento">
+          <div className="-mt-3 mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
+            <p className="min-w-0 text-xs text-gray-400">
+              {budgetStatus.length > 0 ? 'Categorias com orçamento no período selecionado.' : ''}
+            </p>
+            <Button variant="secondary" className="!px-4 !py-2 text-sm" onClick={() => setBudgetManagerOpen(true)}>
+              Gerenciar orçamento
+            </Button>
+          </div>
           {budgetStatus.length > 0 ? (
             <div className="space-y-4">
               {compareEnabled && (
@@ -1041,7 +1092,7 @@ const DashboardView: React.FC = () => {
                           : 'grid-cols-1 sm:grid-cols-4'
                       }`}
                     >
-                      <span className="font-bold text-light">Total</span>
+                      <span className="font-bold text-light">Categorias com orçamento</span>
                       <div className={compareEnabled ? '' : 'col-span-2'}>
                         <ProgressBar
                           value={budgetTotal.spent}
@@ -1071,6 +1122,7 @@ const DashboardView: React.FC = () => {
                               </span>
                             </p>
                             <p className="text-[10px] text-gray-400">{totalConsumedPct}% consumido</p>
+                            <p className="text-[10px] text-gray-400">{budgetTotalRemaining.kind === 'remaining' ? `Restam ${formatCurrency(budgetTotalRemaining.amount)}` : `${formatCurrency(budgetTotalRemaining.amount)} acima`}</p>
                             {compareTotalDelta && (
                               <p
                                 className={`text-[10px] font-semibold mt-1 ${
@@ -1113,6 +1165,7 @@ const DashboardView: React.FC = () => {
                             </span>
                           </div>
                           <div className="text-xs text-gray-400">{totalConsumedPct}% consumido</div>
+                          <div className="text-xs text-gray-300">{budgetTotalRemaining.kind === 'remaining' ? `Restam ${formatCurrency(budgetTotalRemaining.amount)}` : `${formatCurrency(budgetTotalRemaining.amount)} acima`}</div>
                         </div>
                       )}
                     </div>
@@ -1121,7 +1174,11 @@ const DashboardView: React.FC = () => {
               })()}
 
               {budgetStatus.map(item => {
-                const compareSpent = compareBudgetMap.get(item.Categoria) || 0;
+                const compareSpent = compareBudgetMap.get(item.key) || 0;
+                const itemRemaining = describeRemaining(item.spent, item.adjustedLimit);
+                const itemOwnerLabel = familyOwnerContext.showAttribution
+                  ? familyOwnerContext.getProfile(item.ownerUserId)?.label
+                  : undefined;
                 const spentDelta = compareEnabled
                   ? buildCompactComparisonDeltaLabel(
                       computePeriodDelta(item.spent, compareSpent),
@@ -1141,7 +1198,10 @@ const DashboardView: React.FC = () => {
                           : 'grid-cols-1 sm:grid-cols-4'
                       }`}
                     >
-                      <span className="font-semibold text-light">{item.Categoria}</span>
+                      <span className="min-w-0 break-words font-semibold text-light">
+                        {item.Categoria}
+                        {itemOwnerLabel && <span className="block text-[10px] font-normal text-gray-400">{itemOwnerLabel}</span>}
+                      </span>
                       <div className={compareEnabled ? '' : 'col-span-2'}>
                         <ProgressBar
                           value={item.spent}
@@ -1169,6 +1229,7 @@ const DashboardView: React.FC = () => {
                               </span>
                             </p>
                             <p className="text-[10px] text-gray-400">{consumedPct}% consumido</p>
+                            <p className="text-[10px] text-gray-400">{itemRemaining.kind === 'remaining' ? `Restam ${formatCurrency(itemRemaining.amount)}` : `${formatCurrency(itemRemaining.amount)} acima`}</p>
                             {spentDelta && (
                               <p
                                 className={`text-[10px] font-semibold mt-1 ${
@@ -1209,6 +1270,7 @@ const DashboardView: React.FC = () => {
                             </span>
                           </div>
                           <div className="text-xs text-gray-400">{consumedPct}% consumido</div>
+                          <div className="text-xs text-gray-300">{itemRemaining.kind === 'remaining' ? `Restam ${formatCurrency(itemRemaining.amount)}` : `${formatCurrency(itemRemaining.amount)} acima`}</div>
                         </div>
                       )}
                     </div>
@@ -1217,9 +1279,27 @@ const DashboardView: React.FC = () => {
               })}
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-4">Nenhum orçamento configurado. Vá para Configurações para adicionar.</p>
+            <div className="py-4 text-center">
+              <p className="text-gray-400">Defina limites por categoria para acompanhar o mês.</p>
+            </div>
           )}
         </Card>
+        {isBudgetManagerOpen && (
+          <BudgetManagerPanel
+            isOpen
+            onClose={() => setBudgetManagerOpen(false)}
+            initialMonth={managerInitialMonth}
+            currentMonth={todayCivil}
+            currentUserId={user?.id}
+            categories={allCategories}
+            budgets={budgets}
+            budgetMonths={budgetMonths}
+            owners={budgetOwners}
+            onCreateMany={createBudgetMonths}
+            onUpdateAmount={updateBudgetMonthAmount}
+            onDeleteMonth={deleteBudgetMonth}
+          />
+        )}
 
         <Card title="Método 50-30-20 (Saúde Financeira)" className="relative overflow-hidden">
           <div className="mb-4 space-y-2">
