@@ -530,6 +530,8 @@ const normalizeGoalRow = (row: unknown): FinancialGoal => {
  */
 let goalsFetchGeneration = 0;
 let economicEventsFetchGeneration = 0;
+// Avança a cada marcar/desfazer BEM-SUCEDIDO: um fetchTransactions iniciado antes não pode sobrescrever o economic_event_id novo.
+let transactionEconomicIdentityRevision = 0;
 
 const isManualOrigin = (t: { Origem?: string | null }) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual';
 
@@ -1817,6 +1819,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Transações (agora com Supabase)
   fetchTransactions: async () => {
     set({ isLoading: true });
+    const identityRevisionAtStart = transactionEconomicIdentityRevision;
     try {
       const allTransactions = await collectPaginatedRows<Transaction>(async (from, to) => {
         const { data, error } = await supabase
@@ -1826,6 +1829,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           .range(from, to);
         return { data: (data as Transaction[] | null) ?? null, error };
       });
+      if (identityRevisionAtStart !== transactionEconomicIdentityRevision) {
+        // Houve marcar/desfazer depois que este snapshot começou: ele não pode reverter a mutação. Não aplica nem prende o loading.
+        set({ isLoading: false });
+        return;
+      }
       set({ transactions: allTransactions, isLoading: false });
     } catch (error) {
       console.error('Erro ao buscar o histórico completo de transações:', error);
@@ -2796,6 +2804,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   markTransactionAsInternalMovement: async (transactionId) => {
     try {
       const { event, transaction } = await markTransactionAsInternalMovementService(transactionId);
+      transactionEconomicIdentityRevision += 1;
       get().rememberEconomicEvent(event);
       set((state) => ({
         transactions: state.transactions.map((t) =>
@@ -2816,6 +2825,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   unmarkTransactionInternalMovement: async (transactionId) => {
     try {
       const { eventId, transaction } = await unmarkTransactionInternalMovementService(transactionId);
+      transactionEconomicIdentityRevision += 1;
       get().forgetEconomicEvent(eventId);
       set((state) => ({
         transactions: state.transactions.map((t) =>

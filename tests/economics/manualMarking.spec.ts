@@ -17,6 +17,7 @@ import {
 } from '../../src/services/transactionEconomicIdentityService';
 import { buildEconomicKindByEventId } from '../../src/domain/economics/transactionSemantics';
 import { toOperationalChartData, buildCategorySets } from '../../src/utils/dashboardMetrics';
+import { canMarkInternalMovement } from '../../src/domain/economics/manualEconomicIdentity';
 import { sanitizeTransactionUpdate } from '../../src/domain/transactions/transactionEditPolicy';
 import type { Transaction } from '../../src/types';
 
@@ -332,5 +333,114 @@ describe('edição preserva a identidade', () => {
     expect('economic_event_id' in (update.payload as object)).toBe(false);
     expect(db().tables.transactions[0].economic_event_id).toBe('ev1');
     expect(useAppStore.getState().transactions[0].economic_event_id).toBe('ev1');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// fetchTransactions iniciado ANTES de marcar/desfazer não pode sobrescrever o economic_event_id recém-alterado.
+// ---------------------------------------------------------------------------------------------------------
+describe('fetchTransactions antigo × marcar/desfazer (revisão de identidade)', () => {
+  /** Faz o PRÓXIMO select de transactions usar o snapshot capturado agora e só responder quando liberado. */
+  const holdNextTransactionsFetch = () => {
+    const snapshot = db().tables.transactions.map((r) => ({ ...r }));
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const original = h.db.supabase.from;
+    let used = false;
+    h.db.supabase.from = (table: string) => {
+      const q = original(table);
+      if (table === 'transactions' && !used) {
+        q.range = () => {
+          used = true;
+          h.db.supabase.from = original; // só este fetch é segurado
+          return { then: (res: any, rej: any) => gate.then(() => ({ data: snapshot, error: null })).then(res, rej) };
+        };
+      }
+      return q;
+    };
+    return { release, restore: () => { h.db.supabase.from = original; } };
+  };
+  const kindMap = () => buildEconomicKindByEventId(useAppStore.getState().economicEvents);
+  const sets = buildCategorySets([{ id: '1', Nome_Categoria: 'Mercado', Tipo: 'Despesa' } as never]);
+
+  it('MARK: o snapshot antigo (sem o id) não reverte a marcação; evento e neutralização permanecem', async () => {
+    seed([txRow('t1')]);
+    localState();
+    const held = holdNextTransactionsFetch();
+    const pending = useAppStore.getState().fetchTransactions();
+    expect(await useAppStore.getState().markTransactionAsInternalMovement('t1')).toBe(true);
+    const idAfterMark = useAppStore.getState().transactions[0].economic_event_id;
+    expect(idAfterMark).toBeTruthy();
+    held.release();
+    await pending;
+    const s = useAppStore.getState();
+    expect(s.transactions[0].economic_event_id).toBe(idAfterMark);
+    expect(s.economicEvents.map((e) => e.id)).toEqual([idAfterMark]);
+    expect(toOperationalChartData(s.transactions, sets, kindMap())).toHaveLength(0); // continua neutra
+    expect(s.isLoading).toBe(false);
+  });
+
+  it('UNDO: o snapshot antigo (com o id) não ressuscita o vínculo; marcar volta a ser possível', async () => {
+    seedEvent('ev1');
+    seed([txRow('t1', { economic_event_id: 'ev1' })]);
+    localState();
+    const held = holdNextTransactionsFetch();
+    const pending = useAppStore.getState().fetchTransactions();
+    expect(await useAppStore.getState().unmarkTransactionInternalMovement('t1')).toBe(true);
+    expect(useAppStore.getState().transactions[0].economic_event_id).toBeNull();
+    held.release();
+    await pending;
+    const s = useAppStore.getState();
+    expect(s.transactions[0].economic_event_id).toBeNull();
+    expect(s.economicEvents).toEqual([]);
+    expect(canMarkInternalMovement(s.transactions[0], A)).toBe(true);
+    expect(s.isLoading).toBe(false);
+  });
+
+  it('um fetch iniciado DEPOIS do mark continua AUTORITATIVO (a revisão não bloqueia os próximos)', async () => {
+    seed([txRow('t1')]);
+    localState();
+    await useAppStore.getState().markTransactionAsInternalMovement('t1');
+    db().tables.transactions.push(txRow('t-novo', { Nome_Fantasia: 'chegou depois' }));
+    await useAppStore.getState().fetchTransactions();
+    const s = useAppStore.getState();
+    expect(s.transactions.map((t) => t.ID_Transacao).sort()).toEqual(['t-novo', 't1']); // snapshot aplicado
+    expect(s.transactions.find((t) => t.ID_Transacao === 't1')!.economic_event_id).toBeTruthy(); // o banco já tem o id
+  });
+
+  it('um fetch iniciado DEPOIS do undo também é aplicado', async () => {
+    seedEvent('ev1');
+    seed([txRow('t1', { economic_event_id: 'ev1' })]);
+    localState();
+    await useAppStore.getState().unmarkTransactionInternalMovement('t1');
+    db().tables.transactions.push(txRow('t-novo'));
+    await useAppStore.getState().fetchTransactions();
+    const s = useAppStore.getState();
+    expect(s.transactions).toHaveLength(2);
+    expect(s.transactions.find((t) => t.ID_Transacao === 't1')!.economic_event_id).toBeNull();
+  });
+
+  it('mark/undo que FALHAM não invalidam o fetch em voo (a revisão só avança no sucesso)', async () => {
+    seed([txRow('t1', { user_id: B })]); // família: o mark é negado
+    localState();
+    db().tables.transactions.push(txRow('t-fresh'));
+    const held = holdNextTransactionsFetch();
+    const pending = useAppStore.getState().fetchTransactions();
+    expect(await useAppStore.getState().markTransactionAsInternalMovement('t1')).toBe(false);
+    held.release();
+    await pending;
+    expect(useAppStore.getState().transactions.map((t) => t.ID_Transacao).sort()).toEqual(['t-fresh', 't1']);
+  });
+
+  it('o snapshot descartado não deixa isLoading preso', async () => {
+    seed([txRow('t1')]);
+    localState();
+    const held = holdNextTransactionsFetch();
+    const pending = useAppStore.getState().fetchTransactions();
+    expect(useAppStore.getState().isLoading).toBe(true);
+    await useAppStore.getState().markTransactionAsInternalMovement('t1');
+    held.release();
+    await pending;
+    expect(useAppStore.getState().isLoading).toBe(false);
   });
 });
