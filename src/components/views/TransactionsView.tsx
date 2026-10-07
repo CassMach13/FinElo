@@ -48,6 +48,7 @@ import {
   buildDirectedPaymentDescription,
   buildFundingPaymentDescription,
 } from '../../services/creditCardDirectedPayment';
+import { registerInvoicePayment } from '../../services/payInvoiceRegistration';
 import PayCreditCardInvoiceModal from '../modals/PayCreditCardInvoiceModal';
 import {
   listCompetencePaymentConfirmations,
@@ -1071,8 +1072,14 @@ const TransactionsView: React.FC = () => {
         (c) => c.referenceMonth === referenceMonth
       );
 
+      let cardLegTransactionId: string | undefined;
       try {
-        await addTransaction([
+        const registration = await registerInvoicePayment({
+          userId: user.id,
+          cardAccount: account,
+          sourceAccount,
+          addTransaction,
+          legs: [
           {
             Data: paymentDate,
             Data_Pagamento: paymentDate,
@@ -1099,7 +1106,9 @@ const TransactionsView: React.FC = () => {
               sourceAccountId
             ),
           },
-        ]);
+          ],
+        });
+        cardLegTransactionId = registration.cardLeg?.ID_Transacao;
       } catch (error) {
         console.error('[TransactionsView] Registrar pagamento manual:', error);
         await appAlert(
@@ -1137,6 +1146,7 @@ const TransactionsView: React.FC = () => {
               paymentDate,
               amount,
               paymentAccountId: sourceAccountId,
+              paymentTransactionId: cardLegTransactionId,
               notes: `Pagamento direcionado à competência ${referenceMonth}`,
             });
           }
