@@ -348,16 +348,15 @@ const DashboardView: React.FC = () => {
   );
 
   const categorySets = useMemo(() => buildCategorySets(allCategories), [allCategories]);
-  const ambosCategories = categorySets.ambos;
-  const investmentCategories = categorySets.investment;
 
   const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
 
   // 2. Global Data without 'Ambos' (for Evolution Chart which needs history)
   // Also exclude investments from the main evolution chart to show operational evolution
-  const transactionsWithoutAmbosAndInvestments = useMemo(() => {
-    return transactions.filter(t => !ambosCategories.has(t.Categoria) && !investmentCategories.has(t.Categoria));
-  }, [transactions, ambosCategories, investmentCategories]);
+  const transactionsWithoutAmbosAndInvestments = useMemo(
+    () => toOperationalChartData(transactions, categorySets),
+    [transactions, categorySets]
+  );
 
   const filteredTransactions = useMemo(
     () => filterTransactionsByRange(transactions, dateRange),

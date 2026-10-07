@@ -1,9 +1,7 @@
 import type { Account, Category, Transaction } from '../../types';
-import { isDemoTransaction } from '../onboarding/firstSteps';
-import { FUNDING_ACCOUNT_OBS_PREFIX } from '../../services/creditCardDirectedPayment';
-import { buildCategorySets } from '../../utils/dashboardMetrics';
+import { buildCategorySets, classifyTransaction, isRecurrenceBaseEligibleTransaction } from '../economics/transactionSemantics';
 import { localTodayIso, toDateOnlyIso } from '../../utils/dateOnly';
-import { isCommitmentTransaction, type TransactionFiltersState } from '../../utils/transactionPeriodFilters';
+import type { TransactionFiltersState } from '../../utils/transactionPeriodFilters';
 
 /**
  * Possíveis gastos recorrentes (V1-A: detecção somente leitura).
@@ -85,9 +83,6 @@ export function normalizeRecurrenceName(value: string | null | undefined): strin
     .trim();
 }
 
-const hasFundingMarker = (t: Transaction): boolean =>
-  [t.Observacoes, t.Descricao_Original].some((raw) => String(raw ?? '').includes(FUNDING_ACCOUNT_OBS_PREFIX));
-
 /** Nome curado primeiro; sem ele, a descrição original; sem nenhum, não participa. */
 const identityOf = (t: Transaction): { normalized: string; display: string } | null => {
   const curated = String(t.Nome_Fantasia ?? '').trim();
@@ -146,12 +141,7 @@ export function detectRecurrences(input: {
   const futureKeys = new Set<string>();
 
   input.transactions.forEach((tx, index) => {
-    if (tx.Tipo !== 'Despesa') return;
-    if (!Number.isFinite(tx.Valor) || tx.Valor === 0) return;
-    if (isDemoTransaction(tx)) return;
-    if (categorySets.ambos.has(tx.Categoria) || categorySets.investment.has(tx.Categoria)) return;
-    if (hasFundingMarker(tx)) return;
-    if (isCommitmentTransaction(tx)) return;
+    if (!isRecurrenceBaseEligibleTransaction(classifyTransaction(tx, { categorySets }))) return;
     const identity = identityOf(tx);
     if (!identity) return;
     const date = toDateOnlyIso(tx.Data);

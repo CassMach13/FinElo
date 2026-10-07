@@ -1,6 +1,5 @@
 import type { Account, Category, Transaction } from '../types';
-import { isDemoTransaction } from '../domain/onboarding/firstSteps';
-import { FUNDING_ACCOUNT_OBS_PREFIX } from '../services/creditCardDirectedPayment';
+import { classifyTransaction, isUpcomingEligibleTransaction } from '../domain/economics/transactionSemantics';
 import { buildCategorySets, getTransactionEffectiveDate } from './dashboardMetrics';
 import { addDaysToDateOnly, localTodayIso, toDateOnlyIso } from './dateOnly';
 import {
@@ -68,9 +67,6 @@ export interface UpcomingEntries {
 
 const isPositiveInt = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1;
 
-const hasFundingMarker = (t: Transaction): boolean =>
-  [t.Observacoes, t.Descricao_Original].some((raw) => String(raw ?? '').includes(FUNDING_ACCOUNT_OBS_PREFIX));
-
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 const entrySortKey = (e: UpcomingEntry): [string, string, string] => [e.effectiveDate, e.description, e.id];
@@ -127,11 +123,7 @@ export function computeUpcomingEntries(input: {
   let entryCount = 0;
 
   for (const t of input.transactions) {
-    if (t.Tipo !== 'Renda' && t.Tipo !== 'Despesa') continue;
-    if (!Number.isFinite(t.Valor) || t.Valor === 0) continue;
-    if (isDemoTransaction(t)) continue;
-    if (categorySets.ambos.has(t.Categoria) || categorySets.investment.has(t.Categoria)) continue;
-    if (hasFundingMarker(t)) continue;
+    if (!isUpcomingEligibleTransaction(classifyTransaction(t, { categorySets, accountById }))) continue;
 
     const date = getTransactionEffectiveDate(t);
     if (Number.isNaN(date.getTime())) continue;
@@ -140,7 +132,6 @@ export function computeUpcomingEntries(input: {
 
     const account = t.ID_Conta ? accountById.get(t.ID_Conta) : undefined;
     const isCard = account?.Tipo_Conta === 'Cartão de Crédito';
-    if (isCard && t.Tipo === 'Renda') continue;
 
     const entry: UpcomingEntry = {
       kind: 'entry',
