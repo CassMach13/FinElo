@@ -50,6 +50,13 @@ import {
 } from '../../services/creditCardDirectedPayment';
 import { registerInvoicePayment } from '../../services/payInvoiceRegistration';
 import { buildEconomicKindByEventId } from '../../domain/economics/transactionSemantics';
+import {
+  canMarkInternalMovement,
+  canUndoInternalMovement,
+  countLegsByEventId,
+  resolveEconomicIdentityBadge,
+} from '../../domain/economics/manualEconomicIdentity';
+import { EconomicIdentityBadge, InternalMovementActionButton } from '../transactions/EconomicIdentityControls';
 import PayCreditCardInvoiceModal from '../modals/PayCreditCardInvoiceModal';
 import {
   listCompetencePaymentConfirmations,
@@ -274,6 +281,8 @@ const TransactionsView: React.FC = () => {
     bumpCreditCardEngineRevision,
     economicEvents,
     rememberEconomicEvent,
+    markTransactionAsInternalMovement,
+    unmarkTransactionInternalMovement,
   } = useAppStore();
   const smartFiltersEnabled = isSmartTransactionFiltersEnabled(user);
   const filtersStorageKey = smartFiltersEnabled
@@ -2356,6 +2365,45 @@ const TransactionsView: React.FC = () => {
     creditCardEngineRevision,
   ]);
 
+  // Identidade econômica: selo (qualquer visualizador) e ação (só o dono). Evento não carregado ⇒ sem selo nem ação.
+  const economicEventById = useMemo(() => new Map(economicEvents.map((e) => [e.id, e])), [economicEvents]);
+  const economicLegCounts = useMemo(() => countLegsByEventId(transactions), [transactions]);
+  const identityFor = useCallback(
+    (t: Transaction) => {
+      const event = t.economic_event_id ? economicEventById.get(t.economic_event_id) : undefined;
+      const badge = resolveEconomicIdentityBadge(event);
+      const action: 'mark' | 'undo' | null = canMarkInternalMovement(t, user?.id)
+        ? 'mark'
+        : canUndoInternalMovement(t, event, user?.id, event ? economicLegCounts.get(event.id) ?? 0 : 0)
+          ? 'undo'
+          : null;
+      return { badge, action };
+    },
+    [economicEventById, economicLegCounts, user?.id]
+  );
+  const runInternalMovementAction = useCallback(
+    async (t: Transaction, mode: 'mark' | 'undo') => {
+      const confirmed =
+        mode === 'mark'
+          ? await appConfirm(
+              'Ele continuará no histórico da conta, mas não entrará nos cálculos de renda e gastos.',
+              'Marcar este lançamento como movimentação interna?',
+              'Marcar',
+              'warning'
+            )
+          : await appConfirm(
+              'O lançamento voltará a participar dos cálculos de renda e gastos.',
+              'Desfazer movimentação interna?',
+              'Desfazer',
+              'warning'
+            );
+      if (!confirmed) return;
+      if (mode === 'mark') await markTransactionAsInternalMovement(t.ID_Transacao);
+      else await unmarkTransactionInternalMovement(t.ID_Transacao);
+    },
+    [markTransactionAsInternalMovement, unmarkTransactionInternalMovement]
+  );
+
   const creditCardFundingAccounts = useMemo(
     () =>
       accounts.filter(
@@ -3531,6 +3579,7 @@ const TransactionsView: React.FC = () => {
           const t = item.transaction;
           const manual = isManualTransaction(t);
           const isSelected = selectedManualIds.has(t.ID_Transacao);
+          const identity = identityFor(t);
 
           const mobileCardBody = (
             <div
@@ -3573,6 +3622,7 @@ const TransactionsView: React.FC = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                       {t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta Desconhecida' : 'Sem conta'}
                     </span>
+                    {identity.badge ? <EconomicIdentityBadge label={identity.badge} className="mt-0.5 self-start" /> : null}
                   </div>
 
                   <div className="flex flex-col items-end z-10 shrink-0">
@@ -3595,6 +3645,11 @@ const TransactionsView: React.FC = () => {
                   </div>
                 </div>
               </div>
+              {!selectionMode && identity.action ? (
+                <div className="pl-2">
+                  <InternalMovementActionButton mode={identity.action} variant="text" onClick={() => void runInternalMovementAction(t, identity.action!)} />
+                </div>
+              ) : null}
             </div>
           );
 
@@ -3801,12 +3856,13 @@ const TransactionsView: React.FC = () => {
                 const t = item.transaction;
                 const manual = isManualTransaction(t);
                 const isSelected = selectedManualIds.has(t.ID_Transacao);
+                const identity = identityFor(t);
                 return (
                 <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''}`}>
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
-                  <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} />
+                  <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} badge={identity.badge ? <EconomicIdentityBadge label={identity.badge} /> : undefined} />
                   {showOwnerColumnInTable ? (
                     <td className="px-2 py-4 w-20 text-center align-middle">
                       {(() => {
@@ -3857,6 +3913,9 @@ const TransactionsView: React.FC = () => {
                   <td className="px-2 py-4 whitespace-nowrap text-right text-sm font-medium w-20">
                     {!selectionMode ? (
                     <div className="flex items-center justify-end gap-2">
+                      {identity.action ? (
+                        <InternalMovementActionButton mode={identity.action} variant="icon" onClick={() => void runInternalMovementAction(t, identity.action!)} />
+                      ) : null}
                       {manual && (
                         <div className="flex items-center gap-2">
                           <button 
@@ -4754,6 +4813,8 @@ interface EditableCellProps {
   className?: string;
   onRuleCreation?: (transaction: Transaction) => void;
   onOpenCreateCategory?: () => void;
+  /** Selo exibido junto ao texto (só para a descrição). */
+  badge?: React.ReactNode;
 }
 const EditableCell: React.FC<EditableCellProps> = ({
   transaction,
@@ -4765,7 +4826,8 @@ const EditableCell: React.FC<EditableCellProps> = ({
   displayMap,
   className = '',
   onRuleCreation,
-  onOpenCreateCategory
+  onOpenCreateCategory,
+  badge
 }) => {
   const { categories } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -4901,6 +4963,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
         }
       >
         <span>{cellContent()}</span>
+        {badge ? <span className="ml-2 inline-flex align-middle">{badge}</span> : null}
         {field === 'Nome_Fantasia' && transaction.Origem !== 'manual' && onRuleCreation && (
           <button
             onClick={(e) => { e.stopPropagation(); onRuleCreation(transaction); }}
