@@ -115,9 +115,10 @@ describe('economicEventService', () => {
     expect(mocks.eventDeletes).toEqual(['ev9']);
   });
 
-  it('não carrega eventos no estado global (Fase 1 só cria e grava o id)', () => {
+  it('3A: o store lê economic_events só em fetchEconomicEvents (uma consulta paginada, sem N+1)', () => {
     const store = readFileSync(resolve('src/hooks/useAppStore.ts'), 'utf8');
-    expect(store).not.toMatch(/economicEvents|fetchEconomicEvents|economic_events/);
+    expect(store.match(/from\('economic_events'\)/g)?.length).toBe(1);
+    expect(store).toContain('fetchEconomicEvents: async () => {');
   });
 });
 

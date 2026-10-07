@@ -6,6 +6,7 @@ import {
   Category,
   Budget,
   BudgetMonth,
+  EconomicEvent,
   MappingRule,
   ImportConfig,
   Account,
@@ -61,6 +62,7 @@ import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
 import { collectPaginatedRows } from '../utils/paginatedFetch';
+import { ECONOMIC_EVENT_COLUMNS } from '../services/economicEventService';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
 import {
   prepareManualPurchaseCompetenceOnPaymentDateEdit,
@@ -329,6 +331,11 @@ interface AppState {
   createBudgetMonths: (rows: Array<{ Categoria: string; year: number; month: number; amount: number }>) => Promise<boolean>;
   updateBudgetMonthAmount: (id: string, amount: number) => Promise<boolean>;
   deleteBudgetMonth: (id: string) => Promise<boolean>;
+  // Identidade econômica (3A): eventos visíveis, carregados à parte. O kind só vem daqui (nunca inferido).
+  economicEvents: EconomicEvent[];
+  fetchEconomicEvents: () => Promise<void>;
+  /** Upsert idempotente por id: o evento recém-criado passa a valer sem novo reload. */
+  rememberEconomicEvent: (event: EconomicEvent) => void;
 
   // CRUD for Mapping Rules
   fetchMappingRules: () => Promise<void>;
@@ -510,6 +517,7 @@ const normalizeGoalRow = (row: unknown): FinancialGoal => {
  * (A1 pendente → B → A2 não deixa A1, que chega por último, sobrescrever A2).
  */
 let goalsFetchGeneration = 0;
+let economicEventsFetchGeneration = 0;
 
 /** `numeric` pode chegar como string: normaliza sempre. */
 const normalizeBudgetMonthRow = (row: unknown): BudgetMonth => {
@@ -554,6 +562,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   categories: [],
   budgets: [],
   budgetMonths: [],
+  economicEvents: [],
   budgetManagerRequested: false,
   requestBudgetManager: () => set({ budgetManagerRequested: true }),
   clearBudgetManagerRequest: () => set({ budgetManagerRequested: false }),
@@ -1712,6 +1721,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       categories: [],
       budgets: [],
       budgetMonths: [],
+      economicEvents: [],
       budgetManagerRequested: false,
       mappingRules: [],
       importConfigs: [],
@@ -1745,6 +1755,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         get().fetchCategories(),
         get().fetchBudgets(),
         get().fetchBudgetMonths(),
+        get().fetchEconomicEvents(),
         get().fetchMappingRules(),
         get().fetchImportConfigs(),
         get().fetchPendingInvites(),
@@ -2711,6 +2722,34 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set({ budgetMonths: (data as unknown[]).map(normalizeBudgetMonthRow) });
   },
+  fetchEconomicEvents: async () => {
+    const requestedUserId = get().user?.id;
+    if (!requestedUserId) return;
+    const generation = ++economicEventsFetchGeneration;
+    try {
+      const rows = await collectPaginatedRows<EconomicEvent>(async (from, to) => {
+        const { data, error } = await supabase
+          .from('economic_events')
+          .select(ECONOMIC_EVENT_COLUMNS)
+          .order('id', { ascending: true })
+          .range(from, to);
+        return { data: (data || []) as EconomicEvent[], error };
+      });
+      // Resposta tardia: sessão trocada/encerrada ou busca mais nova em campo → descarta.
+      if (get().user?.id !== requestedUserId || generation !== economicEventsFetchGeneration) return;
+      // Snapshot autoritativo do banco (substitui, não acumula).
+      set({ economicEvents: rows });
+    } catch (error) {
+      // Falha: preserva o snapshot anterior. Sem eventos carregados nada é neutralizado (comportamento legado).
+      console.error('Erro ao buscar eventos econômicos:', error);
+    }
+  },
+  rememberEconomicEvent: (event) =>
+    set((state) => ({
+      economicEvents: state.economicEvents.some((e) => e.id === event.id)
+        ? state.economicEvents.map((e) => (e.id === event.id ? event : e))
+        : [...state.economicEvents, event],
+    })),
   createBudgetMonths: async (rows) => {
     if (rows.length === 0) return true;
     // O dono é SEMPRE o usuário autenticado: ninguém cria linha em nome de outro.
