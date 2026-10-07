@@ -63,6 +63,12 @@ import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
 import { collectPaginatedRows } from '../utils/paginatedFetch';
 import { ECONOMIC_EVENT_COLUMNS } from '../services/economicEventService';
+import {
+  EconomicIdentityError,
+  cleanupOrphanUserEvent,
+  markTransactionAsInternalMovement as markTransactionAsInternalMovementService,
+  unmarkTransactionInternalMovement as unmarkTransactionInternalMovementService,
+} from '../services/transactionEconomicIdentityService';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
 import {
   prepareManualPurchaseCompetenceOnPaymentDateEdit,
@@ -336,6 +342,12 @@ interface AppState {
   fetchEconomicEvents: () => Promise<void>;
   /** Upsert idempotente por id: o evento recém-criado passa a valer sem novo reload. */
   rememberEconomicEvent: (event: EconomicEvent) => void;
+  /** Remove o evento do estado e invalida qualquer fetch em voo (um snapshot antigo não o ressuscita). */
+  forgetEconomicEvent: (eventId: string) => void;
+  /** Marca UMA transação como movimentação interna (só o dono). Atualiza o estado local sem reload. */
+  markTransactionAsInternalMovement: (transactionId: string) => Promise<boolean>;
+  /** Desfaz a marcação manual (evento own_account_transfer/user com 1 perna). */
+  unmarkTransactionInternalMovement: (transactionId: string) => Promise<boolean>;
 
   // CRUD for Mapping Rules
   fetchMappingRules: () => Promise<void>;
@@ -518,6 +530,15 @@ const normalizeGoalRow = (row: unknown): FinancialGoal => {
  */
 let goalsFetchGeneration = 0;
 let economicEventsFetchGeneration = 0;
+
+const isManualOrigin = (t: { Origem?: string | null }) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual';
+
+/** Depois de excluir lançamentos MANUAIS: apaga os eventos manuais do usuário que ficaram sem perna (confirmado no banco). */
+const cleanupOrphanUserEvents = async (eventIds: Array<string | null | undefined>, forget: (id: string) => void) => {
+  for (const id of new Set(eventIds.filter((x): x is string => !!x))) {
+    if (await cleanupOrphanUserEvent(id)) forget(id);
+  }
+};
 
 /** `numeric` pode chegar como string: normaliza sempre. */
 const normalizeBudgetMonthRow = (row: unknown): BudgetMonth => {
@@ -2411,6 +2432,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         transactions: state.transactions.filter(t => t.ID_Transacao !== transactionId)
       }));
 
+      // Evento manual que ficou sem a única perna: limpa (só lançamento MANUAL; automáticos e multi-perna ficam)
+      if (transaction && isManualOrigin(transaction)) {
+        await cleanupOrphanUserEvents([transaction.economic_event_id], (id) => get().forgetEconomicEvent(id));
+      }
+
       // Recalcular saldo se houver vínculo
       if (assetId) {
         await get().recalculateAssetBalance(assetId);
@@ -2509,6 +2535,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       transactions: state.transactions.filter((t) => !ids.includes(t.ID_Transacao)),
     }));
+
+    await cleanupOrphanUserEvents(
+      toDelete.map((t) => t.economic_event_id),
+      (id) => get().forgetEconomicEvent(id)
+    );
 
     for (const assetId of affectedAssetIds) {
       await get().recalculateAssetBalance(assetId);
@@ -2756,6 +2787,51 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? state.economicEvents.map((e) => (e.id === event.id ? event : e))
         : [...state.economicEvents, event],
     }));
+  },
+  forgetEconomicEvent: (eventId) => {
+    if (!get().user?.id) return;
+    economicEventsFetchGeneration += 1; // fetch iniciado antes não pode ressuscitar o evento removido
+    set((state) => ({ economicEvents: state.economicEvents.filter((e) => e.id !== eventId) }));
+  },
+  markTransactionAsInternalMovement: async (transactionId) => {
+    try {
+      const { event, transaction } = await markTransactionAsInternalMovementService(transactionId);
+      get().rememberEconomicEvent(event);
+      set((state) => ({
+        transactions: state.transactions.map((t) =>
+          t.ID_Transacao === transactionId ? { ...t, economic_event_id: transaction.economic_event_id ?? event.id } : t
+        ),
+      }));
+      return true;
+    } catch (error) {
+      console.error('Erro ao marcar movimentação interna:', error);
+      await appAlert(
+        error instanceof EconomicIdentityError ? error.message : 'Não foi possível concluir. Tente novamente.',
+        'Movimentação interna',
+        'danger'
+      );
+      return false;
+    }
+  },
+  unmarkTransactionInternalMovement: async (transactionId) => {
+    try {
+      const { eventId, transaction } = await unmarkTransactionInternalMovementService(transactionId);
+      get().forgetEconomicEvent(eventId);
+      set((state) => ({
+        transactions: state.transactions.map((t) =>
+          t.ID_Transacao === transactionId ? { ...t, economic_event_id: transaction.economic_event_id ?? null } : t
+        ),
+      }));
+      return true;
+    } catch (error) {
+      console.error('Erro ao desfazer movimentação interna:', error);
+      await appAlert(
+        error instanceof EconomicIdentityError ? error.message : 'Não foi possível concluir. Tente novamente.',
+        'Movimentação interna',
+        'danger'
+      );
+      return false;
+    }
   },
   createBudgetMonths: async (rows) => {
     if (rows.length === 0) return true;
