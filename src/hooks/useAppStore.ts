@@ -1712,6 +1712,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     goalsFetchGeneration += 1; // busca de objetivos em voo não vale mais depois do logout
+    economicEventsFetchGeneration += 1; // idem para eventos econômicos (vale mesmo se o mesmo usuário logar de novo)
     // Limpa o estado da aplicação SEMPRE, independente do erro no servidor
     set({
       user: null,
@@ -2744,12 +2745,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Erro ao buscar eventos econômicos:', error);
     }
   },
-  rememberEconomicEvent: (event) =>
+  rememberEconomicEvent: (event) => {
+    // Só o evento da sessão ATUAL entra (um Pagar de sessão antiga que termina depois do logout/troca é ignorado).
+    const currentUserId = get().user?.id;
+    if (!currentUserId || event.user_id !== currentUserId) return;
+    // Um fetch iniciado ANTES deste remember traz um snapshot sem o evento: invalida-o para não apagá-lo.
+    economicEventsFetchGeneration += 1;
     set((state) => ({
       economicEvents: state.economicEvents.some((e) => e.id === event.id)
         ? state.economicEvents.map((e) => (e.id === event.id ? event : e))
         : [...state.economicEvents, event],
-    })),
+    }));
+  },
   createBudgetMonths: async (rows) => {
     if (rows.length === 0) return true;
     // O dono é SEMPRE o usuário autenticado: ninguém cria linha em nome de outro.

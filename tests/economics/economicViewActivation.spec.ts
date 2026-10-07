@@ -421,7 +421,7 @@ describe('Pagar: o evento vale imediatamente (sem reload)', () => {
   const EVENT: EconomicEvent = { id: 'ev-live', user_id: U, kind: 'credit_card_payment', source: 'pay_invoice_flow', counterparty_account_id: null, created_by: U, created_at: 't' };
 
   it('após registerInvoicePayment + rememberEconomicEvent, as duas pernas recém-gravadas já são neutras', async () => {
-    useAppStore.setState({ economicEvents: [] });
+    useAppStore.setState({ economicEvents: [], user: { id: U } as never }); // sessão do dono do evento
     const added: Transaction[] = [];
     const registration = await registerInvoicePayment({
       userId: U, cardAccount: { id: CARD, user_id: U }, sourceAccount: { id: BANK, user_id: U },

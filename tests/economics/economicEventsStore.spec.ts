@@ -132,6 +132,63 @@ describe('economicEvents no store', () => {
     expect(state().economicEvents.map((e) => e.id)).toEqual(['novo']);
   });
 
+  it('fetch ANTIGO em voo não apaga o evento lembrado depois (remember invalida o fetch)', async () => {
+    let release!: () => void;
+    mocks.gate = new Promise<void>((r) => { release = r; });
+    mocks.pages = [{ data: [ev('antigo')], error: null }]; // snapshot SEM o evento novo
+    const pending = state().fetchEconomicEvents();
+    state().rememberEconomicEvent(ev('evento-novo') as never);
+    expect(state().economicEvents.map((e) => e.id)).toEqual(['evento-novo']);
+    release();
+    await pending;
+    expect(state().economicEvents.map((e) => e.id)).toEqual(['evento-novo']); // o snapshot velho foi descartado
+  });
+
+  it('um fetch iniciado DEPOIS do remember continua autoritativo', async () => {
+    state().rememberEconomicEvent(ev('e1') as never);
+    mocks.pages = [{ data: [ev('e1'), ev('e2')], error: null }];
+    await state().fetchEconomicEvents();
+    expect(state().economicEvents.map((e) => e.id)).toEqual(['e1', 'e2']);
+  });
+
+  it('logout durante o Pagar: o evento da sessão antiga NÃO entra', async () => {
+    await state().signOut();
+    useAppStore.setState({ user: null as never });
+    state().rememberEconomicEvent(ev('evento-de-A', 'credit_card_payment', 'user-a') as never);
+    expect(state().economicEvents).toEqual([]);
+  });
+
+  it('troca A → B: o evento de A é ignorado e o de B entra normalmente', () => {
+    useAppStore.setState({ user: { id: 'user-b' } as never });
+    state().rememberEconomicEvent(ev('evento-de-A', 'credit_card_payment', 'user-a') as never);
+    expect(state().economicEvents).toEqual([]);
+    state().rememberEconomicEvent(ev('evento-de-B', 'credit_card_payment', 'user-b') as never);
+    expect(state().economicEvents.map((e) => e.id)).toEqual(['evento-de-B']);
+  });
+
+  it('evento de OUTRO usuário (recusado) não invalida o fetch válido em voo', async () => {
+    let release!: () => void;
+    mocks.gate = new Promise<void>((r) => { release = r; });
+    mocks.pages = [{ data: [ev('valido')], error: null }];
+    const pending = state().fetchEconomicEvents();
+    state().rememberEconomicEvent(ev('alheio', 'credit_card_payment', 'user-b') as never);
+    release();
+    await pending;
+    expect(state().economicEvents.map((e) => e.id)).toEqual(['valido']);
+  });
+
+  it('signOut invalida o fetch em voo mesmo se o MESMO usuário logar de novo antes da resposta', async () => {
+    let release!: () => void;
+    mocks.gate = new Promise<void>((r) => { release = r; });
+    mocks.pages = [{ data: [ev('da-sessao-antiga')], error: null }];
+    const pending = state().fetchEconomicEvents();
+    await state().signOut();
+    useAppStore.setState({ user: { id: 'user-a' } as never }); // nova sessão do mesmo usuário
+    release();
+    await pending;
+    expect(state().economicEvents).toEqual([]); // só a geração distingue a sessão antiga da nova
+  });
+
   it('rememberEconomicEvent insere e é idempotente por id (sem duplicar)', () => {
     state().rememberEconomicEvent(ev('e1') as never);
     state().rememberEconomicEvent(ev('e2', 'own_account_transfer') as never);
