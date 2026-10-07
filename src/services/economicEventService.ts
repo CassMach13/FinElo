@@ -4,6 +4,9 @@ import type { EconomicEvent, EconomicEventKind, EconomicEventSource } from '../t
 export const ECONOMIC_EVENT_COLUMNS = 'id,user_id,kind,source,counterparty_account_id,created_by,created_at';
 const COLUMNS = ECONOMIC_EVENT_COLUMNS;
 
+/** `backfill_funding_marker` é reservado à migration de backfill (a RLS também o recusa para clientes). */
+export type ClientEconomicEventSource = Exclude<EconomicEventSource, 'backfill_funding_marker'>;
+
 /**
  * Cria um evento econômico para o usuário autenticado.
  *
@@ -12,9 +15,13 @@ const COLUMNS = ECONOMIC_EVENT_COLUMNS;
  */
 export async function createEconomicEvent(input: {
   kind: EconomicEventKind;
-  source: EconomicEventSource;
+  source: ClientEconomicEventSource;
   counterpartyAccountId?: string | null;
 }): Promise<EconomicEvent> {
+  // Defesa em profundidade (o tipo já impede; isto cobre chamadas dinâmicas/any): antes de qualquer consulta.
+  if ((input.source as EconomicEventSource) === 'backfill_funding_marker') {
+    throw new Error('O source backfill_funding_marker é reservado ao backfill do banco.');
+  }
   const {
     data: { user },
   } = await supabase.auth.getUser();
