@@ -59,6 +59,7 @@ import {
   describeRemaining,
   type BudgetLine,
 } from '../../domain/budgets/monthlyBudget';
+import { buildEconomicKindByEventId } from '../../domain/economics/transactionSemantics';
 import BudgetManagerPanel from '../budgets/BudgetManagerPanel';
 import { useFamilyOwnerContext } from '../../hooks/useFamilyOwnerContext';
 import {
@@ -81,7 +82,7 @@ import CategoryModal from '../modals/CategoryModal';
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
-  const { transactions, budgets, categories: allCategories, user, isPremium, assets, budgetMonths, createBudgetMonths, updateBudgetMonthAmount, deleteBudgetMonth, budgetManagerRequested, clearBudgetManagerRequest, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
+  const { transactions, budgets, categories: allCategories, user, isPremium, assets, budgetMonths, economicEvents, createBudgetMonths, updateBudgetMonthAmount, deleteBudgetMonth, budgetManagerRequested, clearBudgetManagerRequest, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
   const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
 
@@ -348,14 +349,16 @@ const DashboardView: React.FC = () => {
   );
 
   const categorySets = useMemo(() => buildCategorySets(allCategories), [allCategories]);
+  // Eventos carregados (id → kind): só kind conhecido neutraliza; id sem evento no mapa segue o comportamento legado.
+  const economicKindByEventId = useMemo(() => buildEconomicKindByEventId(economicEvents), [economicEvents]);
 
   const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
 
   // 2. Global Data without 'Ambos' (for Evolution Chart which needs history)
   // Also exclude investments from the main evolution chart to show operational evolution
   const transactionsWithoutAmbosAndInvestments = useMemo(
-    () => toOperationalChartData(transactions, categorySets),
-    [transactions, categorySets]
+    () => toOperationalChartData(transactions, categorySets, economicKindByEventId),
+    [transactions, categorySets, economicKindByEventId]
   );
 
   const filteredTransactions = useMemo(
@@ -364,8 +367,8 @@ const DashboardView: React.FC = () => {
   );
 
   const chartData = useMemo(
-    () => toOperationalChartData(filteredTransactions, categorySets),
-    [filteredTransactions, categorySets]
+    () => toOperationalChartData(filteredTransactions, categorySets, economicKindByEventId),
+    [filteredTransactions, categorySets, economicKindByEventId]
   );
 
   const investmentData = useMemo(
@@ -375,8 +378,8 @@ const DashboardView: React.FC = () => {
 
   const compareMetrics = useMemo(() => {
     if (!compareDateRange) return null;
-    return computeDashboardPeriodMetrics(transactions, allCategories, compareDateRange);
-  }, [compareDateRange, transactions, allCategories]);
+    return computeDashboardPeriodMetrics(transactions, allCategories, compareDateRange, economicKindByEventId);
+  }, [compareDateRange, transactions, allCategories, economicKindByEventId]);
 
   const compareFilteredTransactions = useMemo(
     () => (compareDateRange ? filterTransactionsByRange(transactions, compareDateRange) : []),
@@ -384,8 +387,8 @@ const DashboardView: React.FC = () => {
   );
 
   const compareChartData = useMemo(
-    () => toOperationalChartData(compareFilteredTransactions, categorySets),
-    [compareFilteredTransactions, categorySets]
+    () => toOperationalChartData(compareFilteredTransactions, categorySets, economicKindByEventId),
+    [compareFilteredTransactions, categorySets, economicKindByEventId]
   );
 
   const netWorthSnapshot = useMemo(() => {
@@ -450,12 +453,12 @@ const DashboardView: React.FC = () => {
     [user, setCurrentView]
   );
   const monthlyChange = useMemo(
-    () => computeMonthlyChange({ transactions, categories: allCategories, today: todayKey }),
-    [transactions, allCategories, todayKey]
+    () => computeMonthlyChange({ transactions, categories: allCategories, today: todayKey, economicKindByEventId }),
+    [transactions, allCategories, todayKey, economicKindByEventId]
   );
   const annualEvolution = useMemo(
-    () => computeAnnualEvolution({ transactions, categories: allCategories, today: todayKey }),
-    [transactions, allCategories, todayKey]
+    () => computeAnnualEvolution({ transactions, categories: allCategories, today: todayKey, economicKindByEventId }),
+    [transactions, allCategories, todayKey, economicKindByEventId]
   );
   const investmentSummary = useMemo(
     () => computeInvestmentSummary(investmentData),
@@ -499,8 +502,9 @@ const DashboardView: React.FC = () => {
         range: dateRange,
         currentUserId: user?.id,
         getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
+        economicKindByEventId,
       }),
-    [budgets, budgetMonths, transactions, dateRange, user?.id, familyOwnerContext.getTransactionOwnerId]
+    [budgets, budgetMonths, transactions, dateRange, user?.id, familyOwnerContext.getTransactionOwnerId, economicKindByEventId]
   );
   const budgetStatus = useMemo(() => budgetLines.map(toBudgetItem), [budgetLines]);
 
@@ -514,8 +518,9 @@ const DashboardView: React.FC = () => {
       currentUserId: user?.id,
       getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
       referenceDate: compareDateRange.end,
+      economicKindByEventId,
     });
-  }, [budgets, budgetMonths, transactions, compareDateRange, user?.id, familyOwnerContext.getTransactionOwnerId]);
+  }, [budgets, budgetMonths, transactions, compareDateRange, user?.id, familyOwnerContext.getTransactionOwnerId, economicKindByEventId]);
 
   // Chave dono + categoria: a mesma categoria de duas pessoas não colide na comparação.
   const compareBudgetMap = useMemo(() => {
@@ -1023,6 +1028,7 @@ const DashboardView: React.FC = () => {
           categories={allCategories}
           accounts={accounts}
           today={todayKey}
+          economicKindByEventId={economicKindByEventId}
           onViewInTransactions={handleViewUpcomingInTransactions}
         />
 

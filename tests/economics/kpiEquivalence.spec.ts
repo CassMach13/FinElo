@@ -125,7 +125,7 @@ describe('Fase 1 — KPIs idênticos com economic_event_id', () => {
     expect(JSON.stringify(everything(rows))).toBe(baseline);
   });
 
-  it('guarda estática: nenhum consumidor econômico lê economic_event_id', () => {
+  it('guarda estática: nenhum consumidor lê economic_event_id nem hasEconomicEvent (só o kind CARREGADO decide)', () => {
     const files = [
       'src/utils/dashboardMetrics.ts',
       'src/domain/budgets/monthlyBudget.ts',
@@ -137,6 +137,6 @@ describe('Fase 1 — KPIs idênticos com economic_event_id', () => {
       'src/domain/export/transactionExport.ts',
       'src/components/views/DashboardView.tsx',
     ];
-    for (const f of files) expect(readFileSync(resolve(f), 'utf8'), f).not.toMatch(/economic_event|economicEvent/);
+    for (const f of files) expect(readFileSync(resolve(f), 'utf8'), f).not.toMatch(/economic_event_id|hasEconomicEvent/);
   });
 });

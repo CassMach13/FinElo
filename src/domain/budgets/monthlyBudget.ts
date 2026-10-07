@@ -1,5 +1,5 @@
-import type { Budget, BudgetMonth, Category, Transaction } from '../../types';
-import { classifyTransaction, isBudgetSpendTransaction } from '../economics/transactionSemantics';
+import type { Budget, BudgetMonth, Category, EconomicEventKind, Transaction } from '../../types';
+import { classifyTransaction, isBudgetSpendEconomicTransaction } from '../economics/transactionSemantics';
 import { getTransactionEffectiveDate } from '../../utils/dashboardMetrics';
 import type { DateRange } from '../../utils/dashboardPeriod';
 
@@ -143,6 +143,8 @@ export function computeBudgetLines(input: {
   /** Resolve o dono de cada lançamento (mesma regra do contexto familiar). */
   getTransactionOwnerId: (tx: Transaction) => string | undefined;
   referenceDate?: Date;
+  /** Eventos carregados (id → kind): despesa neutra não consome orçamento. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
 }): BudgetLine[] {
   const { budgets, budgetMonths, transactions, range, currentUserId, getTransactionOwnerId } = input;
   const referenceDate = input.referenceDate ?? new Date();
@@ -182,7 +184,7 @@ export function computeBudgetLines(input: {
   const endMs = range.end.getTime();
   const spentCents = new Map<string, number>();
   for (const t of transactions) {
-    if (!isBudgetSpendTransaction(classifyTransaction(t))) continue;
+    if (!isBudgetSpendEconomicTransaction(classifyTransaction(t, { economicKindByEventId: input.economicKindByEventId }))) continue;
     const date = getTransactionEffectiveDate(t);
     const ms = date.getTime();
     if (Number.isNaN(ms) || ms < startMs || ms > endMs) continue;

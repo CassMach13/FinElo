@@ -1,5 +1,5 @@
-import type { Category, Transaction } from '../types';
-import { classifyTransaction, isAnalysisOperationalTransaction } from '../domain/economics/transactionSemantics';
+import type { Category, EconomicEventKind, Transaction } from '../types';
+import { classifyTransaction, isAnalysisEconomicTransaction } from '../domain/economics/transactionSemantics';
 import { computeAnnualChangePercent } from './annualEvolution';
 import {
   buildCategorySets,
@@ -87,11 +87,13 @@ export function computeMonthlyChange(input: {
   transactions: Transaction[];
   categories: Category[];
   today?: Date | string;
+  /** Eventos carregados (id → kind). Sem ele, nada é neutralizado. */
+  economicKindByEventId?: ReadonlyMap<string, EconomicEventKind>;
 }): MonthlyChange {
   const { current, previous } = getComparedMonths(input.today);
   const categorySets = buildCategorySets(input.categories);
   const operational = input.transactions.filter((t) =>
-    isAnalysisOperationalTransaction(classifyTransaction(t, { categorySets }))
+    isAnalysisEconomicTransaction(classifyTransaction(t, { categorySets, economicKindByEventId: input.economicKindByEventId }))
   );
 
   const key = (y: number, m: number) => y * 100 + m;

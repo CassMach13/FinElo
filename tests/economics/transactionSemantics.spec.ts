@@ -217,13 +217,15 @@ describe('guardas estáticas', () => {
     for (const f of migrated) expect(read(f), f).not.toMatch(/isDemoTransaction/);
   });
 
-  it('nenhuma política decide por economic_event_id (só o fato hasEconomicEvent o lê)', () => {
-    expect(domain.match(/economic_event/g)?.length).toBe(1);
+  it('nenhuma política decide por economic_event_id nem por hasEconomicEvent (só o kind CARREGADO neutraliza)', () => {
+    // O id só é lido para o fato hasEconomicEvent e para resolver o kind no mapa — nunca dentro de uma política.
     expect(domain).toMatch(/hasEconomicEvent: Boolean\(tx\.economic_event_id\)/);
+    expect(domain).toMatch(/tx\.economic_event_id \? \(context\.economicKindByEventId\?\.get\(tx\.economic_event_id\)/);
     const policies = domain.slice(domain.indexOf('Políticas LEGADAS'));
-    expect(policies).not.toMatch(/hasEconomicEvent|economic_event/);
+    expect(policies).not.toMatch(/hasEconomicEvent|economic_event_id/);
+    expect(domain).toMatch(/isEconomicallyNeutral: economicKind !== null && NEUTRAL_KINDS\.has\(economicKind\)/);
     for (const f of [...migrated, 'src/utils/dashboardMetrics.ts', 'src/components/views/DashboardView.tsx']) {
-      expect(read(f), f).not.toMatch(/economic_event|economicEvent|hasEconomicEvent/);
+      expect(read(f), f).not.toMatch(/economic_event_id|hasEconomicEvent/);
     }
   });
 
@@ -233,7 +235,7 @@ describe('guardas estáticas', () => {
 
   it('a Dashboard não classifica de novo: o conjunto sem Ambos/investimento vem do mesmo helper', () => {
     const dash = read('src/components/views/DashboardView.tsx');
-    expect(dash).toContain('toOperationalChartData(transactions, categorySets)');
+    expect(dash).toContain('toOperationalChartData(transactions, categorySets, economicKindByEventId)');
     expect(dash).not.toMatch(/ambosCategories|investmentCategories/);
   });
 });
