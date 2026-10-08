@@ -53,7 +53,10 @@ BEGIN
   END IF;
 
   -- Sonda canônica: mesma definição que seria criada no CASO A, sob outro nome, removida em seguida.
-  EXECUTE format('DROP POLICY IF EXISTS %I ON public.investments', c_probe);
+  -- Precheck fail-closed: o nome da sonda não pode estar ocupado. Nunca se remove uma policy que a migration não criou.
+  IF EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = v_rel AND polname = c_probe) THEN
+    RAISE EXCEPTION 'Reconciliação abortada: já existe uma policy chamada "%" em public.investments (nome reservado à sonda temporária). Nenhuma policy foi alterada ou removida; renomeie ou revise essa policy antes de reaplicar.', c_probe;
+  END IF;
   EXECUTE format(
     'CREATE POLICY %I ON public.investments FOR ALL TO public USING (public.has_family_access(user_id)) WITH CHECK (public.has_family_access(user_id))',
     c_probe

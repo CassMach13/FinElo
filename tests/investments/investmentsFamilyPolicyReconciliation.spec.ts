@@ -161,6 +161,61 @@ describe('divergências → falha fail-closed sem alterar nada', () => {
   });
 });
 
+describe('policy-sonda preexistente: precheck fail-closed', () => {
+  const PROBE = 'finelo_family_policy_probe_tmp';
+  const probeRow = async (db: PGlite) =>
+    q<{ polname: string; polcmd: string; polroles: string; qual: string | null; chk: string | null }>(
+      db,
+      "select polname, polcmd::text, polroles::text, pg_get_expr(polqual, polrelid) qual, pg_get_expr(polwithcheck, polrelid) chk from pg_policy where polrelid = 'public.investments'::regclass and polname = $1",
+      [PROBE]
+    );
+
+  it('com a policy familiar presente (caminho de comparação), uma policy com o nome da sonda NÃO é removida e a migration falha', async () => {
+    for (const familyDdl of [
+      'FOR ALL TO public USING (public.has_family_access(user_id)) WITH CHECK (public.has_family_access(user_id))', // equivalente
+      'FOR SELECT TO public USING (public.has_family_access(user_id))', // divergente
+    ]) {
+      const db = await bare();
+      await createPolicy(db, familyDdl);
+      await db.exec(`create policy "${PROBE}" on public.investments for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);`);
+      const probeBefore = await probeRow(db);
+      const before = await policySnapshot(db);
+      await expect(db.exec(reconcile)).rejects.toThrow(/finelo_family_policy_probe_tmp.*Nenhuma policy foi alterada ou removida/s);
+      expect(await probeRow(db)).toEqual(probeBefore); // intacta: mesmo comando, papéis e expressões
+      expect(await policySnapshot(db)).toBe(before); // nenhuma outra policy mudou
+      expect(await exists(db)).toBe(true);
+    }
+  });
+
+  it('o precheck dispara antes de qualquer DROP ou CREATE: nada é criado nem removido', async () => {
+    const db = await bare();
+    await createPolicy(db, 'FOR ALL TO public USING (public.has_family_access(user_id)) WITH CHECK (public.has_family_access(user_id))');
+    await db.exec(`create policy "${PROBE}" on public.investments for select to public using (true);`);
+    const before = await policySnapshot(db);
+    const oids = async () => (await q<{ o: string }>(db, "select string_agg(polname || ':' || oid::text, ',' order by polname) o from pg_policy where polrelid = 'public.investments'::regclass"))[0].o;
+    const oidsBefore = await oids();
+    await expect(db.exec(reconcile)).rejects.toThrow(/nome reservado à sonda/);
+    expect(await oids()).toBe(oidsBefore); // mesmos objetos: nenhuma policy foi recriada
+    expect(await policySnapshot(db)).toBe(before);
+  });
+
+  it('com a policy familiar ausente (caminho de criação) a sonda não é usada e a preexistente é preservada', async () => {
+    const db = await bare();
+    await db.exec(`create policy "${PROBE}" on public.investments for select to public using (true);`);
+    const probeBefore = await probeRow(db);
+    await db.exec(reconcile);
+    expect(await exists(db)).toBe(true);
+    expect(await probeRow(db)).toEqual(probeBefore);
+  });
+
+  it('sem policy-sonda preexistente o fluxo normal continua e nenhuma sonda sobra', async () => {
+    const db = await bare();
+    await createPolicy(db, 'FOR ALL TO public USING (public.has_family_access(user_id)) WITH CHECK (public.has_family_access(user_id))');
+    await expect(db.exec(reconcile)).resolves.not.toThrow();
+    expect(await probeRow(db)).toHaveLength(0);
+  });
+});
+
 describe('K: instalação nova × ambiente preexistente', () => {
   it('migrations na ordem correta produzem o mesmo contrato de autorização do ambiente atual', async () => {
     const preexisting = await bare();
