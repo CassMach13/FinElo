@@ -1,0 +1,11 @@
+-- Esta reconciliação não é revertida.
+--
+-- A policy "Family Access Investments" JÁ EXISTIA em staging e produção antes desta migration; ela só passou a ser
+-- versionada. Um rollback que a removesse apagaria uma autorização preexistente (o acesso familiar a investimentos)
+-- e nada do que a migration criou pode ser distinguido do que já existia sem um marcador persistente, que não vale
+-- a pena introduzir. Em uma instalação nova, remova a policy manualmente SOMENTE se for realmente o objetivo.
+--
+-- Também NÃO deve ser removida pelo rollback da V2-B1A (20261008120000_investment_portfolios_holdings_down.sql).
+--
+-- (arquivo documental: intencionalmente sem comandos)
+SELECT 1;
