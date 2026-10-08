@@ -1,25 +1,40 @@
 import { supabase } from '../supabaseClient';
 import { Investment } from '../types';
+import { normalizeMonthKey, type PortfolioRow } from '../domain/investments/portfolioOverview';
 
 export const investmentService = {
-    async getInvestments(month: Date): Promise<Investment[]> {
+    /**
+     * Posições do mês, TODAS (paginado: o PostgREST limita 1000 linhas por resposta). Ordem estável (instituição, id)
+     * para não repetir/perder linhas entre páginas; uma página com erro falha a chamada inteira (nunca lista parcial).
+     * `userId` opcional: quando informado, filtra explicitamente o mesmo escopo owner-only do histórico.
+     */
+    async getInvestments(month: Date, userId?: string): Promise<Investment[]> {
         // Determine the reference_month string (YYYY-MM-01)
         const year = month.getFullYear();
         const monthNum = String(month.getMonth() + 1).padStart(2, '0');
         const referenceMonth = `${year}-${monthNum}-01`;
 
-        const { data, error } = await supabase
-            .from('investments')
-            .select('*')
-            .eq('reference_month', referenceMonth)
-            .order('institution', { ascending: true });
+        const PAGE = 1000;
+        const rows: Investment[] = [];
+        for (let from = 0; ; from += PAGE) {
+            let query = supabase.from('investments').select('*');
+            if (userId) query = query.eq('user_id', userId);
+            const { data, error } = await query
+                .eq('reference_month', referenceMonth)
+                .order('institution', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, from + PAGE - 1);
 
-        if (error) {
-            console.error('Error fetching investments:', error);
-            throw error;
+            if (error) {
+                console.error('Error fetching investments:', error);
+                throw error;
+            }
+            const page = (data ?? []) as Investment[];
+            rows.push(...page);
+            if (page.length < PAGE) break;
         }
 
-        return data as Investment[];
+        return rows;
     },
 
     async addInvestment(investment: Omit<Investment, 'id' | 'created_at' | 'updated_at'>): Promise<Investment> {
@@ -170,6 +185,52 @@ export const investmentService = {
             console.error('Error copying investments:', insertError);
             throw insertError;
         }
+    },
+
+    /**
+     * Histórico read-only: só as colunas necessárias, intervalo [startKey, endKey] por reference_month (date-only),
+     * paginado (o PostgREST limita 1000 linhas por resposta) e com ordenação estável para não repetir/perder linhas.
+     */
+    async getInvestmentHistory(userId: string, startKey: string, endKey: string): Promise<PortfolioRow[]> {
+        const PAGE = 1000;
+        const rows: PortfolioRow[] = [];
+        for (let from = 0; ; from += PAGE) {
+            const { data, error } = await supabase
+                .from('investments')
+                .select('id, institution, balance, reference_month')
+                .eq('user_id', userId)
+                .gte('reference_month', startKey)
+                .lte('reference_month', endKey)
+                .order('reference_month', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, from + PAGE - 1);
+
+            if (error) {
+                console.error('Error fetching investment history:', error);
+                throw error;
+            }
+            const page = (data ?? []) as PortfolioRow[];
+            rows.push(...page);
+            if (page.length < PAGE) break;
+        }
+        return rows;
+    },
+
+    /** Maior reference_month (YYYY-MM-01) <= todayKey que tenha posições do usuário; null se não houver. */
+    async getLatestReferenceMonthKey(userId: string, todayKey: string): Promise<string | null> {
+        const { data, error } = await supabase
+            .from('investments')
+            .select('reference_month')
+            .eq('user_id', userId)
+            .lte('reference_month', todayKey)
+            .order('reference_month', { ascending: false })
+            .limit(1);
+
+        if (error) {
+            console.error('Error finding latest investment month:', error);
+            throw error;
+        }
+        return data && data.length > 0 ? normalizeMonthKey(data[0].reference_month) : null;
     },
 
     async getLatestInvestments(endDate: Date): Promise<Investment[]> {

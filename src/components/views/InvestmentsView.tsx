@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert } from '../../hooks/useDialogStore';
 import { Investment } from '../../types';
@@ -6,7 +6,19 @@ import { investmentService } from '../../services/investmentService';
 import InvestmentModal from '../modals/InvestmentModal';
 import InvestmentImportModal from '../modals/InvestmentImportModal';
 import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
+import PortfolioSummary from '../investments/PortfolioSummary';
+import PortfolioHistoryChart from '../investments/PortfolioHistoryChart';
 import { formatCurrency } from '../../utils/formatters';
+import {
+    buildMonthlySeries,
+    createRequestGuard,
+    dateFromMonthKey,
+    formatMonthLabel,
+    monthKeyFromDate,
+    summarizePortfolio,
+    type PortfolioRow,
+} from '../../domain/investments/portfolioOverview';
+import { createPortfolioFetcher, isSnapshotReady, resolveInitialMonthKey, HISTORY_MONTHS, type PortfolioLoaderDeps } from '../../services/investmentPortfolioLoader';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -14,33 +26,111 @@ const InvestmentsView: React.FC = () => {
         const now = new Date();
         return new Date(now.getFullYear(), now.getMonth(), 1);
     });
-    const [investments, setInvestments] = useState<Investment[]>([]);
+    const [rawInvestments, setInvestments] = useState<Investment[]>([]);
+    const [history, setHistory] = useState<PortfolioRow[]>([]);
+    /** Mês a que `rawInvestments`/`history` pertencem: nunca exibimos dados de outro mês sob o mês selecionado. */
+    const [loadedKey, setLoadedKey] = useState<string | null>(null);
+    /** Dono do snapshot: dados de outro usuário nunca são exibidos, nem por um render intermediário. */
+    const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+    /** Sessão cujo mês inicial já foi resolvido (a primeira busca espera por isso). */
+    const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+    const [autoSelectedKey, setAutoSelectedKey] = useState<string | null>(null);
 
+    const guardRef = useRef(createRequestGuard());
+    const liveUserIdRef = useRef('');
+    liveUserIdRef.current = user?.id ?? '';
+    const userNavigatedRef = useRef(false);
+
+    const currentKey = monthKeyFromDate(currentDate);
+    const todayKey = monthKeyFromDate(new Date());
+
+    const buildDeps = (userId: string): PortfolioLoaderDeps => ({
+        getDetail: (key) => investmentService.getInvestments(dateFromMonthKey(key), userId),
+        getHistory: (start, end) => investmentService.getInvestmentHistory(userId, start, end),
+        getLatestMonthKey: (today) => investmentService.getLatestReferenceMonthKey(userId, today),
+    });
+
+    /** Busca detalhamento + histórico juntos. Só a última busca da sessão atual pode gravar; erro preserva os dados. */
+    const fetcherRef = useRef(
+        createPortfolioFetcher(guardRef.current, () => liveUserIdRef.current, {
+            onLoading: (loading) => setIsLoading(loading),
+            onData: (data) => {
+                setInvestments(data.detail);
+                setHistory(data.history);
+                setLoadedKey(data.monthKey);
+                setLoadedUserId(data.userId);
+                setLoadError(false);
+            },
+            onError: (error) => {
+                console.error('Failed to fetch investments:', error);
+                setLoadError(true);
+            },
+        })
+    );
     const fetchInvestments = async (date: Date) => {
-        setIsLoading(true);
-        try {
-            const data = await investmentService.getInvestments(date);
-            setInvestments(data);
-        } catch (error) {
-            console.error('Failed to fetch investments:', error);
-        } finally {
-            setIsLoading(false);
-        }
+        if (!user) return;
+        await fetcherRef.current(buildDeps(user.id), user.id, monthKeyFromDate(date));
     };
 
+    // Nova sessão: descarta tudo da anterior, volta ao mês corrente e procura a última posição disponível.
     useEffect(() => {
+        guardRef.current.invalidate();
+        userNavigatedRef.current = false;
+        setInvestments([]);
+        setHistory([]);
+        setLoadedKey(null);
+        setLoadedUserId(null);
+        setLoadError(false);
+        setAutoSelectedKey(null);
+        setResolvedUserId(null);
+        const now = new Date();
+        setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        if (!user) return undefined;
+        const userId = user.id;
+        let cancelled = false;
+        (async () => {
+            let key = todayKey;
+            try {
+                key = await resolveInitialMonthKey(buildDeps(userId), todayKey);
+            } catch (error) {
+                console.error('Failed to resolve latest investment month:', error);
+            }
+            if (cancelled || liveUserIdRef.current !== userId) return;
+            if (!userNavigatedRef.current && key !== todayKey) {
+                setCurrentDate(dateFromMonthKey(key));
+                setAutoSelectedKey(key);
+            }
+            setResolvedUserId(userId);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!user || resolvedUserId !== user.id) return;
         fetchInvestments(currentDate);
-    }, [currentDate, user]);
+    }, [currentKey, user?.id, resolvedUserId]);
+
+    const viewReady = isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, user?.id);
+    const investments = viewReady ? rawInvestments : [];
+    const summary = useMemo(() => summarizePortfolio(viewReady ? history : [], currentKey), [history, currentKey, viewReady]);
+    const series = useMemo(() => buildMonthlySeries(viewReady ? history : [], currentKey, HISTORY_MONTHS), [history, currentKey, viewReady]);
 
     const handlePrevMonth = () => {
+        userNavigatedRef.current = true;
+        setAutoSelectedKey(null);
         setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
     };
 
     const handleNextMonth = () => {
+        userNavigatedRef.current = true;
+        setAutoSelectedKey(null);
         setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
     };
 
@@ -90,7 +180,7 @@ const InvestmentsView: React.FC = () => {
         if (!confirm('Tem certeza que deseja remover este investimento?')) return;
         try {
             await investmentService.deleteInvestment(id);
-            setInvestments(investments.filter(i => i.id !== id));
+            await fetchInvestments(currentDate);
             await appAlert('Investimento removido com sucesso.', 'Sucesso', 'success');
         } catch (error) {
             console.error('Failed to delete investment:', error);
@@ -181,6 +271,22 @@ const InvestmentsView: React.FC = () => {
                 </div>
             </div>
 
+            {autoSelectedKey === currentKey && currentKey !== todayKey && (
+                <p data-latest-position-note="" role="status" className="rounded-xl border border-teal-300/20 bg-teal-300/10 px-4 py-2.5 text-sm text-teal-100">
+                    Mostrando sua última posição registrada: {formatMonthLabel(currentKey)}. Não há posições em {formatMonthLabel(todayKey)}.
+                </p>
+            )}
+
+            {loadError && viewReady && (
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-600/60 bg-slate-800/60 px-4 py-2.5 text-sm text-gray-200">
+                    <span>Não foi possível atualizar os dados agora. Exibindo o último resultado carregado.</span>
+                    <button onClick={() => fetchInvestments(currentDate)} className="rounded-lg border border-slate-600 px-3 py-1 text-xs font-medium text-white hover:bg-slate-700/60">Tentar novamente</button>
+                </div>
+            )}
+
+            {viewReady && <PortfolioSummary summary={summary} />}
+            {viewReady && <PortfolioHistoryChart months={series} selectedKey={currentKey} />}
+
             <div className="bg-secondary rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
                     <div>
@@ -249,9 +355,14 @@ const InvestmentsView: React.FC = () => {
                 </div>
 
                 <div className="p-6">
-                    {isLoading ? (
+                    {isLoading || (!viewReady && !loadError) ? (
                         <div className="flex justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-highlight"></div>
+                        </div>
+                    ) : !viewReady ? (
+                        <div role="alert" className="text-center py-12">
+                            <p className="text-gray-300 mb-4">Não foi possível carregar os investimentos de {formatMonthLabel(currentKey)}.</p>
+                            <button onClick={() => fetchInvestments(currentDate)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700/50">Tentar novamente</button>
                         </div>
                     ) : investments.length === 0 ? (
                         <div className="text-center py-12">
