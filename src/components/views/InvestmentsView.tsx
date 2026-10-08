@@ -8,6 +8,19 @@ import InvestmentImportModal from '../modals/InvestmentImportModal';
 import InvestmentBalanceDisplay, { InvestmentBalanceColumnHeader } from '../investments/InvestmentBalanceDisplay';
 import PortfolioSummary from '../investments/PortfolioSummary';
 import PortfolioHistoryChart from '../investments/PortfolioHistoryChart';
+import PortfolioAllocation from '../investments/PortfolioAllocation';
+import PortfolioConcentration from '../investments/PortfolioConcentration';
+import PortfolioMaturities from '../investments/PortfolioMaturities';
+import PortfolioInsightsNarrative from '../investments/PortfolioInsightsNarrative';
+import {
+    buildInstitutionAllocation,
+    buildMaturityAgenda,
+    buildPortfolioNarrative,
+    buildTypeAllocation,
+    localDateString,
+    selectMonthPositions,
+    topGroup,
+} from '../../domain/investments/portfolioInsights';
 import { formatCurrency } from '../../utils/formatters';
 import {
     buildMonthlySeries,
@@ -120,6 +133,22 @@ const InvestmentsView: React.FC = () => {
     const viewReady = isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, user?.id);
     const investments = viewReady ? rawInvestments : [];
     const summary = useMemo(() => summarizePortfolio(viewReady ? history : [], currentKey), [history, currentKey, viewReady]);
+    // V2-A2: tudo derivado de `investments` (já validado por viewReady); sem consulta nova nem estado remoto próprio.
+    const todayDate = localDateString(new Date());
+    const insights = useMemo(() => {
+        const positions = selectMonthPositions(investments, currentKey);
+        const institutions = buildInstitutionAllocation(positions);
+        const types = buildTypeAllocation(positions);
+        const maturities = buildMaturityAgenda(positions, currentKey, todayDate);
+        return {
+            institutions,
+            types,
+            maturities,
+            topInstitution: topGroup(institutions),
+            topType: topGroup(types),
+            narrative: buildPortfolioNarrative({ monthKey: currentKey, positions, institutions, types, maturities }),
+        };
+    }, [investments, currentKey, todayDate]);
     const series = useMemo(() => buildMonthlySeries(viewReady ? history : [], currentKey, HISTORY_MONTHS), [history, currentKey, viewReady]);
 
     const handlePrevMonth = () => {
@@ -286,6 +315,17 @@ const InvestmentsView: React.FC = () => {
 
             {viewReady && <PortfolioSummary summary={summary} />}
             {viewReady && <PortfolioHistoryChart months={series} selectedKey={currentKey} />}
+            {viewReady && (
+                <>
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <PortfolioAllocation title="Alocação por instituição" subtitle="Participação de cada instituição no saldo registrado do mês." allocation={insights.institutions} dataKey="institution" />
+                        <PortfolioAllocation title="Alocação por tipo de investimento" subtitle="Tipos exatamente como constam no cadastro ou no extrato." allocation={insights.types} dataKey="type" />
+                    </div>
+                    <PortfolioConcentration institution={insights.topInstitution} type={insights.topType} />
+                    <PortfolioMaturities agenda={insights.maturities} monthKey={currentKey} />
+                    <PortfolioInsightsNarrative lines={insights.narrative} />
+                </>
+            )}
 
             <div className="bg-secondary rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
