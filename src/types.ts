@@ -105,8 +105,44 @@ export interface Investment {
   balance: number;
   reference_month: string; // ISO date string matching the first of the month
   source_file?: string;
+  /** Carteira à qual o snapshot foi atribuído explicitamente (V2-B1). Nulo = sem carteira atribuída. */
+  portfolio_id?: string | null;
+  /** Identidade persistente do investimento (V2-B1). Nulo = identidade não resolvida. */
+  holding_id?: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+/**
+ * Carteira de investimentos dentro da conta do proprietário (`user_id`). Administração compartilhada com familiares
+ * autorizados: `created_by`/`updated_by` identificam o OPERADOR e podem diferir de `user_id`.
+ */
+export interface InvestmentPortfolio {
+  id: string;
+  /** Proprietário dos dados (imutável). */
+  user_id: string;
+  name: string;
+  archived_at: string | null;
+  /** Operador que criou (definido pelo banco a partir da sessão). */
+  created_by: string;
+  created_at: string;
+  /** Último operador (definido pelo banco). */
+  updated_by: string | null;
+  updated_at: string;
+}
+
+/** Identidade persistente de um investimento. Nome, instituição e valor NÃO a definem. */
+export interface InvestmentHolding {
+  id: string;
+  user_id: string;
+  portfolio_id: string;
+  display_name: string;
+  institution_ref: string | null;
+  product_type_ref: string | null;
+  created_by: string;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string;
 }
 
 export interface MappingRule {
