@@ -15,6 +15,19 @@ export interface PortfolioData {
   history: PortfolioRow[];
 }
 
+/** Snapshot carregado + o DONO (sessão) e o mês a que pertence. */
+export interface PortfolioSnapshot extends PortfolioData {
+  userId: string;
+}
+
+/**
+ * A view só pode exibir um snapshot do MESMO mês e do MESMO usuário da sessão atual. Predicado puro, avaliado a cada
+ * render: não depende de efeito para impedir que dados do usuário anterior apareçam.
+ */
+export function isSnapshotReady(snapshot: { monthKey: string | null; userId: string | null }, currentKey: string, currentUserId: string | null | undefined): boolean {
+  return !!currentUserId && snapshot.userId === currentUserId && snapshot.monthKey === currentKey;
+}
+
 export const HISTORY_MONTHS = 12;
 
 /** Detalhamento e histórico do MESMO mês e da MESMA sessão, buscados juntos e entregues juntos (ou falham juntos). */
@@ -38,7 +51,7 @@ export async function resolveInitialMonthKey(deps: Pick<PortfolioLoaderDeps, 'ge
 
 export interface PortfolioFetcherHandlers {
   onLoading(loading: boolean): void;
-  onData(data: PortfolioData): void;
+  onData(data: PortfolioSnapshot): void;
   onError(error: unknown): void;
 }
 
@@ -54,7 +67,7 @@ export function createPortfolioFetcher(guard: ReturnType<typeof createRequestGua
     handlers.onLoading(true);
     try {
       const data = await loadPortfolio(deps, monthKey);
-      if (current()) handlers.onData(data);
+      if (current()) handlers.onData({ ...data, userId });
     } catch (error) {
       if (current()) handlers.onError(error);
     } finally {

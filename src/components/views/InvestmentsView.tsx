@@ -18,7 +18,7 @@ import {
     summarizePortfolio,
     type PortfolioRow,
 } from '../../domain/investments/portfolioOverview';
-import { createPortfolioFetcher, resolveInitialMonthKey, HISTORY_MONTHS, type PortfolioLoaderDeps } from '../../services/investmentPortfolioLoader';
+import { createPortfolioFetcher, isSnapshotReady, resolveInitialMonthKey, HISTORY_MONTHS, type PortfolioLoaderDeps } from '../../services/investmentPortfolioLoader';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -30,6 +30,8 @@ const InvestmentsView: React.FC = () => {
     const [history, setHistory] = useState<PortfolioRow[]>([]);
     /** Mês a que `rawInvestments`/`history` pertencem: nunca exibimos dados de outro mês sob o mês selecionado. */
     const [loadedKey, setLoadedKey] = useState<string | null>(null);
+    /** Dono do snapshot: dados de outro usuário nunca são exibidos, nem por um render intermediário. */
+    const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
     const [loadError, setLoadError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,7 +50,7 @@ const InvestmentsView: React.FC = () => {
     const todayKey = monthKeyFromDate(new Date());
 
     const buildDeps = (userId: string): PortfolioLoaderDeps => ({
-        getDetail: (key) => investmentService.getInvestments(dateFromMonthKey(key)),
+        getDetail: (key) => investmentService.getInvestments(dateFromMonthKey(key), userId),
         getHistory: (start, end) => investmentService.getInvestmentHistory(userId, start, end),
         getLatestMonthKey: (today) => investmentService.getLatestReferenceMonthKey(userId, today),
     });
@@ -61,6 +63,7 @@ const InvestmentsView: React.FC = () => {
                 setInvestments(data.detail);
                 setHistory(data.history);
                 setLoadedKey(data.monthKey);
+                setLoadedUserId(data.userId);
                 setLoadError(false);
             },
             onError: (error) => {
@@ -81,6 +84,7 @@ const InvestmentsView: React.FC = () => {
         setInvestments([]);
         setHistory([]);
         setLoadedKey(null);
+        setLoadedUserId(null);
         setLoadError(false);
         setAutoSelectedKey(null);
         setResolvedUserId(null);
@@ -113,7 +117,7 @@ const InvestmentsView: React.FC = () => {
         fetchInvestments(currentDate);
     }, [currentKey, user?.id, resolvedUserId]);
 
-    const viewReady = loadedKey === currentKey;
+    const viewReady = isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, user?.id);
     const investments = viewReady ? rawInvestments : [];
     const summary = useMemo(() => summarizePortfolio(viewReady ? history : [], currentKey), [history, currentKey, viewReady]);
     const series = useMemo(() => buildMonthlySeries(viewReady ? history : [], currentKey, HISTORY_MONTHS), [history, currentKey, viewReady]);

@@ -3,24 +3,38 @@ import { Investment } from '../types';
 import { normalizeMonthKey, type PortfolioRow } from '../domain/investments/portfolioOverview';
 
 export const investmentService = {
-    async getInvestments(month: Date): Promise<Investment[]> {
+    /**
+     * Posições do mês, TODAS (paginado: o PostgREST limita 1000 linhas por resposta). Ordem estável (instituição, id)
+     * para não repetir/perder linhas entre páginas; uma página com erro falha a chamada inteira (nunca lista parcial).
+     * `userId` opcional: quando informado, filtra explicitamente o mesmo escopo owner-only do histórico.
+     */
+    async getInvestments(month: Date, userId?: string): Promise<Investment[]> {
         // Determine the reference_month string (YYYY-MM-01)
         const year = month.getFullYear();
         const monthNum = String(month.getMonth() + 1).padStart(2, '0');
         const referenceMonth = `${year}-${monthNum}-01`;
 
-        const { data, error } = await supabase
-            .from('investments')
-            .select('*')
-            .eq('reference_month', referenceMonth)
-            .order('institution', { ascending: true });
+        const PAGE = 1000;
+        const rows: Investment[] = [];
+        for (let from = 0; ; from += PAGE) {
+            let query = supabase.from('investments').select('*');
+            if (userId) query = query.eq('user_id', userId);
+            const { data, error } = await query
+                .eq('reference_month', referenceMonth)
+                .order('institution', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, from + PAGE - 1);
 
-        if (error) {
-            console.error('Error fetching investments:', error);
-            throw error;
+            if (error) {
+                console.error('Error fetching investments:', error);
+                throw error;
+            }
+            const page = (data ?? []) as Investment[];
+            rows.push(...page);
+            if (page.length < PAGE) break;
         }
 
-        return data as Investment[];
+        return rows;
     },
 
     async addInvestment(investment: Omit<Investment, 'id' | 'created_at' | 'updated_at'>): Promise<Investment> {
