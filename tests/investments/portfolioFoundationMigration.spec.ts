@@ -12,6 +12,7 @@ import { readSqlFixture } from '../helpers/sqlFixture';
 vi.setConfig({ testTimeout: 120_000 });
 
 const migration = readSqlFixture('supabase/migrations/20261008120000_investment_portfolios_holdings.sql');
+const reconcile = readSqlFixture('supabase/migrations/20261008115900_reconcile_investments_family_policy.sql');
 const rollback = readSqlFixture('supabase/rollbacks/20261008120000_investment_portfolios_holdings_down.sql');
 const family = readSqlFixture('supabase/migrations/055_fix_family_bidirectional_access.sql');
 const hasFamilyAccessSql = family.slice(family.indexOf('create or replace function public.has_family_access'));
@@ -50,7 +51,6 @@ alter default privileges in schema public grant all on tables to anon, authentic
 ${investmentsMigrations}
 grant select on public.family_members to authenticated; -- fixture: permite que mutações de policy consultem o vínculo (o contrato real passa por has_family_access)
 grant all on public.investments to anon, authenticated, service_role;
-create policy "Family Access Investments" on public.investments for all to public using (has_family_access(user_id)) with check (has_family_access(user_id));
 insert into public.investments (id, user_id, institution, product_type, balance, reference_month, product_name, source_file) values
   ('a0000000-0000-4000-8000-000000000001', '${A}', 'XP', 'Renda Fixa', 1000.10, '2026-08-01', 'CDB X', 'ago.xlsx'),
   ('a0000000-0000-4000-8000-000000000002', '${A}', 'XP', 'Renda Fixa', 1100.20, '2026-09-01', 'CDB X', 'set.xlsx'),
@@ -64,6 +64,7 @@ const createDatabase = async (apply = true): Promise<PGlite> => {
   databases.push(db);
   await db.waitReady;
   await db.exec(baseSchema);
+  await db.exec(reconcile); // versiona o contrato familiar existente (migration anterior à B1A)
   if (apply) await db.exec(migration);
   return db;
 };
@@ -86,7 +87,7 @@ const legacyHash = async (db: PGlite) => {
   return (
     await q<{ h: string }>(
       db,
-      "select md5(string_agg((to_jsonb(i) - 'portfolio_id' - 'holding_id')::text, '|' order by id)) h from public.investments i"
+      "select md5(string_agg((to_jsonb(i) - 'portfolio_id' - 'holding_id' - 'classified_by' - 'classified_at')::text, '|' order by id)) h from public.investments i"
     )
   )[0].h;
 };
@@ -105,6 +106,8 @@ describe('estrutura e compatibilidade', () => {
     await expect(db.exec(migration)).resolves.not.toThrow();
     const cols = await q<{ column_name: string; is_nullable: string }>(db, "select column_name, is_nullable from information_schema.columns where table_schema='public' and table_name='investments' and column_name in ('portfolio_id','holding_id')");
     expect(cols.map((c) => c.is_nullable)).toEqual(['YES', 'YES']);
+    const audit = await q<{ column_name: string; is_nullable: string }>(db, "select column_name, is_nullable from information_schema.columns where table_schema='public' and table_name='investments' and column_name in ('classified_by','classified_at') order by 1");
+    expect(audit).toEqual([{ column_name: 'classified_at', is_nullable: 'YES' }, { column_name: 'classified_by', is_nullable: 'YES' }]);
     const portfolios = await q<{ column_name: string }>(db, "select column_name from information_schema.columns where table_schema='public' and table_name='investment_portfolios' order by ordinal_position");
     expect(portfolios.map((c) => c.column_name)).toEqual(['id', 'user_id', 'name', 'archived_at', 'created_by', 'created_at', 'updated_by', 'updated_at']);
     const holdings = await q<{ column_name: string }>(db, "select column_name from information_schema.columns where table_schema='public' and table_name='investment_holdings' order by ordinal_position");
@@ -116,7 +119,7 @@ describe('estrutura e compatibilidade', () => {
     const before = await legacyHash(db);
     await db.exec(migration);
     expect(await legacyHash(db)).toBe(before);
-    const n = await q<{ n: string }>(db, 'select count(*)::text n from public.investments where portfolio_id is null and holding_id is null');
+    const n = await q<{ n: string }>(db, 'select count(*)::text n from public.investments where portfolio_id is null and holding_id is null and classified_by is null and classified_at is null');
     expect(n[0].n).toBe('4');
     expect((await q<{ n: string }>(db, 'select count(*)::text n from public.investment_portfolios'))[0].n).toBe('0');
     expect((await q<{ n: string }>(db, 'select count(*)::text n from public.investment_holdings'))[0].n).toBe('0');
@@ -157,7 +160,7 @@ describe('integridade (constraints do PostgreSQL)', () => {
     const pA = await newPortfolio(db, A, 'Do titular');
     await q(db, 'update public.investments set portfolio_id = $1 where id = $2', [pA, SNAP]); // A é dono dos dois: ok
     await expect(q(db, 'update public.investments set portfolio_id = $1 where id = $2', [pB, SNAP2])).rejects.toThrow(/investments_portfolio_owner_fkey/);
-    await as(db, 'postgres');
+    await as(db, 'postgres', B); // dono da tabela (sem RLS), mas com a sessão de B: a FK continua impedindo
     await expect(q(db, 'update public.investments set portfolio_id = $1 where id = $2', [pB, SNAP2])).rejects.toThrow(/investments_portfolio_owner_fkey/);
   });
 
@@ -466,6 +469,10 @@ describe('rollback', () => {
     expect(await q(db, "select to_regclass('public.investment_holdings') r")).toEqual([{ r: null }]);
     expect(await privs(db, 'investments', 'anon')).toEqual([]);
     expect(await privs(db, 'investments', 'authenticated')).toEqual(['DELETE', 'INSERT', 'SELECT', 'UPDATE']);
+    const auditCols = await q(db, "select 1 from information_schema.columns where table_name='investments' and column_name in ('classified_by','classified_at')");
+    expect(auditCols).toHaveLength(0);
+    // a policy familiar preexistente NÃO é removida pelo rollback da B1A
+    expect(await q(db, "select 1 from pg_policies where tablename='investments' and policyname='Family Access Investments'")).toHaveLength(1);
     await expect(db.exec(rollback)).resolves.not.toThrow();
     await expect(db.exec(migration)).resolves.not.toThrow();
   });

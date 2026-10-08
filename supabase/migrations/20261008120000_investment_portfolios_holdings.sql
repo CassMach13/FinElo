@@ -17,9 +17,10 @@
 --   Pelo contrato vigente o vínculo é bidirecional (convidado vê o titular; titular vê o convidado aceito).
 --   A função é reavaliada a cada instrução: revogar o vínculo remove o acesso nas requisições seguintes.
 --
--- `investments` JÁ possui no banco (staging e produção) a policy "Family Access Investments" (ALL, has_family_access),
--- que NÃO está nas migrations do repositório. Esta migration NÃO a cria, altera nem remove: ela é o que permite ao
--- familiar autorizado classificar snapshots do dono. Os testes locais a espelham explicitamente.
+-- `investments` possui a policy "Family Access Investments" (ALL, has_family_access), que é o que permite ao familiar
+-- autorizado classificar snapshots do dono. Ela é versionada pela migration ANTERIOR
+-- 20261008115900_reconcile_investments_family_policy.sql (cria se ausente, aceita se equivalente, falha se
+-- divergente). Esta migration NÃO a cria, altera nem remove.
 --
 -- INTEGRIDADE NO POSTGRESQL (não no cliente)
 --   * snapshot → carteira:  FK composta (user_id, portfolio_id) → carteiras (user_id, id), ON DELETE RESTRICT
@@ -35,8 +36,17 @@
 -- AUDITORIA (mínima): carteiras e holdings guardam `created_by`/`created_at`/`updated_by`/`updated_at`, preenchidos
 -- no banco a partir de `auth.uid()` (o cliente não os controla). `created_by`/`updated_by` NÃO têm FK para
 -- auth.users: são identificação de autoria (um operador removido não deve apagar o patrimônio do dono).
--- LIMITAÇÃO CONHECIDA: `investments` não ganha coluna de operador; a autoria de uma futura reclassificação de
--- snapshot (portfolio_id/holding_id) NÃO é registrada nesta fase. Ver o PR (decisão pendente).
+-- CLASSIFICAÇÃO DE SNAPSHOTS: `investments.classified_by`/`classified_at` registram a ÚLTIMA mudança real de
+-- `portfolio_id`/`holding_id` (não é um histórico de eventos), com o operador `auth.uid()` e o relógio do banco:
+--   * atribuir, trocar e DESCLASSIFICAR (volta a NULL/NULL) atualizam a auditoria; desclassificar NÃO a apaga;
+--   * reenviar os mesmos valores, ou editar balance/produto/etc., não toca na auditoria;
+--   * o cliente não escolhe os campos: valor de auditoria enviado no INSERT, ou diferente do atual no UPDATE, é
+--     REJEITADO (não há substituição silenciosa);
+--   * classificar exige operador autenticado: SEM JWT a classificação direta é recusada (sem bypass por
+--     `auth.uid() IS NULL`). Única exceção, explícita: efeito de FK (ON UPDATE CASCADE ao mover a holding de carteira,
+--     ON DELETE SET NULL (holding_id) ao apagá-la) executado sem JWT mantém a auditoria anterior, porque não há
+--     operador a atribuir; com JWT, o operador da operação que disparou o efeito é registrado.
+--   * linhas existentes: NULL/NULL, sem backfill. `classified_by` não tem FK (mesma razão de created_by).
 --
 -- PRIVILÉGIOS: o schema `public` concede ALL a anon/authenticated em tabelas novas. As duas tabelas novas ficam só
 -- com CRUD para `authenticated`. `investments` tinha TRUNCATE/TRIGGER/REFERENCES (e tudo para `anon`) abertos: o
@@ -101,7 +111,9 @@ CREATE INDEX IF NOT EXISTS investment_holdings_portfolio_idx ON public.investmen
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.investments
   ADD COLUMN IF NOT EXISTS portfolio_id uuid NULL,
-  ADD COLUMN IF NOT EXISTS holding_id uuid NULL;
+  ADD COLUMN IF NOT EXISTS holding_id uuid NULL,
+  ADD COLUMN IF NOT EXISTS classified_by uuid NULL,
+  ADD COLUMN IF NOT EXISTS classified_at timestamptz NULL;
 
 DO $constraints$
 BEGIN
@@ -121,6 +133,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.investments'::regclass AND conname = 'investments_holding_requires_portfolio_check') THEN
     ALTER TABLE public.investments
       ADD CONSTRAINT investments_holding_requires_portfolio_check CHECK (holding_id IS NULL OR portfolio_id IS NOT NULL);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.investments'::regclass AND conname = 'investments_classification_audit_pair_check') THEN
+    ALTER TABLE public.investments
+      ADD CONSTRAINT investments_classification_audit_pair_check CHECK ((classified_by IS NULL) = (classified_at IS NULL));
   END IF;
 END
 $constraints$;
@@ -212,6 +229,48 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.investments_classification_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_actor uuid := auth.uid();
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.classified_by IS NOT NULL OR NEW.classified_at IS NOT NULL THEN
+      RAISE EXCEPTION 'classified_by e classified_at são definidos pelo banco.' USING ERRCODE = '42501';
+    END IF;
+    IF NEW.portfolio_id IS NOT NULL OR NEW.holding_id IS NOT NULL THEN
+      IF v_actor IS NULL THEN
+        RAISE EXCEPTION 'Classificar um investimento exige um operador autenticado.' USING ERRCODE = '42501';
+      END IF;
+      NEW.classified_by := v_actor;
+      NEW.classified_at := now();
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- UPDATE: o cliente nunca escolhe a auditoria (reenviar o valor atual é aceito).
+  IF NEW.classified_by IS DISTINCT FROM OLD.classified_by OR NEW.classified_at IS DISTINCT FROM OLD.classified_at THEN
+    RAISE EXCEPTION 'classified_by e classified_at são definidos pelo banco.' USING ERRCODE = '42501';
+  END IF;
+
+  IF NEW.portfolio_id IS DISTINCT FROM OLD.portfolio_id OR NEW.holding_id IS DISTINCT FROM OLD.holding_id THEN
+    IF v_actor IS NOT NULL THEN
+      NEW.classified_by := v_actor;
+      NEW.classified_at := now();
+    ELSIF pg_trigger_depth() > 1 THEN
+      -- efeito de FK sem JWT (cascade de holding): não há operador a atribuir; mantém a auditoria anterior
+      NULL;
+    ELSE
+      RAISE EXCEPTION 'Classificar um investimento exige um operador autenticado.' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
 DROP TRIGGER IF EXISTS trg_investment_portfolios_guard ON public.investment_portfolios;
 CREATE TRIGGER trg_investment_portfolios_guard
   BEFORE INSERT OR UPDATE ON public.investment_portfolios
@@ -221,6 +280,11 @@ DROP TRIGGER IF EXISTS trg_investment_holdings_guard ON public.investment_holdin
 CREATE TRIGGER trg_investment_holdings_guard
   BEFORE INSERT OR UPDATE ON public.investment_holdings
   FOR EACH ROW EXECUTE FUNCTION public.investment_holdings_guard();
+
+DROP TRIGGER IF EXISTS trg_investments_classification_audit ON public.investments;
+CREATE TRIGGER trg_investments_classification_audit
+  BEFORE INSERT OR UPDATE ON public.investments
+  FOR EACH ROW EXECUTE FUNCTION public.investments_classification_audit();
 
 DROP TRIGGER IF EXISTS trg_investments_user_id_immutable ON public.investments;
 CREATE TRIGGER trg_investments_user_id_immutable

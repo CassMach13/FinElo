@@ -109,6 +109,10 @@ export interface Investment {
   portfolio_id?: string | null;
   /** Identidade persistente do investimento (V2-B1). Nulo = identidade não resolvida. */
   holding_id?: string | null;
+  /** Operador da última mudança de classificação (definido pelo banco; nunca enviado pelo cliente). */
+  classified_by?: string | null;
+  /** Momento (relógio do banco) da última mudança de classificação. */
+  classified_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
