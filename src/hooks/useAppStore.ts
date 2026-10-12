@@ -256,8 +256,13 @@ interface AppState {
   mappingRules: MappingRule[];
   importConfigs: ImportConfig[];
   importLogs: ImportLog[]; // New state
+  /** Carga que bloqueia a tela: só fica true quando NÃO há dados utilizáveis do usuário atual. */
   isLoading: boolean;
   initialDataLoadStatus: InitialDataLoadStatus;
+  /** Dono do último snapshot de transações aplicado (base do "dado utilizável"). */
+  transactionsUserId: string | null;
+  /** Quando a última carga COMPLETA (sem falha em nenhuma parte) terminou. Só ela vale como "recente". */
+  fullSyncedAt: number | null;
   transactionFilters: TransactionFiltersState;
 
   // Assets (Patrimônio)
@@ -288,6 +293,12 @@ interface AppState {
 
   // Novas ações para buscar dados do Supabase
   fetchAllData: () => Promise<void>;
+  /**
+   * Sincronização de segundo plano (foco, visibilidade, entrada numa tela): reaproveita uma carga em voo,
+   * pula se o snapshot do usuário é recente (`maxAgeMs`) e nunca bloqueia a lista existente.
+   * Sem dados do usuário atual, equivale a `fetchAllData`.
+   */
+  syncAllData: (options?: { maxAgeMs?: number }) => Promise<void>;
   fetchTransactions: () => Promise<void>;
 
   // CRUD for Accounts
@@ -534,6 +545,45 @@ let economicEventsFetchGeneration = 0;
 let transactionEconomicIdentityRevision = 0;
 // Cada fetchTransactions leva um número; só o mais novo, da sessão que o iniciou, pode gravar. signOut avança (vale p/ o mesmo usuário relogando).
 let transactionsFetchGeneration = 0;
+// Avança a cada troca de `transactions` (add/update/delete/importação, e também o snapshot aplicado). Um snapshot
+// que começou antes de uma troca está velho e não pode sobrescrever a edição (ver o subscribe após o store).
+let transactionsMutationRevision = 0;
+
+/** Intervalo mínimo entre sincronizações de segundo plano (foco/visibilidade/navegação). */
+export const BACKGROUND_SYNC_MIN_INTERVAL_MS = 30_000;
+
+// Carga completa em voo (uma por vez) e a recarga final compartilhada por quem pediu durante o voo.
+// Ambas pertencem a UM usuário: a de A nunca é reaproveitada por B nem roda depois da troca.
+let allDataRun: { userId: string | undefined; promise: Promise<void> } | null = null;
+let allDataTrailing: { userId: string | undefined; promise: Promise<void> } | null = null;
+
+// Cada parte da carga que falha (ou fica velha) avança isto; só uma carga sem avanço vira "recente".
+let refreshFailureCount = 0;
+const noteRefreshFailure = () => {
+  refreshFailureCount += 1;
+};
+
+/** Dados escopados ao usuário que não podem atravessar uma troca de sessão. */
+const EMPTY_USER_SCOPED_DATA: Partial<AppState> = {
+  transactions: [],
+  accounts: [],
+  categories: [],
+  budgets: [],
+  budgetMonths: [],
+  economicEvents: [],
+  mappingRules: [],
+  importConfigs: [],
+  importLogs: [],
+  assets: [],
+  pendingInvites: [],
+  subscription: null,
+};
+
+const switched = (state: Pick<AppState, 'user'>, next: { id?: string } | null) =>
+  (next?.id ?? null) !== (state.user?.id ?? null);
+
+const hasUsableTransactions = (state: Pick<AppState, 'user' | 'transactionsUserId'>) =>
+  Boolean(state.user?.id) && state.transactionsUserId === state.user?.id;
 
 const isManualOrigin = (t: { Origem?: string | null }) => String(t.Origem || 'manual').trim().toLowerCase() === 'manual';
 
@@ -601,6 +651,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   unlimitedSync: false,
   isLoading: false,
   initialDataLoadStatus: 'idle',
+  transactionsUserId: null,
+  fullSyncedAt: null,
   adminMetrics: null,
   assets: [],
   goals: [],
@@ -630,6 +682,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
     set((state) => ({
       user,
+      // Outro usuário: nada do anterior pode aparecer nem contar como "dado utilizável".
+      ...((user?.id ?? null) !== (state.user?.id ?? null)
+        ? { ...EMPTY_USER_SCOPED_DATA, transactionsUserId: null, fullSyncedAt: null }
+        : {}),
       initialDataLoadStatus: deriveInitialDataLoadStatusForUser(
         state.initialDataLoadStatus,
         state.user?.id,
@@ -637,9 +693,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
       atomicImportEnabled:
         user?.id && user.id === state.user?.id ? state.atomicImportEnabled : false,
-      isPremium: isAdmin || state.isPremium,
-      isWealth: isAdmin || state.isWealth,
-      unlimitedSync: isAdmin || state.unlimitedSync,
+      // Outro usuário não herda o plano do anterior: recomeça de zero até a assinatura dele ser carregada.
+      isPremium: isAdmin || (switched(state, user) ? false : state.isPremium),
+      isWealth: isAdmin || (switched(state, user) ? false : state.isWealth),
+      unlimitedSync: isAdmin || (switched(state, user) ? false : state.unlimitedSync),
     }));
   },
 
@@ -729,14 +786,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    const requestedUserId = user.id;
     const { data, error } = await supabase
       .from('credit_card_reprocess_jobs')
       .select('*')
       .order('started_at', { ascending: false })
       .limit(30);
 
+    if (get().user?.id !== requestedUserId) return;
     if (error) {
       console.error('[CardV2][Ops] Falha ao buscar jobs de reprocessamento:', error);
+      noteRefreshFailure();
       return;
     }
 
@@ -1744,6 +1804,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       user: null,
       atomicImportEnabled: false,
       transactions: [],
+      transactionsUserId: null,
+      fullSyncedAt: null,
       isLoading: false, // um fetch em voo da sessão que saiu não vai liberar o loading (ele é descartado)
       accounts: [],
       categories: [],
@@ -1770,53 +1832,98 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchAllData: async () => {
     const requestedUserId = get().user?.id;
-    const isInitialLoad = get().initialDataLoadStatus !== 'ready';
-    set({
-      isLoading: true,
-      ...(isInitialLoad ? { initialDataLoadStatus: 'loading' as const } : {}),
-    });
-    try {
-      await Promise.all([
-        get().refreshAtomicImportEligibility(),
-        get().fetchTransactions(),
-        get().fetchAccounts(),
-        get().fetchCategories(),
-        get().fetchBudgets(),
-        get().fetchBudgetMonths(),
-        get().fetchEconomicEvents(),
-        get().fetchMappingRules(),
-        get().fetchImportConfigs(),
-        get().fetchPendingInvites(),
-        get().fetchImportLogs(),
-        get().fetchSubscription(),
-        get().fetchAssets(),
-        get().fetchFounderCount(),
-        get().fetchCreditCardReprocessJobs(),
-      ]);
-      if (get().user?.id === requestedUserId) {
-        set((state) => ({
-          isLoading: false,
-          initialDataLoadStatus:
-            state.initialDataLoadStatus === 'error' ? 'error' : 'ready',
-        }));
+    if (allDataRun && allDataRun.userId === requestedUserId) {
+      // Já há uma carga em voo. Ela pode ter lido antes da mudança que motivou este pedido, então agenda UMA
+      // recarga ao final, compartilhada por todos que chegarem enquanto isso (nunca N requisições sobrepostas).
+      if (!allDataTrailing || allDataTrailing.userId !== requestedUserId) {
+        const trailing: Promise<void> = allDataRun.promise
+          .catch(() => undefined)
+          .then(() => {
+            if (allDataTrailing?.promise === trailing) allDataTrailing = null;
+            // A sessão mudou enquanto esperava: a recarga era do usuário anterior e não roda para o novo.
+            if (get().user?.id !== requestedUserId) return undefined;
+            return get().fetchAllData();
+          });
+        allDataTrailing = { userId: requestedUserId, promise: trailing };
       }
-    } catch (error) {
-      console.error('Erro ao concluir a carga inicial do aplicativo:', error);
-      if (get().user?.id === requestedUserId) {
-        set((state) => ({
-          isLoading: false,
-          initialDataLoadStatus:
-            state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
-        }));
-      }
-      if (isInitialLoad) {
-        await appAlert(
-          'Não foi possível concluir a atualização. Seus dados anteriores foram preservados e nenhum registro foi apagado.',
-          'Atualização incompleta',
-          'warning',
-        );
-      }
+      return allDataTrailing.promise;
     }
+    const run: Promise<void> = (async () => {
+      const isInitialLoad = get().initialDataLoadStatus !== 'ready';
+      // O loading BLOQUEANTE só liga sem dados utilizáveis do usuário atual; com lista em tela é segundo plano.
+      set({
+        isLoading: !hasUsableTransactions(get()),
+        ...(isInitialLoad ? { initialDataLoadStatus: 'loading' as const } : {}),
+      });
+      const failuresAtStart = refreshFailureCount;
+      try {
+        await Promise.all([
+          get().refreshAtomicImportEligibility(),
+          get().fetchTransactions(),
+          get().fetchAccounts(),
+          get().fetchCategories(),
+          get().fetchBudgets(),
+          get().fetchBudgetMonths(),
+          get().fetchEconomicEvents(),
+          get().fetchMappingRules(),
+          get().fetchImportConfigs(),
+          get().fetchPendingInvites(),
+          get().fetchImportLogs(),
+          get().fetchSubscription(),
+          get().fetchAssets(),
+          get().fetchFounderCount(),
+          get().fetchCreditCardReprocessJobs(),
+        ]);
+        if (get().user?.id === requestedUserId) {
+          set((state) => ({
+            isLoading: false,
+            initialDataLoadStatus:
+              state.initialDataLoadStatus === 'error' ? 'error' : 'ready',
+            // "Recente" só depois de uma carga em que NENHUMA parte falhou e o snapshot é do usuário atual.
+            ...(refreshFailureCount === failuresAtStart && state.transactionsUserId === requestedUserId
+              ? { fullSyncedAt: Date.now() }
+              : {}),
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao concluir a carga inicial do aplicativo:', error);
+        if (get().user?.id === requestedUserId) {
+          set((state) => ({
+            isLoading: false,
+            initialDataLoadStatus:
+              state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
+          }));
+        }
+        if (isInitialLoad) {
+          await appAlert(
+            'Não foi possível concluir a atualização. Seus dados anteriores foram preservados e nenhum registro foi apagado.',
+            'Atualização incompleta',
+            'warning',
+          );
+        }
+      }
+    })().finally(() => {
+      if (allDataRun?.promise === run) allDataRun = null;
+    });
+    allDataRun = { userId: requestedUserId, promise: run };
+    return run;
+  },
+
+  syncAllData: (options) => {
+    const state = get();
+    const userId = state.user?.id;
+    if (!userId) return Promise.resolve();
+    // Carga em voo do mesmo usuário: reaproveita (foco + visibilidade disparam juntos).
+    if (allDataRun && allDataRun.userId === userId) return allDataRun.promise;
+    const maxAgeMs = options?.maxAgeMs ?? 0;
+    const isFresh =
+      maxAgeMs > 0 &&
+      state.initialDataLoadStatus === 'ready' &&
+      state.transactionsUserId === userId &&
+      state.fullSyncedAt !== null &&
+      Date.now() - state.fullSyncedAt < maxAgeMs;
+    if (isFresh) return Promise.resolve();
+    return get().fetchAllData();
   },
 
 
@@ -1827,9 +1934,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ isLoading: false });
       return;
     }
-    set({ isLoading: true });
+    // Com dados do usuário em tela, a busca é de segundo plano: não liga o loading bloqueante.
+    const hadUsableData = hasUsableTransactions(get());
+    if (!hadUsableData) set({ isLoading: true });
     const generation = ++transactionsFetchGeneration;
     const identityRevisionAtStart = transactionEconomicIdentityRevision;
+    const mutationRevisionAtStart = transactionsMutationRevision;
     try {
       const allTransactions = await collectPaginatedRows<Transaction>(async (from, to) => {
         const { data, error } = await supabase
@@ -1848,19 +1958,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       if (identityRevisionAtStart !== transactionEconomicIdentityRevision) {
         // Houve marcar/desfazer depois que este snapshot começou: ele não pode reverter a mutação. Não aplica nem prende o loading.
+        noteRefreshFailure();
         set({ isLoading: false });
         return;
       }
-      set({ transactions: allTransactions, isLoading: false });
+      if (mutationRevisionAtStart !== transactionsMutationRevision) {
+        // Edição local depois que este snapshot começou: ele está velho e não pode desfazê-la.
+        noteRefreshFailure();
+        set({ isLoading: false });
+        // Sem nada utilizável ainda, a lista local é só a edição; busca de novo para ter a base completa.
+        if (!hadUsableData) await get().fetchTransactions();
+        return;
+      }
+      set({
+        transactions: allTransactions,
+        transactionsUserId: requestedUserId,
+        isLoading: false,
+      });
     } catch (error) {
       // Erro de um fetch que já não vale (sessão antiga ou fetch mais velho): sem alerta, sem status, sem tocar no estado atual.
       if (generation !== transactionsFetchGeneration || get().user?.id !== requestedUserId) return;
       console.error('Erro ao buscar o histórico completo de transações:', error);
+      noteRefreshFailure();
       set((state) => ({
         isLoading: false,
         initialDataLoadStatus:
           state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
       }));
+      // Falha de segundo plano com a lista já em tela: a lista fica como está e o próximo gatilho tenta de novo.
+      if (hadUsableData) return;
       await appAlert(
         'Não foi possível carregar todo o histórico. A lista anterior foi preservada e nenhum dado foi apagado. Tente atualizar novamente.',
         'Histórico incompleto',
@@ -1871,9 +1997,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Contas
   fetchAccounts: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('contas').select('*');
+    if (get().user?.id !== requestedUserId) return; // resposta de outra sessão
     if (error) {
       console.error('Erro ao buscar contas:', error);
+      noteRefreshFailure();
     } else {
       set({ accounts: data as Account[] });
     }
@@ -2706,9 +2835,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Categorias (com Supabase)
   fetchCategories: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('categories').select('*');
-    if (error) console.error('Erro ao buscar categorias:', error);
-    else set({ categories: data as Category[] });
+    if (get().user?.id !== requestedUserId) return;
+    if (error) {
+      console.error('Erro ao buscar categorias:', error);
+      noteRefreshFailure();
+    } else set({ categories: data as Category[] });
   },
   addCategory: async (newCategory) => {
     const state = get();
@@ -2756,9 +2889,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Orçamentos (com Supabase)
   fetchBudgets: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('budgets').select('*');
-    if (error) console.error('Erro ao buscar orçamentos:', error);
-    else set({ budgets: data as Budget[] });
+    if (get().user?.id !== requestedUserId) return;
+    if (error) {
+      console.error('Erro ao buscar orçamentos:', error);
+      noteRefreshFailure();
+    } else set({ budgets: data as Budget[] });
   },
   addBudget: async (budget) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -2774,9 +2911,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     else if (data) set((state) => ({ budgets: state.budgets.map(b => b.id === id ? data[0] as Budget : b) }));
   },
   fetchBudgetMonths: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('budget_months').select('*');
+    if (get().user?.id !== requestedUserId) return;
     if (error || !data) {
       console.error('Erro ao buscar orçamentos mensais:', error);
+      noteRefreshFailure();
       return;
     }
     set({ budgetMonths: (data as unknown[]).map(normalizeBudgetMonthRow) });
@@ -2801,6 +2941,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       // Falha: preserva o snapshot anterior. Sem eventos carregados nada é neutralizado (comportamento legado).
       console.error('Erro ao buscar eventos econômicos:', error);
+      noteRefreshFailure();
     }
   },
   rememberEconomicEvent: (event) => {
@@ -2909,9 +3050,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Regras de Mapeamento (com Supabase) 
   fetchMappingRules: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('mapping_rules').select('*').range(0, 9999);
-    if (error) console.error('Erro ao buscar regras:', error);
-    else set({ mappingRules: data as MappingRule[] });
+    if (get().user?.id !== requestedUserId) return;
+    if (error) {
+      console.error('Erro ao buscar regras:', error);
+      noteRefreshFailure();
+    } else set({ mappingRules: data as MappingRule[] });
   },
   addMappingRule: async (ruleData) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -3075,9 +3220,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Configurações de Importação (com Supabase)
   fetchImportConfigs: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('import_configs').select('*');
-    if (error) console.error('Erro ao buscar configs de importação:', error);
-    else set({ importConfigs: data as ImportConfig[] });
+    if (get().user?.id !== requestedUserId) return;
+    if (error) {
+      console.error('Erro ao buscar configs de importação:', error);
+      noteRefreshFailure();
+    } else set({ importConfigs: data as ImportConfig[] });
   },
   addImportConfig: async (config) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -3099,6 +3248,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchImportLogs: async () => {
+    const requestedUserId = get().user?.id;
     try {
       const logs = await collectPaginatedRows<ImportLog>(async (from, to) => {
         const { data, error } = await supabase
@@ -3109,9 +3259,12 @@ export const useAppStore = create<AppState>((set, get) => ({
           .range(from, to);
         return { data: (data as ImportLog[] | null) ?? null, error };
       });
+      if (get().user?.id !== requestedUserId) return;
       set({ importLogs: logs });
     } catch (error) {
+      if (get().user?.id !== requestedUserId) return;
       console.error('Erro ao buscar o histórico completo de importações:', error);
+      noteRefreshFailure();
       await appAlert(
         'Não foi possível carregar todo o histórico de importações. A lista anterior foi preservada e nenhum dado foi apagado.',
         'Histórico de importações incompleto',
@@ -3380,6 +3533,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Assinaturas (Stripe)
   fetchSubscription: async () => {
+    const requestedUserId = get().user?.id;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       set({ subscription: null, isPremium: false, isWealth: false, unlimitedSync: false });
@@ -3467,6 +3621,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const isWealth = isAdmin || effectiveSubscription?.status === 'lifetime' || effectiveSubscription?.tier === 'wealth';
       const unlimitedSync = isAdmin || (effectiveSubscription?.unlimited_sync === true);
 
+      // Resposta de outra sessão: não publica plano/assinatura nem mexe no loading do usuário atual.
+      if (get().user?.id !== requestedUserId) return;
 
       set({ 
         subscription: effectiveSubscription, 
@@ -3477,6 +3633,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } catch (err) {
       console.error('Erro inesperado ao buscar assinatura:', err);
+      noteRefreshFailure();
     }
   },
 
@@ -3558,9 +3715,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchAssets: async () => {
+    const requestedUserId = get().user?.id;
     const { data, error } = await supabase.from('assets').select('*').order('name');
-    if (error) console.error('Erro ao buscar ativos:', error);
-    else {
+    if (get().user?.id !== requestedUserId) return;
+    if (error) {
+      console.error('Erro ao buscar ativos:', error);
+      noteRefreshFailure();
+    } else {
       set({ assets: data as Asset[] });
       // Sincronizar saldos de todos os ativos financiados na carga inicial
       // Usamos um delay curto ou fazemos em background
@@ -3675,6 +3836,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchPendingInvites: async () => {
+    const requestedUserId = get().user?.id;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data, error } = await supabase
@@ -3683,8 +3845,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       .ilike('member_email', user.email?.toLowerCase().trim())
       .eq('status', 'pending');
     
-    if (error) console.error('Erro ao buscar convites pendentes:', error);
-    else set({ pendingInvites: data as FamilyMember[] });
+    if (get().user?.id !== requestedUserId) return;
+    if (error) {
+      console.error('Erro ao buscar convites pendentes:', error);
+      noteRefreshFailure();
+    } else set({ pendingInvites: data as FamilyMember[] });
   },
 
   respondToInvite: async (inviteId, status) => {
@@ -3732,3 +3897,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 }));
+
+// Toda troca de `transactions` invalida snapshots já iniciados (os mais velhos já caem pela geração).
+useAppStore.subscribe((state, prev) => {
+  if (state.transactions !== prev.transactions) {
+    transactionsMutationRevision += 1;
+  }
+});

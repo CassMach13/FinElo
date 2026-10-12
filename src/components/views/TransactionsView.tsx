@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useAppStore } from '../../hooks/useAppStore';
+import { useAppStore, BACKGROUND_SYNC_MIN_INTERVAL_MS } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
 import {
   Transaction,
@@ -260,6 +260,7 @@ const TransactionsView: React.FC = () => {
     accounts,
     assets,
     fetchAllData,
+    syncAllData,
     isLoading,
     getSortedCategories,
     addTransaction,
@@ -2194,10 +2195,13 @@ const TransactionsView: React.FC = () => {
     statementHistoryAccount,
   ]);
 
-  // Efeito para buscar as transações do Supabase na montagem do componente
+  // Entrar na tela reaproveita o que já está carregado; só sincroniza (em segundo plano) se o snapshot for velho.
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    void syncAllData({ maxAgeMs: BACKGROUND_SYNC_MIN_INTERVAL_MS });
+  }, [syncAllData]);
+
+  // Loading bloqueante só quando não há nada utilizável para mostrar; com lista em tela a atualização é silenciosa.
+  const showBlockingLoader = isLoading && transactions.length === 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -3785,14 +3789,14 @@ const TransactionsView: React.FC = () => {
           </SwipeableItem>
           );
         })}
-        {isLoading && (
+        {showBlockingLoader && (
           <div className="flex flex-col gap-3">
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
           </div>
         )}
-        {!isLoading && paginatedDisplayTransactions.length === 0 && (
+        {!showBlockingLoader && paginatedDisplayTransactions.length === 0 && (
           <div className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
             <p className="text-slate-300">Nenhuma transação encontrada.</p>
           </div>
@@ -4040,7 +4044,7 @@ const TransactionsView: React.FC = () => {
               })}
             </tbody>
           </table>
-          {isLoading && (
+          {showBlockingLoader && (
             <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-4">
                 <div className="w-12 h-12 border-4 border-slate-700 border-t-highlight rounded-full animate-spin"></div>
@@ -4048,7 +4052,7 @@ const TransactionsView: React.FC = () => {
               </div>
             </div>
           )}
-          {!isLoading && paginatedDisplayTransactions.length === 0 && (
+          {!showBlockingLoader && paginatedDisplayTransactions.length === 0 && (
             <p className="text-center text-gray-400 py-8">Nenhuma transação encontrada.</p>
           )}
         </div>
