@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { classifyAuthInit, shouldDeferStartupAuthEvent } from './utils/authSessionOutcome';
-import { useAppStore } from './hooks/useAppStore';
+import { useAppStore, BACKGROUND_SYNC_MIN_INTERVAL_MS } from './hooks/useAppStore';
 import { registrarAtividadeDoUsuario } from './services/userActivityService';
 import { trackAppSessionStarted } from './services/productAnalytics';
 import { Analytics } from '@vercel/analytics/react';
@@ -26,13 +26,19 @@ const AppContent: React.FC = () => {
   const acquisitionLocation = useLocation();
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  const { fetchAllData, setUser, user } = useAppStore();
+  const { fetchAllData, syncAllData, setUser, user } = useAppStore();
 
   const ignoreNextSignedIn = useRef(false);
   const lastSessionIdRef = useRef<string | null>(null);
   const initialValidationDone = useRef(false);
 
   const stableFetchAllData = useCallback(fetchAllData, [fetchAllData]);
+  // Eventos repetidos (SIGNED_IN, foco, visibilidade) viram sincronização de segundo plano: reaproveita a carga
+  // em voo e pula se o snapshot é recente. Só a carga inicial e ações explícitas usam fetchAllData direto.
+  const stableSyncAllData = useCallback(
+    () => syncAllData({ maxAgeMs: BACKGROUND_SYNC_MIN_INTERVAL_MS }),
+    [syncAllData]
+  );
 
   useEffect(() => {
     if (['/', '/login', '/pricing'].includes(acquisitionLocation.pathname)) {
@@ -118,7 +124,7 @@ const AppContent: React.FC = () => {
       setIsAuthReady(true);
 
       if (_event === 'SIGNED_IN') {
-        stableFetchAllData();
+        void stableSyncAllData();
       }
 
       // Entrada no app autenticado — inclusive quando a sessão e apenas
@@ -133,7 +139,7 @@ const AppContent: React.FC = () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, [stableFetchAllData, setUser]);
+  }, [stableFetchAllData, stableSyncAllData, setUser]);
 
   // PWA Safety Update Check
   useEffect(() => {
@@ -165,7 +171,7 @@ const AppContent: React.FC = () => {
     const handleVisibilitySync = () => {
       if (document.visibilityState === 'visible' && user) {
         console.log('%c[Sync] %cApp visível, recarregando dados para garantir sincronia...', 'color: yellow; font-weight: bold;', 'color: cyan;');
-        stableFetchAllData();
+        void stableSyncAllData();
         // Aba voltou à frente com usuário logado: evidência de uso real.
         registrarAtividadeDoUsuario();
       }
@@ -177,7 +183,7 @@ const AppContent: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilitySync);
       window.removeEventListener('focus', handleVisibilitySync);
     };
-  }, [user, stableFetchAllData]);
+  }, [user, stableSyncAllData]);
 
   if (isPasswordRecovery) {
     return <UpdatePasswordView />;
