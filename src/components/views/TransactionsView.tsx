@@ -33,6 +33,12 @@ import {
   toDateOnlyIso,
 } from '../../utils/dateOnly';
 import { collectPaginatedRows } from '../../utils/paginatedFetch';
+import {
+  addRetainedRow,
+  categorySortValue,
+  partitionWithRetained,
+  shouldRetainAfterCategoryChange,
+} from '../../utils/transactionCategoryRetention';
 import { findImportLogsByTransactionId, importLogTransactionIds } from '../../utils/importLogHealth';
 import CompetenceInvoiceBarChart from '../charts/CompetenceInvoiceBarChart';
 import {
@@ -310,6 +316,12 @@ const TransactionsView: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  /**
+   * Linhas recém-categorizadas que já não casam com o filtro de categoria (ex.: "Sem Categoria"),
+   * com a categoria anterior (congela a ordenação por categoria). Só afetam a exibição: ficam no
+   * lugar até mudar filtro/ordem/página, atualizar a lista ou a aba ir para segundo plano.
+   */
+  const [retainedRows, setRetainedRows] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [predefinedTransaction, setPredefinedTransaction] = useState<Transaction | null>(null);
   const [payInvoiceModal, setPayInvoiceModal] = useState<{
@@ -2742,12 +2754,17 @@ const TransactionsView: React.FC = () => {
     applyTransactionFilters,
   ]);
 
-  const filteredTransactions = useMemo(() => {
+  const {
+    matched: filteredTransactions,
+    displayed: displayedTransactions,
+    staleIds: staleRetainedIds,
+  } = useMemo(() => {
     let sortableItems = [...transactions];
 
     sortableItems.sort((a, b) => {
-      const aValue = a[sortConfig.key as keyof Transaction];
-      const bValue = b[sortConfig.key as keyof Transaction];
+      const byCategory = sortConfig.key === 'Categoria';
+      const aValue = byCategory ? categorySortValue(a, retainedRows) : a[sortConfig.key as keyof Transaction];
+      const bValue = byCategory ? categorySortValue(b, retainedRows) : b[sortConfig.key as keyof Transaction];
 
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
@@ -2764,7 +2781,7 @@ const TransactionsView: React.FC = () => {
       return sortConfig.direction === 'ascending' ? comparison : -comparison;
     });
 
-    return sortableItems.filter((t) =>
+    return partitionWithRetained(sortableItems, retainedRows, (t) =>
       matchesTransactionFilters(t, transactionFilters, {
         getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
         getAccountName: (accountId) => (accountId ? accountsMap.get(accountId) : 'Sem conta'),
@@ -2774,6 +2791,7 @@ const TransactionsView: React.FC = () => {
   }, [
     transactions,
     transactionFilters,
+    retainedRows,
     sortConfig,
     familyOwnerContext,
     accountsMap,
@@ -2809,11 +2827,20 @@ const TransactionsView: React.FC = () => {
 
   const showOwnerColumnInTable = familyOwnerContext.showAttribution && showOwnerColumn;
 
-  const paginatedTransactions = useMemo(() => {
-    if (itemsPerPage === -1) return filteredTransactions; // -1 para "Todos"
+  // O que se desenha (inclui linhas retidas); contagens e totais usam `paginatedTransactions`.
+  const paginatedDisplayTransactions = useMemo(() => {
+    if (itemsPerPage === -1) return displayedTransactions; // -1 para "Todos"
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredTransactions, currentPage, itemsPerPage]);
+    return displayedTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [displayedTransactions, currentPage, itemsPerPage]);
+
+  const paginatedTransactions = useMemo(
+    () =>
+      staleRetainedIds.size === 0
+        ? paginatedDisplayTransactions
+        : paginatedDisplayTransactions.filter((t) => !staleRetainedIds.has(t.ID_Transacao)),
+    [paginatedDisplayTransactions, staleRetainedIds]
+  );
 
   const ownerTransactionCounts = useMemo(
     () => countTransactionsByOwner(filteredTransactions, familyOwnerContext.getTransactionOwnerId),
@@ -2822,17 +2849,17 @@ const TransactionsView: React.FC = () => {
 
   const transactionListItems = useMemo(() => {
     if (!groupByOwner || !familyOwnerContext.showAttribution) {
-      return flattenGroupedTransactionListItems(paginatedTransactions);
+      return flattenGroupedTransactionListItems(paginatedDisplayTransactions);
     }
     return buildGroupedTransactionListItems(
-      paginatedTransactions,
+      paginatedDisplayTransactions,
       ownerTransactionCounts,
       familyOwnerContext
     );
   }, [
     groupByOwner,
     familyOwnerContext,
-    paginatedTransactions,
+    paginatedDisplayTransactions,
     ownerTransactionCounts,
   ]);
 
@@ -2841,6 +2868,30 @@ const TransactionsView: React.FC = () => {
     const total = Math.ceil(filteredTransactions.length / itemsPerPage);
     return total > 0 ? total : 1; // Garante que seja no mínimo 1
   }, [filteredTransactions.length, itemsPerPage]);
+
+  // Mudar filtro, ordem ou página libera as linhas retidas: aí elas saem do resultado de fato.
+  const releaseRetainedRows = useCallback(
+    () => setRetainedRows((prev) => (prev.size === 0 ? prev : new Map())),
+    []
+  );
+
+  useEffect(() => {
+    releaseRetainedRows();
+  }, [transactionFilters, sortConfig, currentPage, itemsPerPage, releaseRetainedRows]);
+
+  // Aba/PWA em segundo plano: o usuário não está olhando, então é seguro limpar sem "pulo".
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') releaseRetainedRows();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [releaseRetainedRows]);
+
+  // Categorizar a última linha da última página não pode deixar o usuário numa página inexistente.
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const manualFilteredTransactions = useMemo(
     () => filteredTransactions.filter(isManualTransaction),
@@ -2852,7 +2903,13 @@ const TransactionsView: React.FC = () => {
     [paginatedTransactions]
   );
 
-  const selectedManualCount = selectedManualIds.size;
+  // Linhas retidas (já categorizadas, fora do filtro) nunca entram na seleção para exclusão em lote.
+  const effectiveSelectedManualIds = useMemo(() => {
+    if (staleRetainedIds.size === 0) return selectedManualIds;
+    return new Set([...selectedManualIds].filter((id) => !staleRetainedIds.has(id)));
+  }, [selectedManualIds, staleRetainedIds]);
+
+  const selectedManualCount = effectiveSelectedManualIds.size;
 
   const allManualPageSelected =
     manualPaginatedTransactions.length > 0 &&
@@ -2867,14 +2924,18 @@ const TransactionsView: React.FC = () => {
     setSelectedManualIds(new Set());
   }, []);
 
-  const toggleManualSelection = useCallback((transactionId: string) => {
-    setSelectedManualIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(transactionId)) next.delete(transactionId);
-      else next.add(transactionId);
-      return next;
-    });
-  }, []);
+  const toggleManualSelection = useCallback(
+    (transactionId: string) => {
+      if (staleRetainedIds.has(transactionId)) return;
+      setSelectedManualIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(transactionId)) next.delete(transactionId);
+        else next.add(transactionId);
+        return next;
+      });
+    },
+    [staleRetainedIds]
+  );
 
   const selectManualOnPage = useCallback(() => {
     setSelectedManualIds((prev) => {
@@ -2901,7 +2962,8 @@ const TransactionsView: React.FC = () => {
   }, []);
 
   const handleBulkDeleteManual = useCallback(async () => {
-    const count = selectedManualIds.size;
+    const idsToDelete = [...effectiveSelectedManualIds];
+    const count = idsToDelete.length;
     if (count === 0) return;
 
     const confirmed = await appConfirm(
@@ -2912,9 +2974,9 @@ const TransactionsView: React.FC = () => {
     );
     if (!confirmed) return;
 
-    const deleted = await deleteManualTransactions([...selectedManualIds]);
+    const deleted = await deleteManualTransactions(idsToDelete);
     if (deleted > 0) exitSelectionMode();
-  }, [selectedManualIds, deleteManualTransactions, exitSelectionMode]);
+  }, [effectiveSelectedManualIds, deleteManualTransactions, exitSelectionMode]);
 
   const desktopTableColumnCount =
     (showOwnerColumnInTable ? 10 : 9) + (selectionMode ? 1 : 0);
@@ -3042,11 +3104,23 @@ const TransactionsView: React.FC = () => {
     return 'text-light';
   }
 
+  /** Mantém no lugar a linha que acabou de sair do filtro de categoria por ter sido categorizada. */
+  const retainIfLeavingCategoryFilter = (
+    transaction: Pick<Transaction, 'ID_Transacao' | 'Categoria'>,
+    newCategory: unknown
+  ) => {
+    if (!transaction.ID_Transacao) return;
+    if (!shouldRetainAfterCategoryChange(transactionFilters.category, newCategory)) return;
+    const id = transaction.ID_Transacao;
+    setRetainedRows((prev) => addRetainedRow(prev, id, transaction.Categoria));
+  };
+
   const handleInlineUpdate = <K extends keyof Transaction>(
     transaction: Transaction,
     field: K,
     value: Transaction[K]
   ) => {
+    if (field === 'Categoria') retainIfLeavingCategoryFilter(transaction, value);
     // SOLUÇÃO FINAL:
     // Criamos um objeto que corresponde exatamente à assinatura da função no store:
     // um objeto que tem o ID_Transacao obrigatório e as outras propriedades atualizadas.
@@ -3578,14 +3652,15 @@ const TransactionsView: React.FC = () => {
 
           const t = item.transaction;
           const manual = isManualTransaction(t);
-          const isSelected = selectedManualIds.has(t.ID_Transacao);
+          const selectable = manual && !staleRetainedIds.has(t.ID_Transacao);
+          const isSelected = selectable && selectedManualIds.has(t.ID_Transacao);
           const identity = identityFor(t);
 
           const mobileCardBody = (
             <div
               className={`bg-secondary p-4 flex flex-col gap-3 relative overflow-hidden h-full ${
                 selectionMode && manual && isSelected ? 'ring-2 ring-accent ring-inset' : ''
-              }`}
+              } ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}
             >
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
 
@@ -3594,6 +3669,7 @@ const TransactionsView: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    disabled={!selectable}
                     onChange={() => toggleManualSelection(t.ID_Transacao)}
                     onClick={(e) => e.stopPropagation()}
                     className="mt-1 h-4 w-4 shrink-0 rounded border-slate-500 text-accent focus:ring-accent"
@@ -3658,9 +3734,9 @@ const TransactionsView: React.FC = () => {
               <div
                 key={t.ID_Transacao}
                 className={`rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b] ${
-                  manual ? 'cursor-pointer active:scale-[0.99]' : 'opacity-75'
+                  selectable ? 'cursor-pointer active:scale-[0.99]' : 'opacity-75'
                 }`}
-                onClick={manual ? () => toggleManualSelection(t.ID_Transacao) : undefined}
+                onClick={selectable ? () => toggleManualSelection(t.ID_Transacao) : undefined}
               >
                 {mobileCardBody}
               </div>
@@ -3716,7 +3792,7 @@ const TransactionsView: React.FC = () => {
             <SkeletonCard />
           </div>
         )}
-        {!isLoading && paginatedTransactions.length === 0 && (
+        {!isLoading && paginatedDisplayTransactions.length === 0 && (
           <div className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
             <p className="text-slate-300">Nenhuma transação encontrada.</p>
           </div>
@@ -3855,10 +3931,11 @@ const TransactionsView: React.FC = () => {
 
                 const t = item.transaction;
                 const manual = isManualTransaction(t);
-                const isSelected = selectedManualIds.has(t.ID_Transacao);
+                const selectable = manual && !staleRetainedIds.has(t.ID_Transacao);
+                const isSelected = selectable && selectedManualIds.has(t.ID_Transacao);
                 const identity = identityFor(t);
                 return (
-                <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''}`}>
+                <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''} ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}>
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
@@ -3903,6 +3980,7 @@ const TransactionsView: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={isSelected}
+                          disabled={!selectable}
                           onChange={() => toggleManualSelection(t.ID_Transacao)}
                           className="h-4 w-4 rounded border-slate-500 text-accent focus:ring-accent"
                           aria-label={`Selecionar ${t.Nome_Fantasia || t.Descricao_Original || 'lançamento'}`}
@@ -3970,7 +4048,7 @@ const TransactionsView: React.FC = () => {
               </div>
             </div>
           )}
-          {!isLoading && paginatedTransactions.length === 0 && (
+          {!isLoading && paginatedDisplayTransactions.length === 0 && (
             <p className="text-center text-gray-400 py-8">Nenhuma transação encontrada.</p>
           )}
         </div>
@@ -4004,6 +4082,24 @@ const TransactionsView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {staleRetainedIds.size > 0 ? (
+        <div
+          role="status"
+          className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-slate-600 bg-slate-800/95 px-4 py-2 text-xs text-slate-200 shadow-lg"
+        >
+          <span>
+            {staleRetainedIds.size} categorizada{staleRetainedIds.size !== 1 ? 's' : ''} fora do filtro
+          </span>
+          <button
+            type="button"
+            onClick={releaseRetainedRows}
+            className="font-semibold text-accent hover:text-sky-300"
+          >
+            Atualizar lista
+          </button>
+        </div>
+      ) : null}
 
       <PaginationControls
         itemsPerPage={itemsPerPage}
@@ -4457,6 +4553,9 @@ const TransactionsView: React.FC = () => {
           onSave={async (newTransactions) => {
             if (editingTransaction) {
               // It's an update. We expect only one item in data[0]
+              if (newTransactions[0].Categoria !== editingTransaction.Categoria) {
+                retainIfLeavingCategoryFilter(editingTransaction, newTransactions[0].Categoria);
+              }
               await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...newTransactions[0] });
             } else {
               // It's a new transaction (or batch)
