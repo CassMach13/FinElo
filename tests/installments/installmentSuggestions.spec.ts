@@ -134,7 +134,7 @@ describe('o que NÃO pode virar candidato', () => {
     ).toEqual([]);
   });
 
-  it('sem conta definida, o mecanismo não roda', () => {
+  it('sem conta de destino, lançamento de conta conhecida não candidata', () => {
     expect(encontrarCandidatosDeParcelaIrma(importada(), null, [existente({})])).toEqual([]);
   });
 });
@@ -348,8 +348,13 @@ describe('10/12. a consulta não toca em dado nenhum', () => {
 
     // Valor/parcela/data existem só para o usuário reconhecer a compra na
     // tela de escolha — não são o que a sugestão copia.
+    // As evidências (nível, mesma data, mesmo estabelecimento, parcela lida
+    // do texto) explicam POR QUE o lançamento foi oferecido; também não são copiadas.
     expect(Object.keys(candidato).sort()).toEqual(
-      ['categoria', 'confianca', 'data', 'idTransacao', 'nomeFantasia', 'parcelaAtual', 'totalParcelas', 'valor'].sort()
+      [
+        'categoria', 'confianca', 'data', 'idTransacao', 'nomeFantasia', 'parcelaAtual', 'totalParcelas', 'valor',
+        'nivel', 'mesmaDataDeCompra', 'descricaoSemelhante', 'parcelaLidaDoTexto',
+      ].sort()
     );
   });
 });

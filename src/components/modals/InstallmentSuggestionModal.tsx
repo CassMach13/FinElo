@@ -3,7 +3,8 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { formatCurrency } from '../../utils/formatters';
 import {
-  podePreSugerir,
+  escolhasIniciaisDeParcela,
+  evidenciasDoCandidato,
   type SugestaoDeParcela,
 } from '../../domain/installments/installmentSuggestions';
 
@@ -30,36 +31,32 @@ interface InstallmentSuggestionModalProps {
 const formatarData = (data: Date): string =>
   Number.isNaN(data.getTime()) ? '—' : data.toLocaleDateString('pt-BR');
 
-const escolhaInicial = (sugestoes: SugestaoDeParcela[]): EscolhasDeParcela => {
-  const inicial: EscolhasDeParcela = new Map();
-  for (const sugestao of sugestoes) {
-    // Candidato único vem pré-marcado (o usuário ainda pode desmarcar).
-    // Dois ou mais começam SEM escolha: preferir um seria decidir por ele.
-    inicial.set(sugestao.indice, podePreSugerir(sugestao) ? sugestao.candidatos[0].idTransacao : null);
-  }
-  return inicial;
-};
-
 const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
   sugestoes,
   onConfirm,
   onCancel,
 }) => {
-  const [escolhas, setEscolhas] = useState<EscolhasDeParcela>(() => escolhaInicial(sugestoes));
+  const [escolhas, setEscolhas] = useState<EscolhasDeParcela>(() => escolhasIniciaisDeParcela(sugestoes));
 
   const escolher = (indice: number, idTransacao: string | null) => {
     setEscolhas((anterior) => new Map(anterior).set(indice, idTransacao));
   };
 
+  const desmarcarTodas = () => {
+    setEscolhas(new Map(sugestoes.map((s) => [s.indice, null])));
+  };
+
   const aplicadas = Array.from(escolhas.values()).filter(Boolean).length;
+  const reconhecidas = sugestoes.filter((s) => s.nivel === 'reconhecida').length;
+  const pendentes = sugestoes.filter((s) => (escolhas.get(s.indice) ?? null) === null).length;
 
   return (
     <Modal
       isOpen={true}
       onClose={onCancel}
-      title="Parcelas reconhecidas de compras anteriores"
+      title="Parcelas de compras que você já classificou"
       footer={
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>Cancelar importação</Button>
           <Button onClick={() => onConfirm(escolhas)}>
             {aplicadas > 0 ? `Importar aplicando ${aplicadas}` : 'Importar sem aplicar'}
@@ -68,18 +65,38 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
       }
     >
       <div className="space-y-4">
-        <p className="text-gray-300 text-sm">
-          {sugestoes.length === 1
-            ? 'Uma parcela do arquivo parece continuar uma compra que você já classificou.'
-            : `${sugestoes.length} parcelas do arquivo parecem continuar compras que você já classificou.`}{' '}
-          Só a <strong className="text-white">descrição</strong> e a{' '}
-          <strong className="text-white">categoria</strong> são copiadas — valor, data e parcela
-          vêm do arquivo.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-gray-300 text-sm">
+            {reconhecidas === sugestoes.length
+              ? sugestoes.length === 1
+                ? 'Uma parcela do arquivo continua uma compra que você já classificou.'
+                : `${sugestoes.length} parcelas do arquivo continuam compras que você já classificou.`
+              : `${sugestoes.length} parcelas do arquivo podem ser de compras que você já classificou.`}{' '}
+            Só a <strong className="text-white">descrição</strong> e a{' '}
+            <strong className="text-white">categoria</strong> são copiadas — valor, data e parcela
+            vêm do arquivo.
+          </p>
+          {aplicadas > 0 && (
+            <button
+              type="button"
+              onClick={desmarcarTodas}
+              className="text-xs text-highlight hover:text-sky-400 whitespace-nowrap"
+            >
+              Desmarcar todas
+            </button>
+          )}
+        </div>
+
+        {pendentes > 0 && aplicadas > 0 && (
+          <p className="text-xs text-gray-400">
+            {pendentes === 1 ? '1 parcela precisa' : `${pendentes} parcelas precisam`} da sua escolha;
+            sem escolha, {pendentes === 1 ? 'ela entra' : 'elas entram'} como veio no arquivo.
+          </p>
+        )}
 
         {sugestoes.map((sugestao) => {
           const escolhido = escolhas.get(sugestao.indice) ?? null;
-          const ambigua = sugestao.candidatos.length > 1;
+          const ambigua = sugestao.nivel === 'reconhecida' && sugestao.candidatos.length > 1;
 
           return (
             <div key={sugestao.indice} className="border border-slate-700 rounded-md p-3 bg-slate-900/50">
@@ -99,6 +116,21 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
                   como está.
                 </p>
               )}
+              {sugestao.nivel === 'historico' && (
+                <p className="text-xs text-yellow-400 mb-2">
+                  Não encontramos a parcela anterior desta compra, mas{' '}
+                  {sugestao.candidatos.length === 1
+                    ? 'este lançamento anterior parece ser da mesma compra.'
+                    : 'estes lançamentos anteriores parecem ser da mesma compra.'}{' '}
+                  Confira antes de aplicar.
+                </p>
+              )}
+              {sugestao.contaIndefinida && (
+                <p className="text-xs text-gray-400 mb-2">
+                  Esta importação não tem conta associada: comparamos apenas com lançamentos também
+                  sem conta.
+                </p>
+              )}
 
               <div className="space-y-1">
                 {sugestao.candidatos.map((candidato) => (
@@ -113,13 +145,14 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
                       checked={escolhido === candidato.idTransacao}
                       onChange={() => escolher(sugestao.indice, candidato.idTransacao)}
                     />
-                    <span className="text-sm">
+                    <span className="text-sm min-w-0">
                       <span className="text-white">{candidato.nomeFantasia || 'Sem descrição'}</span>
                       <span className="text-gray-400"> · {candidato.categoria || 'Sem categoria'}</span>
                       <span className="block text-xs text-gray-500">
-                        parcela {candidato.parcelaAtual}/{candidato.totalParcelas} ·{' '}
-                        {formatCurrency(candidato.valor)} · {formatarData(candidato.data)}
-                        {candidato.confianca === 'centavo' && ' · difere em R$ 0,01'}
+                        {[
+                          `${formatCurrency(candidato.valor)} em ${formatarData(candidato.data)}`,
+                          ...evidenciasDoCandidato(candidato),
+                        ].join(' · ')}
                       </span>
                     </span>
                   </label>

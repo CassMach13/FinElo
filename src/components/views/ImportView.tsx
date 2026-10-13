@@ -140,12 +140,20 @@ const ImportView: React.FC = () => {
    * Sem candidato, devolve o lote intacto e ninguém vê nada. Com candidatos,
    * quem decide é o usuário — e só descrição e categoria mudam.
    * Devolve `null` se ele cancelar, e aí nada é gravado.
+   *
+   * O histórico é lido do store NESTE momento: a sincronização em segundo
+   * plano pode ter trazido lançamentos depois que esta tela foi montada.
    */
   const revisarParcelasIrmas = async <T extends ParcelaImportada>(
     novas: T[],
-    contaDestino: string | null
+    contaDestino: string | null,
+    origemEhCartao: boolean
   ): Promise<T[] | null> => {
-    const sugestoes = construirSugestoesDeParcela(novas, contaDestino, transactions);
+    const estado = useAppStore.getState();
+    const contaEhCartao =
+      origemEhCartao ||
+      estado.accounts.find((conta) => conta.id === contaDestino)?.Tipo_Conta === 'Cartão de Crédito';
+    const sugestoes = construirSugestoesDeParcela(novas, contaDestino, estado.transactions, { contaEhCartao });
     if (sugestoes.length === 0) return novas;
 
     setIsLoading(false);
@@ -628,7 +636,8 @@ const ImportView: React.FC = () => {
         }
         const transacoesParaImportar = await revisarParcelasIrmas(
           result.newTransactions,
-          selectedNativeAccountId || null
+          selectedNativeAccountId || null,
+          bankCfg.sourceType === 'Cartao'
         );
         if (!transacoesParaImportar) {
           setNotification({
@@ -852,7 +861,8 @@ const ImportView: React.FC = () => {
         };
         const transacoesParaImportar = await revisarParcelasIrmas(
           result.newTransactions,
-          (effectiveConfig as ImportConfig).ID_Conta_Associada || null
+          (effectiveConfig as ImportConfig).ID_Conta_Associada || null,
+          tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito'
         );
         if (!transacoesParaImportar) {
           setNotification({
