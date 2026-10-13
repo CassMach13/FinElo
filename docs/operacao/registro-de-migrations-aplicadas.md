@@ -13,12 +13,17 @@ Cada entrada abaixo registra o que foi aplicado em cada ambiente. As migrations 
 |---|---|---|---|---|
 | `20261012180000_family_members_authorization_hardening.sql` | staging (`sxmmrnwbxntccscojmfh`) | `20261012211308` | `family_members_authorization_hardening` | `d05334fb10579a998b06c8d1bd11364f42c6972bd7b2ece2b707ecc608c6264a` |
 | `20261012180000_family_members_authorization_hardening.sql` | produção (`xotxxxohcmivyzswyjtm`) | `20261012220717` | `family_members_authorization_hardening` | `d05334fb10579a998b06c8d1bd11364f42c6972bd7b2ece2b707ecc608c6264a` |
+| `20261012180100_family_members_member_can_leave.sql` | staging (`sxmmrnwbxntccscojmfh`) | `20261013013240` | `family_members_member_can_leave` | `a92c65fc082b9a42a9181be11ffced2aa7fd00a3b97c680d8e42a26d14592c3f` |
+| `20261012180100_family_members_member_can_leave.sql` | produção (`xotxxxohcmivyzswyjtm`) | `20261013030956` | `family_members_member_can_leave` | `a92c65fc082b9a42a9181be11ffced2aa7fd00a3b97c680d8e42a26d14592c3f` |
 
-O arquivo do repositório é byte a byte o texto aplicado nos dois ambientes (sem `BEGIN`/`COMMIT` próprios: o
-executor já envolve o arquivo numa única transação). Qualquer alteração futura nesse arquivo exige uma nova
+Cada arquivo listado é byte a byte o texto aplicado nos ambientes indicados (sem `BEGIN`/`COMMIT` próprios: o
+executor já envolve o arquivo numa única transação). Qualquer alteração futura nesses arquivos exige uma nova
 migration, nunca a edição do arquivo existente.
 
 ## Recuperação
 `supabase/rollbacks/20261012180000_family_members_authorization_hardening_recovery_a.sql` e `…_recovery_b.sql` são
 degraus **fail-closed**: nenhum deles relaxa a autorização. Use A se apenas o vínculo recíproco precisar ser
 isolado; use B para congelar criação e alteração de vínculos (revogar continua possível).
+
+`supabase/rollbacks/20261012180100_family_members_member_can_leave_down.sql` remove somente a policy de saída do
+membro: o `DELETE` volta a ser permitido apenas ao dono do vínculo. Também só reduz permissão.
