@@ -235,7 +235,7 @@ describe('guardas estáticas', () => {
 
   it('a Dashboard não classifica de novo: o conjunto sem Ambos/investimento vem do mesmo helper', () => {
     const dash = read('src/components/views/DashboardView.tsx');
-    expect(dash).toContain('toOperationalChartData(transactions, categorySets, economicKindByEventId)');
+    expect(dash).toContain('toOperationalChartData(scopedTransactions, categorySets, economicKindByEventId)');
     expect(dash).not.toMatch(/ambosCategories|investmentCategories/);
   });
 });

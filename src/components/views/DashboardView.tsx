@@ -73,7 +73,18 @@ import { getDashboardDataDisplayState } from '../../utils/initialDataLoad';
 import { computeAnnualEvolution } from '../../utils/annualEvolution';
 import { computeMonthlyChange } from '../../utils/monthlyChange';
 import { openUpcomingInTransactions } from '../../utils/upcomingEntries';
-import { isSmartTransactionFiltersEnabled } from '../../services/featureFlagService';
+import { isDashboardOwnerScopeEnabled, isSmartTransactionFiltersEnabled } from '../../services/featureFlagService';
+import DashboardOwnerSelector from '../dashboard/DashboardOwnerSelector';
+import OwnerScopeNetWorthNote from '../dashboard/OwnerScopeNetWorthNote';
+import {
+  FAMILY_SCOPE,
+  SELF_SCOPE,
+  investmentOwnersFor,
+  resolveDashboardScope,
+  scopeDashboardData,
+  type DashboardOwnerOption,
+} from '../../domain/dashboard/dashboardOwnerScope';
+import { useOwnerInvestments } from '../../hooks/useOwnerInvestments';
 
 import NewTransactionModal from '../modals/NewTransactionModal';
 import AccountModal from './AccountModal';
@@ -85,6 +96,58 @@ const DashboardView: React.FC = () => {
   const { transactions, budgets, categories: allCategories, user, isPremium, assets, budgetMonths, economicEvents, createBudgetMonths, updateBudgetMonthAmount, deleteBudgetMonth, budgetManagerRequested, clearBudgetManagerRequest, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
   const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
+
+  /**
+   * Escopo por proprietário (flag `dashboard_owner_scope_enabled`). Desligada: `ownerScope` é null e todos os dados e
+   * cálculos abaixo usam exatamente as mesmas fontes de antes. Seleção e opções valem só para a sessão em que foram
+   * escolhidas: trocar de sessão volta para "Você" sem reaproveitar nada da anterior.
+   */
+  const ownerScopeEnabled = isDashboardOwnerScopeEnabled(user);
+  const [ownerSelectionState, setOwnerSelectionState] = useState<{ sessionUserId: string; value: string } | null>(null);
+  const [ownerOptionsState, setOwnerOptionsState] = useState<{ sessionUserId: string; options: DashboardOwnerOption[] } | null>(null);
+  const ownerSelection = ownerSelectionState && ownerSelectionState.sessionUserId === user?.id ? ownerSelectionState.value : SELF_SCOPE;
+  const ownerOptions = useMemo(
+    () => (ownerOptionsState && ownerOptionsState.sessionUserId === user?.id ? ownerOptionsState.options : []),
+    [ownerOptionsState, user?.id]
+  );
+  const familyOwnerContext = useFamilyOwnerContext(user?.id, user?.email, accounts, transactions);
+  const ownerScope = useMemo(
+    () => (ownerScopeEnabled && user?.id ? resolveDashboardScope(user.id, ownerSelection, ownerOptions) : null),
+    [ownerScopeEnabled, user?.id, ownerSelection, ownerOptions]
+  );
+  const scopedData = useMemo(
+    () =>
+      ownerScope && user?.id
+        ? scopeDashboardData(
+            ownerScope,
+            { transactions, accounts, assets, budgets, budgetMonths, economicEvents },
+            { sessionUserId: user.id, getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId }
+          )
+        : null,
+    [ownerScope, user?.id, transactions, accounts, assets, budgets, budgetMonths, economicEvents, familyOwnerContext.getTransactionOwnerId]
+  );
+  // Fontes dos indicadores: com a flag desligada são as próprias referências do store.
+  const scopedTransactions = scopedData?.transactions ?? transactions;
+  const scopedAccounts = scopedData?.accounts ?? accounts;
+  const scopedAssets = scopedData?.assets ?? assets;
+  const scopedBudgets = scopedData?.budgets ?? budgets;
+  const scopedBudgetMonths = scopedData?.budgetMonths ?? budgetMonths;
+  /** Ações que gravam (alertas que abrem edição) só aparecem na própria visão: trocar de visão nunca amplia escrita. */
+  const viewingOwnData = !ownerScope || ownerScope.kind === 'self';
+  const handleOwnerSelectionChange = (value: string) => {
+    if (user?.id) setOwnerSelectionState({ sessionUserId: user.id, value });
+  };
+  const handleOwnerOptionsChange = useCallback(
+    (options: DashboardOwnerOption[]) => {
+      if (user?.id) setOwnerOptionsState({ sessionUserId: user.id, options });
+    },
+    [user?.id]
+  );
+  const knownOwners = useMemo(
+    () => familyOwnerContext.owners.map((o) => ({ userId: o.userId, label: o.label })),
+    [familyOwnerContext.owners]
+  );
+  const ownerSelectValue = !ownerScope || ownerScope.kind === 'self' ? SELF_SCOPE : ownerScope.kind === 'family' ? FAMILY_SCOPE : ownerScope.ownerIds![0];
 
   // Modal States
   const [isNewTransactionModalOpen, setNewTransactionModalOpen] = useState(false);
@@ -257,7 +320,7 @@ const DashboardView: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || ownerScopeEnabled) return;
     const fetchInvestments = async () => {
       try {
         const data = await investmentService.getLatestInvestments(dateRange.end);
@@ -268,10 +331,10 @@ const DashboardView: React.FC = () => {
       }
     };
     fetchInvestments();
-  }, [user, dateRange.end]);
+  }, [user, dateRange.end, ownerScopeEnabled]);
 
   useEffect(() => {
-    if (!user || !compareDateRange) {
+    if (!user || !compareDateRange || ownerScopeEnabled) {
       setCompareManualInvestmentsTotal(0);
       return;
     }
@@ -285,7 +348,29 @@ const DashboardView: React.FC = () => {
       }
     };
     fetchCompareInvestments();
-  }, [user, compareDateRange]);
+  }, [user, compareDateRange, ownerScopeEnabled]);
+
+  // Flag ligada: a última posição de CADA proprietário do escopo (meses podem diferir), nunca o "último mês global".
+  const investmentOwnerIds = useMemo(
+    () =>
+      ownerScope
+        ? investmentOwnersFor(ownerScope, [
+            ...ownerOptions.map((o) => o.userId),
+            ...scopedAccounts.map((a) => a.user_id),
+            ...scopedAssets.map((a) => a.user_id),
+          ])
+        : [],
+    [ownerScope, ownerOptions, scopedAccounts, scopedAssets]
+  );
+  const ownerInvestments = useOwnerInvestments(!!ownerScope, ownerScope?.key ?? '', ownerScope ? dateRange.end : null, investmentOwnerIds);
+  const compareOwnerInvestments = useOwnerInvestments(
+    !!ownerScope && !!compareDateRange,
+    ownerScope?.key ?? '',
+    ownerScope && compareDateRange ? compareDateRange.end : null,
+    investmentOwnerIds
+  );
+  const investmentsValue = ownerScope ? (ownerInvestments.summary?.totalCents ?? 0) / 100 : manualInvestmentsTotal;
+  const compareInvestmentsValue = ownerScope ? (compareOwnerInvestments.summary?.totalCents ?? 0) / 100 : compareManualInvestmentsTotal;
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'custom') return;
@@ -350,20 +435,24 @@ const DashboardView: React.FC = () => {
 
   const categorySets = useMemo(() => buildCategorySets(allCategories), [allCategories]);
   // Eventos carregados (id → kind): só kind conhecido neutraliza; id sem evento no mapa segue o comportamento legado.
+  // É só consulta por id: os eventos entram no escopo através das transações já filtradas por proprietário.
   const economicKindByEventId = useMemo(() => buildEconomicKindByEventId(economicEvents), [economicEvents]);
 
-  const accountsWithMissingBank = useMemo(() => accounts.filter(acc => !acc.bank_id), [accounts]);
+  const accountsWithMissingBank = useMemo(
+    () => (viewingOwnData ? scopedAccounts.filter(acc => !acc.bank_id) : []),
+    [scopedAccounts, viewingOwnData]
+  );
 
   // 2. Global Data without 'Ambos' (for Evolution Chart which needs history)
   // Also exclude investments from the main evolution chart to show operational evolution
   const transactionsWithoutAmbosAndInvestments = useMemo(
-    () => toOperationalChartData(transactions, categorySets, economicKindByEventId),
-    [transactions, categorySets, economicKindByEventId]
+    () => toOperationalChartData(scopedTransactions, categorySets, economicKindByEventId),
+    [scopedTransactions, categorySets, economicKindByEventId]
   );
 
   const filteredTransactions = useMemo(
-    () => filterTransactionsByRange(transactions, dateRange),
-    [transactions, dateRange]
+    () => filterTransactionsByRange(scopedTransactions, dateRange),
+    [scopedTransactions, dateRange]
   );
 
   const chartData = useMemo(
@@ -378,12 +467,12 @@ const DashboardView: React.FC = () => {
 
   const compareMetrics = useMemo(() => {
     if (!compareDateRange) return null;
-    return computeDashboardPeriodMetrics(transactions, allCategories, compareDateRange, economicKindByEventId);
-  }, [compareDateRange, transactions, allCategories, economicKindByEventId]);
+    return computeDashboardPeriodMetrics(scopedTransactions, allCategories, compareDateRange, economicKindByEventId);
+  }, [compareDateRange, scopedTransactions, allCategories, economicKindByEventId]);
 
   const compareFilteredTransactions = useMemo(
-    () => (compareDateRange ? filterTransactionsByRange(transactions, compareDateRange) : []),
-    [transactions, compareDateRange]
+    () => (compareDateRange ? filterTransactionsByRange(scopedTransactions, compareDateRange) : []),
+    [scopedTransactions, compareDateRange]
   );
 
   const compareChartData = useMemo(
@@ -392,42 +481,48 @@ const DashboardView: React.FC = () => {
   );
 
   const netWorthSnapshot = useMemo(() => {
-    const { gross, debts, net } = computeAssetsTotals(assets);
+    const { gross, debts, net } = computeAssetsTotals(scopedAssets);
+    const scopedAccountIds = scopedData ? new Set(scopedAccounts.map((a) => a.id)) : null;
     const accountsTotalValue = compareEnabled
-      ? computeAccountsTotalAsOf(accounts, transactions, dateRange.end)
-      : getAccountsWithCalculatedBalance().reduce(
+      ? computeAccountsTotalAsOf(scopedAccounts, transactions, dateRange.end)
+      : getAccountsWithCalculatedBalance()
+          .filter((acc) => !scopedAccountIds || scopedAccountIds.has(acc.id))
+          .reduce(
           (sum, acc) => sum + (acc.Saldo_Atual_Calculado || 0),
           0
         );
 
     return {
-      total: accountsTotalValue + manualInvestmentsTotal + net,
+      total: accountsTotalValue + investmentsValue + net,
       accounts: accountsTotalValue,
-      investments: manualInvestmentsTotal,
+      investments: investmentsValue,
       assetsNet: net,
       assetsGross: gross,
       assetsDebts: debts,
     };
   }, [
     compareEnabled,
-    accounts,
+    scopedData,
+    scopedAccounts,
     transactions,
-    assets,
-    manualInvestmentsTotal,
+    scopedAssets,
+    investmentsValue,
     dateRange.end,
     getAccountsWithCalculatedBalance,
   ]);
 
   const compareNetWorthSnapshot = useMemo(() => {
     if (!compareDateRange) return null;
+    // Escopo por proprietário: sem os investimentos do período comparado, não compara um total incompleto.
+    if (ownerScope && compareOwnerInvestments.status !== 'ready') return null;
     return computeNetWorthSnapshot(
-      accounts,
+      scopedAccounts,
       transactions,
-      assets,
-      compareManualInvestmentsTotal,
+      scopedAssets,
+      compareInvestmentsValue,
       compareDateRange.end
     );
-  }, [accounts, transactions, assets, compareManualInvestmentsTotal, compareDateRange]);
+  }, [scopedAccounts, transactions, scopedAssets, compareInvestmentsValue, compareDateRange, ownerScope, compareOwnerInvestments.status]);
 
   const {
     total: totalNetWorth,
@@ -453,12 +548,12 @@ const DashboardView: React.FC = () => {
     [user, setCurrentView]
   );
   const monthlyChange = useMemo(
-    () => computeMonthlyChange({ transactions, categories: allCategories, today: todayKey, economicKindByEventId }),
-    [transactions, allCategories, todayKey, economicKindByEventId]
+    () => computeMonthlyChange({ transactions: scopedTransactions, categories: allCategories, today: todayKey, economicKindByEventId }),
+    [scopedTransactions, allCategories, todayKey, economicKindByEventId]
   );
   const annualEvolution = useMemo(
-    () => computeAnnualEvolution({ transactions, categories: allCategories, today: todayKey, economicKindByEventId }),
-    [transactions, allCategories, todayKey, economicKindByEventId]
+    () => computeAnnualEvolution({ transactions: scopedTransactions, categories: allCategories, today: todayKey, economicKindByEventId }),
+    [scopedTransactions, allCategories, todayKey, economicKindByEventId]
   );
   const investmentSummary = useMemo(
     () => computeInvestmentSummary(investmentData),
@@ -490,37 +585,36 @@ const DashboardView: React.FC = () => {
   );
 
   // Orçamento V2: linhas pessoais (dono + categoria); limite efetivo mensal → anual do mesmo dono.
-  const familyOwnerContext = useFamilyOwnerContext(user?.id, user?.email, accounts, transactions);
   const toBudgetItem = (l: BudgetLine) => ({ ...l, id: l.key, adjustedLimit: l.limit });
 
   const budgetLines = useMemo(
     () =>
       computeBudgetLines({
-        budgets,
-        budgetMonths,
-        transactions,
+        budgets: scopedBudgets,
+        budgetMonths: scopedBudgetMonths,
+        transactions: scopedTransactions,
         range: dateRange,
         currentUserId: user?.id,
         getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
         economicKindByEventId,
       }),
-    [budgets, budgetMonths, transactions, dateRange, user?.id, familyOwnerContext.getTransactionOwnerId, economicKindByEventId]
+    [scopedBudgets, scopedBudgetMonths, scopedTransactions, dateRange, user?.id, familyOwnerContext.getTransactionOwnerId, economicKindByEventId]
   );
   const budgetStatus = useMemo(() => budgetLines.map(toBudgetItem), [budgetLines]);
 
   const compareBudgetLines = useMemo(() => {
     if (!compareDateRange) return null;
     return computeBudgetLines({
-      budgets,
-      budgetMonths,
-      transactions,
+      budgets: scopedBudgets,
+      budgetMonths: scopedBudgetMonths,
+      transactions: scopedTransactions,
       range: compareDateRange,
       currentUserId: user?.id,
       getTransactionOwnerId: familyOwnerContext.getTransactionOwnerId,
       referenceDate: compareDateRange.end,
       economicKindByEventId,
     });
-  }, [budgets, budgetMonths, transactions, compareDateRange, user?.id, familyOwnerContext.getTransactionOwnerId, economicKindByEventId]);
+  }, [scopedBudgets, scopedBudgetMonths, scopedTransactions, compareDateRange, user?.id, familyOwnerContext.getTransactionOwnerId, economicKindByEventId]);
 
   // Chave dono + categoria: a mesma categoria de duas pessoas não colide na comparação.
   const compareBudgetMap = useMemo(() => {
@@ -701,6 +795,16 @@ const DashboardView: React.FC = () => {
             {greeting}, <span className="text-accent">{displayName}</span>
           </h1>
           <p className="text-gray-400">Aqui está o resumo da sua saúde financeira hoje.</p>
+          {ownerScope && (
+            <div className="mt-3">
+              <DashboardOwnerSelector
+                value={ownerSelectValue}
+                onChange={handleOwnerSelectionChange}
+                onOptionsChange={handleOwnerOptionsChange}
+                knownOwners={knownOwners}
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -734,6 +838,26 @@ const DashboardView: React.FC = () => {
         <p className="text-lg text-white">{printHeader.period}</p>
         {printHeader.compare && <p className="text-sm text-gray-300">{printHeader.compare}</p>}
       </div>
+
+      {ownerScope && ownerScope.kind !== 'self' && (
+        <div
+          data-dashboard-scope-banner={ownerScope.kind}
+          role="status"
+          className={`rounded-xl border px-4 py-2.5 text-sm ${ownerScope.kind === 'family' ? 'border-amber-400/30 bg-amber-400/10 text-amber-100' : 'border-violet-400/30 bg-violet-500/10 text-violet-100'}`}
+        >
+          {ownerScope.kind === 'family' ? (
+            <>
+              <strong>Visão conjunta da família.</strong> Os indicadores somam os dados de todos os proprietários que você pode
+              consultar; não é o seu patrimônio individual.
+            </>
+          ) : (
+            <>
+              Você está vendo os indicadores de <strong>{ownerScope.label}</strong>. Lançamentos e edições continuam sendo
+              feitos por cada titular.
+            </>
+          )}
+        </div>
+      )}
 
       {/* Primeiros passos (substitui o antigo CTA de demonstração, que gravava dados fictícios na conta real) */}
       {firstSteps.visible && (
@@ -794,7 +918,7 @@ const DashboardView: React.FC = () => {
       )}
 
       {/* Asset Review Alert */}
-      {showAssetReviewAlert && assets.length > 0 && !assets.some(a => a.is_financed) && (
+      {viewingOwnData && showAssetReviewAlert && scopedAssets.length > 0 && !scopedAssets.some(a => a.is_financed) && (
         <div className="bg-gradient-to-r from-amber-600/30 to-orange-700/30 rounded-xl p-5 border border-amber-500/30 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
           <div className="flex items-center gap-4">
             <div className="bg-amber-500/20 p-3 rounded-full flex-shrink-0">
@@ -1024,9 +1148,9 @@ const DashboardView: React.FC = () => {
         </div>
 
         <UpcomingEntriesCard
-          transactions={transactions}
+          transactions={scopedTransactions}
           categories={allCategories}
-          accounts={accounts}
+          accounts={scopedAccounts}
           today={todayKey}
           economicKindByEventId={economicKindByEventId}
           onViewInTransactions={handleViewUpcomingInTransactions}
@@ -1358,6 +1482,19 @@ const DashboardView: React.FC = () => {
 
         <AnnualEvolutionCard model={annualEvolution} />
 
+        {ownerScope && (
+          <OwnerScopeNetWorthNote
+            scopeLabel={ownerScope.label}
+            status={ownerInvestments.status}
+            summary={ownerInvestments.summary}
+            ownerLabel={(id) => ownerOptions.find((o) => o.userId === id)?.label ?? (id === user?.id ? 'Você' : 'Familiar')}
+          />
+        )}
+        {ownerScope && ownerInvestments.status === 'loading' ? (
+          <div data-networth-loading="" role="status" className="rounded-xl border border-slate-700/60 bg-secondary p-6 text-sm text-slate-300">
+            Calculando o patrimônio de {ownerScope.label}…
+          </div>
+        ) : (
         <NetWorthSummaryCard
           total={totalNetWorth}
           accounts={accountsTotal}
@@ -1385,6 +1522,7 @@ const DashboardView: React.FC = () => {
               : undefined
           }
         />
+        )}
       </div>
 
       {/* Charts Row 1 — Evolução Financeira */}

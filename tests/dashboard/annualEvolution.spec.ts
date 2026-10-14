@@ -448,7 +448,9 @@ describe('Integração na Dashboard e layout móvel (contrato de código)', () =
   });
 
   it('calcula sobre todo o histórico, independente do período selecionado', () => {
-    expect(dashboard).toMatch(/computeAnnualEvolution\(\{ transactions, categories: allCategories, today: todayKey, economicKindByEventId \}\)/);
+    // Escopo por proprietário: com a flag desligada `scopedTransactions` é a própria lista do store (todo o histórico).
+    expect(dashboard).toMatch(/computeAnnualEvolution\(\{ transactions: scopedTransactions, categories: allCategories, today: todayKey, economicKindByEventId \}\)/);
+    expect(dashboard).toContain('const scopedTransactions = scopedData?.transactions ?? transactions;');
   });
 
   it('resumos empilham no mobile, textos quebram e nada força largura', () => {

@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient';
 import { Investment } from '../types';
 import { normalizeMonthKey, type PortfolioRow } from '../domain/investments/portfolioOverview';
 import { resolveCopiedClassifications, type CopiedClassification, type CopyContext } from '../domain/investments/classificationCopy';
+import type { OwnerLatestPosition } from '../domain/investments/ownerInvestmentTotals';
 
 /**
  * Campos de classificação (V2-B1B): só o serviço de estrutura os grava (`classifyInvestment`) e a cópia mensal (D1).
@@ -304,6 +305,22 @@ export const investmentService = {
             throw error;
         }
         return data && data.length > 0 ? normalizeMonthKey(data[0].reference_month) : null;
+    },
+
+    /**
+     * Dashboard por proprietário: a ÚLTIMA posição de CADA proprietário até a data de corte, consultada com o filtro
+     * explícito de dono (a RLS continua autorizando). Meses podem diferir entre proprietários; quem não tem posição
+     * volta com `monthKey: null`. Uma falha em qualquer proprietário falha a chamada inteira (nunca total parcial).
+     */
+    async getLatestPositionsByOwner(endDate: Date, ownerUserIds: readonly string[]): Promise<OwnerLatestPosition[]> {
+        const endKey = endDate.toISOString().split('T')[0];
+        const owners = [...new Set(ownerUserIds.filter(Boolean))];
+        return Promise.all(owners.map(async (ownerUserId) => {
+            const monthKey = await this.getLatestReferenceMonthKey(ownerUserId, endKey);
+            if (!monthKey) return { ownerUserId, monthKey: null, balances: [] };
+            const rows = await this.getInvestments(new Date(`${monthKey}T12:00:00`), ownerUserId);
+            return { ownerUserId, monthKey, balances: rows.map((r) => r.balance) };
+        }));
     },
 
     async getLatestInvestments(endDate: Date): Promise<Investment[]> {

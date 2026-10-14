@@ -191,3 +191,23 @@ export const isInvestmentPortfoliosEnabled = (user?: UserWithMetadata): boolean 
   if (import.meta.env.VITE_INVESTMENT_PORTFOLIOS_ENABLED !== 'true') return false;
   return !String(import.meta.env.VITE_SUPABASE_URL ?? '').includes(PRODUCTION_SUPABASE_REF);
 };
+
+/**
+ * Escopo por proprietário no Dashboard (seletor "Você" / familiar / "Família (consolidado)"). Flag independente da
+ * V2-B1B. Controla só a apresentação; a autorização continua sendo da RLS.
+ *
+ * Prioridade:
+ * 1) opt-out administrativo ou do usuário desliga imediatamente;
+ * 2) app_metadata.dashboard_owner_scope_enabled=true habilita a conta piloto;
+ * 3) VITE_DASHBOARD_OWNER_SCOPE_ENABLED=true habilita o ambiente, mas NUNCA contra o banco de produção.
+ *
+ * Sem opt-in por user_metadata ou e-mail. Desligada, o Dashboard é exatamente o de antes.
+ */
+export const isDashboardOwnerScopeEnabled = (user?: UserWithMetadata): boolean => {
+  if (!user?.id) return false;
+  if (user.app_metadata?.dashboard_owner_scope_disabled === true) return false;
+  if (user.user_metadata?.dashboard_owner_scope_disabled === true) return false;
+  if (user.app_metadata?.dashboard_owner_scope_enabled === true) return true;
+  if (import.meta.env.VITE_DASHBOARD_OWNER_SCOPE_ENABLED !== 'true') return false;
+  return !String(import.meta.env.VITE_SUPABASE_URL ?? '').includes(PRODUCTION_SUPABASE_REF);
+};

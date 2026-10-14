@@ -5,6 +5,7 @@ import {
   isCardV2Enabled,
   isCardV2ShadowEnabled,
   isCreditCardEngineEnabled,
+  isDashboardOwnerScopeEnabled,
   isInvestmentPortfoliosEnabled,
   isSmartTransactionFiltersEnabled,
   resolveAtomicImportEnabled,
@@ -362,5 +363,40 @@ describe('isInvestmentPortfoliosEnabled (V2-B1B)', () => {
     vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', 'TRUE');
     vi.stubEnv('VITE_SUPABASE_URL', STAGING);
     expect(isInvestmentPortfoliosEnabled(user())).toBe(false);
+  });
+});
+
+describe('isDashboardOwnerScopeEnabled (Dashboard por proprietário)', () => {
+  const STAGING = 'https://sxmmrnwbxntccscojmfh.supabase.co';
+  const PRODUCTION = 'https://xotxxxohcmivyzswyjtm.supabase.co';
+
+  it('desligada por padrão; sem usuário, sempre desligada', () => {
+    vi.stubEnv('VITE_DASHBOARD_OWNER_SCOPE_ENABLED', '');
+    expect(isDashboardOwnerScopeEnabled(user())).toBe(false);
+    expect(isDashboardOwnerScopeEnabled(null)).toBe(false);
+  });
+
+  it('opt-in só por app_metadata; user_metadata, e-mail e a flag da V2-B1B não habilitam', () => {
+    vi.stubEnv('VITE_DASHBOARD_OWNER_SCOPE_ENABLED', 'false');
+    expect(isDashboardOwnerScopeEnabled(user({ app_metadata: { dashboard_owner_scope_enabled: true } }))).toBe(true);
+    expect(isDashboardOwnerScopeEnabled(user({ user_metadata: { dashboard_owner_scope_enabled: true } }))).toBe(false);
+    expect(isDashboardOwnerScopeEnabled(user({ email: 'cassiomq@gmail.com' }))).toBe(false);
+    expect(isDashboardOwnerScopeEnabled(user({ app_metadata: { investment_portfolios_enabled: true } }))).toBe(false);
+    expect(isDashboardOwnerScopeEnabled(user({ app_metadata: { dashboard_owner_scope_enabled: 'true' } }))).toBe(false);
+  });
+
+  it('opt-out (administrativo ou do usuário) vence o opt-in e o ambiente', () => {
+    vi.stubEnv('VITE_DASHBOARD_OWNER_SCOPE_ENABLED', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', STAGING);
+    expect(isDashboardOwnerScopeEnabled(user({ app_metadata: { dashboard_owner_scope_enabled: true, dashboard_owner_scope_disabled: true } }))).toBe(false);
+    expect(isDashboardOwnerScopeEnabled(user({ app_metadata: { dashboard_owner_scope_enabled: true }, user_metadata: { dashboard_owner_scope_disabled: true } }))).toBe(false);
+  });
+
+  it('o ambiente habilita staging/preview, nunca o banco de produção', () => {
+    vi.stubEnv('VITE_DASHBOARD_OWNER_SCOPE_ENABLED', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', STAGING);
+    expect(isDashboardOwnerScopeEnabled(user())).toBe(true);
+    vi.stubEnv('VITE_SUPABASE_URL', PRODUCTION);
+    expect(isDashboardOwnerScopeEnabled(user())).toBe(false);
   });
 });
