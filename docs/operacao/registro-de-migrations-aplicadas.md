@@ -13,6 +13,8 @@ Cada entrada abaixo registra o que foi aplicado em cada ambiente. As migrations 
 |---|---|---|---|---|
 | `20261008115900_reconcile_investments_family_policy.sql` | staging (`sxmmrnwbxntccscojmfh`) | `20261008204400` | `reconcile_investments_family_policy` | `81f4d29f2caf4018344f9f02caab811123d48a826b759c8918a28ba73df85a79` |
 | `20261008120000_investment_portfolios_holdings.sql` | staging (`sxmmrnwbxntccscojmfh`) | `20261008204541` | `investment_portfolios_holdings` | `dbf3e1c490525f8dc827b9c602919e21c9853caaf8e1ff19fa707b0867d4f9f3` |
+| `20261008115900_reconcile_investments_family_policy.sql` | produção (`xotxxxohcmivyzswyjtm`) | `20261014115724` | `reconcile_investments_family_policy` | `81f4d29f2caf4018344f9f02caab811123d48a826b759c8918a28ba73df85a79` |
+| `20261008120000_investment_portfolios_holdings.sql` | produção (`xotxxxohcmivyzswyjtm`) | `20261014115853` | `investment_portfolios_holdings` | `dbf3e1c490525f8dc827b9c602919e21c9853caaf8e1ff19fa707b0867d4f9f3` |
 | `20261012180000_family_members_authorization_hardening.sql` | staging (`sxmmrnwbxntccscojmfh`) | `20261012211308` | `family_members_authorization_hardening` | `d05334fb10579a998b06c8d1bd11364f42c6972bd7b2ece2b707ecc608c6264a` |
 | `20261012180000_family_members_authorization_hardening.sql` | produção (`xotxxxohcmivyzswyjtm`) | `20261012220717` | `family_members_authorization_hardening` | `d05334fb10579a998b06c8d1bd11364f42c6972bd7b2ece2b707ecc608c6264a` |
 | `20261012180100_family_members_member_can_leave.sql` | staging (`sxmmrnwbxntccscojmfh`) | `20261013013240` | `family_members_member_can_leave` | `a92c65fc082b9a42a9181be11ffced2aa7fd00a3b97c680d8e42a26d14592c3f` |
@@ -31,8 +33,8 @@ isolado; use B para congelar criação e alteração de vínculos (revogar conti
 membro: o `DELETE` volta a ser permitido apenas ao dono do vínculo. Também só reduz permissão.
 
 ## Investimentos V2-B1A (carteiras e holdings)
-As duas migrations da V2-B1A estão aplicadas **somente no staging**; a produção ainda não as recebeu. A
-reconciliação (`…115900`) não altera uma policy familiar equivalente já existente e aborta se ela divergir. O
+As duas migrations da V2-B1A estão aplicadas no staging (2026-10-08) e na produção (2026-10-14). Nos dois ambientes a
+reconciliação (`…115900`) encontrou a policy familiar equivalente e não a alterou (ela aborta se divergir). O
 rollback `supabase/rollbacks/20261008120000_investment_portfolios_holdings_down.sql` é destrutivo para
 classificações e auditoria feitas depois da aplicação e não desfaz o hardening de privilégios de `investments`.
 O staging também guarda duas entradas experimentais de sondagem do executor (`finelo_b1a_probe_success_…` e
