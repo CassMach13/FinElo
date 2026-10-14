@@ -22,7 +22,7 @@ export interface PortfolioShelfProps {
   hiddenArchived?: Array<{ id: string; name: string }>;
 }
 
-const card = 'min-w-[11rem] snap-start rounded-xl border px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight';
+const card = 'min-w-[8.5rem] snap-start rounded-lg border px-3 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight';
 const cardState = (selected: boolean) =>
   selected ? 'border-highlight/70 bg-highlight/10' : 'border-slate-700/50 bg-slate-800/40 hover:bg-slate-800/70';
 
@@ -35,8 +35,8 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
   const hasPortfolios = groups.length > 0;
 
   return (
-    <section data-portfolio-shelf="" aria-labelledby="portfolio-shelf-title" className="rounded-2xl border border-slate-700/50 bg-secondary p-4 shadow-xl sm:p-6">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section data-portfolio-shelf="" aria-labelledby="portfolio-shelf-title" className="rounded-2xl border border-slate-700/50 bg-secondary p-4 shadow-xl">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 id="portfolio-shelf-title" className="text-lg font-semibold text-white">Carteiras</h2>
           <p className="text-sm text-gray-400">
@@ -44,7 +44,7 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
           </p>
         </div>
         {onCreatePortfolio && status === 'ready' && (
-          <button type="button" onClick={onCreatePortfolio} className="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-highlight px-4 py-2 font-medium text-white shadow-lg shadow-highlight/20 transition-all hover:bg-highlight-hover sm:w-auto">
+          <button type="button" onClick={onCreatePortfolio} className="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-highlight px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-highlight/20 transition-all hover:bg-highlight-hover sm:w-auto">
             Nova carteira
           </button>
         )}
@@ -74,11 +74,13 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
               classifique as posições uma a uma.
             </p>
           )}
-          <div role="group" aria-label="Filtrar posições por carteira" className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1">
+          <div role="group" aria-label="Filtrar posições por carteira" className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-x-visible">
             <button type="button" aria-pressed={filter === null} onClick={() => onFilterChange(null)} className={`${card} ${cardState(filter === null)}`}>
-              <span className="block text-xs uppercase tracking-wide text-gray-400">Todas as posições</span>
-              <span className="mt-1 block text-lg font-semibold text-white">{formatCurrency(centsToAmount(grouping.totalCents))}</span>
-              <span className="block text-xs text-gray-500">{count(grouping.groups.reduce((n, g) => n + g.positionIds.length, 0) + grouping.unassigned.positionIds.length)}</span>
+              <span className="block text-[11px] uppercase tracking-wide text-gray-400">Todas as posições</span>
+              <span className="block whitespace-nowrap text-sm font-semibold text-white">
+                {formatCurrency(centsToAmount(grouping.totalCents))}
+                <span className="ml-1.5 text-[11px] font-normal text-gray-500">· {count(grouping.groups.reduce((n, g) => n + g.positionIds.length, 0) + grouping.unassigned.positionIds.length)}</span>
+              </span>
             </button>
             {groups.map((g) => (
               <div key={g.portfolioId} className="relative">
@@ -87,13 +89,17 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
                   data-portfolio-card={g.kind}
                   aria-pressed={filter === g.portfolioId}
                   onClick={() => onFilterChange(g.portfolioId)}
-                  className={`${card} ${cardState(filter === g.portfolioId)} w-full pr-10`}
+                  className={`${card} ${cardState(filter === g.portfolioId)} w-full pr-8`}
                 >
-                  <span className="block max-w-[14rem] truncate text-sm font-medium text-white" title={g.name}>{g.name}</span>
-                  {g.kind === 'archived' && <span className="mt-0.5 inline-block rounded bg-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-gray-300">Arquivada</span>}
-                  {g.kind === 'unavailable' && <span className="mt-0.5 inline-block rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">Indisponível</span>}
-                  <span className="mt-1 block text-lg font-semibold text-white">{formatCurrency(centsToAmount(g.totalCents))}</span>
-                  <span className="block text-xs text-gray-500">{count(g.positionIds.length)}</span>
+                  <span className="flex max-w-[13rem] items-center gap-1.5 text-xs font-medium text-white">
+                    <span className="truncate" title={g.name}>{g.name}</span>
+                    {g.kind === 'archived' && <span className="shrink-0 rounded bg-slate-700 px-1 py-px text-[9px] uppercase tracking-wider text-gray-300">Arquivada</span>}
+                    {g.kind === 'unavailable' && <span className="shrink-0 rounded bg-amber-500/15 px-1 py-px text-[9px] uppercase tracking-wider text-amber-300">Indisponível</span>}
+                  </span>
+                  <span className="block whitespace-nowrap text-sm font-semibold text-white">
+                    {formatCurrency(centsToAmount(g.totalCents))}
+                    <span className="ml-1.5 text-[11px] font-normal text-gray-500">· {count(g.positionIds.length)}</span>
+                  </span>
                 </button>
                 {onManagePortfolio && g.kind !== 'unavailable' && (
                   <button
@@ -101,7 +107,7 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
                     onClick={() => onManagePortfolio(g.portfolioId)}
                     aria-label={`Gerenciar carteira ${g.name}`}
                     title="Gerenciar carteira"
-                    className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-300 hover:bg-slate-700 hover:text-white"
+                    className="absolute right-1 top-1 rounded-md p-1 text-gray-300 hover:bg-slate-700 hover:text-white"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M12 5h.01M12 12h.01M12 19h.01" /></svg>
                   </button>
@@ -109,9 +115,11 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
               </div>
             ))}
             <button type="button" data-portfolio-card="unassigned" aria-pressed={filter === 'unassigned'} onClick={() => onFilterChange('unassigned')} className={`${card} ${cardState(filter === 'unassigned')}`}>
-              <span className="block text-sm font-medium text-gray-200">Sem carteira</span>
-              <span className="mt-1 block text-lg font-semibold text-white">{formatCurrency(centsToAmount(grouping.unassigned.totalCents))}</span>
-              <span className="block text-xs text-gray-500">{count(grouping.unassigned.positionIds.length)}</span>
+              <span className="block text-xs font-medium text-gray-200">Sem carteira</span>
+              <span className="block whitespace-nowrap text-sm font-semibold text-white">
+                {formatCurrency(centsToAmount(grouping.unassigned.totalCents))}
+                <span className="ml-1.5 text-[11px] font-normal text-gray-500">· {count(grouping.unassigned.positionIds.length)}</span>
+              </span>
             </button>
           </div>
           {onManagePortfolio && hiddenArchived.length > 0 && (

@@ -116,6 +116,11 @@ describe('faixa de carteiras (apresentação)', () => {
     expect(html).not.toContain('Gerenciar carteira');
     expect(html).toContain('overflow-x-auto');
     expect(html).toContain('sm:flex-row');
+    // compacta: total e contagem na mesma linha; a partir de sm quebra linha em vez de rolar na horizontal
+    expect(html).toContain('sm:flex-wrap');
+    expect(html).toContain('sm:overflow-x-visible');
+    expect(html).not.toMatch(/text-lg font-semibold text-white">R\$/);
+    expect(html).toContain('· 1 posição');
   });
 
   it('etiqueta: Sem carteira, carteira, arquivada e holding', () => {
