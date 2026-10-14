@@ -25,6 +25,9 @@ export type InvestmentStructureErrorCode =
   | 'not_found_or_forbidden'
   | 'forbidden'
   | 'integrity'
+  | 'archived_portfolio'
+  | 'holding_month_taken'
+  | 'invalid_target'
   | 'unknown';
 
 const MESSAGES: Record<InvestmentStructureErrorCode, string> = {
@@ -34,6 +37,9 @@ const MESSAGES: Record<InvestmentStructureErrorCode, string> = {
   not_found_or_forbidden: 'Não encontramos esse item ou você não tem acesso a ele.',
   forbidden: 'Você não tem permissão para essa operação.',
   integrity: 'Não foi possível concluir: o item está em uso ou pertence a outro proprietário.',
+  archived_portfolio: 'Esta carteira está arquivada. Desarquive-a para classificar novas posições.',
+  holding_month_taken: 'Esta posição já está vinculada a outro investimento neste mês.',
+  invalid_target: 'Escolha uma carteira e uma posição do mesmo proprietário.',
   unknown: 'Não foi possível concluir a operação agora. Tente novamente.',
 };
 
@@ -215,4 +221,78 @@ export async function updateHolding(
   const { data, error } = await supabase.from('investment_holdings').update(patch).eq('id', id).select(HOLDING_COLUMNS).single();
   if (error) throw mapStructureError(error);
   return data as InvestmentHolding;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Classificação de snapshots (V2-B1B)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * O ÚNICO conteúdo que a classificação grava em `investments`. Nada de saldo, mês, proprietário ou auditoria:
+ * `classified_by`/`classified_at` são definidos pelo banco (trigger) a partir da sessão.
+ */
+export type ClassificationPatch = { portfolio_id: string | null; holding_id: string | null };
+
+export type InvestmentClassification = {
+  id: string;
+  user_id: string;
+  reference_month: string;
+  portfolio_id: string | null;
+  holding_id: string | null;
+  classified_by: string | null;
+  classified_at: string | null;
+};
+
+const CLASSIFICATION_COLUMNS = 'id,user_id,reference_month,portfolio_id,holding_id,classified_by,classified_at';
+
+async function writeClassification(investmentId: string, ownerUserId: string, patch: ClassificationPatch): Promise<InvestmentClassification> {
+  // Objeto montado campo a campo: nenhum atributo extra do chamador chega ao UPDATE.
+  const payload: ClassificationPatch = { portfolio_id: patch.portfolio_id, holding_id: patch.holding_id };
+  const { data, error } = await supabase
+    .from('investments')
+    .update(payload)
+    .eq('id', investmentId)
+    .eq('user_id', ownerUserId)
+    .select(CLASSIFICATION_COLUMNS);
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '23505') throw new InvestmentStructureError('holding_month_taken', error);
+    if (code === '23503') throw new InvestmentStructureError('invalid_target', error);
+    throw mapStructureError(error);
+  }
+  const rows = (data ?? []) as InvestmentClassification[];
+  // Zero linhas = snapshot inexistente, invisível pela RLS ou de OUTRO proprietário (filtro user_id).
+  if (rows.length !== 1) throw new InvestmentStructureError('not_found_or_forbidden');
+  return rows[0];
+}
+
+/**
+ * Atribui (ou move) um snapshot para uma carteira ATIVA do mesmo proprietário, opcionalmente com uma holding dessa
+ * carteira. Mover sem informar a holding a remove: a holding sempre pertence à carteira de destino.
+ * As verificações aqui dão mensagens claras; a garantia final é do banco (FKs compostas, trigger e RLS).
+ */
+export async function classifyInvestment(input: {
+  investmentId: string;
+  ownerUserId: string;
+  portfolioId: string;
+  holdingId?: string | null;
+}): Promise<InvestmentClassification> {
+  if (!input.investmentId || !input.ownerUserId || !input.portfolioId) throw new InvestmentStructureError('invalid_target');
+  await getActorUserId();
+  const portfolio = await getPortfolio(input.portfolioId);
+  if (portfolio.user_id !== input.ownerUserId) throw new InvestmentStructureError('invalid_target');
+  if (portfolio.archived_at) throw new InvestmentStructureError('archived_portfolio');
+  const holdingId = input.holdingId || null;
+  if (holdingId) {
+    const holding = await getHolding(holdingId);
+    if (holding.user_id !== input.ownerUserId || holding.portfolio_id !== portfolio.id) throw new InvestmentStructureError('invalid_target');
+  }
+  return writeClassification(input.investmentId, input.ownerUserId, { portfolio_id: portfolio.id, holding_id: holdingId });
+}
+
+/** Volta o snapshot para "Sem carteira". O banco registra quem desfez e quando (a auditoria não é apagada). */
+export async function unclassifyInvestment(input: { investmentId: string; ownerUserId: string }): Promise<InvestmentClassification> {
+  if (!input.investmentId || !input.ownerUserId) throw new InvestmentStructureError('invalid_target');
+  await getActorUserId();
+  return writeClassification(input.investmentId, input.ownerUserId, { portfolio_id: null, holding_id: null });
 }

@@ -5,6 +5,7 @@ import {
   isCardV2Enabled,
   isCardV2ShadowEnabled,
   isCreditCardEngineEnabled,
+  isInvestmentPortfoliosEnabled,
   isSmartTransactionFiltersEnabled,
   resolveAtomicImportEnabled,
 } from '../src/services/featureFlagService';
@@ -319,5 +320,47 @@ describe('isCardV2ShadowEnabled', () => {
   it('flag global do ambiente habilita quem não tem opt-out', () => {
     vi.stubEnv('VITE_CARD_V2_SHADOW_FORCE', 'true');
     expect(isCardV2ShadowEnabled(user())).toBe(true);
+  });
+});
+
+describe('isInvestmentPortfoliosEnabled (V2-B1B)', () => {
+  const STAGING = 'https://sxmmrnwbxntccscojmfh.supabase.co';
+  const PRODUCTION = 'https://xotxxxohcmivyzswyjtm.supabase.co';
+
+  it('desligada por padrão; sem usuário, sempre desligada', () => {
+    vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', '');
+    expect(isInvestmentPortfoliosEnabled(user())).toBe(false);
+    expect(isInvestmentPortfoliosEnabled(null)).toBe(false);
+    vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', STAGING);
+    expect(isInvestmentPortfoliosEnabled(null)).toBe(false);
+  });
+
+  it('opt-in individual SOMENTE por app_metadata; user_metadata e e-mail não habilitam', () => {
+    vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', 'false');
+    vi.stubEnv('VITE_SUPABASE_URL', PRODUCTION);
+    expect(isInvestmentPortfoliosEnabled(user({ app_metadata: { investment_portfolios_enabled: true } }))).toBe(true);
+    expect(isInvestmentPortfoliosEnabled(user({ user_metadata: { investment_portfolios_enabled: true } }))).toBe(false);
+    expect(isInvestmentPortfoliosEnabled(user({ email: 'cassiomq@gmail.com' }))).toBe(false);
+    expect(isInvestmentPortfoliosEnabled(user({ app_metadata: { investment_portfolios_enabled: 'true' } }))).toBe(false);
+  });
+
+  it('opt-out (administrativo ou do usuário) vence o opt-in e o ambiente', () => {
+    vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', STAGING);
+    const both = { investment_portfolios_enabled: true, investment_portfolios_disabled: true };
+    expect(isInvestmentPortfoliosEnabled(user({ app_metadata: both }))).toBe(false);
+    expect(isInvestmentPortfoliosEnabled(user({ app_metadata: { investment_portfolios_enabled: true }, user_metadata: { investment_portfolios_disabled: true } }))).toBe(false);
+  });
+
+  it('o ambiente habilita staging/preview, mas NUNCA o banco de produção (sem habilitação global acidental)', () => {
+    vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', 'true');
+    vi.stubEnv('VITE_SUPABASE_URL', STAGING);
+    expect(isInvestmentPortfoliosEnabled(user())).toBe(true);
+    vi.stubEnv('VITE_SUPABASE_URL', PRODUCTION);
+    expect(isInvestmentPortfoliosEnabled(user())).toBe(false);
+    vi.stubEnv('VITE_INVESTMENT_PORTFOLIOS_ENABLED', 'TRUE');
+    vi.stubEnv('VITE_SUPABASE_URL', STAGING);
+    expect(isInvestmentPortfoliosEnabled(user())).toBe(false);
   });
 });
