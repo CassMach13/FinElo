@@ -44,7 +44,7 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
           </p>
         </div>
         {onCreatePortfolio && status === 'ready' && (
-          <button type="button" onClick={onCreatePortfolio} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-highlight px-4 py-2 font-medium text-white shadow-lg shadow-highlight/20 transition-all hover:bg-highlight-hover sm:w-auto">
+          <button type="button" onClick={onCreatePortfolio} className="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-highlight px-4 py-2 font-medium text-white shadow-lg shadow-highlight/20 transition-all hover:bg-highlight-hover sm:w-auto">
             Nova carteira
           </button>
         )}
@@ -101,9 +101,9 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
                     onClick={() => onManagePortfolio(g.portfolioId)}
                     aria-label={`Gerenciar carteira ${g.name}`}
                     title="Gerenciar carteira"
-                    className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-400 hover:bg-slate-700 hover:text-white"
+                    className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-300 hover:bg-slate-700 hover:text-white"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" /></svg>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M12 5h.01M12 12h.01M12 19h.01" /></svg>
                   </button>
                 )}
               </div>
