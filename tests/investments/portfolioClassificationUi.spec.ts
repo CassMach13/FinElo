@@ -108,3 +108,16 @@ describe('modal de classificação', () => {
     expect(view).toContain('void fetchInvestments(currentDate);');
   });
 });
+
+describe('D1 na tela', () => {
+  it('a cópia só preserva classificação com a flag ligada e avisa o resultado', async () => {
+    const view = read('src/components/views/InvestmentsView.tsx');
+    expect(view).toContain('investmentService.copyFromPreviousMonth(user.id, currentDate, { preserveClassification: portfoliosEnabled })');
+    const { copyClassificationNotice } = await import('../../src/components/investments/portfolioMessages');
+    expect(copyClassificationNotice({ copied: 3, classified: 0, leftUnclassified: 0 })).toBeNull();
+    expect(copyClassificationNotice({ copied: 3, classified: 2, leftUnclassified: 1 })).toBe(
+      '3 posições copiadas do mês anterior. 2 mantiveram a carteira. 1 ficou em Sem carteira (carteira arquivada ou indisponível).'
+    );
+    expect(copyClassificationNotice({ copied: 1, classified: 1, leftUnclassified: 0 })).toBe('1 posição copiada do mês anterior. 1 manteve a carteira.');
+  });
+});

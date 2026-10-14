@@ -40,6 +40,7 @@ import ClassificationBadge from '../investments/ClassificationBadge';
 import PortfolioFormModal from '../investments/PortfolioFormModal';
 import PortfolioManagerDrawer from '../investments/PortfolioManagerDrawer';
 import ClassifyInvestmentModal from '../investments/ClassifyInvestmentModal';
+import { copyClassificationNotice } from '../investments/portfolioMessages';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -233,8 +234,10 @@ const InvestmentsView: React.FC = () => {
         if (!user) return;
         setIsLoading(true);
         try {
-            await investmentService.copyFromPreviousMonth(user.id, currentDate);
+            const result = await investmentService.copyFromPreviousMonth(user.id, currentDate, { preserveClassification: portfoliosEnabled });
             await fetchInvestments(currentDate);
+            const notice = portfoliosEnabled ? copyClassificationNotice(result) : null;
+            if (notice) setPortfolioNotice(notice);
         } catch (error) {
             console.error('Failed to copy investments:', error);
             setIsLoading(false);

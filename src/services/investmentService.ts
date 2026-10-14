@@ -1,6 +1,37 @@
 import { supabase } from '../supabaseClient';
 import { Investment } from '../types';
 import { normalizeMonthKey, type PortfolioRow } from '../domain/investments/portfolioOverview';
+import { resolveCopiedClassifications, type CopiedClassification, type CopyContext } from '../domain/investments/classificationCopy';
+
+/**
+ * Campos de classificação (V2-B1B): só o serviço de estrutura os grava (`classifyInvestment`) e a cópia mensal (D1).
+ * As escritas genéricas abaixo não os aceitam, nem por tipo.
+ */
+type ClassificationKey = 'portfolio_id' | 'holding_id' | 'classified_by' | 'classified_at';
+
+/** Resultado da cópia mensal. `classified`/`leftUnclassified` só contam quando a cópia preserva classificação (D1). */
+export interface CopyFromPreviousMonthResult {
+    copied: number;
+    classified: number;
+    leftUnclassified: number;
+}
+
+/** Contexto da D1: carteiras e ativos do proprietário e os ativos já usados no mês de destino. Somente leitura. */
+async function loadCopyContext(userId: string, targetReferenceMonth: string): Promise<CopyContext> {
+    const [portfolios, holdings, target] = await Promise.all([
+        supabase.from('investment_portfolios').select('id,user_id,archived_at').eq('user_id', userId),
+        supabase.from('investment_holdings').select('id,user_id,portfolio_id').eq('user_id', userId),
+        supabase.from('investments').select('holding_id').eq('user_id', userId).eq('reference_month', targetReferenceMonth),
+    ]);
+    const error = portfolios.error || holdings.error || target.error;
+    if (error) throw error;
+    return {
+        ownerUserId: userId,
+        portfolios: (portfolios.data ?? []) as CopyContext['portfolios'],
+        holdings: (holdings.data ?? []) as CopyContext['holdings'],
+        holdingsUsedInTarget: new Set(((target.data ?? []) as Array<{ holding_id: string | null }>).map((r) => r.holding_id).filter((id): id is string => !!id)),
+    };
+}
 
 export const investmentService = {
     /**
@@ -37,7 +68,7 @@ export const investmentService = {
         return rows;
     },
 
-    async addInvestment(investment: Omit<Investment, 'id' | 'created_at' | 'updated_at'>): Promise<Investment> {
+    async addInvestment(investment: Omit<Investment, 'id' | 'created_at' | 'updated_at' | ClassificationKey>): Promise<Investment> {
         const { data, error } = await supabase
             .from('investments')
             .insert([investment])
@@ -52,7 +83,7 @@ export const investmentService = {
         return data as Investment;
     },
 
-    async updateInvestment(id: string, updates: Partial<Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<Investment> {
+    async updateInvestment(id: string, updates: Partial<Omit<Investment, 'id' | 'user_id' | 'created_at' | 'updated_at' | ClassificationKey>>): Promise<Investment> {
         const { data, error } = await supabase
             .from('investments')
             .update(updates)
@@ -101,7 +132,7 @@ export const investmentService = {
         }
     },
 
-    async importInvestmentsBatch(investments: Omit<Investment, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> {
+    async importInvestmentsBatch(investments: Omit<Investment, 'id' | 'created_at' | 'updated_at' | ClassificationKey>[]): Promise<void> {
         if (investments.length === 0) return;
 
         const { error } = await supabase
@@ -133,7 +164,12 @@ export const investmentService = {
     },
 
     // Helper to copy investments from previous month
-    async copyFromPreviousMonth(userId: string, targetMonth: Date): Promise<void> {
+    /**
+     * `preserveClassification` (D1, só com a interface de carteiras ligada): a nova posição mantém carteira e ativo
+     * quando continuam válidos (ver `resolveCopiedClassifications`). Desligado = comportamento de sempre, sem nenhuma
+     * consulta às tabelas de carteiras. Nunca sobrescreve posições existentes: só insere.
+     */
+    async copyFromPreviousMonth(userId: string, targetMonth: Date, options: { preserveClassification?: boolean } = {}): Promise<CopyFromPreviousMonthResult> {
         // 1. Get the previous month's string
         const targetDate = new Date(targetMonth);
         const year = targetDate.getFullYear();
@@ -159,7 +195,7 @@ export const investmentService = {
         }
 
         if (!previousInvestments || previousInvestments.length === 0) {
-            return; // Nothing to copy
+            return { copied: 0, classified: 0, leftUnclassified: 0 }; // Nothing to copy
         }
 
         // 3. Insert them into the new month
@@ -179,14 +215,49 @@ export const investmentService = {
             reference_month: targetReferenceMonth,
         }));
 
+        // D1: classificação só quando pedida e quando a origem tinha alguma; contexto ilegível = cópia sem carteira.
+        const sourceClassified = previousInvestments.filter((inv) => inv.portfolio_id).length;
+        let classifications: CopiedClassification[] | null = null;
+        if (options.preserveClassification && sourceClassified > 0) {
+            try {
+                classifications = resolveCopiedClassifications(previousInvestments, await loadCopyContext(userId, targetReferenceMonth));
+            } catch (contextError) {
+                console.error('Error loading portfolios for copy; copying without classification:', contextError);
+            }
+        }
+        const withClassification = classifications
+            ? newInvestments.map((row, i) => {
+                const c = classifications![i];
+                return c.portfolio_id ? { ...row, portfolio_id: c.portfolio_id, holding_id: c.holding_id } : row;
+            })
+            : newInvestments;
+        const classified = classifications ? classifications.filter((c) => c.portfolio_id).length : 0;
+
         const { error: insertError } = await supabase
             .from('investments')
-            .insert(newInvestments);
+            .insert(withClassification);
 
         if (insertError) {
+            // Associação invalidada entre a leitura e a gravação (ativo usado no mês, carteira removida): o INSERT é
+            // atômico e nada foi gravado; copia uma única vez sem classificação, como antes da D1.
+            const code = (insertError as { code?: string }).code;
+            if (classified > 0 && (code === '23505' || code === '23503')) {
+                const { error: retryError } = await supabase.from('investments').insert(newInvestments);
+                if (retryError) {
+                    console.error('Error copying investments:', retryError);
+                    throw retryError;
+                }
+                return { copied: newInvestments.length, classified: 0, leftUnclassified: sourceClassified };
+            }
             console.error('Error copying investments:', insertError);
             throw insertError;
         }
+
+        return {
+            copied: newInvestments.length,
+            classified,
+            leftUnclassified: options.preserveClassification ? sourceClassified - classified : 0,
+        };
     },
 
     /**

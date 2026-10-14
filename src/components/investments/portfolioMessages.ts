@@ -25,3 +25,14 @@ export function structureErrorMessage(error: unknown): string {
   if (error instanceof InvestmentStructureError) return error.message;
   return 'Não foi possível concluir a operação agora. Tente novamente.';
 }
+
+/** Resumo da D1 depois de "Copiar do mês anterior"; nulo quando nenhuma posição de origem tinha carteira. */
+export function copyClassificationNotice(result: { copied: number; classified: number; leftUnclassified: number }): string | null {
+  if (result.classified === 0 && result.leftUnclassified === 0) return null;
+  const parts = [`${positionsLabel(result.copied)} ${result.copied === 1 ? 'copiada' : 'copiadas'} do mês anterior.`];
+  if (result.classified > 0) parts.push(`${result.classified} ${result.classified === 1 ? 'manteve a carteira' : 'mantiveram a carteira'}.`);
+  if (result.leftUnclassified > 0) {
+    parts.push(`${result.leftUnclassified} ${result.leftUnclassified === 1 ? 'ficou' : 'ficaram'} em Sem carteira (carteira arquivada ou indisponível).`);
+  }
+  return parts.join(' ');
+}
