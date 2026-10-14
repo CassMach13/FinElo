@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Asset } from '../src/types';
+import type { User } from '@supabase/supabase-js';
+import type { Asset, Transaction } from '../src/types';
 
-const mocks = vi.hoisted(() => ({ from: vi.fn(), update: vi.fn() }));
-vi.mock('../src/supabaseClient', () => ({ supabase: { from: mocks.from } }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), update: vi.fn(), getUser: vi.fn() }));
+vi.mock('../src/supabaseClient', () => ({ supabase: { from: mocks.from, auth: { getUser: mocks.getUser } } }));
 
 import { useAppStore } from '../src/hooks/useAppStore';
 
@@ -40,6 +41,8 @@ beforeEach(() => {
   vi.setSystemTime(new Date(now));
   vi.stubGlobal('fetch', vi.fn(() => { throw new Error('Unexpected network access'); }));
   useAppStore.setState(useAppStore.getInitialState(), true);
+  useAppStore.getState().setUser({ id: 'user-1' } as User);
+  mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
   storedAssets = [];
   transactionReads = [];
   updatedIds = [];
@@ -203,5 +206,197 @@ describe('asset balance persistence', () => {
     expect(mocks.update).toHaveBeenCalledWith({
       remaining_balance: 0, paid_installments: 0, updated_at: now,
     });
+  });
+});
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(r => { resolve = r; });
+  return { promise, resolve };
+};
+const switchTo = (id: string | null) => useAppStore.getState().setUser(id ? { id } as User : null);
+const familyAsset = () => asset({ id: 'family', user_id: 'user-2', remaining_balance: 13000 });
+
+// All fixtures and clients are local; unexpected network access throws in beforeEach.
+describe('automatic owner scope and explicit family administration', () => {
+  it('loads family assets for consultation but only recalculates the authenticated owner', async () => {
+    storedAssets = [asset({ remaining_balance: 13000 }), familyAsset()];
+    payments.family = payments['asset-1'];
+    const familyBefore = { ...storedAssets[1] };
+    await useAppStore.getState().fetchAssets();
+    expect(transactionReads).toEqual(['asset-1']);
+    expect(updatedIds).toEqual(['asset-1']);
+    expect(storedAssets[1]).toEqual(familyBefore);
+    expect(useAppStore.getState().assets[1]).toEqual(familyBefore);
+  });
+
+  it('does not read payments or write when only a divergent financed family asset is loaded', async () => {
+    storedAssets = [familyAsset()];
+    await useAppStore.getState().fetchAssets();
+    expect(transactionReads).toEqual([]);
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(useAppStore.getState().assets[0]).toEqual(familyAsset());
+  });
+
+  it('preserves explicit family recalculation, including the explicit batch default', async () => {
+    payments.family = payments['asset-1'];
+    seed([familyAsset()]);
+    await useAppStore.getState().recalculateAllAssetBalances();
+    expect(transactionReads).toEqual(['family']);
+    expect(updatedIds).toEqual(['family']);
+    expect(storedAssets[0]).toMatchObject({ remaining_balance: 12000, paid_installments: 8 });
+  });
+
+  it('explicit updateAsset still updates and recalculates a financed family asset', async () => {
+    payments.family = payments['asset-1'];
+    seed([familyAsset()]);
+    await useAppStore.getState().updateAsset({ id: 'family', name: 'Explicit family edit' });
+    expect(updatedIds).toEqual(['family', 'family']);
+    expect(storedAssets[0]).toMatchObject({ name: 'Explicit family edit', remaining_balance: 12000 });
+  });
+
+  it('a permitted linked transaction updates the family asset balance', async () => {
+    payments.family = payments['asset-1'];
+    seed([familyAsset()]);
+    const originalFrom = mocks.from.getMockImplementation()!;
+    const tx = { ID_Transacao: 'payment-9', user_id: 'user-1', linked_asset_id: 'family', Valor: -1000, Tipo: 'Despesa', Origem: 'manual' } as Transaction;
+    mocks.from.mockImplementation(table => table === 'transactions' ? {
+      ...originalFrom(table),
+      insert: () => ({ select: async () => {
+        payments.family = [...payments.family, { Valor: -1000, Tipo: 'Despesa' }];
+        return { data: [tx], error: null };
+      } }),
+    } : originalFrom(table));
+    await useAppStore.getState().addTransaction(tx);
+    expect(updatedIds).toEqual(['family']);
+    expect(storedAssets[0]).toMatchObject({ remaining_balance: 11000, paid_installments: 9 });
+  });
+
+  it('addAsset preserves the explicit initial financing recalculation', async () => {
+    const originalFrom = mocks.from.getMockImplementation()!;
+    mocks.from.mockImplementation(table => table === 'assets' ? {
+      ...originalFrom(table),
+      insert: () => ({ select: async () => {
+        storedAssets = [asset({ remaining_balance: 13000 })];
+        return { data: storedAssets, error: null };
+      } }),
+    } : originalFrom(table));
+    await useAppStore.getState().addAsset(asset());
+    expect(updatedIds).toEqual(['asset-1']);
+    expect(storedAssets[0].remaining_balance).toBe(12000);
+  });
+
+  it('without an authenticated user no automatic or explicit recalculation starts', async () => {
+    switchTo(null);
+    seed([asset({ remaining_balance: 13000 })]);
+    await useAppStore.getState().fetchAssets();
+    await useAppStore.getState().recalculateAllAssetBalances();
+    await useAppStore.getState().recalculateAssetBalance('asset-1');
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+});
+
+describe('asset session races', () => {
+  it.each(['user-2', null, 'relogin'] as const)('discards a late fetch after session transition %s', async next => {
+    const read = deferred<{ data: Asset[]; error: null }>();
+    mocks.from.mockReturnValue({ select: () => ({ order: () => read.promise }) });
+    const pending = useAppStore.getState().fetchAssets();
+    switchTo(next === 'relogin' ? null : next);
+    if (next === 'relogin') switchTo('user-1');
+    read.resolve({ data: [asset({ remaining_balance: 13000 })], error: null });
+    await pending;
+    expect(useAppStore.getState().assets).toEqual([]);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('discards the older fetch when two loads in the same session finish out of order', async () => {
+    const read = deferred<{ data: Asset[]; error: null }>();
+    const originalFrom = mocks.from.getMockImplementation()!;
+    mocks.from.mockImplementationOnce(() => ({ select: () => ({ order: () => read.promise }) }));
+    const old = useAppStore.getState().fetchAssets();
+    mocks.from.mockImplementation(originalFrom);
+    storedAssets = [asset()];
+    await useAppStore.getState().fetchAssets();
+    read.resolve({ data: [asset({ remaining_balance: 13000 })], error: null });
+    await old;
+    expect(useAppStore.getState().assets[0].remaining_balance).toBe(12000);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each(['user-2', null, 'relogin'] as const)('never writes from a late payment query after %s', async next => {
+    seed([asset({ remaining_balance: 13000 })]);
+    const read = deferred<{ data: Payment[]; error: null }>();
+    mocks.from.mockReturnValue({ select: () => ({ eq: () => read.promise }) });
+    const pending = useAppStore.getState().recalculateAssetBalance('asset-1');
+    switchTo(next === 'relogin' ? null : next);
+    if (next === 'relogin') switchTo('user-1');
+    read.resolve({ data: payments['asset-1'], error: null });
+    await pending;
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(useAppStore.getState().assets).toEqual([]);
+  });
+
+  it('stops an automatic batch instead of starting the next asset in the new session', async () => {
+    const second = asset({ id: 'second', remaining_balance: 13000 });
+    seed([asset({ remaining_balance: 13000 }), second]);
+    const read = deferred<{ data: Payment[]; error: null }>();
+    mocks.from.mockReturnValue({ select: () => ({ eq: () => read.promise }) });
+    const pending = useAppStore.getState().recalculateAllAssetBalances('self');
+    switchTo('user-2');
+    read.resolve({ data: payments['asset-1'], error: null });
+    await pending;
+    expect(mocks.from).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('does not apply an UPDATE response to the next session', async () => {
+    seed([asset({ remaining_balance: 13000 })]);
+    const response = deferred<{ data: Asset[]; error: null }>();
+    mocks.update.mockReturnValue({ eq: () => ({ select: () => response.promise }) });
+    const pending = useAppStore.getState().recalculateAssetBalance('asset-1');
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1));
+    switchTo('user-2');
+    seed([asset({ user_id: 'user-2', name: 'New session asset' })]);
+    response.resolve({ data: [asset({ name: 'Old session response' })], error: null });
+    await pending;
+    expect(useAppStore.getState().assets[0].name).toBe('New session asset');
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('a late explicit update response cannot launch a recalculation in the next session', async () => {
+    seed([familyAsset()]);
+    const response = deferred<{ data: Asset[]; error: null }>();
+    mocks.update.mockReturnValue({ eq: () => ({ select: () => response.promise }) });
+    const pending = useAppStore.getState().updateAsset({ id: 'family', name: 'Edit' });
+    switchTo('user-2');
+    seed([familyAsset()]);
+    response.resolve({ data: [familyAsset()], error: null });
+    await pending;
+    expect(transactionReads).toEqual([]);
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not insert an asset after a late auth response from a previous session', async () => {
+    const response = deferred<{ data: { user: User }; error: null }>();
+    mocks.getUser.mockReturnValue(response.promise);
+    const pending = useAppStore.getState().addAsset(asset());
+    switchTo('user-2');
+    response.resolve({ data: { user: { id: 'user-1' } as User }, error: null });
+    await pending;
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('a late linked transaction result cannot launch family asset writes in the next session', async () => {
+    const tx = { ID_Transacao: 'late', linked_asset_id: 'family', Origem: 'manual' } as Transaction;
+    const response = deferred<{ data: Transaction[]; error: null }>();
+    mocks.from.mockReturnValue({ insert: () => ({ select: () => response.promise }) });
+    const pending = useAppStore.getState().addTransaction(tx);
+    await vi.waitFor(() => expect(mocks.from).toHaveBeenCalledTimes(1));
+    switchTo('user-2');
+    seed([familyAsset()]);
+    response.resolve({ data: [tx], error: null });
+    await pending;
+    expect(transactionReads).toEqual([]);
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });
