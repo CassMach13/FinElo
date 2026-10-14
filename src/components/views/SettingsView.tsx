@@ -3,6 +3,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Card from '../ui/Card';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
+import { removeFamilyLink } from '../../utils/familyLinkRemoval';
 import { Category, Budget, MappingRule, ImportConfig, ImportLog, Account, Asset } from '../../types';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -1106,7 +1107,18 @@ const SettingsView: React.FC = () => {
                                                                 : `Remover acesso de ${member.member_email}?`;
                                                             if (!(await appConfirm(msg, 'Confirmar', 'Confirmar', 'danger'))) return;
                                                             const { supabase } = await import('../../supabaseClient');
-                                                            await supabase.from('family_members').delete().eq('id', member.id);
+                                                            const removal = await removeFamilyLink(supabase, member.id);
+                                                            if (removal.status !== 'removed') {
+                                                                await appAlert(
+                                                                    isReceivedInvite
+                                                                        ? 'Não foi possível sair do plano compartilhado. O vínculo não foi removido; tente novamente.'
+                                                                        : 'Não foi possível remover o acesso. O vínculo não foi removido; tente novamente.',
+                                                                    'Erro',
+                                                                    'danger'
+                                                                );
+                                                                fetchFamilyMembers();
+                                                                return;
+                                                            }
                                                             fetchFamilyMembers();
                                                             if (isReceivedInvite) {
                                                                 useAppStore.getState().fetchSubscription();
