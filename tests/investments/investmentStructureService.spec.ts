@@ -130,24 +130,32 @@ describe('serviço de carteiras e holdings', () => {
   });
 });
 
-describe('isolamento da fase: nada da V2-A nem da UI usa as estruturas novas', () => {
+describe('fronteira da V2-B1B: só a interface de carteiras (atrás da flag) usa as estruturas novas', () => {
   const walk = (dir: string): string[] =>
     readdirSync(dir).flatMap((f) => {
       const p = join(dir, f);
       return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : [];
     });
 
-  it('nenhum arquivo de src (além do próprio serviço) importa o serviço de estrutura', () => {
+  it('o serviço de estrutura só é importado pelos consumidores previstos da V2-B1B', () => {
+    const allowed = [
+      'src/hooks/useInvestmentStructure.ts',
+      'src/components/views/InvestmentsView.tsx',
+      'src/components/investments/PortfolioFormModal.tsx',
+      'src/components/investments/PortfolioManagerDrawer.tsx',
+      'src/components/investments/ClassifyInvestmentModal.tsx',
+      'src/components/investments/portfolioMessages.ts',
+    ].map((f) => resolve(f));
     const offenders = walk('src')
       .filter((f) => !f.endsWith('investmentStructureService.ts'))
-      .filter((f) => /investmentStructureService/.test(read(f)));
+      .filter((f) => /investmentStructureService/.test(read(f)))
+      .filter((f) => !allowed.includes(resolve(f)));
     expect(offenders).toEqual([]);
   });
 
   it('a V2-A, o import, o Dashboard e a Identidade Econômica não referenciam portfolio_id/holding_id', () => {
+    // A InvestmentsView passa a consumir a estrutura (atrás da flag); investmentService só a toca na cópia mensal (D1).
     const files = [
-      'src/components/views/InvestmentsView.tsx',
-      'src/services/investmentService.ts',
       'src/services/investmentPortfolioLoader.ts',
       'src/services/parsers/xpInvestmentParser.ts',
       'src/domain/investments/portfolioOverview.ts',

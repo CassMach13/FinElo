@@ -181,7 +181,9 @@ describe('B. snapshot pertence ao dono', () => {
     const loader = read('src/services/investmentPortfolioLoader.ts');
 
     it('viewReady vem do predicado com o dono e o usuário vivo, avaliado a cada render', () => {
-      expect(view).toContain('isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, user?.id)');
+      // V2-B1B (D3): o escopo é sessão + proprietário consultado; sem a flag, o proprietário é a própria sessão.
+      expect(view).toContain('isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, viewScope)');
+      expect(view).toContain("const viewScope = user && viewOwnerId ? viewScopeKey(user.id, viewOwnerId) : '';");
       expect(view).not.toMatch(/const viewReady = loadedKey === currentKey/);
     });
 

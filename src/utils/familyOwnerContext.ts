@@ -50,7 +50,7 @@ export function resolveOwnerDisplayLabel(
   return emailToDisplayLabel(email, false);
 }
 
-function acceptedFamilyLinks(
+export function acceptedFamilyLinks(
   familyMembers: FamilyMember[],
   currentUserId: string,
   currentEmail: string
@@ -63,7 +63,7 @@ function acceptedFamilyLinks(
   );
 }
 
-function mapUserIdsToEmails(
+export function mapUserIdsToEmails(
   userIds: string[],
   currentUserId: string,
   currentEmail: string,

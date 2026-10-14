@@ -32,9 +32,30 @@ import {
     type PortfolioRow,
 } from '../../domain/investments/portfolioOverview';
 import { createPortfolioFetcher, isSnapshotReady, resolveInitialMonthKey, HISTORY_MONTHS, type PortfolioLoaderDeps } from '../../services/investmentPortfolioLoader';
+import { isInvestmentPortfoliosEnabled } from '../../services/featureFlagService';
+import { useInvestmentStructure } from '../../hooks/useInvestmentStructure';
+import { filterPositions, groupPositionsByPortfolio, type PortfolioFilter } from '../../domain/investments/portfolioGrouping';
+import PortfolioShelf from '../investments/PortfolioShelf';
+import ClassificationBadge from '../investments/ClassificationBadge';
+import PortfolioFormModal from '../investments/PortfolioFormModal';
+import PortfolioManagerDrawer from '../investments/PortfolioManagerDrawer';
+import ClassifyInvestmentModal from '../investments/ClassifyInvestmentModal';
+import { copyClassificationNotice } from '../investments/portfolioMessages';
+import InvestmentOwnerSelector from '../investments/InvestmentOwnerSelector';
+import { ownerLabelFor, resolveViewOwner, viewScopeKey, type InvestmentOwnerOption } from '../../domain/investments/ownerScope';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
+    /** V2-B1B: carteiras e posições. Desligada = a tela de sempre, sem nenhuma consulta às tabelas novas. */
+    const portfoliosEnabled = isWealth && isInvestmentPortfoliosEnabled(user);
+    /** D3: proprietário consultado. Sem a flag (ou sem seleção válida) é sempre a própria sessão, como na V2-A. */
+    const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
+    const [ownerOptions, setOwnerOptions] = useState<InvestmentOwnerOption[]>([]);
+    const viewOwnerId = resolveViewOwner(user?.id, portfoliosEnabled ? selectedOwnerId : null, ownerOptions);
+    const viewingOther = !!user && !!viewOwnerId && viewOwnerId !== user.id;
+    /** Escopo de cada busca: sessão + proprietário. Resposta de outro escopo nunca é exibida. */
+    const viewScope = user && viewOwnerId ? viewScopeKey(user.id, viewOwnerId) : '';
+    const ownerLabel = ownerLabelFor(viewOwnerId, user?.id, ownerOptions);
     const [currentDate, setCurrentDate] = useState(() => {
         const now = new Date();
         return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -54,9 +75,19 @@ const InvestmentsView: React.FC = () => {
     const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
     const [autoSelectedKey, setAutoSelectedKey] = useState<string | null>(null);
 
+    const [portfolioFilter, setPortfolioFilter] = useState<PortfolioFilter>(null);
+    /** Formulário de carteira aberto: `portfolioId` nulo = nova carteira. */
+    const [portfolioForm, setPortfolioForm] = useState<{ portfolioId: string | null } | null>(null);
+    const [managedPortfolioId, setManagedPortfolioId] = useState<string | null>(null);
+    const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
+    const [classifyingId, setClassifyingId] = useState<string | null>(null);
+    const structure = useInvestmentStructure(portfoliosEnabled, viewOwnerId);
+
     const guardRef = useRef(createRequestGuard());
     const liveUserIdRef = useRef('');
     liveUserIdRef.current = user?.id ?? '';
+    const liveScopeRef = useRef('');
+    liveScopeRef.current = viewScope;
     const userNavigatedRef = useRef(false);
 
     const currentKey = monthKeyFromDate(currentDate);
@@ -70,7 +101,7 @@ const InvestmentsView: React.FC = () => {
 
     /** Busca detalhamento + histórico juntos. Só a última busca da sessão atual pode gravar; erro preserva os dados. */
     const fetcherRef = useRef(
-        createPortfolioFetcher(guardRef.current, () => liveUserIdRef.current, {
+        createPortfolioFetcher(guardRef.current, () => liveScopeRef.current, {
             onLoading: (loading) => setIsLoading(loading),
             onData: (data) => {
                 setInvestments(data.detail);
@@ -86,8 +117,8 @@ const InvestmentsView: React.FC = () => {
         })
     );
     const fetchInvestments = async (date: Date) => {
-        if (!user) return;
-        await fetcherRef.current(buildDeps(user.id), user.id, monthKeyFromDate(date));
+        if (!user || !viewOwnerId) return;
+        await fetcherRef.current(buildDeps(viewOwnerId), viewScope, monthKeyFromDate(date));
     };
 
     // Nova sessão: descarta tudo da anterior, volta ao mês corrente e procura a última posição disponível.
@@ -101,6 +132,7 @@ const InvestmentsView: React.FC = () => {
         setLoadError(false);
         setAutoSelectedKey(null);
         setResolvedUserId(null);
+        setSelectedOwnerId(null);
         const now = new Date();
         setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
         if (!user) return undefined;
@@ -128,9 +160,18 @@ const InvestmentsView: React.FC = () => {
     useEffect(() => {
         if (!user || resolvedUserId !== user.id) return;
         fetchInvestments(currentDate);
-    }, [currentKey, user?.id, resolvedUserId]);
+    }, [currentKey, user?.id, resolvedUserId, viewScope]);
 
-    const viewReady = isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, user?.id);
+    // Outro proprietário: nada da consulta anterior (filtro, modais, avisos) continua aberto.
+    useEffect(() => {
+        setPortfolioFilter(null);
+        setClassifyingId(null);
+        setManagedPortfolioId(null);
+        setPortfolioForm(null);
+        setPortfolioNotice(null);
+    }, [viewOwnerId]);
+
+    const viewReady = isSnapshotReady({ monthKey: loadedKey, userId: loadedUserId }, currentKey, viewScope);
     const investments = viewReady ? rawInvestments : [];
     const summary = useMemo(() => summarizePortfolio(viewReady ? history : [], currentKey), [history, currentKey, viewReady]);
     // V2-A2: tudo derivado de `investments` (já validado por viewReady); sem consulta nova nem estado remoto próprio.
@@ -149,6 +190,24 @@ const InvestmentsView: React.FC = () => {
             narrative: buildPortfolioNarrative({ monthKey: currentKey, positions, institutions, types, maturities }),
         };
     }, [investments, currentKey, todayDate]);
+    const portfolioGrouping = useMemo(() => {
+        if (!portfoliosEnabled || !viewReady || !viewOwnerId || !structure.loaded || structure.ownerUserId !== viewOwnerId) return null;
+        return groupPositionsByPortfolio({ positions: investments, portfolios: structure.portfolios, monthKey: currentKey, ownerUserId: viewOwnerId });
+    }, [portfoliosEnabled, viewReady, viewOwnerId, structure.loaded, structure.ownerUserId, structure.portfolios, investments, currentKey]);
+    const portfolioById = useMemo(() => new Map(structure.portfolios.map((p) => [p.id, p])), [structure.portfolios]);
+    const holdingById = useMemo(() => new Map(structure.holdings.map((h) => [h.id, h])), [structure.holdings]);
+    const hiddenArchivedPortfolios = portfolioGrouping
+        ? structure.portfolios.filter((p) => p.archived_at && p.user_id === portfolioGrouping.ownerUserId && !portfolioGrouping.groups.some((g) => g.portfolioId === p.id))
+        : [];
+    /** Só posições do snapshot validado (mês e proprietário atuais) podem ser classificadas. */
+    const classifyingInvestment = classifyingId && portfolioGrouping ? investments.find((inv) => inv.id === classifyingId) ?? null : null;
+    const managedPortfolio = managedPortfolioId ? portfolioById.get(managedPortfolioId) ?? null : null;
+    const handleStructureChanged = (message: string) => {
+        setPortfolioNotice(message);
+        void structure.reload();
+    };
+    /** Lista exibida: com a flag desligada é exatamente `investments`. */
+    const listedInvestments = portfolioGrouping ? filterPositions(investments, portfolioGrouping, portfolioFilter) : investments;
     const series = useMemo(() => buildMonthlySeries(viewReady ? history : [], currentKey, HISTORY_MONTHS), [history, currentKey, viewReady]);
 
     const handlePrevMonth = () => {
@@ -197,8 +256,10 @@ const InvestmentsView: React.FC = () => {
         if (!user) return;
         setIsLoading(true);
         try {
-            await investmentService.copyFromPreviousMonth(user.id, currentDate);
+            const result = await investmentService.copyFromPreviousMonth(user.id, currentDate, { preserveClassification: portfoliosEnabled });
             await fetchInvestments(currentDate);
+            const notice = portfoliosEnabled ? copyClassificationNotice(result) : null;
+            if (notice) setPortfolioNotice(notice);
         } catch (error) {
             console.error('Failed to copy investments:', error);
             setIsLoading(false);
@@ -274,6 +335,21 @@ const InvestmentsView: React.FC = () => {
         return parts.length ? parts.join(' · ') : '-';
     };
 
+    const renderClassification = (inv: Investment) => {
+        const portfolio = inv.portfolio_id ? portfolioById.get(inv.portfolio_id) : undefined;
+        const holding = inv.holding_id ? holdingById.get(inv.holding_id) : undefined;
+        return (
+            <div className="mt-1 max-w-full">
+                <ClassificationBadge
+                    portfolioName={inv.portfolio_id ? portfolio?.name ?? 'Carteira indisponível' : null}
+                    archived={!!portfolio?.archived_at}
+                    holdingName={holding?.display_name ?? null}
+                    onAction={() => setClassifyingId(inv.id)}
+                />
+            </div>
+        );
+    };
+
     const totalBalance = investments.reduce((sum, inv) => sum + Number(inv.balance), 0);
     const uniqueInstitutions = Array.from(new Set(investments.map(inv => inv.institution))) as string[];
 
@@ -285,6 +361,11 @@ const InvestmentsView: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">Investimentos</h1>
                     <p className="text-sm text-gray-400">Controle seu patrimônio investido</p>
+                    {portfoliosEnabled && viewOwnerId && (
+                        <div className="mt-2">
+                            <InvestmentOwnerSelector value={viewOwnerId} onChange={setSelectedOwnerId} onOptionsChange={setOwnerOptions} />
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-4 bg-secondary border border-slate-700/50 rounded-xl p-1 shadow-lg">
@@ -299,6 +380,12 @@ const InvestmentsView: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {viewingOther && (
+                <p data-viewing-owner="" role="status" className="rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-100">
+                    Você está vendo os investimentos de <strong>{ownerLabel}</strong>. Dá para organizar carteiras e classificar posições; lançar, importar, editar e excluir continuam com o titular.
+                </p>
+            )}
 
             {autoSelectedKey === currentKey && currentKey !== todayKey && (
                 <p data-latest-position-note="" role="status" className="rounded-xl border border-teal-300/20 bg-teal-300/10 px-4 py-2.5 text-sm text-teal-100">
@@ -327,8 +414,30 @@ const InvestmentsView: React.FC = () => {
                 </>
             )}
 
+            {portfoliosEnabled && viewReady && portfolioNotice && (
+                <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-sm text-emerald-100">
+                    <span>{portfolioNotice}</span>
+                    <button onClick={() => setPortfolioNotice(null)} aria-label="Fechar aviso" className="rounded-lg px-2 text-emerald-200 hover:bg-emerald-400/10">×</button>
+                </div>
+            )}
+
+            {portfoliosEnabled && viewReady && (
+                <PortfolioShelf
+                    status={structure.status}
+                    grouping={portfolioGrouping}
+                    monthLabel={formatMonthLabel(currentKey)}
+                    ownerLabel={ownerLabel}
+                    filter={portfolioFilter}
+                    onFilterChange={setPortfolioFilter}
+                    onRetry={() => { void structure.reload(); }}
+                    onCreatePortfolio={() => setPortfolioForm({ portfolioId: null })}
+                    onManagePortfolio={setManagedPortfolioId}
+                    hiddenArchived={hiddenArchivedPortfolios}
+                />
+            )}
+
             <div className="bg-secondary rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl">
-                <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
+                <div className="p-6 border-b border-slate-700/50 flex flex-wrap justify-between items-center gap-3 bg-slate-800/30">
                     <div>
                         <div className="flex items-center gap-2">
                             <h2 className="text-lg font-semibold text-white">Saldo Investido</h2>
@@ -354,7 +463,7 @@ const InvestmentsView: React.FC = () => {
                         <div className="text-3xl font-bold text-highlight mt-1">{formatCurrency(totalBalance)}</div>
                     </div>
                     <div className="flex gap-3 relative">
-                        {uniqueInstitutions.length > 0 && (
+                        {!viewingOther && uniqueInstitutions.length > 0 && (
                             <div className="relative group/clearBtn">
                                 <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 border border-slate-700/50 px-4 py-2 rounded-lg font-medium transition-colors">
                                     <svg className="w-5 h-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -377,20 +486,24 @@ const InvestmentsView: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        <button
-                            onClick={() => setIsImportModalOpen(true)}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700/50 px-4 py-2 rounded-lg font-medium transition-colors"
-                        >
-                            <svg className="w-5 h-5 text-highlight" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                            <span className="hidden sm:inline">Importar Planilha</span>
-                        </button>
-                        <button
-                            onClick={() => { setEditingInvestment(null); setIsModalOpen(true); }}
-                            className="flex items-center gap-2 bg-highlight hover:bg-highlight-hover text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-highlight/20"
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            <span className="hidden sm:inline">Adicionar</span>
-                        </button>
+                        {!viewingOther && (
+                            <button
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700/50 px-4 py-2 rounded-lg font-medium transition-colors"
+                            >
+                                <svg className="w-5 h-5 text-highlight" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                <span className="hidden sm:inline">Importar Planilha</span>
+                            </button>
+                        )}
+                        {!viewingOther && (
+                            <button
+                                onClick={() => { setEditingInvestment(null); setIsModalOpen(true); }}
+                                className="flex items-center gap-2 bg-highlight hover:bg-highlight-hover text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-highlight/20"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                <span className="hidden sm:inline">Adicionar</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -413,21 +526,28 @@ const InvestmentsView: React.FC = () => {
                             </div>
                             <p className="text-gray-400 mb-6">Nenhum investimento registrado neste mês.</p>
 
-                            <button
-                                onClick={handleCopyPrevious}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700/50"
-                            >
-                                <svg className="w-5 h-5 text-highlight" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                                </svg>
-                                Copiar do mês anterior
-                            </button>
+                            {!viewingOther && (
+                                <button
+                                    onClick={handleCopyPrevious}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700/50"
+                                >
+                                    <svg className="w-5 h-5 text-highlight" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                                    </svg>
+                                    Copiar do mês anterior
+                                </button>
+                            )}
+                        </div>
+                    ) : listedInvestments.length === 0 ? (
+                        <div data-portfolio-filter-empty="" className="text-center py-12">
+                            <p className="text-gray-400 mb-4">Nenhuma posição neste filtro em {formatMonthLabel(currentKey)}.</p>
+                            <button onClick={() => setPortfolioFilter(null)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700/50">Ver todas as posições</button>
                         </div>
                     ) : (
                         <>
                             {/* Mobile Card View */}
                             <div className="block sm:hidden space-y-3 mb-6">
-                                {investments.map((inv) => (
+                                {listedInvestments.map((inv) => (
                                     <div key={inv.id} className="bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-700/50 flex flex-col gap-2 relative group overflow-hidden">
                                         {/* Institution/Type Accent line */}
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-highlight/70"></div>
@@ -473,20 +593,24 @@ const InvestmentsView: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        <div className="flex justify-end pt-2 mt-1 border-t border-slate-700/30 gap-3">
-                                            <button
-                                                onClick={() => { setEditingInvestment(inv); setIsModalOpen(true); }}
-                                                className="text-highlight hover:text-sky-300 font-semibold p-1"
-                                            >
-                                                Editar
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(inv.id)}
-                                                className="text-danger hover:text-red-400 font-semibold p-1"
-                                            >
-                                                Excluir
-                                            </button>
-                                        </div>
+                                        {portfolioGrouping && <div className="pl-2">{renderClassification(inv)}</div>}
+
+                                        {!viewingOther && (
+                                            <div className="flex justify-end pt-2 mt-1 border-t border-slate-700/30 gap-3">
+                                                <button
+                                                    onClick={() => { setEditingInvestment(inv); setIsModalOpen(true); }}
+                                                    className="text-highlight hover:text-sky-300 font-semibold p-1"
+                                                >
+                                                    Editar
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(inv.id)}
+                                                    className="text-danger hover:text-red-400 font-semibold p-1"
+                                                >
+                                                    Excluir
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -508,7 +632,7 @@ const InvestmentsView: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {investments.map((inv) => (
+                                        {listedInvestments.map((inv) => (
                                             <tr key={inv.id} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors group">
                                                 <td className="py-4 pl-4 text-gray-400 text-sm font-medium">{inv.institution}</td>
                                                 <td className="py-4 text-white">
@@ -517,6 +641,7 @@ const InvestmentsView: React.FC = () => {
                                                         <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700/50 text-[10px] w-fit text-gray-400">
                                                             {inv.product_type}
                                                         </span>
+                                                        {portfolioGrouping && renderClassification(inv)}
                                                     </div>
                                                 </td>
                                                 <td className="py-4 text-gray-300 text-sm max-w-[140px]">{formatYieldCell(inv)}</td>
@@ -545,26 +670,28 @@ const InvestmentsView: React.FC = () => {
                                                     />
                                                 </td>
                                                 <td className="py-4 text-center text-gray-400">
-                                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => { setEditingInvestment(inv); setIsModalOpen(true); }}
-                                                            className="p-1.5 hover:bg-slate-700 hover:text-white rounded-lg transition-colors"
-                                                            title="Editar"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(inv.id)}
-                                                            className="p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-colors"
-                                                            title="Excluir"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
+                                                    {!viewingOther && (
+                                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => { setEditingInvestment(inv); setIsModalOpen(true); }}
+                                                                className="p-1.5 hover:bg-slate-700 hover:text-white rounded-lg transition-colors"
+                                                                title="Editar"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(inv.id)}
+                                                                className="p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-colors"
+                                                                title="Excluir"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -594,16 +721,66 @@ const InvestmentsView: React.FC = () => {
                 />
             )}
 
+            {portfoliosEnabled && viewOwnerId && managedPortfolio && (
+                <PortfolioManagerDrawer
+                    portfolio={managedPortfolio}
+                    holdings={structure.holdings.filter((h) => h.portfolio_id === managedPortfolio.id)}
+                    ownerUserId={viewOwnerId}
+                    ownerLabel={ownerLabel}
+                    monthLabel={formatMonthLabel(currentKey)}
+                    positionsThisMonth={portfolioGrouping?.groups.find((g) => g.portfolioId === managedPortfolio.id)?.positionIds.length ?? 0}
+                    onClose={() => setManagedPortfolioId(null)}
+                    onRename={() => setPortfolioForm({ portfolioId: managedPortfolio.id })}
+                    onChanged={handleStructureChanged}
+                />
+            )}
+
+            {portfoliosEnabled && viewOwnerId && classifyingInvestment && (
+                <ClassifyInvestmentModal
+                    investment={classifyingInvestment}
+                    ownerUserId={viewOwnerId}
+                    ownerLabel={ownerLabel}
+                    monthLabel={formatMonthLabel(currentKey)}
+                    portfolios={structure.portfolios}
+                    holdings={structure.holdings}
+                    monthPositions={investments}
+                    onClose={() => setClassifyingId(null)}
+                    onCreatePortfolio={() => setPortfolioForm({ portfolioId: null })}
+                    onDone={(message, structureChanged) => {
+                        setClassifyingId(null);
+                        setPortfolioNotice(message);
+                        if (structureChanged) void structure.reload();
+                        void fetchInvestments(currentDate);
+                    }}
+                />
+            )}
+
+            {portfoliosEnabled && viewOwnerId && portfolioForm && (
+                <PortfolioFormModal
+                    isOpen
+                    ownerUserId={viewOwnerId}
+                    ownerLabel={ownerLabel}
+                    portfolio={portfolioForm.portfolioId ? portfolioById.get(portfolioForm.portfolioId) ?? null : null}
+                    onClose={() => setPortfolioForm(null)}
+                    onSaved={(saved) => {
+                        setPortfolioForm(null);
+                        handleStructureChanged(portfolioForm.portfolioId ? `Carteira renomeada para "${saved.name}".` : `Carteira "${saved.name}" criada.`);
+                    }}
+                />
+            )}
+
             {/* Mobile Floating Action Button (FAB) */}
-            <button
-                onClick={() => { setEditingInvestment(null); setIsModalOpen(true); }}
-                className="fixed lg:hidden bottom-[80px] right-6 w-14 h-14 bg-highlight hover:bg-sky-400 text-white rounded-full shadow-[0_4px_14px_rgba(56,189,248,0.5)] flex items-center justify-center transition-transform active:scale-95 z-40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-highlight"
-                aria-label="Novo Investimento"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-            </button>
+            {!viewingOther && (
+                <button
+                    onClick={() => { setEditingInvestment(null); setIsModalOpen(true); }}
+                    className="fixed lg:hidden bottom-[80px] right-6 w-14 h-14 bg-highlight hover:bg-sky-400 text-white rounded-full shadow-[0_4px_14px_rgba(56,189,248,0.5)] flex items-center justify-center transition-transform active:scale-95 z-40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-highlight"
+                    aria-label="Novo Investimento"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                </button>
+            )}
         </div>
     );
 };

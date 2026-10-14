@@ -167,3 +167,27 @@ export const resolveAtomicImportEnabled = async (
   }
 };
 
+
+/** Ref do projeto Supabase de PRODUÇÃO: a habilitação global por ambiente nunca vale contra ele. */
+const PRODUCTION_SUPABASE_REF = 'xotxxxohcmivyzswyjtm';
+
+/**
+ * Carteiras e posições de investimentos (V2-B1B). Controla só a EXPOSIÇÃO da interface; a autorização continua
+ * sendo da RLS.
+ *
+ * Prioridade:
+ * 1) opt-out administrativo ou do usuário desliga imediatamente;
+ * 2) app_metadata.investment_portfolios_enabled=true habilita a conta piloto (só credencial administrativa altera);
+ * 3) VITE_INVESTMENT_PORTFOLIOS_ENABLED=true habilita o ambiente inteiro, mas NUNCA quando o app aponta para o banco
+ *    de produção — uma variável esquecida no Vercel não pode liberar a interface para todos.
+ *
+ * Não há opt-in por user_metadata (a própria sessão o altera) nem por e-mail.
+ */
+export const isInvestmentPortfoliosEnabled = (user?: UserWithMetadata): boolean => {
+  if (!user?.id) return false;
+  if (user.app_metadata?.investment_portfolios_disabled === true) return false;
+  if (user.user_metadata?.investment_portfolios_disabled === true) return false;
+  if (user.app_metadata?.investment_portfolios_enabled === true) return true;
+  if (import.meta.env.VITE_INVESTMENT_PORTFOLIOS_ENABLED !== 'true') return false;
+  return !String(import.meta.env.VITE_SUPABASE_URL ?? '').includes(PRODUCTION_SUPABASE_REF);
+};
