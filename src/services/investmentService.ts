@@ -118,6 +118,7 @@ export const investmentService = {
         const { data, error } = await supabase
             .from('investments')
             .select('id')
+            .eq('user_id', userId)
             .eq('institution', institution)
             .eq('reference_month', referenceMonth)
             .eq('source_file', fileName)
@@ -149,6 +150,7 @@ export const investmentService = {
         const { data: previousInvestments, error: fetchError } = await supabase
             .from('investments')
             .select('*')
+            .eq('user_id', userId)
             .eq('reference_month', prevReferenceMonth);
 
         if (fetchError) {
