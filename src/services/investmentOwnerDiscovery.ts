@@ -1,5 +1,6 @@
 import type { FamilyMember } from '../types';
 import { acceptedFamilyLinks, mapUserIdsToEmails, resolveOwnerDisplayLabel } from '../utils/familyOwnerContext';
+import type { FamilyMemberNicknames } from '../utils/familyMemberNicknames';
 import type { InvestmentOwnerOption } from '../domain/investments/ownerScope';
 
 /**
@@ -20,7 +21,8 @@ export interface OwnerDiscoveryDeps {
 
 export async function discoverInvestmentOwners(
   deps: OwnerDiscoveryDeps,
-  session: { userId: string; email: string }
+  session: { userId: string; email: string },
+  nicknames?: FamilyMemberNicknames
 ): Promise<InvestmentOwnerOption[]> {
   const self: InvestmentOwnerOption = { userId: session.userId, label: 'Você', isSelf: true };
   const familyMembers = await deps.listFamilyLinks();
@@ -43,7 +45,7 @@ export async function discoverInvestmentOwners(
   const others = ids
     .map((userId, index) => {
       const email = emails.get(userId) ?? `membro-${index + 1}`;
-      return { userId, label: resolveOwnerDisplayLabel(email, false), isSelf: false };
+      return { userId, label: resolveOwnerDisplayLabel(email, false, nicknames), isSelf: false };
     })
     .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
   return [self, ...others];

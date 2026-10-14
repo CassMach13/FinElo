@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { supabase } from '../../supabaseClient';
 import type { FamilyMember } from '../../types';
+import { parseFamilyMemberNicknames, type FamilyMemberNicknames } from '../../utils/familyMemberNicknames';
 import type { InvestmentOwnerOption } from '../../domain/investments/ownerScope';
 import { discoverInvestmentOwners, type OwnerDiscoveryDeps } from '../../services/investmentOwnerDiscovery';
 
@@ -39,11 +40,11 @@ export const supabaseOwnerDiscoveryDeps: OwnerDiscoveryDeps = {
  */
 export function createOwnerOptionsLoader(deps: OwnerDiscoveryDeps, onOptions: (sessionUserId: string, options: InvestmentOwnerOption[]) => void) {
   let latest = 0;
-  return async (session: { userId: string; email: string }) => {
+  return async (session: { userId: string; email: string }, nicknames?: FamilyMemberNicknames) => {
     const id = ++latest;
     let options: InvestmentOwnerOption[];
     try {
-      options = await discoverInvestmentOwners(deps, session);
+      options = await discoverInvestmentOwners(deps, session, nicknames);
     } catch (error) {
       console.warn('[Investimentos] Falha ao carregar proprietários familiares:', error);
       options = [{ userId: session.userId, label: 'Você', isSelf: true }];
@@ -57,10 +58,12 @@ const InvestmentOwnerSelector: React.FC<InvestmentOwnerSelectorProps> = ({ value
   const [state, setState] = useState<{ sessionUserId: string; options: InvestmentOwnerOption[] } | null>(null);
   const [load] = useState(() => createOwnerOptionsLoader(supabaseOwnerDiscoveryDeps, (sessionUserId, options) => setState({ sessionUserId, options })));
 
+  // Mesmos apelidos de Transações/Configurações (user_metadata); mudar um apelido atualiza o rótulo.
+  const nicknamesKey = JSON.stringify(parseFamilyMemberNicknames(user?.user_metadata));
   useEffect(() => {
     if (!user?.id) return;
-    void load({ userId: user.id, email: user.email ?? '' });
-  }, [user?.id, user?.email]);
+    void load({ userId: user.id, email: user.email ?? '' }, JSON.parse(nicknamesKey) as FamilyMemberNicknames);
+  }, [user?.id, user?.email, nicknamesKey]);
 
   const options = state && state.sessionUserId === user?.id ? state.options : [];
   const signature = options.map((o) => `${o.userId}:${o.label}`).join('|');

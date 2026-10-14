@@ -42,6 +42,14 @@ describe('descoberta de proprietários (contrato)', () => {
     expect(calls).toEqual([[A]]);
   });
 
+  it('usa o apelido cadastrado em Configurações; sem apelido, o nome derivado do e-mail', async () => {
+    const { deps } = fakeDeps([link(A, EMAIL[B], 'accepted')], [B]);
+    const withNick = await discoverInvestmentOwners(deps, { userId: A, email: EMAIL[A] }, { [EMAIL[B]]: 'Ione' });
+    expect(withNick[1].label).toBe('Ione');
+    const without = await discoverInvestmentOwners(deps, { userId: A, email: EMAIL[A] }, {});
+    expect(without[1].label).toBe('B');
+  });
+
   it('recusado, pendente, revogado ou nenhum vínculo: só a própria sessão e nenhuma leitura de investimentos', async () => {
     for (const links of [[link(A, EMAIL[E], 'declined')], [link(A, EMAIL[D], 'pending')], []]) {
       const { deps, calls } = fakeDeps(links, [B, C]);

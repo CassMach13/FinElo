@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Investment, InvestmentHolding, InvestmentPortfolio } from '../../types';
 import { appConfirm } from '../../hooks/useDialogStore';
 import { HOLDING_NAME_MAX, classifyInvestment, createHolding, unclassifyInvestment } from '../../services/investmentStructureService';
-import { NEW_HOLDING, draftChanges, holdingOptions, initialDraft, type ClassificationDraft } from '../../domain/investments/classificationDraft';
+import { NEW_HOLDING, draftChanges, holdingOptions, initialDraft, offersNoHolding, type ClassificationDraft } from '../../domain/investments/classificationDraft';
 import { formatCurrency } from '../../utils/formatters';
 import { structureErrorMessage, unclassifyConfirmation } from './portfolioMessages';
 
@@ -50,7 +50,11 @@ const ClassifyInvestmentModal: React.FC<ClassifyInvestmentModalProps> = ({
   }, [active.length]);
 
   const options = holdingOptions(holdings, draft.portfolioId, monthPositions, investment.id);
-  const canSave = !busy && draftChanges(investment, draft) && (draft.holdingChoice !== NEW_HOLDING || newHoldingName.trim().length > 0);
+  const changes = draftChanges(investment, draft);
+  const canSave = !busy && changes && (draft.holdingChoice !== NEW_HOLDING || newHoldingName.trim().length > 0);
+  const portfolioChanges = draft.portfolioId !== (investment.portfolio_id ?? '');
+  const saveLabel = !current ? 'Classificar' : portfolioChanges ? 'Mover' : 'Salvar';
+  const noHoldingLabel = current && current.id === draft.portfolioId && !investment.holding_id ? 'Sem ativo (atual)' : 'Sem ativo';
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -126,14 +130,14 @@ const ClassifyInvestmentModal: React.FC<ClassifyInvestmentModalProps> = ({
             <>
               <div className="space-y-1">
                 <label htmlFor="classify-portfolio" className="block text-sm font-medium text-gray-300">Carteira</label>
-                <select id="classify-portfolio" value={draft.portfolioId} onChange={(e) => setDraft({ portfolioId: e.target.value, holdingChoice: '' })} className={select}>
+                <select id="classify-portfolio" value={draft.portfolioId} onChange={(e) => setDraft({ portfolioId: e.target.value, holdingChoice: e.target.value === investment.portfolio_id ? investment.holding_id ?? '' : '' })} className={select}>
                   {active.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <label htmlFor="classify-holding" className="block text-sm font-medium text-gray-300">Ativo <span className="font-normal text-gray-500">(opcional)</span></label>
                 <select id="classify-holding" value={draft.holdingChoice} onChange={(e) => setDraft({ ...draft, holdingChoice: e.target.value })} className={select}>
-                  <option value="">Sem ativo</option>
+                  {offersNoHolding(investment, draft) && <option value="">{noHoldingLabel}</option>}
                   {options.map((o) => (
                     <option key={o.id} value={o.id} disabled={!!o.takenBy}>{o.takenBy ? `${o.name} (já usado em ${monthLabel})` : o.name}</option>
                   ))}
@@ -147,6 +151,11 @@ const ClassifyInvestmentModal: React.FC<ClassifyInvestmentModalProps> = ({
             </>
           )}
 
+          {active.length > 0 && !changes && current && (
+            <p data-no-changes="" className="text-xs text-amber-200/80">
+              Nada para salvar ainda: escolha outra carteira ou um ativo (ou crie um novo). Para tirar a posição da carteira, use "Remover da carteira".
+            </p>
+          )}
           <p className="text-xs text-gray-500">Classificar não altera saldo, mês nem proprietário.</p>
           {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
         </div>
@@ -161,7 +170,7 @@ const ClassifyInvestmentModal: React.FC<ClassifyInvestmentModalProps> = ({
             <button type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
             {active.length > 0 && (
               <button type="submit" disabled={!canSave} className="rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:bg-highlight-hover disabled:cursor-not-allowed disabled:opacity-50">
-                {busy ? 'Salvando…' : current ? 'Mover' : 'Classificar'}
+                {busy ? 'Salvando…' : saveLabel}
               </button>
             )}
           </div>

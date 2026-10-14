@@ -37,6 +37,14 @@ export function holdingOptions(
     .map((h) => ({ id: h.id, name: h.display_name, takenBy: used.get(h.id) ?? null }));
 }
 
+/**
+ * "Sem ativo" só é uma escolha útil quando muda algo: numa posição que JÁ tem ativo, na mesma carteira, trocar por
+ * "sem ativo" seria só soltar o vínculo (para isso existe "Remover da carteira").
+ */
+export function offersNoHolding(position: Position, draft: ClassificationDraft): boolean {
+  return !(position.holding_id && draft.portfolioId === position.portfolio_id);
+}
+
 /** Há algo a gravar? Reenviar a mesma classificação não é mudança (e o banco nem a auditaria). */
 export function draftChanges(position: Position, draft: ClassificationDraft): boolean {
   if (!draft.portfolioId) return false;

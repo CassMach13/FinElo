@@ -4,7 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import ClassifyInvestmentModal from '../../src/components/investments/ClassifyInvestmentModal';
-import { NEW_HOLDING, draftChanges, holdingOptions, initialDraft } from '../../src/domain/investments/classificationDraft';
+import { NEW_HOLDING, draftChanges, holdingOptions, initialDraft, offersNoHolding } from '../../src/domain/investments/classificationDraft';
 
 const read = (p: string) => readFileSync(resolve(p), 'utf8').replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
 const OWNER = 'owner-a';
@@ -67,10 +67,10 @@ describe('modal de classificação', () => {
     expect(html).not.toContain('Remover da carteira');
   });
 
-  it('já classificada: "Mover" começa desabilitado e há "Remover da carteira"; proprietário visível', () => {
+  it('já classificada: o botão começa desabilitado e há "Remover da carteira"; proprietário visível', () => {
     const html = render({ ownerLabel: 'Ione', investment: inv({ portfolio_id: 'p1' }), portfolios: [pf('p1', 'Longo prazo'), pf('p3', 'Reserva')] });
     expect(html).toContain('Mover ou remover da carteira');
-    expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Mover<\/button>/);
+    expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Salvar<\/button>/);
     expect(html).toContain('Remover da carteira');
     expect(html).toContain('Ione');
   });
@@ -119,5 +119,37 @@ describe('D1 na tela', () => {
       '3 posições copiadas do mês anterior. 2 mantiveram a carteira. 1 ficou em Sem carteira (carteira arquivada ou indisponível).'
     );
     expect(copyClassificationNotice({ copied: 1, classified: 1, leftUnclassified: 0 })).toBe('1 posição copiada do mês anterior. 1 manteve a carteira.');
+  });
+});
+
+describe('feedback do modal quando não há o que salvar (achado do teste no staging)', () => {
+  const base = { ownerUserId: OWNER, ownerLabel: 'Você', monthLabel: 'outubro de 2026', monthPositions: [] as any[], onClose: () => {}, onCreatePortfolio: () => {}, onDone: () => {} };
+  const render = (props: Record<string, unknown>) => norm(renderToStaticMarkup(React.createElement(ClassifyInvestmentModal, { ...base, ...props } as any)));
+
+  it('posição na carteira SEM ativo: "Sem ativo (atual)", botão desabilitado e explicação do que fazer', () => {
+    const html = render({ investment: inv({ portfolio_id: 'p1' }), portfolios: [pf('p1', 'Reserva')], holdings: [hold('h1', 'p1', 'CDB X')] });
+    expect(html).toContain('Sem ativo (atual)');
+    expect(html).toContain('data-no-changes');
+    expect(html).toContain('Nada para salvar ainda');
+    expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Salvar<\/button>/);
+  });
+
+  it('posição que JÁ tem ativo, na mesma carteira: a opção "Sem ativo" não é oferecida; em outra carteira, sim', () => {
+    const draftSame = { portfolioId: 'p1', holdingChoice: 'h1' };
+    const draftOther = { portfolioId: 'p2', holdingChoice: '' };
+    const position = inv({ portfolio_id: 'p1', holding_id: 'h1' });
+    expect(offersNoHolding(position, draftSame)).toBe(false);
+    expect(offersNoHolding(position, draftOther)).toBe(true);
+    expect(offersNoHolding(inv({ portfolio_id: 'p1' }), draftSame)).toBe(true);
+    expect(offersNoHolding(inv(), { portfolioId: 'p1', holdingChoice: '' })).toBe(true);
+    const html = render({ investment: position, portfolios: [pf('p1', 'Reserva'), pf('p2', 'Outra')], holdings });
+    expect(html).not.toContain('>Sem ativo');
+    expect(html).toContain('<option value="h1" selected="">CDB X 2027</option>');
+  });
+
+  it('nomes do botão: Classificar (sem carteira), Mover (outra carteira) e Salvar (só o ativo)', () => {
+    const src = read('src/components/investments/ClassifyInvestmentModal.tsx');
+    expect(src).toContain("const saveLabel = !current ? 'Classificar' : portfolioChanges ? 'Mover' : 'Salvar';");
+    expect(src).toContain("holdingChoice: e.target.value === investment.portfolio_id ? investment.holding_id ?? '' : ''");
   });
 });
