@@ -1,14 +1,42 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
+import { supabase } from '../../supabaseClient';
+import type { OwnerDiscoveryDeps } from '../../services/investmentOwnerDiscovery';
 import { parseFamilyMemberNicknames, type FamilyMemberNicknames } from '../../utils/familyMemberNicknames';
 import { createOwnerOptionsLoader, supabaseOwnerDiscoveryDeps } from '../investments/InvestmentOwnerSelector';
 import { FAMILY_SCOPE, SELF_SCOPE, type DashboardOwnerOption } from '../../domain/dashboard/dashboardOwnerScope';
 
 /**
  * Seletor de proprietário do Dashboard (flag `dashboard_owner_scope_enabled`). Montado SÓ com a flag ligada.
- * Proprietários = descoberta da V2-B1B (vínculo aceito + RLS de investimentos) ∪ donos já conhecidos por contas e
- * transações carregadas. Com um único proprietário acessível não exibe nada.
+ * Proprietários = descoberta (vínculo aceito + RLS, sondando investimentos, contas e bens) ∪ donos já conhecidos por
+ * contas e transações carregadas. Assim um familiar que só tem bens também aparece. Com um único proprietário
+ * acessível não exibe nada.
  */
+
+/** Tabelas sondadas, em ordem: a primeira que revelar um proprietário novo encerra a busca daquela rodada. */
+export const DASHBOARD_OWNER_PROBE_TABLES = ['investments', 'contas', 'assets'] as const;
+
+export function createDashboardOwnerDiscoveryDeps(
+  base: Pick<OwnerDiscoveryDeps, 'listFamilyLinks'>,
+  probe: (table: (typeof DASHBOARD_OWNER_PROBE_TABLES)[number], excluding: string[]) => Promise<string | null>
+): OwnerDiscoveryDeps {
+  return {
+    listFamilyLinks: base.listFamilyLinks,
+    async findVisibleInvestmentOwner(excluding) {
+      for (const table of DASHBOARD_OWNER_PROBE_TABLES) {
+        const found = await probe(table, excluding);
+        if (found) return found;
+      }
+      return null;
+    },
+  };
+}
+
+const dashboardOwnerDiscoveryDeps = createDashboardOwnerDiscoveryDeps(supabaseOwnerDiscoveryDeps, async (table, excluding) => {
+  const { data, error } = await supabase.from(table).select('user_id').not('user_id', 'in', `(${excluding.join(',')})`).limit(1);
+  if (error) throw error;
+  return (data?.[0]?.user_id as string | undefined) ?? null;
+});
 export function mergeOwnerOptions(
   sessionUserId: string,
   discovered: readonly DashboardOwnerOption[],
@@ -36,7 +64,7 @@ const DashboardOwnerSelector: React.FC<DashboardOwnerSelectorProps> = ({ value, 
   const { user } = useAppStore();
   const [discovered, setDiscovered] = useState<{ sessionUserId: string; options: DashboardOwnerOption[] } | null>(null);
   const [load] = useState(() =>
-    createOwnerOptionsLoader(supabaseOwnerDiscoveryDeps, (sessionUserId, options) => setDiscovered({ sessionUserId, options }))
+    createOwnerOptionsLoader(dashboardOwnerDiscoveryDeps, (sessionUserId, options) => setDiscovered({ sessionUserId, options }))
   );
   const nicknamesKey = JSON.stringify(parseFamilyMemberNicknames(user?.user_metadata));
 

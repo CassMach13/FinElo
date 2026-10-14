@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DashboardOwnerSelectorView, mergeOwnerOptions } from '../../src/components/dashboard/DashboardOwnerSelector';
+import { DASHBOARD_OWNER_PROBE_TABLES, DashboardOwnerSelectorView, createDashboardOwnerDiscoveryDeps, mergeOwnerOptions } from '../../src/components/dashboard/DashboardOwnerSelector';
+import { discoverInvestmentOwners } from '../../src/services/investmentOwnerDiscovery';
 import { FAMILY_SCOPE, SELF_SCOPE } from '../../src/domain/dashboard/dashboardOwnerScope';
 
 const read = (p: string) => readFileSync(resolve(p), 'utf8').replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
@@ -100,5 +101,32 @@ describe('Dashboard com escopo: cálculo e escrita', () => {
   it('seleção e opções valem só para a sessão em que foram escolhidas', () => {
     expect(view).toContain('ownerSelectionState && ownerSelectionState.sessionUserId === user?.id ? ownerSelectionState.value : SELF_SCOPE');
     expect(view).toContain('ownerOptionsState && ownerOptionsState.sessionUserId === user?.id ? ownerOptionsState.options : []');
+  });
+});
+
+describe('descoberta de proprietários do Dashboard (limitação "só bens")', () => {
+  const link = { id: 'l', owner_id: 'me', owner_email: 'me@x.test', member_email: 'ana@x.test', status: 'accepted' } as any;
+  const visible: Record<string, string[]> = { investments: [], contas: [], assets: ['ana'] };
+  const calls: string[] = [];
+  const deps = createDashboardOwnerDiscoveryDeps({ listFamilyLinks: async () => [link] }, async (table, excluding) => {
+    calls.push(table);
+    return visible[table].find((id) => !excluding.includes(id)) ?? null;
+  });
+
+  it('familiar que só tem bens (sem contas, transações nem investimentos) aparece no seletor', async () => {
+    const options = await discoverInvestmentOwners(deps, { userId: 'me', email: 'me@x.test' });
+    expect(options.map((o) => o.userId)).toEqual(['me', 'ana']);
+    expect(options[1].label).toBe('Ana');
+    expect(calls).toEqual(['investments', 'contas', 'assets']);
+    expect([...DASHBOARD_OWNER_PROBE_TABLES]).toEqual(['investments', 'contas', 'assets']);
+  });
+
+  it('sem vínculo aceito nada é sondado; o número de rodadas continua limitado aos vínculos', async () => {
+    calls.length = 0;
+    const none = createDashboardOwnerDiscoveryDeps({ listFamilyLinks: async () => [{ ...link, status: 'declined' }] }, async (t) => { calls.push(t); return 'x'; });
+    expect((await discoverInvestmentOwners(none, { userId: 'me', email: 'me@x.test' })).map((o) => o.userId)).toEqual(['me']);
+    expect(calls).toEqual([]);
+    const endless = createDashboardOwnerDiscoveryDeps({ listFamilyLinks: async () => [link] }, async (t, ex) => { calls.push(t); return `o${ex.length}`; });
+    expect(await discoverInvestmentOwners(endless, { userId: 'me', email: 'me@x.test' })).toHaveLength(2);
   });
 });
