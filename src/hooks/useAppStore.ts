@@ -283,7 +283,7 @@ interface AppState {
   deleteAsset: (assetId: string) => Promise<void>;
   updateAsset: (asset: Partial<Asset> & { id: string }) => Promise<void>;
   recalculateAssetBalance: (assetId: string) => Promise<void>;
-  recalculateAllAssetBalances: () => Promise<void>;
+  recalculateAllAssetBalances: (scope?: 'self' | 'all') => Promise<void>;
 
   setTransactionFilters: (filters: AppState['transactionFilters']) => void;
   setUser: (user: User | null) => void;
@@ -545,6 +545,15 @@ let economicEventsFetchGeneration = 0;
 let transactionEconomicIdentityRevision = 0;
 // Cada fetchTransactions leva um número; só o mais novo, da sessão que o iniciou, pode gravar. signOut avança (vale p/ o mesmo usuário relogando).
 let transactionsFetchGeneration = 0;
+// Invalida trabalho de bens em voo mesmo em A → logout/B → A. Refresh de token do mesmo usuário não invalida.
+let assetSessionGeneration = 0;
+let assetsFetchGeneration = 0;
+const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
+  const userId = get().user?.id;
+  const generation = assetSessionGeneration;
+  return () => !!userId && get().user?.id === userId && generation === assetSessionGeneration;
+};
+
 // Avança a cada troca de `transactions` (add/update/delete/importação, e também o snapshot aplicado). Um snapshot
 // que começou antes de uma troca está velho e não pode sobrescrever a edição (ver o subscribe após o store).
 let transactionsMutationRevision = 0;
@@ -679,6 +688,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Filtros de Transação
   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
   setUser: (user) => {
+    if (get().user?.id !== user?.id) assetSessionGeneration += 1;
     const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
     set((state) => ({
       user,
@@ -1791,6 +1801,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   signOut: async () => {
+    assetSessionGeneration += 1; // invalida antes de esperar a resposta do logout
+    set({ assets: [] });
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Erro ao fazer log-off (mas limpando estado local):', error.message);
@@ -2151,6 +2163,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addTransaction: async (newTransactions) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
@@ -2189,7 +2202,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Automação: Atualizar saldo do patrimônio se houver vínculo
       const affectedAssetIds = new Set(addedTransactions.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string));
       for (const assetId of affectedAssetIds) {
-        await get().recalculateAssetBalance(assetId);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(assetId);
       }
 
       const ledgerSync = shouldAutoSyncCreditCardLedger(user);
@@ -2276,6 +2289,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addMultipleTransactions: async (newTransactions, importConfig, fileName, ignoredItems = [], options) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { imported: 0, ignored: 0 };
 
@@ -2397,7 +2411,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         insertedBatch.filter(tx => tx.linked_asset_id).map(tx => tx.linked_asset_id as string)
       );
       for (const assetId of affectedAssetIds) {
-        await get().recalculateAssetBalance(assetId);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(assetId);
       }
     }
 
@@ -2453,6 +2467,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateTransaction: async (updatedTransaction) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     const { ID_Transacao, ...requestedFieldsToUpdate } = updatedTransaction;
 
     // Pegar o estado anterior para identificar o asset antigo
@@ -2496,11 +2511,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Recalcular saldos se houver vínculo
       if (updated.linked_asset_id) {
-        await get().recalculateAssetBalance(updated.linked_asset_id);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(updated.linked_asset_id);
       }
       // Se o asset mudou, recalcular o antigo também
       if (oldAssetId && oldAssetId !== updated.linked_asset_id) {
-        await get().recalculateAssetBalance(oldAssetId);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(oldAssetId);
       }
 
       const { user, accounts, importLogs } = get();
@@ -2575,6 +2590,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteTransaction: async (transactionId) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     const transaction = get().transactions.find(t => t.ID_Transacao === transactionId);
     const assetId = transaction?.linked_asset_id;
     const { user, accounts } = get();
@@ -2595,7 +2611,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Recalcular saldo se houver vínculo
       if (assetId) {
-        await get().recalculateAssetBalance(assetId);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(assetId);
       }
 
       if (user && transaction?.ID_Conta) {
@@ -2662,6 +2678,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteManualTransactions: async (transactionIds) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     if (transactionIds.length === 0) return 0;
 
     const uniqueIds = [...new Set(transactionIds)];
@@ -2698,7 +2715,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
 
     for (const assetId of affectedAssetIds) {
-      await get().recalculateAssetBalance(assetId);
+      if (isAssetSessionCurrent()) await get().recalculateAssetBalance(assetId);
     }
 
     const { user, accounts } = get();
@@ -3085,6 +3102,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     else set((state) => ({ mappingRules: state.mappingRules.filter(r => r.id !== ruleId) }));
   },
   applyRuleToExistingTransactions: async (rule: MappingRule) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     const { transactions } = get();
     const keyword = rule.Texto_Contido_Descricao.toLowerCase();
     const cleanKeyword = keyword.replace(/\s+/g, ''); // Remove all whitespace for fuzzy match
@@ -3161,7 +3179,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Recalcular saldo se a regra tiver vínculo
       if (rule.linked_asset_id) {
-        await get().recalculateAssetBalance(rule.linked_asset_id);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(rule.linked_asset_id);
       }
     }
   },
@@ -3274,6 +3292,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteImportLog: async (logId: string, fileName: string) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
     console.log(`%c[deleteImportLog] Iniciando exclusão. ID: ${logId}, Arquivo: ${fileName}`, 'color: orange; font-weight: bold');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -3325,7 +3344,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Recalcular saldo de todos os ativos afetados
       for (const assetId of affectedAssetIds) {
-        await get().recalculateAssetBalance(assetId);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(assetId);
       }
 
       const ledgerSync = shouldAutoSyncCreditCardLedger(user);
@@ -3715,17 +3734,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchAssets: async () => {
-    const requestedUserId = get().user?.id;
+    const isCurrent = captureAssetSession(get);
+    if (!isCurrent()) return;
+    const generation = ++assetsFetchGeneration;
     const { data, error } = await supabase.from('assets').select('*').order('name');
-    if (get().user?.id !== requestedUserId) return;
+    if (!isCurrent() || generation !== assetsFetchGeneration) return;
     if (error) {
       console.error('Erro ao buscar ativos:', error);
       noteRefreshFailure();
-    } else {
+    } else if (data) {
       set({ assets: data as Asset[] });
-      // Sincronizar saldos de todos os ativos financiados na carga inicial
-      // Usamos um delay curto ou fazemos em background
-      get().recalculateAllAssetBalances();
+      // Consultar a família não autoriza manutenção automática em nome de outro dono.
+      if (isCurrent()) await get().recalculateAllAssetBalances('self');
     }
   },
 
@@ -3741,28 +3761,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addAsset: async (assetData) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
+    if (!isAssetSessionCurrent()) return;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!isAssetSessionCurrent() || !user || user.id !== get().user?.id) return;
     const { data, error } = await supabase.from('assets').insert([{ ...assetData, user_id: user.id }]).select();
+    if (!isAssetSessionCurrent()) return;
     if (error) console.error('Erro ao adicionar ativo:', error);
-    else if (data) {
+    else if (data?.[0]) {
       set((state) => ({ assets: [...state.assets, data[0] as Asset] }));
       // Disparar recálculo se for financiado
       if (data[0].is_financed) {
-        await get().recalculateAssetBalance(data[0].id);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(data[0].id);
       }
     }
   },
 
   updateAsset: async (updatedAsset) => {
+    const isAssetSessionCurrent = captureAssetSession(get);
+    if (!isAssetSessionCurrent()) return;
     const { id, ...fieldsToUpdate } = updatedAsset;
     const { data, error } = await supabase.from('assets').update({ ...fieldsToUpdate, updated_at: new Date().toISOString() }).eq('id', id).select();
+    if (!isAssetSessionCurrent()) return;
     if (error) console.error('Erro ao atualizar ativo:', error);
-    else if (data) {
+    else if (data?.[0]) {
       set((state) => ({ assets: state.assets.map(a => a.id === id ? data[0] as Asset : a) }));
       // Disparar recálculo se for financiado
       if (data[0].is_financed) {
-        await get().recalculateAssetBalance(id);
+        if (isAssetSessionCurrent()) await get().recalculateAssetBalance(id);
       }
     }
   },
@@ -3774,6 +3800,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   recalculateAssetBalance: async (assetId: string) => {
+    const isCurrent = captureAssetSession(get);
+    if (!isCurrent()) return;
     const asset = get().assets.find(a => a.id === assetId);
     if (!asset || !asset.is_financed) return;
 
@@ -3782,7 +3810,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       .select('Valor, Tipo')
       .eq('linked_asset_id', assetId);
 
-    if (error) {
+    if (!isCurrent()) return;
+    if (error || !linkedTransactions) {
       console.error('Erro ao buscar transações vinculadas para recálculo:', error);
       return;
     }
@@ -3816,21 +3845,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       .eq('id', assetId)
       .select();
 
+    if (!isCurrent()) return;
     if (updateError) {
       console.error('Erro ao atualizar saldo do ativo após recálculo:', updateError);
-    } else if (data) {
+    } else if (data?.[0]) {
       set((state) => ({
         assets: state.assets.map(a => a.id === assetId ? data[0] as Asset : a)
       }));
     }
   },
 
-  recalculateAllAssetBalances: async () => {
-    const { assets } = get();
-    const financedAssets = assets.filter(a => a.is_financed);
-    
-    // Executamos sequencialmente para não sobrecarregar
+  recalculateAllAssetBalances: async (scope = 'all') => {
+    const isCurrent = captureAssetSession(get);
+    if (!isCurrent()) return;
+    const { assets, user } = get();
+    const financedAssets = assets.filter(a => a.is_financed && (scope === 'all' || a.user_id === user?.id));
+
+    // Ações explícitas mantêm o alcance familiar autorizado pela RLS. A carga pede somente 'self'.
     for (const asset of financedAssets) {
+      if (!isCurrent()) return;
       await get().recalculateAssetBalance(asset.id);
     }
   },
