@@ -437,7 +437,7 @@ const InvestmentsView: React.FC = () => {
             )}
 
             <div className="bg-secondary rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl">
-                <div className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
+                <div className="p-6 border-b border-slate-700/50 flex flex-wrap justify-between items-center gap-3 bg-slate-800/30">
                     <div>
                         <div className="flex items-center gap-2">
                             <h2 className="text-lg font-semibold text-white">Saldo Investido</h2>
@@ -570,7 +570,6 @@ const InvestmentsView: React.FC = () => {
                                                         </span>
                                                     )}
                                                 </div>
-                                                {portfolioGrouping && renderClassification(inv)}
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-2">
                                                 <InvestmentBalanceDisplay
@@ -593,6 +592,8 @@ const InvestmentsView: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {portfolioGrouping && <div className="pl-2">{renderClassification(inv)}</div>}
 
                                         {!viewingOther && (
                                             <div className="flex justify-end pt-2 mt-1 border-t border-slate-700/30 gap-3">

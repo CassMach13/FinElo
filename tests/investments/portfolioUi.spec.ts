@@ -146,7 +146,9 @@ describe('integração na view: flag desligada = tela atual', () => {
     expect(view).toContain('{portfoliosEnabled && viewReady && (\n                <PortfolioShelf');
     expect(view).toContain('if (!portfoliosEnabled || !viewReady');
     expect(view).toContain('const listedInvestments = portfolioGrouping ? filterPositions(investments, portfolioGrouping, portfolioFilter) : investments;');
-    expect(view.match(/\{portfolioGrouping && renderClassification\(inv\)\}/g)).toHaveLength(2);
+    // cartão do celular (linha própria, largura total) e coluna "Ativo" da tabela: ambos só com a flag
+    expect(view.match(/\{portfolioGrouping && renderClassification\(inv\)\}/g)).toHaveLength(1);
+    expect(view).toContain('{portfolioGrouping && <div className="pl-2">{renderClassification(inv)}</div>}');
   });
 
   it('totais, resumo, gráficos e alocações continuam sobre o mês inteiro (o filtro só afeta a lista)', () => {
