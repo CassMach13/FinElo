@@ -39,6 +39,7 @@ import PortfolioShelf from '../investments/PortfolioShelf';
 import ClassificationBadge from '../investments/ClassificationBadge';
 import PortfolioFormModal from '../investments/PortfolioFormModal';
 import PortfolioManagerDrawer from '../investments/PortfolioManagerDrawer';
+import ClassifyInvestmentModal from '../investments/ClassifyInvestmentModal';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -68,6 +69,7 @@ const InvestmentsView: React.FC = () => {
     const [portfolioForm, setPortfolioForm] = useState<{ portfolioId: string | null } | null>(null);
     const [managedPortfolioId, setManagedPortfolioId] = useState<string | null>(null);
     const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
+    const [classifyingId, setClassifyingId] = useState<string | null>(null);
     const structure = useInvestmentStructure(portfoliosEnabled, user?.id);
 
     const guardRef = useRef(createRequestGuard());
@@ -174,6 +176,8 @@ const InvestmentsView: React.FC = () => {
     const hiddenArchivedPortfolios = portfolioGrouping
         ? structure.portfolios.filter((p) => p.archived_at && p.user_id === portfolioGrouping.ownerUserId && !portfolioGrouping.groups.some((g) => g.portfolioId === p.id))
         : [];
+    /** Só posições do snapshot validado (mês e proprietário atuais) podem ser classificadas. */
+    const classifyingInvestment = classifyingId && portfolioGrouping ? investments.find((inv) => inv.id === classifyingId) ?? null : null;
     const managedPortfolio = managedPortfolioId ? portfolioById.get(managedPortfolioId) ?? null : null;
     const handleStructureChanged = (message: string) => {
         setPortfolioNotice(message);
@@ -315,6 +319,7 @@ const InvestmentsView: React.FC = () => {
                     portfolioName={inv.portfolio_id ? portfolio?.name ?? 'Carteira indisponível' : null}
                     archived={!!portfolio?.archived_at}
                     holdingName={holding?.display_name ?? null}
+                    onAction={() => setClassifyingId(inv.id)}
                 />
             </div>
         );
@@ -680,6 +685,26 @@ const InvestmentsView: React.FC = () => {
                     onClose={() => setManagedPortfolioId(null)}
                     onRename={() => setPortfolioForm({ portfolioId: managedPortfolio.id })}
                     onChanged={handleStructureChanged}
+                />
+            )}
+
+            {portfoliosEnabled && user && classifyingInvestment && (
+                <ClassifyInvestmentModal
+                    investment={classifyingInvestment}
+                    ownerUserId={user.id}
+                    ownerLabel="Você"
+                    monthLabel={formatMonthLabel(currentKey)}
+                    portfolios={structure.portfolios}
+                    holdings={structure.holdings}
+                    monthPositions={investments}
+                    onClose={() => setClassifyingId(null)}
+                    onCreatePortfolio={() => setPortfolioForm({ portfolioId: null })}
+                    onDone={(message, structureChanged) => {
+                        setClassifyingId(null);
+                        setPortfolioNotice(message);
+                        if (structureChanged) void structure.reload();
+                        void fetchInvestments(currentDate);
+                    }}
                 />
             )}
 
