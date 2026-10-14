@@ -419,7 +419,8 @@ describe('Integração na Dashboard e layout móvel (contrato de código)', () =
     const annual = dashboard.indexOf('<AnnualEvolutionCard');
     expect(monthly).toBeGreaterThan(rule);
     expect(annual).toBeGreaterThan(monthly);
-    expect(dashboard).toMatch(/computeMonthlyChange\(\{ transactions, categories: allCategories, today: todayKey, economicKindByEventId \}\)/);
+    // Escopo por proprietário: com a flag desligada `scopedTransactions` é a própria lista do store (todo o histórico).
+    expect(dashboard).toMatch(/computeMonthlyChange\(\{ transactions: scopedTransactions, categories: allCategories, today: todayKey, economicKindByEventId \}\)/);
   });
 
   it('layout móvel: empilha, quebra texto, sem largura fixa', () => {

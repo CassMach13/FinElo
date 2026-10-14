@@ -485,7 +485,9 @@ describe('Integração na Dashboard e layout móvel (contrato de código)', () =
   });
 
   it('usa dados já carregados e o CTA persiste e navega', () => {
-    expect(dashboard).toMatch(/transactions=\{transactions\}/);
+    // dados já carregados no store (com o escopo por proprietário, a mesma lista filtrada antes do cálculo)
+    expect(dashboard).toMatch(/transactions=\{scopedTransactions\}/);
+    expect(dashboard).toContain('const scopedTransactions = scopedData?.transactions ?? transactions;');
     expect(dashboard).toContain('openUpcomingInTransactions');
     expect(dashboard).toContain('isSmartTransactionFiltersEnabled(user)');
     expect(dashboard).toContain('navigate: setCurrentView');
