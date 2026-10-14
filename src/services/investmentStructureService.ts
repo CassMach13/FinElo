@@ -2,7 +2,8 @@ import { supabase } from '../supabaseClient';
 import type { InvestmentHolding, InvestmentPortfolio } from '../types';
 
 /**
- * Carteiras e holdings de investimentos (V2-B1A). Somente a camada de dados: nenhum componente a consome ainda.
+ * Carteiras e holdings de investimentos (V2-B1A) e classificação de snapshots (V2-B1B). Consumido só pela interface
+ * de carteiras, atrás da flag `isInvestmentPortfoliosEnabled`.
  *
  * PROPRIETÁRIO × OPERADOR
  *  - `ownerUserId` é o dono dos dados (vai em `user_id`). Para uma operação familiar autorizada ele é diferente do
