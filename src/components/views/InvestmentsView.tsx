@@ -37,6 +37,8 @@ import { useInvestmentStructure } from '../../hooks/useInvestmentStructure';
 import { filterPositions, groupPositionsByPortfolio, type PortfolioFilter } from '../../domain/investments/portfolioGrouping';
 import PortfolioShelf from '../investments/PortfolioShelf';
 import ClassificationBadge from '../investments/ClassificationBadge';
+import PortfolioFormModal from '../investments/PortfolioFormModal';
+import PortfolioManagerDrawer from '../investments/PortfolioManagerDrawer';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
@@ -62,6 +64,10 @@ const InvestmentsView: React.FC = () => {
     const [autoSelectedKey, setAutoSelectedKey] = useState<string | null>(null);
 
     const [portfolioFilter, setPortfolioFilter] = useState<PortfolioFilter>(null);
+    /** Formulário de carteira aberto: `portfolioId` nulo = nova carteira. */
+    const [portfolioForm, setPortfolioForm] = useState<{ portfolioId: string | null } | null>(null);
+    const [managedPortfolioId, setManagedPortfolioId] = useState<string | null>(null);
+    const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
     const structure = useInvestmentStructure(portfoliosEnabled, user?.id);
 
     const guardRef = useRef(createRequestGuard());
@@ -165,6 +171,14 @@ const InvestmentsView: React.FC = () => {
     }, [portfoliosEnabled, viewReady, user?.id, structure.loaded, structure.ownerUserId, structure.portfolios, investments, currentKey]);
     const portfolioById = useMemo(() => new Map(structure.portfolios.map((p) => [p.id, p])), [structure.portfolios]);
     const holdingById = useMemo(() => new Map(structure.holdings.map((h) => [h.id, h])), [structure.holdings]);
+    const hiddenArchivedPortfolios = portfolioGrouping
+        ? structure.portfolios.filter((p) => p.archived_at && p.user_id === portfolioGrouping.ownerUserId && !portfolioGrouping.groups.some((g) => g.portfolioId === p.id))
+        : [];
+    const managedPortfolio = managedPortfolioId ? portfolioById.get(managedPortfolioId) ?? null : null;
+    const handleStructureChanged = (message: string) => {
+        setPortfolioNotice(message);
+        void structure.reload();
+    };
     /** Lista exibida: com a flag desligada é exatamente `investments`. */
     const listedInvestments = portfolioGrouping ? filterPositions(investments, portfolioGrouping, portfolioFilter) : investments;
     const series = useMemo(() => buildMonthlySeries(viewReady ? history : [], currentKey, HISTORY_MONTHS), [history, currentKey, viewReady]);
@@ -359,6 +373,13 @@ const InvestmentsView: React.FC = () => {
                 </>
             )}
 
+            {portfoliosEnabled && viewReady && portfolioNotice && (
+                <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-sm text-emerald-100">
+                    <span>{portfolioNotice}</span>
+                    <button onClick={() => setPortfolioNotice(null)} aria-label="Fechar aviso" className="rounded-lg px-2 text-emerald-200 hover:bg-emerald-400/10">×</button>
+                </div>
+            )}
+
             {portfoliosEnabled && viewReady && (
                 <PortfolioShelf
                     status={structure.status}
@@ -368,6 +389,9 @@ const InvestmentsView: React.FC = () => {
                     filter={portfolioFilter}
                     onFilterChange={setPortfolioFilter}
                     onRetry={() => { void structure.reload(); }}
+                    onCreatePortfolio={() => setPortfolioForm({ portfolioId: null })}
+                    onManagePortfolio={setManagedPortfolioId}
+                    hiddenArchived={hiddenArchivedPortfolios}
                 />
             )}
 
@@ -642,6 +666,34 @@ const InvestmentsView: React.FC = () => {
                     onClose={() => setIsImportModalOpen(false)}
                     referenceMonth={currentDate}
                     onImportSuccess={() => fetchInvestments(currentDate)}
+                />
+            )}
+
+            {portfoliosEnabled && user && managedPortfolio && (
+                <PortfolioManagerDrawer
+                    portfolio={managedPortfolio}
+                    holdings={structure.holdings.filter((h) => h.portfolio_id === managedPortfolio.id)}
+                    ownerUserId={user.id}
+                    ownerLabel="Você"
+                    monthLabel={formatMonthLabel(currentKey)}
+                    positionsThisMonth={portfolioGrouping?.groups.find((g) => g.portfolioId === managedPortfolio.id)?.positionIds.length ?? 0}
+                    onClose={() => setManagedPortfolioId(null)}
+                    onRename={() => setPortfolioForm({ portfolioId: managedPortfolio.id })}
+                    onChanged={handleStructureChanged}
+                />
+            )}
+
+            {portfoliosEnabled && user && portfolioForm && (
+                <PortfolioFormModal
+                    isOpen
+                    ownerUserId={user.id}
+                    ownerLabel="Você"
+                    portfolio={portfolioForm.portfolioId ? portfolioById.get(portfolioForm.portfolioId) ?? null : null}
+                    onClose={() => setPortfolioForm(null)}
+                    onSaved={(saved) => {
+                        setPortfolioForm(null);
+                        handleStructureChanged(portfolioForm.portfolioId ? `Carteira renomeada para "${saved.name}".` : `Carteira "${saved.name}" criada.`);
+                    }}
                 />
             )}
 

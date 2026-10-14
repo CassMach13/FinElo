@@ -144,6 +144,7 @@ describe('fronteira da V2-B1B: só a interface de carteiras (atrás da flag) usa
       'src/components/investments/PortfolioFormModal.tsx',
       'src/components/investments/PortfolioManagerDrawer.tsx',
       'src/components/investments/ClassifyInvestmentModal.tsx',
+      'src/components/investments/portfolioMessages.ts',
     ].map((f) => resolve(f));
     const offenders = walk('src')
       .filter((f) => !f.endsWith('investmentStructureService.ts'))

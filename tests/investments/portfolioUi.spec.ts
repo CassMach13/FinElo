@@ -150,3 +150,71 @@ describe('integração na view: flag desligada = tela atual', () => {
     expect(view).not.toMatch(/summarizePortfolio\([^)]*listedInvestments|selectMonthPositions\(listedInvestments/);
   });
 });
+
+describe('CRUD de carteiras e ativos (apresentação e regras)', () => {
+  const portfolio = pf('p1', 'Reserva');
+  const drawerBase = { holdings: [], ownerUserId: OWNER, ownerLabel: 'Você', monthLabel: 'setembro de 2026', positionsThisMonth: 2, onClose: () => {}, onRename: () => {}, onChanged: () => {} };
+  const holding = { id: 'h1', user_id: OWNER, portfolio_id: 'p1', display_name: 'CDB Banco X', institution_ref: 'XP', product_type_ref: null, created_by: OWNER, created_at: '', updated_by: null, updated_at: '' };
+
+  it('formulário: criar (vazio, botão desabilitado) e renomear (nome atual, sem mudança = desabilitado)', async () => {
+    const { default: PortfolioFormModal } = await import('../../src/components/investments/PortfolioFormModal');
+    const props = { isOpen: true, ownerUserId: OWNER, ownerLabel: 'Ione', onClose: () => {}, onSaved: () => {} };
+    const create = renderToStaticMarkup(React.createElement(PortfolioFormModal, props));
+    expect(create).toContain('Nova carteira');
+    expect(create).toContain('Ione');
+    expect(create).toMatch(/<button type="submit" disabled=""/);
+    expect(create).toContain('maxLength="80"');
+    const rename = renderToStaticMarkup(React.createElement(PortfolioFormModal, { ...props, portfolio }));
+    expect(rename).toContain('Renomear carteira');
+    expect(rename).toContain('value="Reserva"');
+    expect(rename).toMatch(/<button type="submit" disabled=""/);
+    expect(renderToStaticMarkup(React.createElement(PortfolioFormModal, { ...props, isOpen: false }))).toBe('');
+  });
+
+  it('gestão: ativa oferece arquivar e novo ativo; arquivada oferece desarquivar e não aceita ativos novos; nada é excluído', async () => {
+    const { default: Drawer } = await import('../../src/components/investments/PortfolioManagerDrawer');
+    const active = renderToStaticMarkup(React.createElement(Drawer, { ...drawerBase, portfolio, holdings: [holding] }));
+    expect(active).toContain('Arquivar');
+    expect(active).toContain('Novo ativo');
+    expect(active).toContain('CDB Banco X');
+    expect(active).toContain('XP');
+    expect(active).toContain('2 posições em setembro de 2026');
+    const archived = renderToStaticMarkup(React.createElement(Drawer, { ...drawerBase, portfolio: pf('p1', 'Reserva', '2026-10-01') }));
+    expect(archived).toContain('Desarquivar');
+    expect(archived).not.toContain('Novo ativo');
+    expect(archived).toContain('data-holdings-empty');
+    for (const html of [active, archived]) expect(html).not.toMatch(/Excluir|Apagar|delete/i);
+  });
+
+  it('arquivar só depois da confirmação, com aviso das posições; o componente nunca escreve em investments', () => {
+    const src = read('src/components/investments/PortfolioManagerDrawer.tsx');
+    const handler = src.slice(src.indexOf('const handleArchive'), src.indexOf('const handleSaveHolding'));
+    expect(handler.indexOf('appConfirm(archiveConfirmation(')).toBeGreaterThan(-1);
+    expect(handler.indexOf('if (ok)')).toBeGreaterThan(handler.indexOf('appConfirm('));
+    expect(handler.indexOf('archivePortfolio(')).toBeGreaterThan(handler.indexOf('if (ok)'));
+    for (const f of ['PortfolioManagerDrawer', 'PortfolioFormModal']) {
+      expect(read(`src/components/investments/${f}.tsx`)).not.toMatch(/from\('investments'\)|investmentService|supabase/);
+    }
+  });
+
+  it('mensagens: aviso de arquivamento conta as posições do mês e garante a preservação; erros não vazam detalhes', async () => {
+    const { archiveConfirmation, structureErrorMessage } = await import('../../src/components/investments/portfolioMessages');
+    const { InvestmentStructureError } = await import('../../src/services/investmentStructureService');
+    expect(archiveConfirmation('Reserva', 3, 'setembro de 2026')).toContain('3 posições de setembro de 2026 continuam nela');
+    expect(archiveConfirmation('Reserva', 1, 'setembro de 2026')).toContain('1 posição de setembro de 2026 continua nela');
+    expect(archiveConfirmation('Reserva', 0, 'setembro de 2026')).toContain('preservadas');
+    expect(archiveConfirmation('Reserva', 2, 'x')).toContain('poderá ser desarquivada');
+    expect(structureErrorMessage(new InvestmentStructureError('duplicate_name'))).toBe('Já existe uma carteira ativa com esse nome.');
+    expect(structureErrorMessage(new Error('violates constraint "investments_pkey"'))).not.toMatch(/constraint|investments/);
+  });
+
+  it('faixa: arquivadas sem posições no mês ficam acessíveis para desarquivar', () => {
+    const grouping = groupPositionsByPortfolio({ positions: [], portfolios: [], monthKey: MONTH, ownerUserId: OWNER });
+    const html = renderToStaticMarkup(React.createElement(PortfolioShelf, {
+      status: 'ready', grouping, monthLabel: 'setembro de 2026', ownerLabel: 'Você', filter: null, onFilterChange: () => {}, onRetry: () => {},
+      onManagePortfolio: () => {}, hiddenArchived: [{ id: 'p9', name: 'Viagem 2024' }],
+    }));
+    expect(html).toContain('Carteiras arquivadas sem posições em setembro de 2026 (1)');
+    expect(html).toContain('Viagem 2024');
+  });
+});

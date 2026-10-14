@@ -18,6 +18,8 @@ export interface PortfolioShelfProps {
   onRetry: () => void;
   onCreatePortfolio?: () => void;
   onManagePortfolio?: (portfolioId: string) => void;
+  /** Arquivadas sem posições no mês consultado: ficam fora dos cartões, mas acessíveis para desarquivar. */
+  hiddenArchived?: Array<{ id: string; name: string }>;
 }
 
 const card = 'min-w-[11rem] snap-start rounded-xl border px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight';
@@ -27,7 +29,7 @@ const cardState = (selected: boolean) =>
 const count = (n: number) => (n === 1 ? '1 posição' : `${n} posições`);
 
 const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
-  status, grouping, monthLabel, ownerLabel, filter, onFilterChange, onRetry, onCreatePortfolio, onManagePortfolio,
+  status, grouping, monthLabel, ownerLabel, filter, onFilterChange, onRetry, onCreatePortfolio, onManagePortfolio, hiddenArchived = [],
 }) => {
   const groups = grouping?.groups ?? [];
   const hasPortfolios = groups.length > 0;
@@ -112,6 +114,18 @@ const PortfolioShelf: React.FC<PortfolioShelfProps> = ({
               <span className="block text-xs text-gray-500">{count(grouping.unassigned.positionIds.length)}</span>
             </button>
           </div>
+          {onManagePortfolio && hiddenArchived.length > 0 && (
+            <details data-hidden-archived="" className="mt-3 text-sm text-gray-400">
+              <summary className="cursor-pointer select-none hover:text-gray-200">Carteiras arquivadas sem posições em {monthLabel} ({hiddenArchived.length})</summary>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {hiddenArchived.map((p) => (
+                  <li key={p.id}>
+                    <button type="button" onClick={() => onManagePortfolio(p.id)} className="max-w-[16rem] truncate rounded-lg border border-slate-700/60 px-3 py-1 text-xs text-gray-300 hover:bg-slate-700/60" title={p.name}>{p.name}</button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </>
       ) : null}
     </section>
