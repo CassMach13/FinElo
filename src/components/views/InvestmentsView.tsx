@@ -32,9 +32,16 @@ import {
     type PortfolioRow,
 } from '../../domain/investments/portfolioOverview';
 import { createPortfolioFetcher, isSnapshotReady, resolveInitialMonthKey, HISTORY_MONTHS, type PortfolioLoaderDeps } from '../../services/investmentPortfolioLoader';
+import { isInvestmentPortfoliosEnabled } from '../../services/featureFlagService';
+import { useInvestmentStructure } from '../../hooks/useInvestmentStructure';
+import { filterPositions, groupPositionsByPortfolio, type PortfolioFilter } from '../../domain/investments/portfolioGrouping';
+import PortfolioShelf from '../investments/PortfolioShelf';
+import ClassificationBadge from '../investments/ClassificationBadge';
 
 const InvestmentsView: React.FC = () => {
     const { user, isWealth, setCurrentView } = useAppStore();
+    /** V2-B1B: carteiras e posições. Desligada = a tela de sempre, sem nenhuma consulta às tabelas novas. */
+    const portfoliosEnabled = isWealth && isInvestmentPortfoliosEnabled(user);
     const [currentDate, setCurrentDate] = useState(() => {
         const now = new Date();
         return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -53,6 +60,9 @@ const InvestmentsView: React.FC = () => {
     /** Sessão cujo mês inicial já foi resolvido (a primeira busca espera por isso). */
     const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
     const [autoSelectedKey, setAutoSelectedKey] = useState<string | null>(null);
+
+    const [portfolioFilter, setPortfolioFilter] = useState<PortfolioFilter>(null);
+    const structure = useInvestmentStructure(portfoliosEnabled, user?.id);
 
     const guardRef = useRef(createRequestGuard());
     const liveUserIdRef = useRef('');
@@ -149,6 +159,14 @@ const InvestmentsView: React.FC = () => {
             narrative: buildPortfolioNarrative({ monthKey: currentKey, positions, institutions, types, maturities }),
         };
     }, [investments, currentKey, todayDate]);
+    const portfolioGrouping = useMemo(() => {
+        if (!portfoliosEnabled || !viewReady || !user || !structure.loaded || structure.ownerUserId !== user.id) return null;
+        return groupPositionsByPortfolio({ positions: investments, portfolios: structure.portfolios, monthKey: currentKey, ownerUserId: user.id });
+    }, [portfoliosEnabled, viewReady, user?.id, structure.loaded, structure.ownerUserId, structure.portfolios, investments, currentKey]);
+    const portfolioById = useMemo(() => new Map(structure.portfolios.map((p) => [p.id, p])), [structure.portfolios]);
+    const holdingById = useMemo(() => new Map(structure.holdings.map((h) => [h.id, h])), [structure.holdings]);
+    /** Lista exibida: com a flag desligada é exatamente `investments`. */
+    const listedInvestments = portfolioGrouping ? filterPositions(investments, portfolioGrouping, portfolioFilter) : investments;
     const series = useMemo(() => buildMonthlySeries(viewReady ? history : [], currentKey, HISTORY_MONTHS), [history, currentKey, viewReady]);
 
     const handlePrevMonth = () => {
@@ -274,6 +292,20 @@ const InvestmentsView: React.FC = () => {
         return parts.length ? parts.join(' · ') : '-';
     };
 
+    const renderClassification = (inv: Investment) => {
+        const portfolio = inv.portfolio_id ? portfolioById.get(inv.portfolio_id) : undefined;
+        const holding = inv.holding_id ? holdingById.get(inv.holding_id) : undefined;
+        return (
+            <div className="mt-1 max-w-full">
+                <ClassificationBadge
+                    portfolioName={inv.portfolio_id ? portfolio?.name ?? 'Carteira indisponível' : null}
+                    archived={!!portfolio?.archived_at}
+                    holdingName={holding?.display_name ?? null}
+                />
+            </div>
+        );
+    };
+
     const totalBalance = investments.reduce((sum, inv) => sum + Number(inv.balance), 0);
     const uniqueInstitutions = Array.from(new Set(investments.map(inv => inv.institution))) as string[];
 
@@ -325,6 +357,18 @@ const InvestmentsView: React.FC = () => {
                     <PortfolioMaturities agenda={insights.maturities} monthKey={currentKey} />
                     <PortfolioInsightsNarrative lines={insights.narrative} />
                 </>
+            )}
+
+            {portfoliosEnabled && viewReady && (
+                <PortfolioShelf
+                    status={structure.status}
+                    grouping={portfolioGrouping}
+                    monthLabel={formatMonthLabel(currentKey)}
+                    ownerLabel="Você"
+                    filter={portfolioFilter}
+                    onFilterChange={setPortfolioFilter}
+                    onRetry={() => { void structure.reload(); }}
+                />
             )}
 
             <div className="bg-secondary rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl">
@@ -423,11 +467,16 @@ const InvestmentsView: React.FC = () => {
                                 Copiar do mês anterior
                             </button>
                         </div>
+                    ) : listedInvestments.length === 0 ? (
+                        <div data-portfolio-filter-empty="" className="text-center py-12">
+                            <p className="text-gray-400 mb-4">Nenhuma posição neste filtro em {formatMonthLabel(currentKey)}.</p>
+                            <button onClick={() => setPortfolioFilter(null)} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700/50">Ver todas as posições</button>
+                        </div>
                     ) : (
                         <>
                             {/* Mobile Card View */}
                             <div className="block sm:hidden space-y-3 mb-6">
-                                {investments.map((inv) => (
+                                {listedInvestments.map((inv) => (
                                     <div key={inv.id} className="bg-slate-800/50 p-4 rounded-xl shadow-sm border border-slate-700/50 flex flex-col gap-2 relative group overflow-hidden">
                                         {/* Institution/Type Accent line */}
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-highlight/70"></div>
@@ -450,6 +499,7 @@ const InvestmentsView: React.FC = () => {
                                                         </span>
                                                     )}
                                                 </div>
+                                                {portfolioGrouping && renderClassification(inv)}
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-2">
                                                 <InvestmentBalanceDisplay
@@ -508,7 +558,7 @@ const InvestmentsView: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {investments.map((inv) => (
+                                        {listedInvestments.map((inv) => (
                                             <tr key={inv.id} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors group">
                                                 <td className="py-4 pl-4 text-gray-400 text-sm font-medium">{inv.institution}</td>
                                                 <td className="py-4 text-white">
@@ -517,6 +567,7 @@ const InvestmentsView: React.FC = () => {
                                                         <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700/50 text-[10px] w-fit text-gray-400">
                                                             {inv.product_type}
                                                         </span>
+                                                        {portfolioGrouping && renderClassification(inv)}
                                                     </div>
                                                 </td>
                                                 <td className="py-4 text-gray-300 text-sm max-w-[140px]">{formatYieldCell(inv)}</td>
