@@ -27,8 +27,8 @@ const fakeDeps = (links: any[], visibleOwners: string[]) => {
 };
 
 describe('descoberta de proprietários (contrato)', () => {
-  it('proprietário sem contas nem transações: quem me convidou aparece direto pelo vínculo aceito', async () => {
-    const { deps } = fakeDeps([link(A, EMAIL[B], 'accepted')], []);
+  it('proprietário sem contas nem transações: quem me convidou aparece pelo vínculo aceito e dados visíveis pela RLS', async () => {
+    const { deps } = fakeDeps([link(A, EMAIL[B], 'accepted')], [A]);
     const options = await discoverInvestmentOwners(deps, { userId: B, email: EMAIL[B] });
     expect(options.map((o) => [o.userId, o.isSelf])).toEqual([[B, true], [A, false]]);
     expect(options[1].label).toBe('A');
