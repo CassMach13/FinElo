@@ -1,52 +1,131 @@
 import type { FamilyMember } from '../types';
-import { acceptedFamilyLinks, mapUserIdsToEmails, resolveOwnerDisplayLabel } from '../utils/familyOwnerContext';
-import type { FamilyMemberNicknames } from '../utils/familyMemberNicknames';
+import { acceptedFamilyLinks, resolveOwnerDisplayLabel } from '../utils/familyOwnerContext';
+import { getOtherFamilyMemberEmail, normalizeFamilyMemberEmail, type FamilyMemberNicknames } from '../utils/familyMemberNicknames';
 import type { InvestmentOwnerOption } from '../domain/investments/ownerScope';
 
-/**
- * Proprietários que a sessão pode consultar na tela de Investimentos (V2-B1B, D3). Não depende de contas nem de
- * transações: um familiar que só tem investimentos também aparece.
- *
- * Usa o MESMO contrato de `has_family_access` (vínculo `accepted`, bidirecional) e deixa a RLS decidir:
- *  - quem me convidou e foi aceito: o `owner_id` do vínculo é o proprietário (vem direto de `family_members`);
- *  - quem eu convidei: o vínculo só tem o e-mail, então o id vem das posições que a RLS me deixa ler.
- * Sem nenhum vínculo aceito, nada é consultado além de `family_members` e a única opção é a própria sessão.
- * Vínculo recusado, pendente ou revogado não gera opção: a RLS esconde as posições e o vínculo não é `accepted`.
- */
 export interface OwnerDiscoveryDeps {
   listFamilyLinks(): Promise<FamilyMember[]>;
-  /** Um `user_id` de posição visível pela RLS fora da lista `excluding`, ou null. */
+  /** Investimentos permite consultar um titular direto do vínculo aceito mesmo sem posições: estado vazio. */
+  allowEmptyLinkedOwners?: boolean;
+  /** Um user_id visível pela RLS fora da lista excluding, ou null. */
   findVisibleInvestmentOwner(excluding: string[]): Promise<string | null>;
 }
 
+export interface OwnerDiscoveryResult {
+  options: InvestmentOwnerOption[];
+  linkedFamilyCount: number;
+  unavailableFamilyCount: number;
+  unresolvedFamilyCount: number;
+  status: 'loading' | 'ready' | 'error';
+}
+
+export const selfOwnerDiscovery = (userId: string, status: OwnerDiscoveryResult['status']): OwnerDiscoveryResult => ({
+  options: [{ userId, label: 'Você', isSelf: true }],
+  linkedFamilyCount: 0,
+  unavailableFamilyCount: 0,
+  unresolvedFamilyCount: 0,
+  status,
+});
+
+/**
+ * Vínculo aceito e proprietário financeiro são fatos distintos. Contamos familiares pelo contrato familiar,
+ * sem exigir dados. As opções exigem identidade não ambígua no vínculo e respeitam a RLS. Investimentos também permite o estado vazio de um titular direto autorizado.
+ * Nunca associamos vários IDs a e-mails pela ordem em que as consultas os devolvem.
+ */
+export async function discoverOwnerContext(
+  deps: OwnerDiscoveryDeps,
+  session: { userId: string; email: string },
+  nicknames?: FamilyMemberNicknames,
+  knownOwners: ReadonlyArray<{ userId: string; label: string }> = []
+): Promise<OwnerDiscoveryResult> {
+  const result = selfOwnerDiscovery(session.userId, 'ready');
+  if (!session.userId || !session.email.trim()) return result;
+  const familyMembers = await deps.listFamilyLinks();
+  const links = acceptedFamilyLinks(familyMembers, session.userId, session.email);
+  const me = normalizeFamilyMemberEmail(session.email);
+  const peers = new Map<string, { email: string; ids: Set<string> }>();
+  for (const link of links) {
+    const email = getOtherFamilyMemberEmail({ member: link, currentUserId: session.userId, currentUserEmail: session.email }) ?? '';
+    if (email === me) continue;
+    const peerKey = email || `unresolved:${link.owner_id === session.userId ? link.id : link.owner_id}`;
+    const peer = peers.get(peerKey) ?? { email, ids: new Set<string>() };
+    if (link.owner_id !== session.userId && normalizeFamilyMemberEmail(link.member_email) === me) {
+      peer.ids.add(link.owner_id);
+    }
+    peers.set(peerKey, peer); // convite e recíproco contam a mesma pessoa uma única vez
+  }
+  result.linkedFamilyCount = peers.size;
+  if (peers.size === 0) return result;
+
+  const linkedIds = new Set([...peers.values()].flatMap((peer) => [...peer.ids]));
+  const visibleIds = new Set(knownOwners.map((o) => o.userId).filter((id) => id && id !== session.userId && linkedIds.has(id)));
+  // Limite pelo número de familiares, sem varrer o banco. Cada retorno é uma leitura sob a RLS da sessão.
+  for (let i = 0; i < peers.size; i += 1) {
+    const found = await deps.findVisibleInvestmentOwner([session.userId, ...visibleIds]);
+    if (!found || found === session.userId || visibleIds.has(found)) break;
+    visibleIds.add(found);
+  }
+
+  const idCounts = new Map<string, number>();
+  for (const peer of peers.values()) for (const id of peer.ids) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+  const identities = new Map<string, string>();
+  for (const peer of peers.values()) {
+    const [id] = [...peer.ids];
+    if (peer.email && peer.ids.size === 1 && idCounts.get(id) === 1) identities.set(peer.email, id);
+  }
+  const unidentifiedPeers = [...peers.values()].filter((peer) => peer.email && peer.ids.size === 0);
+  const unidentifiedIds = [...visibleIds].filter((id) => !idCounts.has(id));
+  // Convite só com e-mail: inferência única, sob o contrato accepted + RLS. Duas possibilidades nunca são pareadas.
+  if (unidentifiedPeers.length === 1 && unidentifiedIds.length === 1) {
+    identities.set(unidentifiedPeers[0].email, unidentifiedIds[0]);
+  }
+
+  const others: InvestmentOwnerOption[] = [];
+  let availableFamilyCount = 0;
+  for (const peer of peers.values()) {
+    const id = identities.get(peer.email);
+    if (id && visibleIds.has(id)) availableFamilyCount += 1;
+    if (id && (visibleIds.has(id) || (deps.allowEmptyLinkedOwners && peer.ids.has(id)))) {
+      others.push({ userId: id, label: resolveOwnerDisplayLabel(peer.email, false, nicknames), isSelf: false });
+    }
+  }
+  others.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  result.options.push(...others);
+  result.unavailableFamilyCount = peers.size - availableFamilyCount;
+  result.unresolvedFamilyCount = peers.size - identities.size;
+  return result;
+}
+
+/** Compatibilidade para consumidores que só precisam das opções. */
 export async function discoverInvestmentOwners(
   deps: OwnerDiscoveryDeps,
   session: { userId: string; email: string },
   nicknames?: FamilyMemberNicknames
 ): Promise<InvestmentOwnerOption[]> {
-  const self: InvestmentOwnerOption = { userId: session.userId, label: 'Você', isSelf: true };
-  const familyMembers = await deps.listFamilyLinks();
-  const links = acceptedFamilyLinks(familyMembers, session.userId, session.email);
-  if (links.length === 0) return [self];
+  return (await discoverOwnerContext(deps, session, nicknames)).options;
+}
 
-  const ids: string[] = [];
-  for (const link of links) {
-    if (link.owner_id !== session.userId && !ids.includes(link.owner_id)) ids.push(link.owner_id);
-  }
-  // Cada proprietário autorizado corresponde a um vínculo aceito: no máximo uma busca por vínculo, mais uma que
-  // confirma que não há outro.
-  for (let i = 0; i < links.length; i += 1) {
-    const found = await deps.findVisibleInvestmentOwner([session.userId, ...ids]);
-    if (!found) break;
-    ids.push(found);
-  }
-
-  const emails = mapUserIdsToEmails([session.userId, ...ids], session.userId, session.email, familyMembers);
-  const others = ids
-    .map((userId, index) => {
-      const email = emails.get(userId) ?? `membro-${index + 1}`;
-      return { userId, label: resolveOwnerDisplayLabel(email, false, nicknames), isSelf: false };
-    })
-    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
-  return [self, ...others];
+/** Falha fecha as opções; cleanup invalida inclusive A → logout → A e componentes desmontados. */
+export function createOwnerOptionsLoader(
+  deps: OwnerDiscoveryDeps,
+  onOptions: (sessionUserId: string, options: InvestmentOwnerOption[], context: OwnerDiscoveryResult) => void
+) {
+  let latest = 0;
+  const load = async (
+    session: { userId: string; email: string },
+    nicknames?: FamilyMemberNicknames,
+    knownOwners?: ReadonlyArray<{ userId: string; label: string }>
+  ) => {
+    const request = ++latest;
+    let context: OwnerDiscoveryResult;
+    try {
+      context = await discoverOwnerContext(deps, session, nicknames, knownOwners);
+    } catch (error) {
+      console.warn('[OwnerScope] Falha ao verificar familiares:', error);
+      context = selfOwnerDiscovery(session.userId, 'error');
+    }
+    if (request === latest) onOptions(session.userId, context.options, context);
+  };
+  load.invalidate = () => { latest += 1; };
+  return load;
 }

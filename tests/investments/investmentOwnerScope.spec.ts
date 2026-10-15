@@ -60,10 +60,10 @@ describe('proprietário consultado', () => {
 });
 
 describe('seletor (apresentação)', () => {
-  it('um único proprietário: nada é exibido; com familiares, lista com "Você" e o nome do titular', () => {
-    expect(renderToStaticMarkup(React.createElement(OwnerSelectorView, { options: [options[0]], value: 'me', onChange: () => {} }))).toBe('');
+  it('um único proprietário: escopo visível; com familiares, lista com "Você" e o nome do titular', () => {
+    expect(renderToStaticMarkup(React.createElement(OwnerSelectorView, { options: [options[0]], value: 'me', onChange: () => {} }))).toContain('Visão:');
     const html = renderToStaticMarkup(React.createElement(OwnerSelectorView, { options, value: 'ione', onChange: () => {} }));
-    expect(html).toContain('Investimentos de');
+    expect(html).toContain('Visão:');
     expect(html).toContain('<option value="me">Você</option>');
     expect(html).toContain('<option value="ione" selected="">Ione</option>');
   });
@@ -99,7 +99,7 @@ describe('integração na view', () => {
   });
 
   it('nova sessão volta ao próprio titular; troca de proprietário fecha filtro, modais e avisos', () => {
-    const sessionEffect = view.slice(view.indexOf('// Nova sessão'), view.indexOf('}, [user?.id]);'));
+    const sessionEffect = view.slice(view.indexOf('// Nova sessão'), view.indexOf('}, [user?.id]);', view.indexOf('// Nova sessão')));
     expect(sessionEffect).toContain('setSelectedOwnerId(null);');
     const ownerEffect = view.slice(view.indexOf('// Outro proprietário'), view.indexOf('}, [viewOwnerId]);'));
     for (const reset of ['setPortfolioFilter(null)', 'setClassifyingId(null)', 'setManagedPortfolioId(null)', 'setPortfolioForm(null)', 'setPortfolioNotice(null)']) {

@@ -3,29 +3,29 @@ import { resolve } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DASHBOARD_OWNER_PROBE_TABLES, DashboardOwnerSelectorView, createDashboardOwnerDiscoveryDeps, mergeOwnerOptions } from '../../src/components/dashboard/DashboardOwnerSelector';
-import { discoverInvestmentOwners } from '../../src/services/investmentOwnerDiscovery';
+import { DASHBOARD_OWNER_PROBE_TABLES, DashboardOwnerSelectorView, createDashboardOwnerDiscoveryDeps } from '../../src/components/dashboard/DashboardOwnerSelector';
+import { discoverOwnerContext, discoverInvestmentOwners } from '../../src/services/investmentOwnerDiscovery';
 import { FAMILY_SCOPE, SELF_SCOPE } from '../../src/domain/dashboard/dashboardOwnerScope';
 
 const read = (p: string) => readFileSync(resolve(p), 'utf8').replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
 const view = read('src/components/views/DashboardView.tsx');
 
 describe('seletor do Dashboard', () => {
-  it('opções: "Você" primeiro, familiares sem repetir (descoberta ∪ contas/transações), ordenados', () => {
-    const merged = mergeOwnerOptions(
-      'me',
-      [{ userId: 'ana', label: 'Ana', isSelf: false }, { userId: 'me', label: 'x', isSelf: true }],
-      [{ userId: 'ana', label: 'Ana (contas)' }, { userId: 'beto', label: 'Beto' }]
-    );
-    expect(merged).toEqual([
+  it('titulares conhecidos precisam de vínculo aceito resolvido; o apelido vem do vínculo', async () => {
+    const result = await discoverOwnerContext({
+      listFamilyLinks: async () => [{ owner_id: 'ana', owner_email: 'ana@x.test', member_email: 'me@x.test', status: 'accepted' }] as any,
+      findVisibleInvestmentOwner: async () => null,
+    }, { userId: 'me', email: 'me@x.test' }, { 'ana@x.test': 'Ione' }, [
+      { userId: 'ana', label: 'antigo' }, { userId: 'estranho', label: 'sem vínculo' },
+    ]);
+    expect(result.options).toEqual([
       { userId: 'me', label: 'Você', isSelf: true },
-      { userId: 'ana', label: 'Ana', isSelf: false },
-      { userId: 'beto', label: 'Beto', isSelf: false },
+      { userId: 'ana', label: 'Ione', isSelf: false },
     ]);
   });
 
-  it('um único proprietário: nada é exibido; com familiares, "Família (consolidado)" é uma opção explícita no fim', () => {
-    expect(renderToStaticMarkup(React.createElement(DashboardOwnerSelectorView, { options: [{ userId: 'me', label: 'Você', isSelf: true }], value: SELF_SCOPE, onChange: () => {} }))).toBe('');
+  it('um único proprietário: Visão Você continua visível; com familiares, "Família (consolidado)" é uma opção explícita no fim', () => {
+    expect(renderToStaticMarkup(React.createElement(DashboardOwnerSelectorView, { options: [{ userId: 'me', label: 'Você', isSelf: true }], value: SELF_SCOPE, onChange: () => {} }))).toContain('Visão:');
     const html = renderToStaticMarkup(React.createElement(DashboardOwnerSelectorView, {
       options: [{ userId: 'me', label: 'Você', isSelf: true }, { userId: 'ana', label: 'Ana', isSelf: false }],
       value: SELF_SCOPE,

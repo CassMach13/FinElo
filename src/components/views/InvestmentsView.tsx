@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert } from '../../hooks/useDialogStore';
 import { Investment } from '../../types';
@@ -49,8 +49,26 @@ const InvestmentsView: React.FC = () => {
     /** V2-B1B: carteiras e posições. Desligada = a tela de sempre, sem nenhuma consulta às tabelas novas. */
     const portfoliosEnabled = isWealth && isInvestmentPortfoliosEnabled(user);
     /** D3: proprietário consultado. Sem a flag (ou sem seleção válida) é sempre a própria sessão, como na V2-A. */
-    const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
-    const [ownerOptions, setOwnerOptions] = useState<InvestmentOwnerOption[]>([]);
+    const [ownerSessionState, setOwnerSessionState] = useState<{
+        sessionUserId: string; selectedOwnerId: string | null; options: InvestmentOwnerOption[];
+    } | null>(null);
+    const currentOwnerState = ownerSessionState?.sessionUserId === user?.id ? ownerSessionState : null;
+    const selectedOwnerId = currentOwnerState?.selectedOwnerId ?? null;
+    const ownerOptions = currentOwnerState?.options ?? [];
+    const setSelectedOwnerId = useCallback((id: string | null) => {
+        if (!user?.id) { setOwnerSessionState(null); return; }
+        setOwnerSessionState((state) => ({
+            sessionUserId: user.id, selectedOwnerId: id,
+            options: state?.sessionUserId === user.id ? state.options : [],
+        }));
+    }, [user?.id]);
+    const setOwnerOptions = useCallback((options: InvestmentOwnerOption[]) => {
+        if (!user?.id) return;
+        setOwnerSessionState((state) => ({
+            sessionUserId: user.id, options,
+            selectedOwnerId: state?.sessionUserId === user.id ? state.selectedOwnerId : null,
+        }));
+    }, [user?.id]);
     const viewOwnerId = resolveViewOwner(user?.id, portfoliosEnabled ? selectedOwnerId : null, ownerOptions);
     const viewingOther = !!user && !!viewOwnerId && viewOwnerId !== user.id;
     /** Escopo de cada busca: sessão + proprietário. Resposta de outro escopo nunca é exibida. */
