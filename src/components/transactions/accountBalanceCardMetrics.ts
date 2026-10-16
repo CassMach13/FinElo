@@ -261,6 +261,9 @@ export function computeAccountCardDisplay(
       );
     }
 
+    // Preserve Transactions' pre-V2 inputs and fallback independently of the
+    // net-worth flag. Coverage guards belong to the Dashboard adapter; both
+    // integrations still use the same canonical history builder and ledger.
     const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
       accountId: account.id,
       account,

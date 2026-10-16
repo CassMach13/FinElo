@@ -1,3 +1,4 @@
+import { DEFAULT_CARD_PAYMENT_KEYWORDS, DEFAULT_CARD_CREDIT_KEYWORDS } from '../../services/accountCardEconomics';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore, BACKGROUND_SYNC_MIN_INTERVAL_MS } from '../../hooks/useAppStore';
@@ -147,23 +148,6 @@ import {
   type TransactionPeriodPreset,
   type TransactionViewScope,
 } from '../../utils/transactionPeriodFilters';
-
-const DEFAULT_CARD_PAYMENT_KEYWORDS = [
-  'pagamentos válidos normais',
-  'pagamentos validos normais',
-  'pagamentos válidos',
-  'pagamentos validos',
-  'pagamento de fatura',
-  'pagto de fatura',
-];
-
-const DEFAULT_CARD_CREDIT_KEYWORDS = [
-  'estorno',
-  'reembolso',
-  'devolu',
-  'cancelamento',
-  'ajuste positivo',
-];
 
 const normalizeRuleText = (value: string) =>
   value

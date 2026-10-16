@@ -211,3 +211,14 @@ export const isDashboardOwnerScopeEnabled = (user?: UserWithMetadata): boolean =
   if (import.meta.env.VITE_DASHBOARD_OWNER_SCOPE_ENABLED !== 'true') return false;
   return !String(import.meta.env.VITE_SUPABASE_URL ?? '').includes(PRODUCTION_SUPABASE_REF);
 };
+
+/** Presentation rollout only. Administrative opt-out wins; no client opt-in in production. */
+export const isNetWorthComponentsV2Enabled = (user?: UserWithMetadata): boolean => {
+  if (!user?.id) return false;
+  if (user.app_metadata?.net_worth_components_v2_enabled === false
+    || user.app_metadata?.net_worth_components_v2_disabled === true
+    || user.user_metadata?.net_worth_components_v2_disabled === true) return false;
+  if (user.app_metadata?.net_worth_components_v2_enabled === true) return true;
+  return import.meta.env.VITE_NET_WORTH_COMPONENTS_V2_ENABLED === 'true'
+    && !String(import.meta.env.VITE_SUPABASE_URL ?? '').includes(PRODUCTION_SUPABASE_REF);
+};

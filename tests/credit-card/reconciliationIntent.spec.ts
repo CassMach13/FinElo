@@ -1,3 +1,4 @@
+import { computeAccountCardDisplay } from '../../src/components/transactions/accountBalanceCardMetrics';
 import { describe, expect, it } from 'vitest';
 import {
   abrirIntencao,
@@ -199,17 +200,25 @@ describe('o card projeta com as mesmas entradas do servidor', () => {
    * recalculava certo, e o card seguia mostrando «A CONCILIAR» depois do
    * reload: `computeAccountCardDisplay` chamava a projeção sem as resoluções.
    *
-   * O teste é sobre a FORMA do contrato — que a opção existe e chega à
-   * projeção — porque o efeito financeiro em si já está coberto em
-   * `resolutionsClearDelta`.
+   * O teste exerce o comportamento pela superfície, preservando a
+   * integração anterior de Transações com o mesmo núcleo do patrimônio.
    */
-  it('a opção de resoluções existe e é repassada à projeção', async () => {
-    const fonte = await import('node:fs').then((fs) =>
-      fs.readFileSync('src/components/transactions/accountBalanceCardMetrics.ts', 'utf8')
-    );
-
-    expect(fonte).toMatch(/reconciliationResolutions\?: Record<string, ReconciliationResolutionInput\[\]>/);
-    expect(fonte).toMatch(/resolutionsByMonth: reconciliationResolutions/);
+  it('a opção de resoluções chega ao motor compartilhado e encerra somente o suspense', async () => {
+    const account = { id: 'card', user_id: 'owner', Nome_Conta: 'Cartão', Tipo_Conta: 'Cartão de Crédito', Saldo_Inicial: 0, limite_credito: 1000, dia_vencimento: 10 } as any;
+    const base = { user_id: 'owner', ID_Conta: 'card', Data: '2026-09-15', Data_Pagamento: '2026-10-10', Origem: 'manual', Fonte: 'Manual', Categoria: 'Teste' };
+    const transactions = [
+      { ...base, ID_Transacao: 'charge', Tipo: 'Despesa', Valor: -100, Nome_Fantasia: 'Compra', Descricao_Original: 'Compra finelo_competence:2026-09' },
+      { ...base, ID_Transacao: 'payment', Tipo: 'Renda', Valor: 100.22, Nome_Fantasia: 'Pagamento de Fatura', Descricao_Original: 'Pagamento de Fatura finelo_competence:2026-09' },
+    ] as any;
+    const options = { accounts: [account], transactions, importLogs: [], cardV2Enabled: true, cardEngineEnabled: true, cardSnapshotPipelineEnabled: false, reconciliationSurfaceEnabled: true };
+    const before = computeAccountCardDisplay(account, options);
+    const after = computeAccountCardDisplay(account, { ...options,
+      reconciliationResolutions: { '2026-09': [{ kind: 'bank_adjustment', resolvedAmountCents: 22 }] },
+    });
+    expect(before.reconciliacaoSaldo).toBe(0.22);
+    expect(after.reconciliacaoSaldo).toBe(0);
+    expect(after.reconciliacaoPendente).toBe(false);
+    expect(after.faturaAtual).toBe(before.faturaAtual);
   });
 
   /**
