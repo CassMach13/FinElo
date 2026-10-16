@@ -1,7 +1,8 @@
 import type { ClassificationRules } from '../../domain/credit-card/classifiers';
-import { projectAccountCardEconomics } from '../../services/accountCardEconomics';
+import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
   centsToCurrency,
+  projectCardTwoLedger,
   type CardTwoLedgerProjection,
 } from '../../domain/credit-card/twoLedgerProjection';
 import type { ReconciliationResolutionInput } from '../../domain/credit-card/twoLedgerBalance';
@@ -260,12 +261,20 @@ export function computeAccountCardDisplay(
       );
     }
 
-    const economics = projectAccountCardEconomics({
-      account, accounts: accounts.length > 0 ? accounts : [account],
-      transactions, importLogs, rules, userPaymentConfirmations,
-      reconciliationResolutions, asOf: todayStr,
+    // Preserve Transactions' pre-V2 inputs and fallback independently of the
+    // net-worth flag. Coverage guards belong to the Dashboard adapter; both
+    // integrations still use the same canonical history builder and ledger.
+    const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+      accountId: account.id,
+      account,
+      accounts: accounts.length > 0 ? accounts : [account],
+      transactions,
+      importLogs,
+      rules,
+      userPaymentConfirmations,
     });
-    const useCompetenceLedger = economics.origin.competences > 0;
+
+    const useCompetenceLedger = competenceCards.length > 0;
 
     if (useCompetenceLedger) {
       /**
@@ -287,7 +296,10 @@ export function computeAccountCardDisplay(
        * separa obrigação econômica de diferença de reconciliação, e só a primeira
        * governa valor, vencimento, status e limite.
        */
-      projecao = economics.projection;
+      projecao = projectCardTwoLedger(competenceCards, {
+        asOf: todayStr,
+        resolutionsByMonth: reconciliationResolutions,
+      });
       const faturaCompetence = projecao.current;
 
       if (faturaCompetence) {

@@ -200,8 +200,8 @@ describe('o card projeta com as mesmas entradas do servidor', () => {
    * recalculava certo, e o card seguia mostrando «A CONCILIAR» depois do
    * reload: `computeAccountCardDisplay` chamava a projeção sem as resoluções.
    *
-   * O teste exerce o comportamento pela superfície, inclusive depois de a
-   * preparação da projeção ser compartilhada com o patrimônio.
+   * O teste exerce o comportamento pela superfície, preservando a
+   * integração anterior de Transações com o mesmo núcleo do patrimônio.
    */
   it('a opção de resoluções chega ao motor compartilhado e encerra somente o suspense', async () => {
     const account = { id: 'card', user_id: 'owner', Nome_Conta: 'Cartão', Tipo_Conta: 'Cartão de Crédito', Saldo_Inicial: 0, limite_credito: 1000, dia_vencimento: 10 } as any;

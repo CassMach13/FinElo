@@ -45,7 +45,8 @@ export interface AccountCardEconomicsInput {
   asOf: string;
 }
 
-/** One shared route to the existing canonical engine. No alternative invoice arithmetic. */
+/** Coverage adapter for the flagged net-worth position. Uses the existing canonical engine;
+ * Transactions retains its established integration without these coverage guards. */
 export function projectAccountCardEconomics(input: AccountCardEconomicsInput): AccountCardEconomics {
   const { account, accounts, transactions, importLogs, rules, asOf,
     userPaymentConfirmations = [], reconciliationResolutions = {} } = input;

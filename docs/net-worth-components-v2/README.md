@@ -40,7 +40,9 @@ competenceHistoryCardsForAccount
   → obrigações totais / vencidas / a vencer / créditos / completude / origem
 ```
 
-A tela de Transações usa esse mesmo adaptador para sua projeção. O núcleo econômico e as regras de cálculo de fatura não foram reimplementados no Dashboard. Os defaults de classificação passaram a ser compartilhados com Transações.
+Transações preserva sua integração anterior, chamando diretamente o mesmo construtor de competências e a mesma projeção canônica. O adaptador patrimonial, com guards de completude e filtragem próprios, é consumido pelo Dashboard V2. Ativar a flag do patrimônio não migra a integração de Transações. O núcleo econômico e as regras de cálculo de fatura não foram reimplementados no Dashboard. Os defaults de classificação permanecem compartilhados com Transações.
+
+O [gate de compatibilidade de Transações](./transactions-compatibility-gate.md) documenta as divergências reproduzidas e a preservação do contrato anterior.
 
 O adaptador expõe a origem `twoLedgerProjection`, base `registered_facts`, conta, data civil, quantidade de fatos manuais, competências, confirmações e resoluções, além dos motivos de cobertura insuficiente. Logs com conta explicitamente identificada são usados somente para aquela conta. Metadados sem conta explícita seguem a atribuição legada canônica.
 
@@ -100,6 +102,7 @@ python scripts/diagnostics/validate-net-worth-preview.py
 A fixture permite cenário do piloto, banco negativo, fatura futura, quitada, conciliação, fontes insuficientes, carga, erro e comparação operacional. “Flag V2 desligada” permite comparar visualmente o componente legado, sem alterar flags de usuários ou ambientes.
 
 ### Testes financeiros e de integração
+- `tests/accountBalanceCardLegacyCompatibility.spec.ts`: 18 contratos completos da base anterior e proteção contra delegação ao adaptador patrimonial; preserva Transações com a flag desligada e após opt-in do Dashboard.
 - `tests/dashboard/netWorthComponentsV2.spec.ts`: bancos positivos/negativos, vencidas/parcelas/futuras, pagamentos parciais/integrais/tardios, compras manuais, estornos, confirmações, conciliação, créditos, arquivadas, família, ausência de fontes e paridade com a superfície do cartão.
 - `tests/dashboard/currentNetWorthSources.spec.ts`: paginação, leitura sem migração, confirmação local/persistida, reversões, escopo, falhas, corrida entre sessões/visões, recuperação e flag.
 - `tests/dashboard/currentNetWorthCard.spec.ts`: componentes, valores negativos, estados de carga/erro/incompletude, crédito restrito e indisponibilidade histórica.
