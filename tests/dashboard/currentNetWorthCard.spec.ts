@@ -41,4 +41,33 @@ describe('apresentação patrimonial atual',()=>{
     const s=html({...pilot,bankBalanceCents:-20000,assetFinancingCents:100000});
     expect(s).toContain('-R$ 200,00');expect(s).toContain('R$ 75.500,00 em bens − R$ 1.000,00 em financiamentos');
   });
+  it('mantém explicações sob demanda, recolhidas por padrão, com aviso histórico curto',()=>{
+    const s=html();
+    const disclosure=s.match(/<details[^>]*data-net-worth-details=""[^>]*>/)?.[0];
+    expect(disclosure).toBeDefined();expect(disclosure).not.toMatch(/\bopen(?:=|\s|>)/);
+    expect(s.indexOf('Saldo efetivo das contas')).toBeGreaterThan(s.indexOf('<details'));
+    expect(s.indexOf('não compensam faturas vencidas')).toBeGreaterThan(s.indexOf('<details'));
+    expect(s).toContain('Como ler estes valores');
+    expect(s).toContain('Comparação histórica de patrimônio indisponível.');
+  });
+  it('conserva o crédito comprovado como componente separado, sem mudar nenhum valor recebido',()=>{
+    const position=Object.freeze({...pilot,provenCardCreditCents:1234});
+    const s=html(position);
+    expect(s).toContain('Créditos comprovados em cartões');expect(s).toContain('R$ 12,34');
+    expect(s).toContain('R$ 147.749,90');expect(s).toContain('-R$ 7.235,68');
+    expect(position.provenCardCreditCents).toBe(1234);expect(position.netWorthCents).toBe(14774990);
+  });
+  it('preserva sinal de patrimônio negativo e distingue o saldo disponível negativo por texto',()=>{
+    const s=html({...pilot,netWorthCents:-10000});
+    expect(s).toContain('-R$ 100,00');expect(s).toContain('Saldo negativo após vencidas');
+    expect(s).toContain('-R$ 7.437,11');expect(s).toContain('-R$ 7.235,68');
+    expect(html({...pilot,availableAfterOverdueCents:0})).not.toContain('Saldo negativo após vencidas');
+  });
+  it('mantém avisos de conciliação e arquivamento, com a explicação completa na expansão',()=>{
+    const s=html({...pilot,reconciliationPending:true,archivedAccountsWithPosition:1});
+    const visibleSummary=s.slice(0,s.indexOf('<details'));
+    expect(visibleSummary).toContain('Conciliação pendente');expect(visibleSummary).toContain('Contas arquivadas incluídas');
+    expect(s).toContain('Inclui contas arquivadas com saldo ou obrigação registrada.');
+    expect(s).toContain('diferenças sem resolução econômica ficam fora dos valores financeiros');
+  });
 });
