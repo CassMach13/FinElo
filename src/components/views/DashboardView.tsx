@@ -1,3 +1,4 @@
+import { selectCurrentNetWorthScope } from '../../domain/dashboard/currentNetWorth';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
 import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
@@ -12,6 +13,7 @@ import Card from './../ui/Card';
 import ProgressBar from './../ui/ProgressBar';
 import SummaryCard from './../ui/SummaryCard';
 import NetWorthSummaryCard from '../dashboard/NetWorthSummaryCard';
+import CurrentNetWorthPanel from '../dashboard/CurrentNetWorthPanel';
 import AnnualEvolutionCard from '../dashboard/AnnualEvolutionCard';
 import MonthlyChangeCard from '../dashboard/MonthlyChangeCard';
 import UpcomingEntriesCard from '../dashboard/UpcomingEntriesCard';
@@ -73,7 +75,7 @@ import { getDashboardDataDisplayState } from '../../utils/initialDataLoad';
 import { computeAnnualEvolution } from '../../utils/annualEvolution';
 import { computeMonthlyChange } from '../../utils/monthlyChange';
 import { openUpcomingInTransactions } from '../../utils/upcomingEntries';
-import { isDashboardOwnerScopeEnabled, isSmartTransactionFiltersEnabled } from '../../services/featureFlagService';
+import { isDashboardOwnerScopeEnabled, isSmartTransactionFiltersEnabled, isNetWorthComponentsV2Enabled } from '../../services/featureFlagService';
 import DashboardOwnerSelector from '../dashboard/DashboardOwnerSelector';
 import OwnerScopeNetWorthNote from '../dashboard/OwnerScopeNetWorthNote';
 import {
@@ -93,7 +95,7 @@ import CategoryModal from '../modals/CategoryModal';
 import Button from './../ui/Button';
 
 const DashboardView: React.FC = () => {
-  const { transactions, budgets, categories: allCategories, user, isPremium, assets, budgetMonths, economicEvents, createBudgetMonths, updateBudgetMonthAmount, deleteBudgetMonth, budgetManagerRequested, clearBudgetManagerRequest, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
+  const { transactions, importLogs, creditCardEngineRevision, budgets, categories: allCategories, user, isPremium, assets, budgetMonths, economicEvents, createBudgetMonths, updateBudgetMonthAmount, deleteBudgetMonth, budgetManagerRequested, clearBudgetManagerRequest, addTransaction, addCategory, addAccount, updateAccount, accounts, getAccountsWithCalculatedBalance, currentView, setCurrentView, pendingInvites, respondToInvite, initialDataLoadStatus, fetchAllData, updateUserPreferences, setHelpIntent } = useAppStore();
   const [manualInvestmentsTotal, setManualInvestmentsTotal] = useState(0);
   const [compareManualInvestmentsTotal, setCompareManualInvestmentsTotal] = useState(0);
 
@@ -103,6 +105,7 @@ const DashboardView: React.FC = () => {
    * escolhidas: trocar de sessão volta para "Você" sem reaproveitar nada da anterior.
    */
   const ownerScopeEnabled = isDashboardOwnerScopeEnabled(user);
+  const netWorthV2Enabled = isNetWorthComponentsV2Enabled(user);
   const [ownerSelectionState, setOwnerSelectionState] = useState<{ sessionUserId: string; value: string } | null>(null);
   const [ownerOptionsState, setOwnerOptionsState] = useState<{ sessionUserId: string; options: DashboardOwnerOption[] } | null>(null);
   const ownerSelection = ownerSelectionState && ownerSelectionState.sessionUserId === user?.id ? ownerSelectionState.value : SELF_SCOPE;
@@ -320,7 +323,7 @@ const DashboardView: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (!user || ownerScopeEnabled) return;
+    if (!user || ownerScopeEnabled || netWorthV2Enabled) return;
     const fetchInvestments = async () => {
       try {
         const data = await investmentService.getLatestInvestments(dateRange.end);
@@ -331,10 +334,10 @@ const DashboardView: React.FC = () => {
       }
     };
     fetchInvestments();
-  }, [user, dateRange.end, ownerScopeEnabled]);
+  }, [user, dateRange.end, ownerScopeEnabled, netWorthV2Enabled]);
 
   useEffect(() => {
-    if (!user || !compareDateRange || ownerScopeEnabled) {
+    if (!user || !compareDateRange || ownerScopeEnabled || netWorthV2Enabled) {
       setCompareManualInvestmentsTotal(0);
       return;
     }
@@ -348,7 +351,7 @@ const DashboardView: React.FC = () => {
       }
     };
     fetchCompareInvestments();
-  }, [user, compareDateRange, ownerScopeEnabled]);
+  }, [user, compareDateRange, ownerScopeEnabled, netWorthV2Enabled]);
 
   // Flag ligada: a última posição de CADA proprietário do escopo (meses podem diferir), nunca o "último mês global".
   const investmentOwnerIds = useMemo(
@@ -362,15 +365,23 @@ const DashboardView: React.FC = () => {
         : [],
     [ownerScope, ownerOptions, scopedAccounts, scopedAssets]
   );
-  const ownerInvestments = useOwnerInvestments(!!ownerScope, ownerScope?.key ?? '', ownerScope ? dateRange.end : null, investmentOwnerIds);
+  const ownerInvestments = useOwnerInvestments(!!ownerScope && !netWorthV2Enabled, ownerScope?.key ?? '', ownerScope ? dateRange.end : null, investmentOwnerIds);
   const compareOwnerInvestments = useOwnerInvestments(
-    !!ownerScope && !!compareDateRange,
+    !!ownerScope && !!compareDateRange && !netWorthV2Enabled,
     ownerScope?.key ?? '',
     ownerScope && compareDateRange ? compareDateRange.end : null,
     investmentOwnerIds
   );
   const investmentsValue = ownerScope ? (ownerInvestments.summary?.totalCents ?? 0) / 100 : manualInvestmentsTotal;
   const compareInvestmentsValue = ownerScope ? (compareOwnerInvestments.summary?.totalCents ?? 0) / 100 : compareManualInvestmentsTotal;
+
+  const currentNetWorthScope = useMemo(
+    () => selectCurrentNetWorthScope({
+      sessionUserId: user?.id ?? '', scope: ownerScope, accounts: scopedAccounts, assets: scopedAssets,
+      knownOwnerIds: [...ownerOptions.map((o) => o.userId), ...familyOwnerContext.owners.map((o) => o.userId)],
+    }),
+    [ownerScope, user?.id, ownerOptions, familyOwnerContext.owners, scopedAccounts, scopedAssets]
+  );
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'custom') return;
@@ -481,6 +492,7 @@ const DashboardView: React.FC = () => {
   );
 
   const netWorthSnapshot = useMemo(() => {
+    if (netWorthV2Enabled) return { total: 0, accounts: 0, investments: 0, assetsNet: 0, assetsGross: 0, assetsDebts: 0 };
     const { gross, debts, net } = computeAssetsTotals(scopedAssets);
     const scopedAccountIds = scopedData ? new Set(scopedAccounts.map((a) => a.id)) : null;
     const accountsTotalValue = compareEnabled
@@ -501,6 +513,7 @@ const DashboardView: React.FC = () => {
       assetsDebts: debts,
     };
   }, [
+    netWorthV2Enabled,
     compareEnabled,
     scopedData,
     scopedAccounts,
@@ -512,7 +525,7 @@ const DashboardView: React.FC = () => {
   ]);
 
   const compareNetWorthSnapshot = useMemo(() => {
-    if (!compareDateRange) return null;
+    if (netWorthV2Enabled || !compareDateRange) return null;
     // Escopo por proprietário: sem os investimentos do período comparado, não compara um total incompleto.
     if (ownerScope && compareOwnerInvestments.status !== 'ready') return null;
     return computeNetWorthSnapshot(
@@ -522,7 +535,7 @@ const DashboardView: React.FC = () => {
       compareInvestmentsValue,
       compareDateRange.end
     );
-  }, [scopedAccounts, transactions, scopedAssets, compareInvestmentsValue, compareDateRange, ownerScope, compareOwnerInvestments.status]);
+  }, [netWorthV2Enabled, scopedAccounts, transactions, scopedAssets, compareInvestmentsValue, compareDateRange, ownerScope, compareOwnerInvestments.status]);
 
   const {
     total: totalNetWorth,
@@ -1482,7 +1495,7 @@ const DashboardView: React.FC = () => {
 
         <AnnualEvolutionCard model={annualEvolution} />
 
-        {ownerScope && (
+        {ownerScope && !netWorthV2Enabled && (
           <OwnerScopeNetWorthNote
             scopeLabel={ownerScope.label}
             status={ownerInvestments.status}
@@ -1490,7 +1503,20 @@ const DashboardView: React.FC = () => {
             ownerLabel={(id) => ownerOptions.find((o) => o.userId === id)?.label ?? (id === user?.id ? 'Você' : 'Familiar')}
           />
         )}
-        {ownerScope && ownerInvestments.status === 'loading' ? (
+        {netWorthV2Enabled ? (
+          <CurrentNetWorthPanel
+            sessionUserId={user?.id ?? ''}
+            scopeKey={currentNetWorthScope.key}
+            scopeLabel={currentNetWorthScope.label}
+            ownerIds={currentNetWorthScope.ownerIds}
+            accounts={currentNetWorthScope.accounts}
+            transactions={transactions}
+            assets={currentNetWorthScope.assets}
+            importLogs={importLogs}
+            userMetadata={user?.user_metadata ?? {}}
+            revision={creditCardEngineRevision}
+          />
+        ) : ownerScope && ownerInvestments.status === 'loading' ? (
           <div data-networth-loading="" role="status" className="rounded-xl border border-slate-700/60 bg-secondary p-6 text-sm text-slate-300">
             Calculando o patrimônio de {ownerScope.label}…
           </div>

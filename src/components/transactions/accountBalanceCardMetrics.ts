@@ -1,8 +1,7 @@
 import type { ClassificationRules } from '../../domain/credit-card/classifiers';
-import { creditCardRebuildFromImportHistoryService } from '../../services/creditCardRebuildFromImportHistoryService';
+import { projectAccountCardEconomics } from '../../services/accountCardEconomics';
 import {
   centsToCurrency,
-  projectCardTwoLedger,
   type CardTwoLedgerProjection,
 } from '../../domain/credit-card/twoLedgerProjection';
 import type { ReconciliationResolutionInput } from '../../domain/credit-card/twoLedgerBalance';
@@ -261,17 +260,12 @@ export function computeAccountCardDisplay(
       );
     }
 
-    const competenceCards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
-      accountId: account.id,
-      account,
-      accounts: accounts.length > 0 ? accounts : [account],
-      transactions,
-      importLogs,
-      rules,
-      userPaymentConfirmations,
+    const economics = projectAccountCardEconomics({
+      account, accounts: accounts.length > 0 ? accounts : [account],
+      transactions, importLogs, rules, userPaymentConfirmations,
+      reconciliationResolutions, asOf: todayStr,
     });
-
-    const useCompetenceLedger = competenceCards.length > 0;
+    const useCompetenceLedger = economics.origin.competences > 0;
 
     if (useCompetenceLedger) {
       /**
@@ -293,10 +287,7 @@ export function computeAccountCardDisplay(
        * separa obrigação econômica de diferença de reconciliação, e só a primeira
        * governa valor, vencimento, status e limite.
        */
-      projecao = projectCardTwoLedger(competenceCards, {
-        asOf: todayStr,
-        resolutionsByMonth: reconciliationResolutions,
-      });
+      projecao = economics.projection;
       const faturaCompetence = projecao.current;
 
       if (faturaCompetence) {

@@ -229,8 +229,18 @@ export async function carregarResolucoesAtivasPorConta(): Promise<
 
   if (error) throw new Error(error.message);
 
+  return groupActiveCardResolutions(data ?? []);
+}
+
+export interface ActiveCardResolutionRow {
+  account_id: string; reference_month: string; resolution: string;
+  resolved_amount: number | string | null; authoritative_total: number | string | null;
+  authoritative_source: string | null; credit_card_reconciliation_resolution_reversals: unknown;
+}
+
+export function groupActiveCardResolutions(rows: readonly ActiveCardResolutionRow[]): Record<string, Record<string, ReconciliationResolutionInputLike[]>> {
   const fora: Record<string, Record<string, ReconciliationResolutionInputLike[]>> = {};
-  for (const r of data ?? []) {
+  for (const r of rows) {
     if (foiRevertida(r.credit_card_reconciliation_resolution_reversals)) continue;
 
     const conta = String(r.account_id);

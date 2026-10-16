@@ -1,0 +1,3 @@
+# Operational QA evidence stays local; contains staging-specific identifiers.
+staging-validation/
+cleanup-pr/

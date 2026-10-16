@@ -1,4 +1,6 @@
 import { supabase } from '../supabaseClient';
+import type { Account } from '../types';
+import { collectPaginatedRows } from '../utils/paginatedFetch';
 import type { CompetenceHistoryCard } from './creditCardRebuildFromImportHistoryService';
 import { applySequentialCreditCarryForward } from './creditCardRebuildFromImportHistoryService';
 
@@ -187,4 +189,28 @@ export function applyCompetenceUserPaymentConfirmations(
 
   applySequentialCreditCarryForward(adjusted);
   return adjusted;
+}
+
+/** Read-only path: preserves local confirmations without migrating or writing storage/database. */
+export async function listCompetencePaymentConfirmationsReadOnly(
+  accounts: readonly Pick<Account, 'id' | 'user_id'>[]
+): Promise<Array<CompetencePaymentConfirmation & { source: 'database' | 'legacy_local' }>> {
+  const owners = new Map(accounts.map((a) => [a.id, a.user_id]));
+  if (!owners.size) return [];
+  const rows = await collectPaginatedRows<DbRow>(async (from, to) => {
+    const { data, error } = await supabase.from(TABLE)
+      .select('user_id, account_id, reference_month, settled_amount, confirmed_at')
+      .in('account_id', [...owners.keys()]).order('id', { ascending: true }).range(from, to);
+    return { data: data as DbRow[] | null, error };
+  });
+  const merged = new Map<string, CompetencePaymentConfirmation & { source: 'database' | 'legacy_local' }>();
+  const key = (c: CompetencePaymentConfirmation) => c.userId + '|' + c.accountId + '|' + c.referenceMonth;
+  for (const c of readLegacyLocal()) {
+    if (owners.get(c.accountId) === c.userId) merged.set(key(c), { ...c, source: 'legacy_local' });
+  }
+  for (const row of rows) {
+    const c = rowToConfirmation(row);
+    if (owners.get(c.accountId) === c.userId) merged.set(key(c), { ...c, source: 'database' });
+  }
+  return [...merged.values()];
 }

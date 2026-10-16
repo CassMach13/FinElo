@@ -48,10 +48,10 @@ describe('Dashboard com a flag desligada = comportamento anterior', () => {
   });
 
   it('o caminho antigo de investimentos só roda com a flag desligada; o novo só com ela ligada', () => {
-    expect(view).toContain('if (!user || ownerScopeEnabled) return;');
-    expect(view).toContain('if (!user || !compareDateRange || ownerScopeEnabled) {');
+    expect(view).toContain('if (!user || ownerScopeEnabled || netWorthV2Enabled) return;');
+    expect(view).toContain('if (!user || !compareDateRange || ownerScopeEnabled || netWorthV2Enabled) {');
     expect(view).toContain('const investmentsValue = ownerScope ? (ownerInvestments.summary?.totalCents ?? 0) / 100 : manualInvestmentsTotal;');
-    expect(view).toContain('useOwnerInvestments(!!ownerScope,');
+    expect(view).toContain('useOwnerInvestments(!!ownerScope && !netWorthV2Enabled,');
   });
 
   it('seletor (e a leitura de vínculos) só existe com a flag; aviso de visão só fora de "Você"', () => {
@@ -82,7 +82,7 @@ describe('Dashboard com escopo: cálculo e escrita', () => {
   });
 
   it('enquanto os investimentos do escopo carregam, não mostra patrimônio de outro titular nem comparação incompleta', () => {
-    expect(view).toContain("{ownerScope && ownerInvestments.status === 'loading' ? (");
+    expect(view).toContain(": ownerScope && ownerInvestments.status === 'loading' ? (");
     expect(view).toContain("if (ownerScope && compareOwnerInvestments.status !== 'ready') return null;");
   });
 
