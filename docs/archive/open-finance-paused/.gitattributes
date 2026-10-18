@@ -1,0 +1,2 @@
+# Historical source snapshots retain their original whitespace.
+*.disabled whitespace=-blank-at-eol,-blank-at-eof

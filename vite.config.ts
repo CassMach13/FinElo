@@ -1,16 +1,19 @@
 import path from 'path';
 import { defineConfig, loadEnv, ConfigEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import openFinancePaused, { OPEN_FINANCE_PATHS } from './server/open-finance-paused.js';
 
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }: ConfigEnv) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, process.cwd(), 'GEMINI_API_KEY');
   const projectRootDir = path.resolve(__dirname);
   return {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      // Let the pause handler answer OPTIONS on the five provider routes too.
+      cors: { preflightContinue: true },
     },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
@@ -83,131 +86,22 @@ export default defineConfig(({ mode }: ConfigEnv) => {
         }
       }),
       {
-        name: 'pluggy-local-dev-proxy',
+        name: 'open-finance-paused',
         configureServer(server) {
-          server.middlewares.use('/api/pluggy-token', async (req, res) => {
+          server.middlewares.use((req, res, next) => {
+            const pathname = (req.url || '').split('?')[0].replace(/\/+$/, '');
+            if (OPEN_FINANCE_PATHS.includes(pathname)) {
+              openFinancePaused(req, res);
+              return;
+            }
+            // Preserve Vite's default preflight response for unrelated routes.
             if (req.method === 'OPTIONS') {
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-              res.statusCode = 200;
+              res.statusCode = 204;
+              res.setHeader('Content-Length', '0');
               res.end();
               return;
             }
-            if (req.method === 'POST') {
-              let body = '';
-              req.on('data', chunk => { body += chunk.toString(); });
-              req.on('end', async () => {
-                try {
-                  const payload = body ? JSON.parse(body) : {};
-                  const clientId = env.VITE_PLUGGY_CLIENT_ID;
-                  const clientSecret = env.VITE_PLUGGY_CLIENT_SECRET;
-                  if (!clientId || !clientSecret) {
-                    throw new Error('Missing VITE_PLUGGY_CLIENT_ID or VITE_PLUGGY_CLIENT_SECRET');
-                  }
-                  
-                  // 1. Get API Key
-                  const authRes = await fetch('https://api.pluggy.ai/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clientId, clientSecret })
-                  });
-                  const authData = await authRes.json();
-                  if (!authData.apiKey) throw new Error('Failed to get Pluggy API Key');
-                  
-                  // 2. Get Connect Token
-                  const tokenReqBody: any = {};
-                  if (payload.clientUserId) tokenReqBody.clientUserId = payload.clientUserId;
-                  if (payload.itemId) tokenReqBody.itemId = payload.itemId;
-                  
-                  const tokenRes = await fetch('https://api.pluggy.ai/connect_token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-API-KEY': authData.apiKey },
-                    body: JSON.stringify(tokenReqBody)
-                  });
-                  const tokenData = await tokenRes.json();
-                  
-                  res.setHeader('Content-Type', 'application/json');
-                  res.setHeader('Access-Control-Allow-Origin', '*');
-                  res.statusCode = 200;
-                  res.end(JSON.stringify({ accessToken: tokenData.accessToken }));
-                } catch (error: any) {
-                  console.error('Pluggy Proxy Error:', error);
-                  res.statusCode = 500;
-                  res.end(JSON.stringify({ error: error.message }));
-                }
-              });
-            }
-          });
-
-          // Second proxy for syncing data (Accounts & Transactions)
-          server.middlewares.use('/api/pluggy-sync', async (req, res) => {
-            if (req.method === 'OPTIONS') {
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-              res.statusCode = 200;
-              res.end();
-              return;
-            }
-            if (req.method === 'POST') {
-              let body = '';
-              req.on('data', chunk => { body += chunk.toString(); });
-              req.on('end', async () => {
-                try {
-                  const payload = body ? JSON.parse(body) : {};
-                  const itemId = payload.itemId;
-                  if (!itemId) throw new Error('Missing itemId');
-
-                  const clientId = env.VITE_PLUGGY_CLIENT_ID;
-                  const clientSecret = env.VITE_PLUGGY_CLIENT_SECRET;
-                  if (!clientId || !clientSecret) throw new Error('Missing credentials');
-                  
-                  // 1. Get API Key
-                  const authRes = await fetch('https://api.pluggy.ai/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clientId, clientSecret })
-                  });
-                  const authData = await authRes.json();
-                  if (!authData.apiKey) throw new Error('Failed to get Pluggy API Key');
-                  const apiKey = authData.apiKey;
-                  const reqHeaders = { 'accept': 'application/json', 'X-API-KEY': apiKey };
-
-                  // 2. Fetch Accounts
-                  const accRes = await fetch(`https://api.pluggy.ai/accounts?itemId=${itemId}`, { headers: reqHeaders });
-                  const accData = await accRes.json();
-                  if (!accData.results) throw new Error('Failed to fetch accounts');
-
-                  let allTransactions: any[] = [];
-                  
-                  // 3. Fetch Transactions for each account within user-specified date range
-                  for (const account of accData.results) {
-                    // Use user-supplied dates, or default to last 30 days
-                    const defaultFrom = new Date();
-                    defaultFrom.setDate(defaultFrom.getDate() - 30);
-                    const startDateStr = payload.fromDate || defaultFrom.toISOString().split('T')[0];
-                    const endDateStr = payload.toDate || new Date().toISOString().split('T')[0];
-                    
-                    const txRes = await fetch(`https://api.pluggy.ai/transactions?accountId=${account.id}&from=${startDateStr}&to=${endDateStr}`, { headers: reqHeaders });
-                    const txData = await txRes.json();
-                    if (txData.results) {
-                        allTransactions = [...allTransactions, ...txData.results.map((tx: any) => ({ ...tx, _bankAccount: account }))];
-                    }
-                  }
-
-                  res.setHeader('Content-Type', 'application/json');
-                  res.setHeader('Access-Control-Allow-Origin', '*');
-                  res.statusCode = 200;
-                  res.end(JSON.stringify({ 
-                    accounts: accData.results,
-                    transactions: allTransactions
-                  }));
-                } catch (error: any) {
-                  console.error('Pluggy Sync Error:', error);
-                  res.statusCode = 500;
-                  res.end(JSON.stringify({ error: error.message }));
-                }
-              });
-            }
+            next();
           });
         }
       }

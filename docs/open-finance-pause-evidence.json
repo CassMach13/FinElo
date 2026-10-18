@@ -1,0 +1,1558 @@
+{
+  "base": "224f608dfde41a97229b4baca22ee4ff75020e18",
+  "branch": "codex/open-finance-pause",
+  "completedAt": "2026-10-18T01:45:53.277Z",
+  "conclusion": "GO for local review. No publication performed. Global pause on historical deployments remains BLOCKED until authorized containment is verified.",
+  "matrix": [
+    {
+      "gate": "Five public API exports: anonymous, invalid JWT and authenticated synthetic user",
+      "status": "PASS",
+      "evidence": "120 native HTTP requests; normal local Auth login and getUser; all status 503 / OPEN_FINANCE_PAUSED"
+    },
+    {
+      "gate": "Vite server middleware and unrelated preflight compatibility",
+      "status": "PASS",
+      "evidence": "120 HTTP requests; same five routes 503, unrelated OPTIONS remains 204"
+    },
+    {
+      "gate": "No provider execution or credentials consumed by paused routes",
+      "status": "PASS",
+      "evidence": "SDK resolution and fetch traps; environment sentinels present; API module+invocation trap and Vite HTTP-phase trap each report zero"
+    },
+    {
+      "gate": "Old installed/PWA clients",
+      "status": "PASS",
+      "evidence": "Three unchanged client-service flows reject the public error before accessing the store or persistence; existing ImportView status check inspected; build/PWA verified"
+    },
+    {
+      "gate": "Complete regression",
+      "status": "PASS",
+      "evidence": {
+        "files": 194,
+        "passedFiles": 193,
+        "passedTests": 3100,
+        "skippedTests": 1,
+        "failedTests": 0,
+        "retainedPassedFiles": 31,
+        "qaRerunFiles": 163,
+        "method": "Complete coverage in two batches; only initially completed passing files retained; all remaining files rerun with loopback public QA configuration.",
+        "initialSetup": "Unconfigured initial run was interrupted after a missing public Supabase environment dependency. This is not counted as a product pass; the affected file was included in the successful configured rerun."
+      }
+    },
+    {
+      "gate": "TypeScript baseline",
+      "status": "PASS",
+      "evidence": "14 known diagnostics preserved; 0 new. Raw tsc is not free of pre-existing diagnostics."
+    },
+    {
+      "gate": "Build/PWA",
+      "status": "PASS",
+      "evidence": "Vite build; generateSW; 49 precache entries. Existing large-chunk and mixed static/dynamic import warnings remain."
+    },
+    {
+      "gate": "Dashboard, file import, manual transactions, investments and financial contracts isolation",
+      "status": "PASS",
+      "evidence": "All src/**, supabase/**, financial handlers, dependency manifests and Vercel routing unchanged from base; regression covers existing contracts."
+    },
+    {
+      "gate": "Billing branch, journal/recovery/migrations and uncommitted evidence preserved",
+      "status": "PASS",
+      "evidence": {
+        "branch": "codex/stripe-billing-hardening",
+        "head": "cc40d32e1d608de7fb3214aaed8ab7f80f6071da",
+        "filesCompared": 1033,
+        "changed": 0,
+        "added": 0,
+        "missing": 0,
+        "indexUnchanged": true
+      }
+    },
+    {
+      "gate": "Secret review / complete package whitespace check",
+      "status": "PASS",
+      "evidence": "Known secret patterns absent plus manual minimal API/config diff review. Complete package checked with isolated temporary Git index; original source whitespace retained only in disabled archives."
+    },
+    {
+      "gate": "Hosted Vercel packaging, canonical domain and aliases after publication",
+      "status": "BLOCKED",
+      "evidence": "Not published or queried in this step; requires later explicitly authorized hosted verification."
+    },
+    {
+      "gate": "Historical deployments and URLs",
+      "status": "BLOCKED",
+      "evidence": "Prior operational snapshot found many addressable deployments; this local source change cannot disable immutable old code. Inventory and proven containment remain required."
+    },
+    {
+      "gate": "Previously issued provider tokens/connections",
+      "status": "BLOCKED",
+      "evidence": "Not revoked or tested against providers. New server calls are paused; external token validity is outside this implementation."
+    },
+    {
+      "gate": "New Stripe financial validation",
+      "status": "BLOCKED",
+      "evidence": "Not rerun in this independent pause package. Stripe/Billing code is identical to main; its unpublished hardening and release gates remain separate."
+    }
+  ],
+  "http": {
+    "api": {
+      "scope": "isolated local HTTP and existing synthetic Auth only",
+      "entrypoint": "actual API module exports",
+      "auth": "PASS: normal local Supabase Auth login and getUser validation; no financial query",
+      "routes": [
+        "pluggy-token",
+        "pluggy-sync",
+        "belvo-token",
+        "belvo-consent",
+        "belvo-sync"
+      ],
+      "identities": [
+        "anonymous",
+        "invalid-jwt",
+        "authenticated-local-qa"
+      ],
+      "methods": [
+        "POST",
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "unrelatedPreflightPreserved": "not applicable",
+      "syntheticCredentialSentinelsPresent": 9,
+      "credentialReadScope": "API module load and HTTP invocation",
+      "concurrent": true,
+      "malformedBodiesBlocked": true,
+      "providerSdkImports": 0,
+      "providerCredentialReads": 0,
+      "outboundFetch": 0,
+      "requests": 120,
+      "result": "PASS"
+    },
+    "vite": {
+      "scope": "isolated local HTTP and existing synthetic Auth only",
+      "entrypoint": "actual Vite dev middleware",
+      "auth": "PASS: normal local Supabase Auth login and getUser validation; no financial query",
+      "routes": [
+        "pluggy-token",
+        "pluggy-sync",
+        "belvo-token",
+        "belvo-consent",
+        "belvo-sync"
+      ],
+      "identities": [
+        "anonymous",
+        "invalid-jwt",
+        "authenticated-local-qa"
+      ],
+      "methods": [
+        "POST",
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "unrelatedPreflightPreserved": true,
+      "syntheticCredentialSentinelsPresent": 7,
+      "credentialReadScope": "HTTP invocation; toolchain process-env copying excluded",
+      "concurrent": true,
+      "malformedBodiesBlocked": true,
+      "providerSdkImports": 0,
+      "providerCredentialReads": 0,
+      "outboundFetch": 0,
+      "requests": 120,
+      "result": "PASS"
+    },
+    "totalRequests": 240,
+    "byRoute": [
+      {
+        "route": "/api/pluggy-token",
+        "apiRequests": 24,
+        "viteRequests": 24,
+        "anonymous": 503,
+        "invalidJwt": 503,
+        "authenticatedLocalQa": 503
+      },
+      {
+        "route": "/api/pluggy-sync",
+        "apiRequests": 24,
+        "viteRequests": 24,
+        "anonymous": 503,
+        "invalidJwt": 503,
+        "authenticatedLocalQa": 503
+      },
+      {
+        "route": "/api/belvo-token",
+        "apiRequests": 24,
+        "viteRequests": 24,
+        "anonymous": 503,
+        "invalidJwt": 503,
+        "authenticatedLocalQa": 503
+      },
+      {
+        "route": "/api/belvo-consent",
+        "apiRequests": 24,
+        "viteRequests": 24,
+        "anonymous": 503,
+        "invalidJwt": 503,
+        "authenticatedLocalQa": 503
+      },
+      {
+        "route": "/api/belvo-sync",
+        "apiRequests": 24,
+        "viteRequests": 24,
+        "anonymous": 503,
+        "invalidJwt": 503,
+        "authenticatedLocalQa": 503
+      }
+    ]
+  },
+  "focal": {
+    "passedTests": 29,
+    "files": 2
+  },
+  "regression": {
+    "files": 194,
+    "passedFiles": 193,
+    "passedTests": 3100,
+    "skippedTests": 1,
+    "failedTests": 0,
+    "retainedPassedFiles": 31,
+    "qaRerunFiles": 163,
+    "method": "Complete coverage in two batches; only initially completed passing files retained; all remaining files rerun with loopback public QA configuration.",
+    "initialSetup": "Unconfigured initial run was interrupted after a missing public Supabase environment dependency. This is not counted as a product pass; the affected file was included in the successful configured rerun."
+  },
+  "coveredFiles": [
+    {
+      "file": "tests/credit-card/twoLedgerSurfaces.spec.ts",
+      "passed": 89,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/credit-card/twoLedgerBalance.spec.ts",
+      "passed": 72,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/credit-card/creditCardAtomicRebuildService.spec.ts",
+      "passed": 12,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildShadow.spec.ts",
+      "passed": 21,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/help/helpCenterArticles.spec.ts",
+      "passed": 47,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/credit-card/reconciliationResolution.spec.ts",
+      "passed": 63,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/credit-card/competenceHistoryCards.spec.ts",
+      "passed": 18,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/economics/manualMarking.spec.ts",
+      "passed": 49,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/dashboard/annualEvolution.spec.ts",
+      "passed": 56,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/investments/portfolioInsights.spec.ts",
+      "passed": 40,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/credit-card/engine.spec.ts",
+      "passed": 16,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/installments/installmentSuggestionsMonthly.spec.ts",
+      "passed": 27,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/dashboard/upcomingEntries.spec.ts",
+      "passed": 39,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/recurrences/detectRecurrences.spec.ts",
+      "passed": 68,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/budgets/monthlyBudget.spec.ts",
+      "passed": 45,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/investments/portfolioFoundationMigration.spec.ts",
+      "passed": 32,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/budgets/budgetMonthsRls.spec.ts",
+      "passed": 20,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/dashboard/monthlyChange.spec.ts",
+      "passed": 36,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/transactions/backgroundSync.spec.ts",
+      "passed": 25,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/security/familyMemberLeavePlan.spec.ts",
+      "passed": 15,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/dashboard/annualEvolutionRedesign.spec.ts",
+      "passed": 37,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/economics/economicEventsSchema.spec.ts",
+      "passed": 20,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/diagnostics/netWorthCardConsistency.spec.ts",
+      "passed": 38,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/goals/goalsStore.spec.ts",
+      "passed": 28,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/investments/portfolioOverview.spec.ts",
+      "passed": 33,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/importBatchIdentityPostgres.spec.ts",
+      "passed": 18,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/security/familyMembershipInvariants.spec.ts",
+      "passed": 12,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/assetRecalculation.spec.ts",
+      "passed": 27,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/economics/backfillMigration.spec.ts",
+      "passed": 18,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/security/transactionsAccessHardening.spec.ts",
+      "passed": 20,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/featureFlagService.spec.ts",
+      "passed": 44,
+      "source": "retained completed PASS"
+    },
+    {
+      "file": "tests/accountBalanceCardLegacyCompatibility.spec.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/accountBalanceCardMetrics.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/assetRecalculationRls.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/authSessionOutcome.spec.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/bradesco-cartao-parse.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboardPeriodComparison.spec.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dateOnly.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/familyMemberNicknames.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/familyOwnerContext.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/familyOwnerGrouping.spec.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/familyOwnerSummary.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/importBatchIntegrity.spec.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/importHistoryStoreScope.spec.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/importLogHealth.spec.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/initialDataLoad.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investmentImportSession.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/monthlyEvolutionDateOnly.spec.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/nubank-cartao-parse.spec.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/paginatedFetch.spec.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/staging-homologation-fixtures.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/transactionDraftStorage.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/transactionPeriodFilters.spec.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/typeBaselinePolicy.spec.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/xp-cartao-parse.spec.ts",
+      "status": "passed",
+      "passed": 0,
+      "skipped": 1,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/xpInvestmentParser.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/activity/userActivityPing.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/analytics/productAnalytics.spec.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/analytics/productEventsPostgres.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/analytics/productEventsWiring.spec.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/auth/acquisitionAttribution.spec.ts",
+      "status": "passed",
+      "passed": 32,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/auth/signupProfile.spec.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/budgets/budgetManager.spec.ts",
+      "status": "passed",
+      "passed": 24,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/budgets/budgetStore.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/accountCardBadges.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildAffectedEntryReconciliation.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildCompetenceDryRun.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildCompetenceExceptionForensics.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildCompetenceForensics.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildDerivedSettlementExecution.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildEndToEndDryRun.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildForensics.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildIdentityDryRun.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildLineage.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildProvenance.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildResidualStatementDryRun.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildSequentialDryRun.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildStatementConflictForensics.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildStatementConservationDryRun.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildStatementConservationExecution.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildStatementConservationPlan.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/atomicRebuildStructuralEntryExecution.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/cardDiagnostics.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/cardEHistoricoMesmaObrigacao.spec.ts",
+      "status": "passed",
+      "passed": 28,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/cardEngineFlagParity.spec.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/cardImportReference.spec.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/cardLimitOracle.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/cartaoManualFaturaSoberana.spec.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/competenceHistoryTotals.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/competenceUserConfirmations.spec.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/competenciaDirigidaNaoSome.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/creditCardEnginePaymentPersistence.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/dateIsoParsing.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/diferencaTransitoria.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/edgeLeituraCompleta.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/entryIntegrity.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/faturaAtualSelection.spec.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/faturaCardDisplay.spec.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/fronteiraLivroEconomico.spec.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/importacaoCompetenciaCicloFechamento.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/importLedgerTotals.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/invoiceCycleOracle.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/invoiceCyclesSort.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/invoiceOracle.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/invoiceStressOracle.spec.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/ledgerSyncPolicy.spec.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/manualCardCompetencePersistence.spec.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/manualPurchaseCompetenceEdit.spec.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/metadataContext.spec.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/migrationsSelfContained.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/paidInvoiceConfirmationSafety.spec.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/parseCreditCardFileTotals.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/paymentIntegrity.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/pureCoreEquivalence.spec.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/reconciliationExpandMigration.spec.ts",
+      "status": "passed",
+      "passed": 32,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/reconciliationIntent.spec.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/reconciliationRevisionsMigration.spec.ts",
+      "status": "passed",
+      "passed": 31,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/resolutionOptions.spec.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/resolutionsClearDelta.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/resolutionTaxonomyMigration.spec.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/reversalLink.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/rolloutReadiness.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/snapshotRpcMigration.spec.ts",
+      "status": "passed",
+      "passed": 28,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/sprint2oMigrationSecurity.spec.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/sprint2tMigrationSecurity.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/sprint2uMigrationSecurity.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/statementDisplay.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/statementStatusDerivation.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/structuralLegacyRetirementMigration.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/credit-card/tresSuperficiesMesmoValor.spec.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/budgetStatusTotal.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/currentNetWorthCard.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/currentNetWorthSources.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/dashboardOwnerScope.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/dashboardOwnerScopeView.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/dashboardPrintContract.spec.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/dashboardPrintHeader.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/netWorthComponentsV2.spec.ts",
+      "status": "passed",
+      "passed": 40,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/ownerInvestments.spec.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/ownerInvestmentsRls.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/dashboard/rule503020EmptyState.spec.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/economicEventsStore.spec.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/economicStore.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/economicViewActivation.spec.ts",
+      "status": "passed",
+      "passed": 50,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/economicViewEquivalence.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/identityControlsUi.spec.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/kpiEquivalence.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/manualEconomicIdentity.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/payInvoiceRegistration.spec.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/economics/transactionSemantics.spec.ts",
+      "status": "passed",
+      "passed": 33,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/export/exportConservation.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/export/transactionCsv.spec.ts",
+      "status": "passed",
+      "passed": 49,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/export/transactionExport.spec.ts",
+      "status": "passed",
+      "passed": 50,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/export/transactionExportFileName.spec.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/export/transactionXlsx.spec.ts",
+      "status": "passed",
+      "passed": 33,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/family/ownerAvailability.spec.ts",
+      "status": "passed",
+      "passed": 25,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/goals/financialGoalsRls.spec.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/goals/goalProgress.spec.ts",
+      "status": "passed",
+      "passed": 27,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/goals/goalsView.spec.ts",
+      "status": "passed",
+      "passed": 25,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/help/accountsImportRulesGuide.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/help/creditCardUsageGuide.spec.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/imports/importGate.spec.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/installments/installmentDisplay.spec.ts",
+      "status": "passed",
+      "passed": 25,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/installments/installmentMarkerPorEmissor.spec.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/installments/installmentSuggestions.spec.ts",
+      "status": "passed",
+      "passed": 27,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/copyClassification.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/detailPaginationAndOwnership.spec.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentClassificationAudit.spec.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentClassificationContract.spec.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentClassificationService.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentOwnerDiscovery.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentOwnerScope.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentsFamilyPolicyReconciliation.spec.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/investmentStructureService.spec.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/legacyOwnershipWrites.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/portfolioClassificationUi.spec.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/portfolioFamilyHardeningCompat.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/portfolioGrouping.spec.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/investments/portfolioUi.spec.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/onboarding/firstSteps.spec.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/recurrences/recurrencesPanel.spec.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/security/openFinancePaused.spec.ts",
+      "status": "passed",
+      "passed": 26,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/security/openFinancePausedClientCompatibility.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/support/secureSupportAttachmentsMigration.spec.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/support/secureSupportAttachmentsPostgres.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/support/supportAttachmentService.spec.ts",
+      "status": "passed",
+      "passed": 30,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/support/supportAttachmentUiContract.spec.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/transactions/categoryRetention.spec.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/transactions/formatDateCell.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/transactions/importedTransactionEdit.spec.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/transactions/transactionEditPolicy.spec.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/ui/progressBarColor.spec.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/utils/cardImportCycleMetadata.spec.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    },
+    {
+      "file": "tests/utils/unknownError.spec.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0,
+      "source": "configured QA rerun"
+    }
+  ],
+  "preservation": {
+    "branch": "codex/stripe-billing-hardening",
+    "head": "cc40d32e1d608de7fb3214aaed8ab7f80f6071da",
+    "filesCompared": 1033,
+    "changed": 0,
+    "added": 0,
+    "missing": 0,
+    "indexUnchanged": true
+  },
+  "changes": {
+    "tracked": [
+      "api/belvo-consent.js",
+      "api/belvo-sync.js",
+      "api/belvo-token.js",
+      "api/pluggy-sync.js",
+      "api/pluggy-token.js",
+      "vite.config.ts"
+    ],
+    "allSrcUnchanged": true,
+    "remoteMutations": 0,
+    "credentialsOrPersistedEnvironmentModified": false,
+    "productionOrStagingFinancialDataAccessed": false
+  },
+  "commands": [
+    "node scripts/qa/open-finance-pause-http.mjs --auth-dir <existing-protected-local-QA-auth-directory>",
+    "node scripts/qa/open-finance-pause-http.mjs --auth-dir <existing-protected-local-QA-auth-directory> --vite",
+    "node node_modules/vitest/vitest.mjs run tests/security/openFinancePaused.spec.ts tests/security/openFinancePausedClientCompatibility.spec.ts --maxWorkers=2 --minWorkers=1",
+    "node node_modules/vitest/vitest.mjs run --maxWorkers=2 --minWorkers=1 (two batches; remaining batch uses loopback-only public QA placeholders in child process)",
+    "node scripts/check-type-baseline.mjs",
+    "npm run build",
+    "git diff --check; complete new-file check via temporary GIT_INDEX_FILE, without staging in the real index"
+  ]
+}
