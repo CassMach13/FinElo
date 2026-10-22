@@ -1,0 +1,12 @@
+{
+  "base": "224f608dfde41a97229b4baca22ee4ff75020e18",
+  "files": {
+    "api/pluggy-token.js": "756793aa70f3eefdbffbd584ccb6e8f02c5b2a975449041a08aa34ec48051507",
+    "api/pluggy-sync.js": "e5d7403872e246454e64fa3bcaf8e214a6357bda5aeb40cd5f4b2d38fd390392",
+    "api/belvo-token.js": "e7ca264c6bf2d9dda649f0fc9b85c06cea44d5005203e575d2f0a7be1a0a4490",
+    "api/belvo-consent.js": "d66cd83a20ab87c60ecd15ba7722970a26832931319f9462eef10f0bad76a725",
+    "api/belvo-sync.js": "749b2b057c683af0275ebd9f5ad8273b87d66f822d4244c93460eb6278c9a1c1",
+    "vite-local-proxy": "4cc3a0122d9ce589bf15b0df669af757f997bf37c61864b194e281f96d1d9a3c"
+  },
+  "normalization": "UTF-8 with LF line endings; compare canonical Git source, independent of checkout EOL"
+}
