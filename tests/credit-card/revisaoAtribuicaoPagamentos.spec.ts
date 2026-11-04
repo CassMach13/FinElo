@@ -25,7 +25,7 @@ import {
   competenciasComDiferencaAcionavel,
   projectCardTwoLedger,
 } from '../../src/domain/credit-card/twoLedgerProjection';
-import { diagnoseCreditCard } from '../../src/domain/credit-card/cardDiagnostics';
+import { diagnoseCreditCard, summarizeCardDiagnostics } from '../../src/domain/credit-card/cardDiagnostics';
 import {
   computeTwoLedgerBalances,
   suspenseConservation,
@@ -444,7 +444,12 @@ describe('resolução órfã fica identificada e sem efeito', () => {
     expect(livro1(fim)).toEqual(livro1(hoje));
   });
 
-  it('o card mostra a órfã como item a revisar, só com a conciliação ligada', () => {
+  /**
+   * A órfã não pede ação: não altera valor e não tem diferença atual. Então não
+   * conta como item a revisar. A resolução continua na projeção, para o acesso
+   * pela conciliação, e nada muda nos livros.
+   */
+  it('órfã sem diferença atual não vira item a revisar e continua rastreável', () => {
     const p = projectCardTwoLedger(
       [
         { referenceMonth: '2025-01', dueDate: '2025-02-10', statementTotal: 1000, totalPayments: 1000 },
@@ -452,11 +457,38 @@ describe('resolução órfã fica identificada e sem efeito', () => {
       ],
       { asOf: HOJE, resolutionsByMonth: { '2025-05': [ajuste()] } }
     );
-    const ligado = diagnoseCreditCard({ competences: p.competences, orphanResolutions: p.orphanResolutions });
-    expect(ligado.map((d) => [d.code, d.severity, d.competences, d.amountCents, d.action])).toEqual([
-      ['classificacao_sem_diferenca', 'revisar', ['2025-05'], 94, 'ver_diferenca'],
+    expect(p.orphanResolutions.map((o) => [o.referenceMonth, o.resolvedAmountCents])).toEqual([['2025-05', 94]]);
+    const d = diagnoseCreditCard({
+      competences: p.competences,
+      reconciliation: { pendente: p.reconciliationPending, referenceMonth: '2025-05' },
+    });
+    expect(d).toEqual([]);
+    expect(summarizeCardDiagnostics(d).label).toBe('Cartão consistente');
+  });
+
+  /**
+   * Sem tolerância: se ao lado da órfã existir diferença atual, ela aparece com
+   * o valor que tiver, mesmo de centavos. Some só a órfã.
+   */
+  it('com a órfã presente, diferenças atuais de centavos continuam visíveis', () => {
+    const p = projectCardTwoLedger(
+      [
+        { referenceMonth: '2025-01', dueDate: '2025-02-10', statementTotal: 1000, totalPayments: 1000.22 },
+        { referenceMonth: '2025-03', dueDate: '2025-04-10', statementTotal: 700, totalPayments: 700.72 },
+        { referenceMonth: '2025-10', dueDate: '2025-11-10', statementTotal: 400, totalPayments: 400 },
+      ],
+      { asOf: HOJE, resolutionsByMonth: { '2025-10': [ajuste()] } }
+    );
+    expect(p.orphanResolutions).toHaveLength(1);
+    const d = diagnoseCreditCard({
+      competences: p.competences,
+      reconciliation: { pendente: p.reconciliationPending, referenceMonth: '2025-01' },
+    });
+    expect(d.map((x) => [x.code, x.competences, x.amountCents]).sort()).toEqual([
+      ['diferenca_a_conciliar', ['2025-01'], 22],
+      ['pagamento_acima_da_fatura', ['2025-03'], 72],
     ]);
-    expect(diagnoseCreditCard({ competences: p.competences, orphanResolutions: null })).toEqual([]);
+    expect(summarizeCardDiagnostics(d).label).toBe('2 itens para revisar');
   });
 });
 

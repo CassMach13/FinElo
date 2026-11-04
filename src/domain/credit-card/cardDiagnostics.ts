@@ -1,7 +1,6 @@
 import {
   competenciasComDiferencaAcionavel,
   type CompetenceProjection,
-  type OrphanResolution,
 } from './twoLedgerProjection.ts';
 
 /**
@@ -52,8 +51,7 @@ export type CardDiagnosticCode =
   | 'fatura_sem_pagamento_encontrado'
   | 'pagamento_acima_da_fatura'
   | 'pagamento_sem_fatura'
-  | 'diferenca_a_conciliar'
-  | 'classificacao_sem_diferenca';
+  | 'diferenca_a_conciliar';
 
 export type CardDiagnosticAction = 'abrir_historico' | 'abrir_fatura' | 'ver_diferenca';
 
@@ -81,11 +79,6 @@ export interface CardDiagnosticsInput {
    * certo, e o valor tem de ser o mesmo.
    */
   reconciliation?: { pendente: boolean; referenceMonth: string | null } | null;
-  /**
-   * Resoluções ativas sem diferença a resolver na própria competência. Vêm da
-   * projeção (`orphanResolutions`), passadas pelo mesmo gate da conciliação.
-   */
-  orphanResolutions?: ReadonlyArray<OrphanResolution> | null;
 }
 
 /** Abaixo disto a diferença é ruído de arredondamento, não erro. */
@@ -305,30 +298,11 @@ export function diagnoseCreditCard(input: CardDiagnosticsInput): CardDiagnostic[
     'abrir_historico'
   );
 
-  // ---- classificação antiga que não corresponde mais a nenhuma diferença ----
-  // Não altera valor nenhum: a resolução está sem efeito. O aviso existe para
-  // que ela não fique esquecida nem seja aplicada a outra diferença sem decisão.
-  const orfas = (input.orphanResolutions ?? []).map((o) => ({ ref: o.referenceMonth, valor: o.resolvedAmountCents }));
-  registrar(
-    'revisar',
-    'classificacao_sem_diferenca',
-    orfas,
-    (a) => ({
-      title: `Classificação de ${mesDe(a.ref)}`,
-      message:
-        `Uma diferença de R$ ${brl(a.valor)} foi classificada nesta fatura, mas ela não tem mais ` +
-        `diferença a conciliar: a forma de associar os pagamentos às faturas foi corrigida. A ` +
-        `classificação continua registrada e não altera nenhum valor. Confira a diferença atual ` +
-        `antes de desfazê-la.`,
-    }),
-    (n, total) => ({
-      title: `${n} classificações sem diferença`,
-      message:
-        `${n} classificações somando R$ ${brl(total)} não correspondem mais a nenhuma diferença. ` +
-        `Elas continuam registradas e não alteram nenhum valor.`,
-    }),
-    'ver_diferenca'
-  );
+  // Classificação antiga sem diferença atual (resolução «órfã») NÃO é item a
+  // revisar: não altera valor nenhum e não pede ação. Ela continua registrada e
+  // acessível pelo botão «Conciliação» do card. Se houver diferença aberta em
+  // outra fatura, ela já entra acima, pelas mesmas regras de sempre e com
+  // qualquer valor; nada aqui depende de tolerância.
 
   // Quem pode explicar um número errado vem primeiro; entre iguais, o maior.
   return achados.sort((a, b) => {

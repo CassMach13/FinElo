@@ -407,7 +407,6 @@ export function computeAccountCardDisplay(
         reconciliation: reconciliationSurfaceEnabled
           ? { pendente: reconciliacaoPendente, referenceMonth: reconciliacaoReferenceMonth }
           : null,
-        orphanResolutions: reconciliationSurfaceEnabled ? projecao.orphanResolutions : null,
       })
     : undefined;
 
