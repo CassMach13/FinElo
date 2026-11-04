@@ -97,10 +97,10 @@ describe('posição patrimonial atual V2 — decisões financeiras',()=>{
     expect(c.amounts?.totalRecognizedCents).toBe(0); expect(c.origin.confirmations).toBe(1);
     expect(position(rows,undefined,{cards:[c]}).bankBalanceCents).toBe(20143);
   });
-  it('confirmação e posterior pagamento observado não criam crédito automático',()=>{
+  it('confirmação e posterior pagamento observado não criam crédito automático nem duplicidade',()=>{
     const p=project([tx('card',-100),tx('card',100,'payment')],{userPaymentConfirmations:[{referenceMonth:'2026-09',settledAmount:100,confirmedAt:'2026-10-12T12:00:00Z'}]});
     expect(p.amounts?.totalRecognizedCents).toBe(0); expect(p.amounts?.provenCreditCents).toBe(0);
-    expect(p.projection.suspenseBalanceCents).toBe(10000);
+    expect(p.projection.suspenseBalanceCents).toBe(0);
   });
   it('saldo contábil negativo com fatura quitada não é deduzido',()=>{
     const p=position([tx('card',-100),tx('card',100,'payment')]);

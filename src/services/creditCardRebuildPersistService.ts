@@ -1,9 +1,8 @@
-import { computeImportLedgerTotals } from '../domain/credit-card/importLedgerTotals';
 import type { ClassificationRules } from '../domain/credit-card/classifiers';
 import { Account, Transaction } from '../types';
 import { creditCardEngineService } from './creditCardEngineService';
 import {
-  toImportLines,
+  buildImportHistoryPreview,
   transactionsForFile,
   type ImportHistoryRebuildCycle,
   type ImportHistoryRebuildPreview,
@@ -38,15 +37,10 @@ export const creditCardRebuildPersistService = {
       if (txs.length === 0) continue;
 
       const accountId = account.id;
-      const lines = toImportLines(txs);
-      const totals = computeImportLedgerTotals(lines, rules);
-      previews.push({
-        fileName: cycle.fileName,
-        referenceMonth: cycle.referenceMonth,
-        dueDate: cycle.dueDate,
-        transactionCount: txs.length,
-        totals,
-      });
+      // Mesmo preview do histórico e do card, com cada linha de pagamento.
+      const preview = buildImportHistoryPreview(accountId, cycle, transactions, rules);
+      const { totals } = preview;
+      previews.push(preview);
 
       const dueParts = /^(\d{4})-(\d{2})-\d{2}$/.exec(cycle.dueDate.trim());
       if (!dueParts) {

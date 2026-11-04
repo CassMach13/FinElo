@@ -1,4 +1,5 @@
 import { computeImportLedgerTotals } from '../domain/credit-card/importLedgerTotals.ts';
+import { effectiveDueDateIso } from '../domain/credit-card/dueDate.ts';
 import type { ClassificationRules } from '../domain/credit-card/classifiers.ts';
 import { Account, ImportLog, Transaction } from '../types.ts';
 import type { LedgerTotalsOverride } from '../utils/creditCardStatementDisplay.ts';
@@ -49,6 +50,33 @@ export interface ImportHistoryRebuildPreview {
   dueDate: string;
   transactionCount: number;
   totals: ReturnType<typeof computeImportLedgerTotals>;
+  /**
+   * Cada pagamento de fatura do arquivo, com a data de lançamento no extrato.
+   * Soma = totals.totalInvoicePayments. Obrigatório: todo preview sai de
+   * `buildImportHistoryPreview`, e nenhum caminho aloca pagamento pelo total
+   * do arquivo.
+   */
+  paymentLines: ImportedInvoicePaymentLine[];
+}
+
+export interface ImportedInvoicePaymentLine {
+  transactionId: string;
+  postedDate: string;
+  amount: number;
+}
+
+/**
+ * Onde um pagamento importado foi abatido. Um mesmo pagamento pode ser dividido
+ * entre a fatura anterior (o que faltava dela) e a do próprio arquivo.
+ */
+export interface ImportedPaymentAllocation {
+  transactionId: string;
+  postedDate: string;
+  /** Competência do arquivo em que o pagamento aparece. */
+  sourceReferenceMonth: string;
+  /** Competência que recebeu o valor. */
+  referenceMonth: string;
+  amount: number;
 }
 
 export interface ImportHistoryRebuildResult {
@@ -88,19 +116,32 @@ export interface CompetenceHistoryCard {
   openBalanceBeforeCarry: number;
   /** Crédito de meses anteriores (pagamento a mais) aplicado nesta competência. */
   priorCreditApplied: number;
+  /**
+   * Abatido com diferença de faturas anteriores (livro 2), preenchido pela
+   * fonte canônica do histórico. Ver `withCanonicalEconomicBalances`.
+   */
+  priorDifferenceApplied?: number;
   openBalance: number;
   /** Crédito remanescente após esta competência (para meses seguintes). */
   creditCarriedForward: number;
   /** Usuário confirmou que o saldo residual foi pago no banco. */
   userConfirmedPaid?: boolean;
   userConfirmedAt?: string;
+  /** Valor que o usuário confirmou, como gravado. */
   userConfirmedAmount?: number;
+  /**
+   * Parte da confirmação que entrou na fatura: só o que faltava pagar. O resto
+   * já está nos pagamentos registrados. Ver `confirmedAmountToApply`.
+   */
+  userConfirmedAppliedAmount?: number;
   /** Estorno manual com competência explícita (modal / finelo_competence). */
   directedManualRefundTotal?: number;
   /** Pagamento manual com competência explícita (modal Pagar). */
   directedManualPaymentTotal?: number;
   /** Soma dos pagamentos de fatura nas linhas de extrato desta competência (antes do repasse XP N→N−1). */
   paymentsOnExtracts?: number;
+  /** Pagamentos importados abatidos NESTA competência, de qualquer arquivo. */
+  importedPaymentAllocations?: ImportedPaymentAllocation[];
 }
 
 function parseDueFromReference(referenceMonth: string, dueDay: number): string {
@@ -175,9 +216,12 @@ export function classifyCompetenceLedgerRole(tx: Transaction): CompetenceLedgerR
 }
 
 /**
- * Pagamentos vindos de um extrato importado aparecem no arquivo da competência N,
- * mas, na cadeia de faturas, quitam a competência anterior (N−1). Lançamentos
- * manuais direcionados já carregam sua competência de destino e não usam esta regra.
+ * Pagamentos vindos de um extrato importado aparecem no arquivo da competência N
+ * e, por convenção, quitam a competência anterior (N−1). Lançamentos manuais
+ * direcionados já carregam sua competência de destino e não usam esta regra.
+ *
+ * É só a convenção, sem olhar data nem saldo. Para saber onde um pagamento foi
+ * de fato abatido use `importedPaymentAllocationsByTransaction`.
  */
 export function importedPaymentAppliedReferenceMonth(
   displayedReferenceMonth: string,
@@ -187,6 +231,29 @@ export function importedPaymentAppliedReferenceMonth(
   if (!origin || origin === 'manual') return null;
   if (classifyCompetenceLedgerRole(tx) !== 'pagamento') return null;
   return previousReferenceMonth(displayedReferenceMonth);
+}
+
+/**
+ * Onde cada pagamento importado foi abatido, pela MESMA alocação que calculou
+ * os saldos. O histórico lê daqui para nunca contar uma história diferente da
+ * do card: um pagamento pode ter ido inteiro para a fatura anterior, inteiro
+ * para a própria fatura, ou ter sido dividido entre as duas.
+ */
+export function importedPaymentAllocationsByTransaction(
+  cards: ReadonlyArray<CompetenceHistoryCard>
+): Map<string, ImportedPaymentAllocation[]> {
+  const index = new Map<string, ImportedPaymentAllocation[]>();
+  cards.forEach((card) => {
+    (card.importedPaymentAllocations ?? []).forEach((a) => {
+      const list = index.get(a.transactionId) ?? [];
+      list.push(a);
+      index.set(a.transactionId, list);
+    });
+  });
+  // Os cards chegam do mais novo para o mais antigo; a divisão se lê na ordem
+  // em que foi feita: primeiro a fatura anterior, depois a própria.
+  index.forEach((list) => list.sort((a, b) => a.referenceMonth.localeCompare(b.referenceMonth)));
+  return index;
 }
 
 /**
@@ -456,6 +523,27 @@ export function enrichCompetenceCardBreakdown(card: CompetenceHistoryCard): void
 export const MICRO_SURPLUS_CARRY_MAX = 1;
 
 /**
+ * Quanto de uma confirmação «está pago» entra na fatura.
+ *
+ * A confirmação diz que o saldo desta competência foi quitado no banco: ela
+ * ZERA o saldo, não acrescenta dinheiro. Se os pagamentos registrados para a
+ * competência já cobrem parte (ou tudo) do que foi confirmado, essa parte é o
+ * mesmo dinheiro visto duas vezes. Somar as duas criaria pagamento acima da
+ * fatura e tiraria o valor da competência seguinte.
+ *
+ * Por isso a confirmação entra até o saldo que ainda falta, nunca além. O valor
+ * confirmado continua gravado e visível; só não é contado duas vezes.
+ */
+export function confirmedAmountToApply(
+  settledAmount: number,
+  statementTotal: number,
+  paymentsAlreadyRecognized: number
+): number {
+  const faltando = round2(Math.max(0, statementTotal - paymentsAlreadyRecognized));
+  return round2(Math.max(0, Math.min(settledAmount, faltando)));
+}
+
+/**
  * Quando um mês foi pago a mais, o excedente reduz o saldo em aberto dos meses seguintes (ordem cronológica).
  * Só gera crédito se a competência tiver extrato importado — pagamento redirecionado sem arquivo não vira crédito.
  */
@@ -604,6 +692,69 @@ export function toImportLines(txs: Transaction[]): Array<{
   }));
 }
 
+/**
+ * O preview de um arquivo importado: totais e cada pagamento de fatura, com
+ * id, data de lançamento e valor.
+ *
+ * ÚNICA forma de montar um `ImportHistoryRebuildPreview`. Histórico, card,
+ * Edge function e persistência de faturas passam por aqui. A persistência
+ * montava o próprio preview sem as linhas de pagamento; qualquer cálculo feito
+ * a partir dele cairia na convenção antiga (todo pagamento em N−1).
+ */
+export function buildImportHistoryPreview(
+  accountId: string,
+  cycle: ImportHistoryRebuildCycle,
+  transactions: Transaction[],
+  rules?: ClassificationRules
+): ImportHistoryRebuildPreview {
+  const txs = transactionsForFile(accountId, cycle.fileName, transactions);
+  const lines = toImportLines(txs);
+  const totals = computeImportLedgerTotals(lines, rules);
+  return {
+    fileName: cycle.fileName,
+    referenceMonth: cycle.referenceMonth,
+    dueDate: cycle.dueDate,
+    transactionCount: txs.length,
+    totals,
+    paymentLines: totals.invoicePaymentLineIndexes.map((i) => ({
+      transactionId: String(txs[i].ID_Transacao || ''),
+      postedDate: lines[i].postedDate,
+      amount: round2(Math.abs(lines[i].amount)),
+    })),
+  };
+}
+
+const toCentsInt = (value: number): number => Math.round((Number(value) || 0) * 100);
+
+/**
+ * Quanto da fatura anterior um pagamento ATRASADO ainda pode quitar.
+ *
+ * Não basta `total − pagamentos` da própria fatura. Se faturas anteriores
+ * receberam a mais, esse dinheiro já reduziu a dívida acumulada, e é assim que
+ * o emissor trata o pagamento: abate o que está de fato em aberto. Na conta
+ * piloto, um crédito de R$ 0,94 numa fatura cobriu a seguinte; o pagamento da
+ * fatura posterior, lançado depois daquele vencimento, ia completar uma fatura
+ * já compensada, e a diferença reaparecia no livro 2.
+ *
+ * Só entram competências com fatura (total > 0): o pagamento de uma fatura não
+ * importada não tem cobrança conhecida para comparar e não vira crédito. O
+ * resultado é o menor entre o saldo da própria fatura e a dívida acumulada até
+ * ela, nunca negativo. Não depende de resolução de conciliação: o destino do
+ * pagamento é o mesmo em todas as rotas, com ou sem elas.
+ */
+export function lateImportedPaymentPriorCapacity(
+  cards: ReadonlyArray<Pick<CompetenceHistoryCard, 'referenceMonth' | 'statementTotal' | 'totalPayments'>>,
+  priorRef: string
+): number {
+  const prior = cards.find((c) => c.referenceMonth === priorRef);
+  if (!prior || prior.statementTotal <= 0.005) return 0;
+  const ownCents = Math.max(0, toCentsInt(prior.statementTotal) - toCentsInt(prior.totalPayments));
+  const cumulativeCents = cards
+    .filter((c) => c.statementTotal > 0.005 && c.referenceMonth <= priorRef)
+    .reduce((acc, c) => acc + toCentsInt(c.statementTotal) - toCentsInt(c.totalPayments), 0);
+  return Math.max(0, Math.min(ownCents, cumulativeCents)) / 100;
+}
+
 export const creditCardRebuildFromImportHistoryService = {
   previewCycles(
     accountId: string,
@@ -611,17 +762,7 @@ export const creditCardRebuildFromImportHistoryService = {
     transactions: Transaction[],
     rules?: ClassificationRules
   ): ImportHistoryRebuildPreview[] {
-    return cycles.map((cycle) => {
-      const txs = transactionsForFile(accountId, cycle.fileName, transactions);
-      const totals = computeImportLedgerTotals(toImportLines(txs), rules);
-      return {
-        fileName: cycle.fileName,
-        referenceMonth: cycle.referenceMonth,
-        dueDate: cycle.dueDate,
-        transactionCount: txs.length,
-        totals,
-      };
-    });
+    return cycles.map((cycle) => buildImportHistoryPreview(accountId, cycle, transactions, rules));
   },
 
   /**
@@ -753,18 +894,72 @@ export const creditCardRebuildFromImportHistoryService = {
     // arquivo N não cria a competência N-1 com um vencimento sintético antes de
     // o arquivo real dessa competência ser processado (a API retorna logs do mais
     // recente para o mais antigo).
+    /**
+     * Pagamento de fatura no CSV (ex. «Pagamentos Válidos») e a fatura que ele quita.
+     *
+     * O arquivo da competência N lista os pagamentos RECEBIDOS durante o ciclo
+     * de N. O pagamento feito até o vencimento de N−1 é o pagamento de N−1 —
+     * a convenção N → N−1 de sempre, e ela continua valendo inteira, inclusive
+     * o excedente, que segue para o livro 2 como antes.
+     *
+     * O que a convenção não cobria é o pagamento feito DEPOIS do vencimento de
+     * N−1. Ele não pode ser o pagamento em dia daquela fatura: ou é atraso
+     * (cobre o que ainda falta de N−1), ou é antecipação da própria N. Jogá-lo
+     * inteiro em N−1 produzia, numa conta real, R$ 4.145,49 «pagos a mais» numa
+     * fatura e a falta do mesmo dinheiro na seguinte; e, no primeiro arquivo
+     * importado, um pagamento antecipado ia para uma competência fantasma e
+     * sumia, deixando quitada uma fatura que o app mostrava vencida.
+     *
+     * Esses pagamentos são abatidos depois, quando o saldo de N−1 já é
+     * conhecido (manuais, dirigidos e confirmações incluídos): primeiro o que
+     * de fato falta de N−1 (`lateImportedPaymentPriorCapacity`), o resto em N.
+     * Nada é criado nem perdido — cada centavo do pagamento cai em N−1 ou em N.
+     *
+     * «Em dia» = lançado até o vencimento EFETIVO de N−1 (o próprio dia, ou a
+     * segunda-feira de um vencimento de fim de semana). Não há folga por data:
+     * um pagamento lançado um dia depois segue o caminho do atraso, que ainda
+     * quita N−1 inteiro antes de tocar em N. A data decide só para onde vai a
+     * SOBRA, nunca se a fatura anterior foi paga.
+     */
+    const afterPriorDue: Array<ImportedInvoicePaymentLine & { ref: string; priorRef: string | null }> = [];
+    const allocations: ImportedPaymentAllocation[] = [];
+    const allocate = (
+      line: ImportedInvoicePaymentLine,
+      sourceRef: string,
+      targetRef: string,
+      amount: number,
+      dueIso?: string
+    ) => {
+      if (amount < 0.005) return;
+      const card = ensureCompetenceCard(targetRef, dueIso);
+      card.totalPayments = round2(card.totalPayments + amount);
+      allocations.push({
+        transactionId: line.transactionId,
+        postedDate: line.postedDate,
+        sourceReferenceMonth: sourceRef,
+        referenceMonth: targetRef,
+        amount: round2(amount),
+      });
+    };
+
     previews.forEach((p) => {
       const ref = p.referenceMonth.trim();
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ref)) return;
 
-      // Pagamento de fatura no CSV (ex. "Pagamentos Válidos") abate a competência anterior (N → N−1).
-      const paymentForPrior = round2(p.totals.totalInvoicePayments);
       const priorRef = previousReferenceMonth(ref);
-      if (priorRef && paymentForPrior > 0.005) {
-        const priorDue = parseDueFromReference(priorRef, dueDay);
-        const priorCard = ensureCompetenceCard(priorRef, priorDue || undefined);
-        priorCard.totalPayments = round2(priorCard.totalPayments + paymentForPrior);
-      }
+      const priorDue = priorRef
+        ? byCompetence.get(priorRef)?.dueDate || parseDueFromReference(priorRef, dueDay)
+        : '';
+      const priorEffectiveDue = priorDue ? effectiveDueDateIso(priorDue) : '';
+
+      p.paymentLines.forEach((line) => {
+        if (line.amount < 0.005) return;
+        if (priorRef && (!line.postedDate || !priorEffectiveDue || line.postedDate <= priorEffectiveDue)) {
+          allocate(line, ref, priorRef, line.amount, priorDue || undefined);
+          return;
+        }
+        afterPriorDue.push({ ...line, ref, priorRef });
+      });
     });
 
     appendManualCompetenceTotals({
@@ -793,7 +988,55 @@ export const creditCardRebuildFromImportHistoryService = {
       card.userConfirmedPaid = true;
       card.userConfirmedAt = conf.confirmedAt;
       card.userConfirmedAmount = round2(conf.settledAmount);
-      card.totalPayments = round2(card.totalPayments + conf.settledAmount);
+      // Primeira etapa, antes dos pagamentos atrasados: a confirmação é
+      // declaração explícita do usuário e prevalece sobre a inferência por data.
+      // Ela reserva a fatura, e um pagamento atrasado não é puxado para uma fatura
+      // que o usuário declarou paga. Os pagamentos no prazo e os dirigidos a esta
+      // fatura já estão somados aqui. A segunda etapa vem depois do laço.
+      const aplicado = confirmedAmountToApply(conf.settledAmount, card.statementTotal, card.totalPayments);
+      card.userConfirmedAppliedAmount = aplicado;
+      card.totalPayments = round2(card.totalPayments + aplicado);
+    });
+
+    // Pagamentos feitos depois do vencimento de N−1, em ordem cronológica:
+    // primeiro o que ainda falta de N−1, o resto na própria N.
+    //
+    // Sobra de centavos: se o pagamento completou N−1 e passou dela por menos
+    // de MICRO_SURPLUS_CARRY_MAX, a sobra é diferença de N−1 (arredondamento,
+    // IOF, linha que faltou no arquivo), não antecipação de N. Fica em N−1 e
+    // vai para o livro 2 — a mesma política que impede micro-excedente de virar
+    // crédito. Pagamento que não tocou N−1 vai inteiro para N, de qualquer valor.
+    afterPriorDue
+      .sort((a, b) =>
+        a.postedDate !== b.postedDate
+          ? a.postedDate.localeCompare(b.postedDate)
+          : a.transactionId.localeCompare(b.transactionId)
+      )
+      .forEach((line) => {
+        const prior = line.priorRef ? byCompetence.get(line.priorRef) : undefined;
+        const capacity = prior ? lateImportedPaymentPriorCapacity(cards, prior.referenceMonth) : 0;
+        let toPrior = round2(Math.min(capacity, line.amount));
+        const rest = round2(line.amount - toPrior);
+        if (toPrior > 0.005 && rest > 0.005 && rest < MICRO_SURPLUS_CARRY_MAX) toPrior = line.amount;
+        if (prior && toPrior > 0.005) allocate(line, line.ref, prior.referenceMonth, toPrior);
+        allocate(line, line.ref, line.ref, round2(line.amount - toPrior));
+      });
+
+    // Segunda etapa da confirmação: com todos os pagamentos já atribuídos, ela
+    // cobre só o que ainda falta. Um pagamento atrasado que caiu na própria
+    // fatura não é contado de novo pela confirmação. O valor aplicado só pode
+    // diminuir em relação à reserva, e a fatura confirmada termina quitada.
+    cards.forEach((card) => {
+      if (card.userConfirmedAppliedAmount == null || card.userConfirmedAmount == null) return;
+      const semConfirmacao = round2(card.totalPayments - card.userConfirmedAppliedAmount);
+      const aplicado = confirmedAmountToApply(card.userConfirmedAmount, card.statementTotal, semConfirmacao);
+      card.userConfirmedAppliedAmount = aplicado;
+      card.totalPayments = round2(semConfirmacao + aplicado);
+    });
+
+    cards.forEach((card) => {
+      const mine = allocations.filter((a) => a.referenceMonth === card.referenceMonth);
+      if (mine.length > 0) card.importedPaymentAllocations = mine;
     });
 
     applySequentialCreditCarryForward(cards);

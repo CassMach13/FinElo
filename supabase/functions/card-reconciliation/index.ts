@@ -1,15 +1,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-import { creditCardRebuildFromImportHistoryService } from '../../../src/services/creditCardRebuildFromImportHistoryService.ts';
-import {
-  projectCardTwoLedger,
-  valorAcionavelDaCompetencia,
-} from '../../../src/domain/credit-card/twoLedgerProjection.ts';
+import { projectCardAccountFromRows } from '../../../src/services/cardServerProjection.ts';
+import { valorAcionavelDaCompetencia } from '../../../src/domain/credit-card/twoLedgerProjection.ts';
 import { CARD_DOMAIN_VERSION } from '../../../src/domain/credit-card/domainVersion.ts';
 import { metadataContextToken } from '../../../src/domain/credit-card/metadataContext.ts';
-import type { ReconciliationResolutionInput } from '../../../src/domain/credit-card/twoLedgerBalance.ts';
-import { foiRevertida } from './reversalLink.ts';
 import { lerColecaoCompleta } from './leituraCompleta.ts';
 
 /** Linha crua do PostgREST, antes de o núcleo dar sentido a ela. */
@@ -59,9 +54,6 @@ class HttpError extends Error {
     super(message);
   }
 }
-
-const toCents = (v: number | null | undefined): number =>
-  Math.round((Number(v ?? 0) + Number.EPSILON) * 100);
 
 /**
  * Uma leitura completa e coerente do estado do usuário, com os contadores que
@@ -164,41 +156,19 @@ async function lerEstadoCoerente(
  * resolução revertida deixa de valer sem que a original seja apagada.
  */
 function projetar(estado: NonNullable<Awaited<ReturnType<typeof lerEstadoCoerente>>>, accountId: string) {
-  const account = estado.contas.find((c: Record<string, unknown>) => c.id === accountId);
-  if (!account) throw new HttpError(404, 'conta não encontrada');
-
-  const cards = creditCardRebuildFromImportHistoryService.competenceHistoryCardsForAccount({
+  // Mesmo código que o card e o histórico rodam no browser, inclusive a
+  // conversão das linhas (ordem, centavos, reversões): `cardServerProjection.ts`.
+  const projecao = projectCardAccountFromRows({
     accountId,
-    account: account as never,
-    accounts: estado.contas as never,
-    transactions: estado.transactions as never,
-    importLogs: estado.importLogs as never,
-    userPaymentConfirmations: estado.confirmacoes.map((c: Record<string, unknown>) => ({
-      referenceMonth: String(c.reference_month),
-      settledAmount: Number(c.settled_amount ?? 0),
-      confirmedAt: String(c.confirmed_at ?? ''),
-    })),
-  });
-
-  const resolutionsByMonth: Record<string, ReconciliationResolutionInput[]> = {};
-  for (const r of estado.resolucoes as Array<Record<string, unknown>>) {
-    if (foiRevertida(r.credit_card_reconciliation_resolution_reversals)) continue;
-
-    const mes = String(r.reference_month);
-    (resolutionsByMonth[mes] ??= []).push({
-      kind: r.resolution as ReconciliationResolutionInput['kind'],
-      resolvedAmountCents: toCents(r.resolved_amount as number | null),
-      authoritativeStatementTotalCents:
-        r.authoritative_total == null ? undefined : toCents(r.authoritative_total as number),
-      // Sem a PROCEDENCIA o nucleo descarta a resolucao autoritativa inteira.
-      authoritativeSource: (r.authoritative_source ?? null) as never,
-    });
-  }
-
-  return projectCardTwoLedger(cards, {
+    contas: estado.contas,
+    transactions: estado.transactions,
+    importLogs: estado.importLogs,
+    confirmacoes: estado.confirmacoes as never,
+    resolucoes: estado.resolucoes as never,
     asOf: new Date().toISOString().slice(0, 10),
-    resolutionsByMonth,
   });
+  if (!projecao) throw new HttpError(404, 'conta não encontrada');
+  return projecao;
 }
 
 /**

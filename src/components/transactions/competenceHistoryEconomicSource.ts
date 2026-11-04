@@ -73,6 +73,9 @@ export function withCanonicalEconomicBalances(
         Math.max(0, economico.statementTotalCents - economico.recognizedPaymentsCents)
       ),
       priorCreditApplied: centsToCurrency(economico.priorCreditAppliedCents),
+      // Sem esta linha, o saldo «total − pagamentos» da tela não fecharia com o
+      // saldo exibido sempre que uma diferença anterior abate a fatura.
+      priorDifferenceApplied: centsToCurrency(economico.priorDifferenceAppliedCents),
       creditCarriedForward: centsToCurrency(economico.economicCarryAfterCents),
     };
   });

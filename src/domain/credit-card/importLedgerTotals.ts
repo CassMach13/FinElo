@@ -28,6 +28,12 @@ export interface ImportLedgerTotalsResult {
   openBalance: number;
   lineCount: number;
   byType: Partial<Record<CreditCardEntryType, number>>;
+  /**
+   * Índices (em `lines`) das linhas classificadas como pagamento de fatura.
+   * Quem precisa da DATA de cada pagamento usa esta lista, para não repetir a
+   * classificação e arriscar uma segunda resposta sobre o que é pagamento.
+   */
+  invoicePaymentLineIndexes: number[];
 }
 
 /**
@@ -44,8 +50,10 @@ export function computeImportLedgerTotals(
   let totalRefunds = 0;
   let totalInvoicePayments = 0;
   let totalOtherCredits = 0;
+  const invoicePaymentLineIndexes: number[] = [];
 
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
     const amount = round2(Number(line.amount || 0));
     const absAmount = round2(Math.abs(amount));
     const normalized = normalizeDescription(line.description || '');
@@ -71,6 +79,7 @@ export function computeImportLedgerTotals(
 
     if (type === 'invoice_payment') {
       totalInvoicePayments = round2(totalInvoicePayments + absAmount);
+      invoicePaymentLineIndexes.push(lineIndex);
       continue;
     }
     if (type === 'refund' || type === 'adjustment') {
@@ -107,5 +116,6 @@ export function computeImportLedgerTotals(
     openBalance,
     lineCount: lines.length,
     byType,
+    invoicePaymentLineIndexes,
   };
 }

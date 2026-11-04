@@ -20,6 +20,7 @@ import {
   upsertCompetenceMarkerInTransaction,
 } from './creditCardDirectedPayment.ts';
 import { toDateOnlyIso } from '../utils/dateOnly.ts';
+import { nominalDueDateForPaidOn } from '../domain/credit-card/dueDate.ts';
 
 export function parseDueFromReferenceMonth(referenceMonth: string, dueDay: number): string {
   const m = /^(\d{4})-(\d{2})$/.exec(referenceMonth.trim());
@@ -131,8 +132,11 @@ export function inferUserTargetCompetenceOnPaymentEdit(
   const paymentMonth = referenceMonthFromIsoDate(paymentIso);
   if (!paymentMonth) return null;
 
-  if (paymentIsoLooksLikeCardDueDate(paymentIso, account)) {
-    const fromDue = referenceMonthFromPaymentDueDate(paymentIso);
+  // A competência sai do vencimento NOMINAL: um vencimento de sábado pago na
+  // segunda continua sendo o vencimento daquele mês.
+  const nominalDue = nominalDueDateForPaidOn(paymentIso.trim(), Number(account.dia_vencimento) || 10);
+  if (nominalDue) {
+    const fromDue = referenceMonthFromPaymentDueDate(nominalDue);
     if (fromDue) return fromDue;
   }
 
@@ -165,12 +169,15 @@ export function referenceMonthFromPaymentDueDate(paymentDueIso: string): string 
   return `${y}-${String(mo).padStart(2, '0')}`;
 }
 
-/** Data_Pagamento no dia de vencimento do cartão (ex.: dia 10) = vencimento da fatura. */
+/**
+ * Data_Pagamento no dia de vencimento do cartão (ex.: dia 10) = vencimento da fatura.
+ *
+ * Inclui a segunda-feira que substitui um vencimento de sábado ou domingo. Sem
+ * isso, uma fatura que vence no dia 18 num domingo, registrada como 19, caía na
+ * competência do mês do pagamento — um ciclo adiante do que o usuário escolheu.
+ */
 export function paymentIsoLooksLikeCardDueDate(paymentIso: string, account: Account): boolean {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(paymentIso.trim());
-  if (!m) return false;
-  const dueDay = Number(account.dia_vencimento) || 10;
-  return Number(m[3]) === dueDay;
+  return nominalDueDateForPaidOn(paymentIso.trim(), Number(account.dia_vencimento) || 10) != null;
 }
 
 /** Competência a partir de Data + Data_Pagamento no dia de vencimento do cartão. */

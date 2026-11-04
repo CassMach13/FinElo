@@ -46,6 +46,7 @@ import {
   classifyCompetenceLedgerRole,
   creditCardRebuildFromImportHistoryService,
   importedPaymentAppliedReferenceMonth,
+  importedPaymentAllocationsByTransaction,
   listTransactionsForCompetenceCard,
   type CompetenceHistoryCard,
   type CompetenceLedgerRole,
@@ -56,6 +57,17 @@ import {
   buildFundingPaymentDescription,
 } from '../../services/creditCardDirectedPayment';
 import { registerInvoicePayment } from '../../services/payInvoiceRegistration';
+import {
+  INVOICE_PAYMENT_LOCKED_FIELDS,
+  accountLookup,
+  duplicatePaymentWarning,
+  expandInvoicePaymentSelection,
+  findInvoicePaymentPair,
+  findPossibleDuplicatePayments,
+  invoicePaymentDeletionMessage,
+  isInvoicePaymentLeg,
+  type InvoicePaymentPair,
+} from '../../domain/credit-card/invoicePaymentPair';
 import { buildEconomicKindByEventId } from '../../domain/economics/transactionSemantics';
 import {
   canMarkInternalMovement,
@@ -313,6 +325,10 @@ const TransactionsView: React.FC = () => {
     open: boolean;
     account: Account | null;
     suggestedAmount: number;
+    /** Valor que o usuário já digitou em outra tela (prevalece sobre o saldo em aberto). */
+    presetAmount?: number;
+    /** Conta de onde o usuário disse que saiu o dinheiro. */
+    presetSourceAccountId?: string;
     competenceCards: CompetenceHistoryCard[];
     loading: boolean;
   }>({
@@ -612,15 +628,38 @@ const TransactionsView: React.FC = () => {
     outro: 'text-gray-400 bg-white/5 border-white/10',
   };
 
+  /** Onde cada pagamento importado foi abatido — a mesma alocação que calculou os saldos. */
+  const importedPaymentAllocationIndex = useMemo(
+    () => importedPaymentAllocationsByTransaction(motorInvoiceCompetenceCards),
+    [motorInvoiceCompetenceCards]
+  );
+
   const renderCompetenceLedgerEntries = useCallback(
     (ledger: Transaction[], displayedReferenceMonth: string) => (
       <ul className="space-y-2.5">
         {ledger.map((tx) => {
           const role = classifyCompetenceLedgerRole(tx);
-          const appliedReferenceMonth = importedPaymentAppliedReferenceMonth(displayedReferenceMonth, tx);
-          const appliedReferenceBR = appliedReferenceMonth
-            ? `${appliedReferenceMonth.slice(5, 7)}/${appliedReferenceMonth.slice(0, 4)}`
-            : null;
+          const toBR = (ref: string) => `${ref.slice(5, 7)}/${ref.slice(0, 4)}`;
+          const allocations = importedPaymentAllocationIndex.get(String(tx.ID_Transacao || '')) ?? [];
+          const toOther = allocations.filter((a) => a.referenceMonth !== displayedReferenceMonth);
+          const toSelf = allocations.filter((a) => a.referenceMonth === displayedReferenceMonth);
+          // Sem alocação registrada (lista de cards ainda carregando), vale a convenção.
+          const conventionRef =
+            allocations.length === 0
+              ? importedPaymentAppliedReferenceMonth(displayedReferenceMonth, tx)
+              : null;
+          const appliedReferenceBR =
+            conventionRef
+              ? toBR(conventionRef)
+              : toOther.length > 0 && toSelf.length === 0
+              ? toBR(toOther[0].referenceMonth)
+              : null;
+          const splitNote =
+            toOther.length > 0 && toSelf.length > 0
+              ? `${formatCurrency(toOther.reduce((s, a) => s + a.amount, 0))} completaram a fatura de ${toBR(
+                  toOther[0].referenceMonth
+                )} e ${formatCurrency(toSelf.reduce((s, a) => s + a.amount, 0))} abatem esta fatura.`
+              : null;
           const dateIso = toDateOnlyIso(tx.Data);
           const dateBr = dateIso
             ? `${dateIso.slice(8, 10)}/${dateIso.slice(5, 7)}/${dateIso.slice(0, 4)}`
@@ -663,12 +702,17 @@ const TransactionsView: React.FC = () => {
                   <span className="font-bold tabular-nums">{appliedReferenceBR}</span>.
                 </p>
               ) : null}
+              {splitNote ? (
+                <p className="text-[11px] text-sky-200/90 mt-2 rounded-md border border-sky-500/25 bg-sky-500/10 px-2.5 py-2 leading-snug">
+                  Pagamento feito depois do vencimento da fatura anterior: {splitNote}
+                </p>
+              ) : null}
             </li>
           );
         })}
       </ul>
     ),
-    [competenceLedgerRoleClass, competenceLedgerRoleLabel]
+    [competenceLedgerRoleClass, competenceLedgerRoleLabel, importedPaymentAllocationIndex]
   );
 
   const competenceCardHasExtendedBreakdown = useCallback((card: CompetenceHistoryCard): boolean => {
@@ -676,6 +720,7 @@ const TransactionsView: React.FC = () => {
       card.totalPayments > 0.005 ||
       card.openBalance > 0.005 ||
       card.priorCreditApplied > 0.005 ||
+      (card.priorDifferenceApplied ?? 0) > 0.005 ||
       card.creditCarriedForward > 0.005 ||
       (card.directedManualRefundTotal ?? 0) > 0.005 ||
       card.userConfirmedPaid === true ||
@@ -700,8 +745,8 @@ const TransactionsView: React.FC = () => {
               <span className="tabular-nums font-semibold text-slate-100">
                 {formatCurrency(card.paymentsOnExtracts ?? 0)}
               </span>{' '}
-              em linhas de pagamento de fatura. No fechamento XP, esse valor costuma abater a fatura do mês
-              anterior.
+              em linhas de pagamento de fatura. Conforme a data de cada pagamento, parte dele pode quitar a
+              fatura anterior; o valor acima já mostra o que ficou nesta fatura.
             </p>
           ) : null}
           <div className="flex justify-between gap-3 items-baseline border-t border-white/10 pt-3">
@@ -717,6 +762,7 @@ const TransactionsView: React.FC = () => {
         </section>
 
         {(card.priorCreditApplied > 0.005 ||
+          (card.priorDifferenceApplied ?? 0) > 0.005 ||
           card.creditCarriedForward > 0.005 ||
           (card.directedManualRefundTotal ?? 0) > 0.005) && (
           <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
@@ -737,6 +783,15 @@ const TransactionsView: React.FC = () => {
                     )
                   </>
                 ) : null}
+              </p>
+            ) : null}
+            {(card.priorDifferenceApplied ?? 0) > 0.005 ? (
+              <p className="text-slate-300 leading-relaxed text-[13px]">
+                Abatido com a diferença de faturas anteriores (pagamentos um pouco acima do valor,
+                como centavos de IOF):{' '}
+                <span className="tabular-nums font-semibold text-violet-200">
+                  {formatCurrency(card.priorDifferenceApplied ?? 0)}
+                </span>
               </p>
             ) : null}
             {card.creditCarriedForward > 0.005 ? (
@@ -804,6 +859,27 @@ const TransactionsView: React.FC = () => {
                 Desfazer
               </button>
             </p>
+            {card.userConfirmedAppliedAmount != null &&
+            (card.userConfirmedAmount ?? 0) - card.userConfirmedAppliedAmount > 0.005 ? (
+              <p className="mt-2 text-emerald-100/85 leading-relaxed text-[13px]">
+                Os pagamentos registrados já cobrem{' '}
+                <span className="tabular-nums font-semibold">
+                  {formatCurrency((card.userConfirmedAmount ?? 0) - card.userConfirmedAppliedAmount)}
+                </span>{' '}
+                desse valor, que não é contado de novo.{' '}
+                {card.userConfirmedAppliedAmount > 0.005 ? (
+                  <>
+                    A confirmação completa só a diferença de{' '}
+                    <span className="tabular-nums font-semibold">
+                      {formatCurrency(card.userConfirmedAppliedAmount)}
+                    </span>
+                    .
+                  </>
+                ) : (
+                  'Nada desta confirmação entra a mais na fatura.'
+                )}
+              </p>
+            ) : null}
           </section>
         ) : null}
 
@@ -1023,11 +1099,13 @@ const TransactionsView: React.FC = () => {
   }, []);
 
   const handlePayInvoice = useCallback(
-    (account: Account, amount: number) => {
+    (account: Account, amount: number, preset?: { amount?: number; sourceAccountId?: string }) => {
       setPayInvoiceModal({
         open: true,
         account,
         suggestedAmount: amount,
+        presetAmount: preset?.amount && preset.amount > 0.005 ? preset.amount : undefined,
+        presetSourceAccountId: preset?.sourceAccountId,
         competenceCards: [],
         loading: true,
       });
@@ -1054,6 +1132,55 @@ const TransactionsView: React.FC = () => {
     [loadImportHistoryCompetenceCards, closePayInvoiceModal]
   );
 
+  /**
+   * Antes de registrar: conta de origem válida, fatura escolhida na lista, valor e data. Mesmo valor e mesma data
+   * já lançados neste cartão: avisa, mas o usuário decide (dois pagamentos iguais podem ser legítimos).
+   */
+  const confirmPayInvoiceRequest = useCallback(
+    async ({
+      account,
+      sourceAccount,
+      selectedCard,
+      amount,
+      paymentDate,
+    }: {
+      account: Account;
+      sourceAccount: Account | undefined;
+      selectedCard: CompetenceHistoryCard | undefined;
+      amount: number;
+      paymentDate: string;
+    }): Promise<boolean> => {
+      if (!sourceAccount || sourceAccount.Tipo_Conta === 'Cartão de Crédito') {
+        await appAlert('Escolha a conta bancária de onde saiu o dinheiro do pagamento.', 'Pagamento', 'warning');
+        return false;
+      }
+      if (!selectedCard) {
+        await appAlert('Escolha qual fatura você está pagando.', 'Pagamento', 'warning');
+        return false;
+      }
+      if (!(amount > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
+        await appAlert('Informe a data e um valor maior que zero.', 'Pagamento', 'warning');
+        return false;
+      }
+      const duplicates = findPossibleDuplicatePayments({
+        cardAccountId: account.id,
+        amount,
+        dateIso: paymentDate,
+        transactions,
+      });
+      if (duplicates.length === 0) return true;
+      const proceed = await appConfirm(
+        duplicatePaymentWarning(duplicates),
+        'Pagamento parecido já lançado',
+        'Registrar mesmo assim',
+        'warning',
+        'Voltar'
+      );
+      return proceed;
+    },
+    [transactions]
+  );
+
   const submitPayCreditCardInvoice = useCallback(
     async ({
       referenceMonth,
@@ -1069,17 +1196,10 @@ const TransactionsView: React.FC = () => {
       sourceAccountId: string;
     }) => {
       const account = payInvoiceModal.account;
-      if (!account || !user) return;
-
+      if (!account || !user) return false;
       const sourceAccount = accounts.find((a) => a.id === sourceAccountId);
-      if (!sourceAccount || sourceAccount.Tipo_Conta === 'Cartão de Crédito') {
-        await appAlert('Selecione uma conta bancária válida para o pagamento.', 'Pagamento', 'warning');
-        return;
-      }
-
-      const selectedCard = payInvoiceModal.competenceCards.find(
-        (c) => c.referenceMonth === referenceMonth
-      );
+      const selectedCard = payInvoiceModal.competenceCards.find((c) => c.referenceMonth === referenceMonth);
+      if (!(await confirmPayInvoiceRequest({ account, sourceAccount, selectedCard, amount, paymentDate })) || !sourceAccount) return false;
 
       let cardLegTransactionId: string | undefined;
       try {
@@ -1123,11 +1243,11 @@ const TransactionsView: React.FC = () => {
       } catch (error) {
         console.error('[TransactionsView] Registrar pagamento manual:', error);
         await appAlert(
-          'Não foi possível registrar o pagamento. Tente novamente.',
+          'Não foi possível registrar o pagamento. Nada foi lançado. Tente novamente.',
           'Pagamento',
           'danger'
         );
-        return;
+        return false;
       }
 
       try {
@@ -1169,12 +1289,14 @@ const TransactionsView: React.FC = () => {
 
       setCompetenceConfirmRevision((v) => v + 1);
       await appAlert('Pagamento registrado com sucesso.', 'Pagamento', 'success');
+      return true;
     },
     [
       payInvoiceModal.account,
       payInvoiceModal.competenceCards,
       user,
       accounts,
+      confirmPayInvoiceRequest,
       addTransaction,
       rememberEconomicEvent,
       updateUserPreferences,
@@ -2367,6 +2489,7 @@ const TransactionsView: React.FC = () => {
 
   // Identidade econômica: selo (qualquer visualizador) e ação (só o dono). Evento não carregado ⇒ sem selo nem ação.
   const economicEventById = useMemo(() => new Map(economicEvents.map((e) => [e.id, e])), [economicEvents]);
+  const paymentAccountLookup = useMemo(() => accountLookup(accounts), [accounts]);
   const economicLegCounts = useMemo(() => countLegsByEventId(transactions), [transactions]);
   const identityFor = useCallback(
     (t: Transaction) => {
@@ -2954,8 +3077,22 @@ const TransactionsView: React.FC = () => {
     const count = idsToDelete.length;
     if (count === 0) return;
 
+    // Lado de pagamento de fatura selecionado sem o outro: o outro sai junto, e o usuário fica sabendo.
+    const selectedSet = new Set(idsToDelete);
+    const extraPaymentLegs = new Set(
+      expandInvoicePaymentSelection(
+        transactions.filter((t) => t.ID_Transacao && selectedSet.has(t.ID_Transacao) && isManualTransaction(t)),
+        transactions,
+        accounts
+      ).addedIds
+    );
+    const pairNote =
+      extraPaymentLegs.size > 0
+        ? ` ${extraPaymentLegs.size === 1 ? 'Um pagamento de fatura selecionado tem' : `${extraPaymentLegs.size} pagamentos de fatura selecionados têm`} o outro lado em outra conta; ${extraPaymentLegs.size === 1 ? 'ele também será excluído' : 'eles também serão excluídos'}, para a fatura e o saldo continuarem certos.`
+        : '';
+
     const confirmed = await appConfirm(
-      `Excluir ${count} lançamento${count > 1 ? 's' : ''} manual${count > 1 ? 'is' : ''}? Esta ação não pode ser desfeita.`,
+      `Excluir ${count} lançamento${count > 1 ? 's' : ''} manual${count > 1 ? 'is' : ''}?${pairNote} Esta ação não pode ser desfeita.`,
       'Excluir lançamentos',
       'Excluir',
       'danger'
@@ -2964,7 +3101,30 @@ const TransactionsView: React.FC = () => {
 
     const deleted = await deleteManualTransactions(idsToDelete);
     if (deleted > 0) exitSelectionMode();
-  }, [effectiveSelectedManualIds, deleteManualTransactions, exitSelectionMode]);
+  }, [effectiveSelectedManualIds, deleteManualTransactions, exitSelectionMode, transactions, accounts]);
+
+  /** Pagamento de fatura: a confirmação explica que os dois lados (cartão e conta) saem juntos. */
+  const confirmPaymentPairDeletion = useCallback(
+    (pair: InvoicePaymentPair): Promise<boolean> =>
+      appConfirm(
+        invoicePaymentDeletionMessage(pair, accounts),
+        'Excluir pagamento de fatura',
+        pair.complete ? 'Excluir os dois lados' : 'Excluir',
+        'danger',
+        'Cancelar'
+      ),
+    [accounts]
+  );
+
+  /** Confirmação de exclusão de um lançamento manual. */
+  const confirmManualDeletion = useCallback(
+    async (t: Transaction): Promise<boolean> => {
+      const pair = findInvoicePaymentPair(t, transactions, accounts);
+      if (pair) return confirmPaymentPairDeletion(pair);
+      return appConfirm('Tem certeza que deseja excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger');
+    },
+    [transactions, accounts, confirmPaymentPairDeletion]
+  );
 
   const desktopTableColumnCount =
     (showOwnerColumnInTable ? 10 : 9) + (selectionMode ? 1 : 0);
@@ -3761,7 +3921,10 @@ const TransactionsView: React.FC = () => {
                 colorClass: 'bg-red-500',
                 onClick: async () => {
                   if (manual) {
-                    if (await appConfirm('Excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao);
+                    const paymentPair = findInvoicePaymentPair(t, transactions, accounts);
+                    if (paymentPair) {
+                      if (await confirmPaymentPairDeletion(paymentPair)) deleteTransaction(t.ID_Transacao);
+                    } else if (await appConfirm('Excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao);
                   } else {
                     prepareImportedBatchDeletion(t);
                   }
@@ -3922,12 +4085,13 @@ const TransactionsView: React.FC = () => {
                 const selectable = manual && !staleRetainedIds.has(t.ID_Transacao);
                 const isSelected = selectable && selectedManualIds.has(t.ID_Transacao);
                 const identity = identityFor(t);
+                const paymentLocked = isInvoicePaymentLeg(t, paymentAccountLookup) ? INVOICE_PAYMENT_LOCKED_FIELDS : undefined;
                 return (
                 <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''} ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}>
-                  <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
-                  <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
-                  <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
-                  <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} badge={identity.badge ? <EconomicIdentityBadge label={identity.badge} /> : undefined} />
+                  <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} lockedFields={paymentLocked} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
+                  <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} lockedFields={paymentLocked} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
+                  <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} lockedFields={paymentLocked} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
+                  <EditableCell key={`${t.ID_Transacao}-Nome_Fantasia-${t.Nome_Fantasia}`} transaction={t} lockedFields={paymentLocked} field="Nome_Fantasia" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} className="w-auto text-sm" onRuleCreation={openNewMappingRuleModal} badge={identity.badge ? <EconomicIdentityBadge label={identity.badge} /> : undefined} />
                   {showOwnerColumnInTable ? (
                     <td className="px-2 py-4 w-20 text-center align-middle">
                       {(() => {
@@ -3938,10 +4102,10 @@ const TransactionsView: React.FC = () => {
                       })()}
                     </td>
                   ) : null}
-                  <EditableCell key={`${t.ID_Transacao}-Parcela_Atual-${t.Parcela_Atual}`} transaction={t} field="Parcela_Atual" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="installments" className="w-16 text-center text-xs" />
+                  <EditableCell key={`${t.ID_Transacao}-Parcela_Atual-${t.Parcela_Atual}`} transaction={t} lockedFields={paymentLocked} field="Parcela_Atual" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="installments" className="w-16 text-center text-xs" />
                   <EditableCell 
                     key={`${t.ID_Transacao}-Categoria-${t.Categoria}`} 
-                    transaction={t} 
+                    transaction={t} lockedFields={paymentLocked} 
                     field="Categoria" 
                     onUpdate={handleInlineUpdate} 
                     nonEditableFields={nonEditableImportedFields} 
@@ -3952,7 +4116,7 @@ const TransactionsView: React.FC = () => {
                   />
                   <EditableCell 
                         key={`${t.ID_Transacao}-linked_asset_id-${t.linked_asset_id}`} 
-                        transaction={t} 
+                        transaction={t} lockedFields={paymentLocked} 
                         field="linked_asset_id" 
                         onUpdate={handleInlineUpdate} 
                         nonEditableFields={[]} 
@@ -3961,7 +4125,7 @@ const TransactionsView: React.FC = () => {
                         displayMap={new Map(assets.map(a => [a.id, a.name] as [string, string]))}
                         className="w-28 text-[10px] truncate" 
                   />
-                  <EditableCell key={`${t.ID_Transacao}-Valor-${t.Valor}`} transaction={t} field="Valor" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="number" className="w-28 text-sm" />
+                  <EditableCell key={`${t.ID_Transacao}-Valor-${t.Valor}`} transaction={t} lockedFields={paymentLocked} field="Valor" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="number" className="w-28 text-sm" />
                   {selectionMode ? (
                     <td className="px-2 py-4 w-10 text-center align-middle">
                       {manual ? (
@@ -3997,7 +4161,7 @@ const TransactionsView: React.FC = () => {
                             </svg>
                           </button>
                           <button 
-                            onClick={async () => { if (await appConfirm('Tem certeza que deseja excluir este lançamento manual?', 'Excluir Transação', 'Excluir', 'danger')) deleteTransaction(t.ID_Transacao) }} 
+                            onClick={async () => { if (await confirmManualDeletion(t)) deleteTransaction(t.ID_Transacao) }} 
                             className="text-danger hover:text-red-400"
                             title="Excluir Transação"
                           >
@@ -4561,11 +4725,11 @@ const TransactionsView: React.FC = () => {
           lastCreatedAccount={lastCreatedAccount}
           lastCreatedCategory={lastCreatedCategory}
           transaction={predefinedTransaction || editingTransaction}
-          onPayCreditCardInvoice={(account, suggestedAmount) => {
+          onPayCreditCardInvoice={(account, suggestedAmount, sourceAccountId) => {
             setNewTransactionModalOpen(false);
             setEditingTransaction(null);
             setPredefinedTransaction(null);
-            handlePayInvoice(account, suggestedAmount);
+            handlePayInvoice(account, suggestedAmount, { amount: suggestedAmount, sourceAccountId });
           }}
           loadCompetenceCards={loadImportHistoryCompetenceCards}
           cardPaymentKeywords={currentPaymentKeywords}
@@ -4588,7 +4752,7 @@ const TransactionsView: React.FC = () => {
       {isCategoryModalOpen && (
         <CategoryModal
           category={null}
-          overlayClassName={isNewTransactionModalOpen ? 'z-[60]' : undefined}
+          overlayClassName={isNewTransactionModalOpen || payInvoiceModal.open ? 'z-[60]' : undefined}
           onClose={() => setCategoryModalOpen(false)}
           onSave={handleSaveCategory}
         />
@@ -4773,6 +4937,8 @@ const TransactionsView: React.FC = () => {
         }
         lastCreatedCategory={lastCreatedCategory}
         initialAmount={payInvoiceModal.suggestedAmount}
+        presetAmount={payInvoiceModal.presetAmount}
+        presetSourceAccountId={payInvoiceModal.presetSourceAccountId}
         onClose={closePayInvoiceModal}
         onOpenCreateCategory={() => setCategoryModalOpen(true)}
         onSubmit={submitPayCreditCardInvoice}
@@ -4894,6 +5060,8 @@ interface EditableCellProps {
   field: keyof Transaction;
   onUpdate: (transaction: Transaction, field: keyof Transaction, value: any) => void;
   nonEditableFields: (keyof Transaction)[];
+  /** Campos travados mesmo em lançamento manual (ex.: valor e data de um pagamento de fatura). */
+  lockedFields?: (keyof Transaction)[];
   type?: 'text' | 'date' | 'select' | 'number' | 'installments';
   options?: string[];
   displayMap?: Map<string, string>; // Mapa para exibir nomes em vez de IDs
@@ -4908,6 +5076,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
   field,
   onUpdate,
   nonEditableFields,
+  lockedFields,
   type = 'text',
   options = [],
   displayMap,
@@ -4928,7 +5097,10 @@ const EditableCell: React.FC<EditableCellProps> = ({
   }, [transaction, field]);
 
   // Regras de edição
-  const isEditable = field !== 'Fonte' && (transaction.Origem === 'manual' || !nonEditableFields.includes(field));
+  const isEditable =
+    field !== 'Fonte' &&
+    !lockedFields?.includes(field) &&
+    (transaction.Origem === 'manual' || !nonEditableFields.includes(field));
 
   const categoryTypeMap = useMemo(() => new Map(categories.map(c => [c.Nome_Categoria, c.Tipo])), [categories]);
   const categoryTypeColorMap: Record<Category['Tipo'], string> = { Renda: 'text-accent', Despesa: 'text-danger', Ambos: 'text-highlight' };

@@ -168,3 +168,23 @@ export async function cleanupOrphanUserEvent(eventId: string): Promise<boolean> 
     return false;
   }
 }
+
+/**
+ * Limpeza depois de excluir lançamentos: além do evento manual (acima), remove o evento de PAGAMENTO DE FATURA
+ * (`credit_card_payment`, do «Pagar» ou do backfill) que ficou sem nenhuma linha — conferido no banco.
+ * Nunca apaga evento que ainda tenha linha, de outro dono ou de outro tipo.
+ */
+export async function cleanupOrphanEconomicEvent(eventId: string): Promise<boolean> {
+  try {
+    const userId = await currentUserId();
+    const event = await loadOwnedEvent(eventId, userId);
+    const isPayment = event.kind === 'credit_card_payment';
+    if (!isPayment && !isUserInternalMovementEvent(event)) return false;
+    if ((await legsOf(event.id)).length > 0) return false;
+    await deleteEconomicEvent(event.id);
+    return true;
+  } catch (error) {
+    console.error('[EconomicIdentity] Falha ao limpar o evento órfão (sem efeito nos cálculos):', error);
+    return false;
+  }
+}

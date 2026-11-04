@@ -17,6 +17,8 @@ import {
   type EconomicStatus,
   type ReconciliationResolutionInput,
   type ReconciliationStatus,
+  type ResolutionKind,
+  type TwoLedgerResult,
 } from './twoLedgerBalance.ts';
 
 /** Forma mínima consumida do histórico reconstruído, para não acoplar ao serviço. */
@@ -40,6 +42,13 @@ export interface CompetenceProjection {
   priorCreditAppliedCents: number;
   economicOpenBalanceCents: number;
   economicStatus: EconomicStatus;
+  /**
+   * Parte do saldo desta competência coberta por diferença de faturas
+   * anteriores (pagamentos acima do valor, como centavos de IOF). Já está
+   * descontada de `economicOpenBalanceCents`; existe para a tela mostrar de onde
+   * veio o desconto.
+   */
+  priorDifferenceAppliedCents: number;
   /** Crédito econômico disponível DEPOIS desta competência. */
   economicCarryAfterCents: number;
 
@@ -74,6 +83,28 @@ export interface CardTwoLedgerProjection {
   reconciliationPending: boolean;
   /** A competência que o card deve destacar, escolhida por obrigação econômica. */
   current: CompetenceProjection | undefined;
+  /**
+   * Resoluções ativas que não encontram diferença a resolver na própria
+   * competência. Não têm efeito em nenhum dos livros e ficam identificadas
+   * aqui até alguém decidir o que fazer com elas. Ver `identificarResolucoesOrfas`.
+   */
+  orphanResolutions: OrphanResolution[];
+}
+
+export interface OrphanResolution {
+  /** Competência gravada na resolução. A linha do banco não muda. */
+  referenceMonth: string;
+  kind: ResolutionKind;
+  resolvedAmountCents: number;
+  /** A diferença que a tela mostrava quando a resolução foi gravada (`delta_amount`). */
+  recordedDeltaCents: number | null;
+  reason: 'sem_diferenca_na_competencia';
+  /**
+   * Diferenças ainda abertas em competências anteriores. SÓ informação para
+   * quem for revisar: valor igual não prova que é a mesma diferença, e nada
+   * aqui é aplicado.
+   */
+  diferencasAnteriores: Array<{ referenceMonth: string; amountCents: number }>;
 }
 
 const toCents = (value: number | null | undefined): number =>
@@ -189,7 +220,8 @@ function toLedgerInput(
  * mais que tenha diferença de reconciliação pendente.
  */
 function pickCurrent(
-  competences: CompetenceProjection[]
+  competences: CompetenceProjection[],
+  asOf?: string
 ): CompetenceProjection | undefined {
   const comDivida = competences.filter((c) => c.economicOpenBalanceCents > 0);
 
@@ -198,7 +230,69 @@ function pickCurrent(
 
   if (comDivida.length > 0) return comDivida[0];
 
+  // Tudo quitado: o ciclo que vence hoje ou depois. A competência mais antiga
+  // levava o card a mostrar um vencimento de meses atrás («Vence 0d · 18/02»).
+  if (asOf) {
+    const aVencer = competences.find((c) => !!c.dueDate && c.dueDate >= asOf);
+    if (aVencer) return aVencer;
+    return competences[competences.length - 1];
+  }
   return competences[0];
+}
+
+/**
+ * Resolução órfã: ativa, mas sem diferença a resolver na própria competência.
+ *
+ * Acontece quando a regra de atribuição dos pagamentos muda o lugar onde uma
+ * diferença aparece. Na conta piloto, R$ 0,94 foram classificados como ajuste
+ * bancário quando a fila os mostrava em 10/2025; com a atribuição corrigida, a
+ * fila mostra 0,22 em 01/2025 e 0,72 em 03/2025.
+ *
+ * A projeção NÃO aplica a resolução em outra competência. Valor igual não é
+ * evidência de que se trata da mesma diferença: duas diferenças independentes
+ * podem somar o mesmo valor, e associar a decisão antiga à errada encerraria,
+ * sem ninguém decidir, uma diferença que o usuário nunca viu. O banco não
+ * guarda a composição da diferença no momento da decisão, então não há como
+ * provar a continuidade automaticamente.
+ *
+ * A órfã fica sem efeito nos dois livros e identificada aqui, com as
+ * diferenças anteriores ainda abertas como pista para quem for revisar. O
+ * tratamento é pelos fluxos que já existem e deixam trilha: desfazer a
+ * resolução antiga (com motivo) e classificar a diferença que existe hoje.
+ */
+export function identificarResolucoesOrfas(
+  ledger: TwoLedgerResult,
+  porMes: Record<string, ReconciliationResolutionInput[]>
+): OrphanResolution[] {
+  const orfas: OrphanResolution[] = [];
+  const abertas = competenciasComDiferencaAcionavel(ledger.competences);
+
+  for (const mes of Object.keys(porMes).sort()) {
+    const comp = ledger.competences.find((c) => c.referenceMonth === mes);
+    const aplicado = comp
+      ? comp.resolvedNonEconomicCents + comp.resolvedToCarryCents + comp.resolvedToDebtCents
+      : 0;
+    // Algo desta competência foi aplicado: as resoluções têm diferença própria.
+    if (aplicado !== 0) continue;
+
+    const anteriores = [...abertas.entries()]
+      .filter(([ref]) => ref < mes)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([referenceMonth, amountCents]) => ({ referenceMonth, amountCents }));
+
+    for (const r of porMes[mes] ?? []) {
+      if (r.kind === 'authoritative_total') continue;
+      orfas.push({
+        referenceMonth: mes,
+        kind: r.kind,
+        resolvedAmountCents: Math.trunc(Number(r.resolvedAmountCents ?? 0)),
+        recordedDeltaCents: r.recordedDeltaCents ?? null,
+        reason: 'sem_diferenca_na_competencia',
+        diferencasAnteriores: anteriores,
+      });
+    }
+  }
+  return orfas;
 }
 
 export function projectCardTwoLedger(
@@ -233,6 +327,7 @@ export function projectCardTwoLedger(
       priorCreditAppliedCents: c.priorCreditAppliedCents,
       economicOpenBalanceCents: c.economicOpenBalanceCents,
       economicStatus: c.economicStatus,
+      priorDifferenceAppliedCents: c.suspenseOutCents,
       economicCarryAfterCents: c.economicCarryCents,
       reconciliationStatus: c.reconciliationStatus,
       unresolvedReconciliationDeltaCents: c.unresolvedReconciliationDeltaCents,
@@ -260,6 +355,7 @@ export function projectCardTwoLedger(
      * somá-lo aqui reacendia o selo por resíduo que a cadeia já devolveu.
      */
     reconciliationPending: competences.some((c) => c.hasPendingReconciliation),
-    current: pickCurrent(competences),
+    current: pickCurrent(competences, options.asOf),
+    orphanResolutions: identificarResolucoesOrfas(ledger, porMes),
   };
 }

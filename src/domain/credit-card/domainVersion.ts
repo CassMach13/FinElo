@@ -10,4 +10,4 @@
  * «uma correção óbvia». Snapshots gravados pela regra antiga passam a ser
  * tratados como stale e são recalculados, que é exatamente o que se quer.
  */
-export const CARD_DOMAIN_VERSION = 'card-two-ledger@1';
+export const CARD_DOMAIN_VERSION = 'card-two-ledger@2';

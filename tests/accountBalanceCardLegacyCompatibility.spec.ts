@@ -63,7 +63,7 @@ const scenarios: Scenario[] = [
   { name: 'ignored negative confirmation does not suppress other competences', options: {
     transactions: [charge], userPaymentConfirmations: [{ referenceMonth: '2026-08', settledAmount: -1, confirmedAt: '2026-09-12T12:00:00Z' }],
   } },
-  { name: 'confirmation plus observed payment preserves suspense without automatic credit', options: {
+  { name: 'confirmation plus observed payment is not double counted and creates no credit', options: {
     transactions: [charge, row('payment', 100)],
     userPaymentConfirmations: [{ referenceMonth: '2026-09', settledAmount: 100, confirmedAt: '2026-10-12T12:00:00Z' }],
   } },
