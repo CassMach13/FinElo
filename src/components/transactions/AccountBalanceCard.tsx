@@ -123,7 +123,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     <div
       className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] active:scale-[0.99] rounded-2xl shadow-xl border-l-4 flex flex-col ${
         isCreditCard
-          ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-indigo-500 shadow-indigo-500/10 p-3.5 sm:p-4 w-fit max-w-full self-start'
+          ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-indigo-500 shadow-indigo-500/10 p-3.5 sm:p-4 w-max max-w-full self-start'
           : 'bg-gradient-to-br from-secondary to-slate-800 border-accent shadow-accent/10 p-4 min-h-[132px]'
       }`}
       onClick={onEdit}
@@ -238,82 +238,40 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       </div>
                     </div>
 
-                    {/* Faixa justa ao conteúdo — sem flex-1 esticando colunas vazias */}
-                    <div className="rounded-lg bg-white/[0.06] border border-white/8 px-2 py-0.5 w-fit max-w-full">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex flex-col gap-px shrink-0">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap">
-                            Disponível
-                          </p>
-                          <p className="text-sm sm:text-[15px] font-black text-emerald-400 tabular-nums leading-none whitespace-nowrap">
-                            {formatCurrency(limiteDisponivel)}
-                          </p>
+                    {/* Valores e ações numa faixa que quebra linha sozinha. Antes era uma
+                        linha só, sem quebra: com vários selos o conteúdo passava da largura
+                        do card e era cortado, junto com «Histórico» e «Pagar». */}
+                    <div className="rounded-lg bg-white/[0.06] border border-white/8 px-2 py-1 w-fit max-w-full">
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                          <div className="flex flex-col gap-px shrink-0">
+                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap">
+                              Disponível
+                            </p>
+                            <p className="text-sm sm:text-[15px] font-black text-emerald-400 tabular-nums leading-none whitespace-nowrap">
+                              {formatCurrency(limiteDisponivel)}
+                            </p>
+                          </div>
+                          <div className="w-px h-8 bg-white/10 shrink-0" aria-hidden />
+                          <div className="flex flex-col gap-px shrink-0">
+                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
+                              {faturaTitulo}
+                              {/* O selo de vencida vem primeiro: e o estado principal. O de
+                                  conciliacao vem depois, na area de status, como informacao
+                                  secundaria. Sao dimensoes diferentes, e uma nao substitui a outra. */}
+                              {faturaVencida && (
+                                <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                                  VENCIDA
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
+                              {formatCurrency(faturaAtual)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="w-px h-8 bg-white/10 shrink-0" aria-hidden />
-                        <div className="flex flex-col gap-px shrink-0">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
-                            {faturaTitulo}
-                            {/* O selo de vencida vem primeiro: e o estado principal. O de
-                                conciliacao vem depois, como informacao secundaria. Sao dimensoes
-                                diferentes, e uma nao substitui a outra. */}
-                            {faturaVencida && (
-                              <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
-                                VENCIDA
-                              </span>
-                            )}
-                            {reconciliacaoPendente && (
-                              <span
-                                title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
-                                className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
-                              >
-                                A CONCILIAR
-                              </span>
-                            )}
-                            {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onOpenReconciliation(reconciliacaoReferenceMonth);
-                                }}
-                                className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors"
-                              >
-                                {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
-                              </button>
-                            )}
-                          </p>
-                          <p className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
-                            {formatCurrency(faturaAtual)}
-                          </p>
-                        </div>
-                        {/* Linha própria. O cabeçalho da fatura já carrega três selos; somar
-                            mais um chip ali estourava a largura do card, e o botão ficava fora
-                            de alcance — o clique caía no card e abria a edição da conta. */}
-                        {diagnostico && onOpenDiagnostics && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenDiagnostics();
-                            }}
-                            title={
-                              diagnostico.total > 0
-                                ? 'Ver o que pode estar deixando o cartão fora de sincronia'
-                                : 'Não encontramos nada material para revisar'
-                            }
-                            className={`self-start shrink-0 whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded transition-colors ${
-                              diagnostico.total === 0
-                                ? 'text-slate-400 hover:text-slate-200'
-                                : diagnostico.precisaAtencao
-                                ? 'bg-amber-500/20 hover:bg-amber-500/35 text-amber-100 border border-amber-400/35'
-                                : 'bg-slate-500/20 hover:bg-slate-500/35 text-slate-200 border border-slate-400/30'
-                            }`}
-                          >
-                            {diagnostico.total === 0 ? '✓ Cartão consistente' : `⚠ ${diagnostico.label}`}
-                          </button>
-                        )}
                         {(onOpenHistory || (faturaAtual > 0 && onPayInvoice)) && (
-                          <div className="flex items-center gap-1 shrink-0 border-l border-white/10 pl-2.5 ml-0.5">
+                          <div className="flex items-center gap-1 shrink-0">
                             {onOpenHistory && (
                               <button
                                 type="button"
@@ -377,6 +335,54 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         </div>
                       )
                     )}
+
+                    {/* Status e alertas, em área própria e separada dos valores. Quebra
+                        linha quando precisa e some quando não há nada a mostrar. */}
+                    <div className="flex flex-wrap items-center gap-1 empty:hidden">
+                      {reconciliacaoPendente && (
+                        <span
+                          title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
+                          className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal whitespace-nowrap"
+                        >
+                          A CONCILIAR
+                        </span>
+                      )}
+                      {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenReconciliation(reconciliacaoReferenceMonth);
+                          }}
+                          className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/25 hover:bg-amber-500/40 text-amber-100 border border-amber-400/40 tracking-normal transition-colors whitespace-nowrap"
+                        >
+                          {reconciliacaoPendente ? 'Ver diferença' : 'Conciliação'}
+                        </button>
+                      )}
+                      {diagnostico && onOpenDiagnostics && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenDiagnostics();
+                          }}
+                          title={
+                            diagnostico.total > 0
+                              ? 'Ver o que pode estar deixando o cartão fora de sincronia'
+                              : 'Não encontramos nada material para revisar'
+                          }
+                          className={`shrink-0 whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded transition-colors ${
+                            diagnostico.total === 0
+                              ? 'text-slate-400 hover:text-slate-200'
+                              : diagnostico.precisaAtencao
+                              ? 'bg-amber-500/20 hover:bg-amber-500/35 text-amber-100 border border-amber-400/35'
+                              : 'bg-slate-500/20 hover:bg-slate-500/35 text-slate-200 border border-slate-400/30'
+                          }`}
+                        >
+                          {diagnostico.total === 0 ? '✓ Cartão consistente' : `⚠ ${diagnostico.label}`}
+                        </button>
+                      )}
+                    </div>
                   </>
                 )}
               </>
@@ -385,7 +391,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                 <span className="text-xl font-black text-rose-400 tabular-nums">
                   {formatCurrency(faturaAtual)}
                 </span>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex flex-wrap items-center justify-end gap-1.5">
                   {faturaTitulo}
                   {/* O selo de vencida vem primeiro: e o estado principal. O de
                       conciliacao vem depois, como informacao secundaria. Sao dimensoes
