@@ -26,6 +26,12 @@ import {
 import { inferManualRefundReferenceMonth, ensureRefundCompetenceCardOptions, resolveRefundCompetenceMonthForEdit, toLocalDateIso, inferUserTargetCompetenceOnPaymentEdit } from '../../services/creditCardManualCompetence';
 import { addMonthsToDateOnly, parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
 import { isManualTransaction } from '../../domain/transactions/transactionEditPolicy';
+import {
+  INVOICE_PAYMENT_EDIT_GUIDANCE,
+  accountLookup,
+  detectInvoicePaymentFromBank,
+  isInvoicePaymentLeg,
+} from '../../domain/credit-card/invoicePaymentPair';
 
 interface NewTransactionModalProps {
   onClose: () => void;
@@ -38,8 +44,8 @@ interface NewTransactionModalProps {
   lastCreatedAccount: string | null;
   lastCreatedCategory: string | null;
   transaction?: Transaction | null;
-  /** Abre o fluxo Pagar fatura (competência explícita). */
-  onPayCreditCardInvoice?: (account: Account, suggestedAmount: number) => void;
+  /** Abre o fluxo Pagar fatura (fatura escolhida explicitamente; conta de origem opcional). */
+  onPayCreditCardInvoice?: (account: Account, suggestedAmount: number, sourceAccountId?: string) => void;
   /** Histórico de competências do cartão (estorno/crédito). */
   loadCompetenceCards?: (account: Account) => Promise<CompetenceHistoryCard[]>;
   cardPaymentKeywords?: string[];
@@ -67,6 +73,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   // Importada: só nome, categoria, vínculo e data de pagamento mudam (transactionEditPolicy). O resto
   // descreve a linha do banco e fica travado aqui, em vez de ser regravado a partir do formulário.
   const isImportedEdit = Boolean(initialTransaction) && !isManualTransaction(initialTransaction);
+  // Pagamento registrado pelo «Pagar fatura»: só nome e categoria mudam (os dois lados precisam bater).
+  const isInvoicePaymentEdit = useMemo(
+    () => Boolean(initialTransaction) && isInvoicePaymentLeg(initialTransaction!, accountLookup(accounts)),
+    [initialTransaction, accounts]
+  );
+  /** Trava extra dos campos de dinheiro quando o lançamento é um pagamento de fatura. */
+  const paymentLock = isInvoicePaymentEdit ? { disabled: true } : {};
 
   const getTodayString = () => {
     const today = new Date();
@@ -126,10 +139,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   }, [transaction.Data_Pagamento]);
 
   const openPayInvoiceFlow = useCallback(
-    (account: Account, suggestedAmount?: number) => {
+    (account: Account, suggestedAmount?: number, sourceAccountId?: string) => {
       if (!onPayCreditCardInvoice) return;
       const parsed = suggestedAmount ?? parseFloat(transaction.Valor);
-      onPayCreditCardInvoice(account, Number.isFinite(parsed) ? parsed : 0);
+      onPayCreditCardInvoice(account, Number.isFinite(parsed) ? Math.abs(parsed) : 0, sourceAccountId);
       onClose();
     },
     [onPayCreditCardInvoice, onClose, transaction.Valor]
@@ -420,6 +433,35 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           cardPaymentKeywords
         )));
 
+  /** Despesa na conta bancária que parece pagamento de fatura de um cartão do FinElo. */
+  const [notCardPayment, setNotCardPayment] = useState(false);
+  const bankSidePayment = useMemo(() => {
+    if (initialTransaction || !selectedAccount || isCreditCardAccount) return null;
+    if (transaction.Tipo !== 'Despesa') return null;
+    const detected = detectInvoicePaymentFromBank(
+      { nome: transaction.Nome_Fantasia, descricao: transaction.Descricao_Original, categoria: transaction.Categoria },
+      creditCardAccounts
+    );
+    if (!detected.looksLikePayment) return null;
+    return { cardId: detected.cardId };
+  }, [
+    initialTransaction,
+    selectedAccount,
+    isCreditCardAccount,
+    transaction.Tipo,
+    transaction.Nome_Fantasia,
+    transaction.Descricao_Original,
+    transaction.Categoria,
+    creditCardAccounts,
+  ]);
+
+  useEffect(() => {
+    if (bankSidePayment?.cardId) setPayCardTargetId(bankSidePayment.cardId);
+  }, [bankSidePayment?.cardId]);
+
+  const bankSideTargetCard =
+    creditCardAccounts.find((c) => c.id === payCardTargetId) ?? creditCardAccounts[0] ?? null;
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!transaction.Data) newErrors.Data = 'A data é obrigatória.';
@@ -454,6 +496,27 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isInvoicePaymentEdit) {
+      // Pagamento de fatura: nome e categoria. Valor, data, conta e fatura ficam como foram pagos.
+      const paymentErrors: Record<string, string> = {};
+      if (!transaction.Nome_Fantasia.trim()) paymentErrors.Nome_Fantasia = 'A descrição é obrigatória.';
+      if (!transaction.Categoria) paymentErrors.Categoria = 'A categoria é obrigatória.';
+      setErrors(paymentErrors);
+      if (Object.keys(paymentErrors).length > 0 || isSaving) return;
+      setIsSaving(true);
+      try {
+        await onSave([
+          {
+            Nome_Fantasia: transaction.Nome_Fantasia.trim(),
+            Categoria: transaction.Categoria,
+          } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
+        ]);
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
 
     if (isImportedEdit) {
       // Não passa pelo gerador de lançamentos manuais (recorrência, tipo de lançamento no cartão,
@@ -500,7 +563,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     ) {
       const amount = parseFloat(transaction.Valor);
       const goPay = await appConfirm(
-        'Pagamentos de fatura no cartão devem usar o fluxo Pagar, onde você escolhe qual competência está quitando. Caso contrário, o sistema pode abater a fatura errada pela data do lançamento.',
+        'Pagamento de fatura se registra em «Pagar fatura»: lá você escolhe qual fatura está pagando e de qual conta saiu o dinheiro. Lançado aqui, ele poderia abater a fatura errada.',
         'Usar fluxo Pagar fatura?',
         'Ir para Pagar fatura',
         'warning',
@@ -513,6 +576,34 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     }
 
     if (isCreditCardAccount && cardEntryKind === 'invoice_payment') {
+      // Nunca em silêncio: diz o caminho certo.
+      setErrors((prev) => ({
+        ...prev,
+        cardEntryKind: 'Pagamento de fatura se registra em «Pagar fatura», no card do cartão.',
+      }));
+      return;
+    }
+
+    if (bankSidePayment && bankSideTargetCard && selectedAccount && !notCardPayment) {
+      if (!onPayCreditCardInvoice) {
+        await appAlert(
+          'Isto parece o pagamento da fatura de um cartão. Registre em «Pagar fatura», no card do cartão na tela Transações: assim a fatura é abatida e a saída da conta é lançada juntas. Se não for fatura de cartão cadastrado no FinElo, marque a opção no aviso e salve.',
+          'Pagamento de fatura?',
+          'warning'
+        );
+        return;
+      }
+      const amount = parseFloat(transaction.Valor);
+      const goPay = await appConfirm(
+        `Isto parece o pagamento da fatura do cartão ${bankSideTargetCard.Nome_Conta}. Em «Pagar fatura» o FinElo lança a saída desta conta e abate a fatura de uma vez só. Como despesa comum, a fatura continuaria em aberto e o gasto contaria duas vezes.`,
+        'Pagamento de fatura?',
+        'Ir para Pagar fatura',
+        'warning',
+        'Voltar'
+      );
+      if (goPay) {
+        openPayInvoiceFlow(bankSideTargetCard, Number.isFinite(amount) ? amount : 0, selectedAccount.id);
+      }
       return;
     }
 
@@ -708,6 +799,65 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       }
     >
       <form id="new-transaction-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        {isInvoicePaymentEdit && (
+          <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90">
+            {INVOICE_PAYMENT_EDIT_GUIDANCE}
+          </p>
+        )}
+        {bankSidePayment && bankSideTargetCard && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+            <p className="text-xs text-amber-100/90 leading-relaxed">
+              Isto parece o pagamento da fatura de um cartão. Use <strong>Pagar fatura</strong>: o FinElo lança a
+              saída desta conta e abate a fatura escolhida juntos.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+              {creditCardAccounts.length > 1 && (
+                <div className="flex-grow">
+                  <Select
+                    label="Cartão"
+                    name="bankSidePayCard"
+                    value={bankSideTargetCard.id}
+                    onChange={(e) => setPayCardTargetId(e.target.value)}
+                  >
+                    {creditCardAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.Nome_Conta}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              {onPayCreditCardInvoice ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="sm:shrink-0"
+                  onClick={() => {
+                    const amount = parseFloat(transaction.Valor);
+                    openPayInvoiceFlow(
+                      bankSideTargetCard,
+                      Number.isFinite(amount) ? amount : 0,
+                      selectedAccount?.id
+                    );
+                  }}
+                >
+                  Ir para Pagar fatura
+                </Button>
+              ) : (
+                <p className="text-xs text-gray-300">«Pagar fatura» fica no card do cartão, na tela Transações.</p>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={notCardPayment}
+                onChange={(e) => setNotCardPayment(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-700"
+              />
+              Não é fatura de cartão cadastrado no FinElo: salvar como despesa comum
+            </label>
+          </div>
+        )}
         {isImportedEdit && (
           <p className="rounded-xl border border-slate-600/60 bg-slate-800/60 p-3 text-xs leading-relaxed text-slate-300">
             Lançamento importado do seu banco: aqui você pode alterar a descrição, a categoria, o vínculo com
@@ -763,6 +913,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             onChange={handleChange}
             error={errors.Data}
             disabled={isImportedEdit}
+            {...paymentLock}
             title={
               isCreditCardAccount
                 ? 'Data em que a compra ou estorno ocorreu'
@@ -776,6 +927,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               type="date"
               value={transaction.Data_Pagamento}
               onChange={handleChange}
+              disabled={isInvoicePaymentEdit}
               placeholder="Vencimento na fatura"
               title="Vencimento da fatura em que esta compra será cobrada"
             />
@@ -809,6 +961,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               onChange={handleChange}
               error={errors.ID_Conta}
               disabled={isImportedEdit}
+              {...paymentLock}
             >
               <option value="" disabled>
                 Selecione uma conta...
@@ -848,6 +1001,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               onChange={(e) => handleCardKindChange(e.target.value as CardManualEntryKind)}
               error={errors.cardEntryKind}
               disabled={isImportedEdit}
+              {...paymentLock}
             >
               <option value="" disabled>
                 Selecione o tipo...
@@ -857,11 +1011,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               <option value="invoice_payment">Pagamento de fatura</option>
             </Select>
 
-            {showPaymentGuide && (
+            {showPaymentGuide && !isInvoicePaymentEdit && (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 space-y-2">
                 <p className="text-xs text-amber-100/90 leading-relaxed">
-                  Pagamento de fatura deve usar o botão <strong>Pagar</strong> no card do cartão para
-                  escolher qual competência você está quitando.
+                  Pagamento de fatura se registra em <strong>Pagar fatura</strong> (no card do cartão, na tela
+                  Transações), onde você escolhe qual fatura está pagando e de qual conta saiu o dinheiro.
                 </p>
                 {onPayCreditCardInvoice && (
                   <Button
@@ -949,6 +1103,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             onChange={handleChange}
             error={errors.Tipo}
             disabled={isImportedEdit || cardEntryKind === 'refund'}
+            {...paymentLock}
           >
             <option value="" disabled>
               Selecione...
@@ -1009,6 +1164,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             onChange={handleChange}
             error={errors.Valor}
             disabled={isImportedEdit}
+            {...paymentLock}
             placeholder="0,00"
           />
           {isInstallment && transaction.Valor && !isNaN(parseFloat(transaction.Valor)) && (
@@ -1026,6 +1182,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               name="linked_asset_id"
               value={transaction.linked_asset_id}
               onChange={handleChange}
+              disabled={isInvoicePaymentEdit}
             >
               <option value="">-</option>
               {assets
@@ -1051,6 +1208,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 checked={isRecurrent}
                 onChange={(e) => setIsRecurrent(e.target.checked)}
                 disabled={isImportedEdit}
+                {...paymentLock}
                 className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-highlight focus:ring-accent"
               />
               <label htmlFor="isRecurrent" className="text-sm font-medium text-gray-200 cursor-pointer select-none">

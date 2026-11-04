@@ -78,27 +78,14 @@ exports[`Transactions compatibility with Patrimônio V2 disabled > 'coinciding f
 }
 `;
 
-exports[`Transactions compatibility with Patrimônio V2 disabled > 'confirmation plus observed payment pr…' 1`] = `
+exports[`Transactions compatibility with Patrimônio V2 disabled > 'confirmation plus observed payment is…' 1`] = `
 {
   "awaitingMotorSnapshotUi": false,
   "barColor": "bg-emerald-500",
   "currentBalance": -1471.8,
   "diaFecha": 20,
   "diaVence": 10,
-  "diagnosticos": [
-    {
-      "action": "ver_diferenca",
-      "amountCents": 10000,
-      "code": "diferenca_a_conciliar",
-      "competenceLabel": "setembro de 2026",
-      "competences": [
-        "2026-09",
-      ],
-      "message": "Encontramos uma diferença de R$ 100,00 entre o valor desta fatura e os pagamentos registrados. Vale conferir de onde ela vem antes de classificá-la.",
-      "severity": "atencao",
-      "title": "Fatura de setembro de 2026",
-    },
-  ],
+  "diagnosticos": [],
   "diasParaFechar": 4,
   "diasParaVencer": 0,
   "faturaAtual": 0,
@@ -110,10 +97,10 @@ exports[`Transactions compatibility with Patrimônio V2 disabled > 'confirmation
   "limite": 1000,
   "limiteDisponivel": 1000,
   "limiteUsadoPct": 0,
-  "reconciliacaoPendente": true,
-  "reconciliacaoReferenceMonth": "2026-09",
+  "reconciliacaoPendente": false,
+  "reconciliacaoReferenceMonth": null,
   "reconciliacaoResolvida": false,
-  "reconciliacaoSaldo": 100,
+  "reconciliacaoSaldo": 0,
 }
 `;
 

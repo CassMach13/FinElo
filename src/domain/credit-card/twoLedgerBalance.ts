@@ -69,6 +69,12 @@ export interface ReconciliationResolutionInput {
    * diferença disponível é descartado, nunca inventado.
    */
   resolvedAmountCents?: number;
+  /**
+   * A diferença que a tela mostrava quando o usuário resolveu (`delta_amount`).
+   * Não entra no cálculo da competência; serve para reconhecer, sem tolerância,
+   * a MESMA diferença quando uma regra de atribuição a mudou de competência.
+   */
+  recordedDeltaCents?: number;
   /** Só para `authoritative_total`, e só vale acompanhado da procedência. */
   authoritativeStatementTotalCents?: number;
   authoritativeSource?: AuthoritativeSource | null;

@@ -343,7 +343,10 @@ describe('competenceHistoryCardsForAccount', () => {
         ID_Transacao: '1',
         ID_Conta: 'acc-xp',
         Origem: 'Fatura_Cartao_XP_Cassio_Dez_2025.csv',
-        Data: '2025-12-05',
+        // Pago no vencimento da fatura anterior (10/11), como no extrato XP real.
+        // Pagamento lançado DEPOIS desse vencimento é antecipação da fatura atual:
+        // esse caso está em tests/credit-card/pagamentosParciaisEHistoricos.spec.ts.
+        Data: '2025-11-10',
         Valor: 7356.47,
         Tipo: 'Renda',
         Descricao_Original: 'Pagamentos Validos Normais',

@@ -19,8 +19,4 @@
  * Aceitar as duas formas tira a dependência de um detalhe de inferência que
  * pode mudar de novo.
  */
-export function foiRevertida(vinculo: unknown): boolean {
-  if (vinculo == null) return false;
-  if (Array.isArray(vinculo)) return vinculo.length > 0;
-  return typeof vinculo === 'object';
-}
+export { foiRevertida } from '../../../src/domain/credit-card/reconciliationRows.ts';

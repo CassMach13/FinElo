@@ -1,5 +1,11 @@
 import { supabase } from '../supabaseClient';
-import type { AuthoritativeSource, ResolutionKind } from '../domain/credit-card/twoLedgerBalance';
+import type { AuthoritativeSource, ReconciliationResolutionInput, ResolutionKind } from '../domain/credit-card/twoLedgerBalance';
+import {
+  activeResolutionsByAccountAndMonth,
+  foiRevertida,
+  RESOLUTION_ROW_SELECT,
+  type ResolutionRow,
+} from '../domain/credit-card/reconciliationRows';
 
 /**
  * A porta única para a reconciliação de cartão.
@@ -219,65 +225,28 @@ export async function listarResolucoesAtivas(
  * multiplicaria idas ao servidor numa tela que já é pesada.
  */
 export async function carregarResolucoesAtivasPorConta(): Promise<
-  Record<string, Record<string, ReconciliationResolutionInputLike[]>>
+  Record<string, Record<string, ReconciliationResolutionInput[]>>
 > {
   const { data, error } = await supabase
     .from('credit_card_reconciliation_resolutions')
-    .select(
-      'account_id, reference_month, resolution, resolved_amount, authoritative_total, authoritative_source, credit_card_reconciliation_resolution_reversals(id)'
-    );
+    .select(RESOLUTION_ROW_SELECT);
 
   if (error) throw new Error(error.message);
 
-  return groupActiveCardResolutions(data ?? []);
+  return groupActiveCardResolutions((data ?? []) as ActiveCardResolutionRow[]);
 }
 
-export interface ActiveCardResolutionRow {
-  account_id: string; reference_month: string; resolution: string;
-  resolved_amount: number | string | null; authoritative_total: number | string | null;
-  authoritative_source: string | null; credit_card_reconciliation_resolution_reversals: unknown;
-}
-
-export function groupActiveCardResolutions(rows: readonly ActiveCardResolutionRow[]): Record<string, Record<string, ReconciliationResolutionInputLike[]>> {
-  const fora: Record<string, Record<string, ReconciliationResolutionInputLike[]>> = {};
-  for (const r of rows) {
-    if (foiRevertida(r.credit_card_reconciliation_resolution_reversals)) continue;
-
-    const conta = String(r.account_id);
-    const mes = String(r.reference_month);
-    ((fora[conta] ??= {})[mes] ??= []).push({
-      kind: r.resolution as ResolutionKind,
-      resolvedAmountCents:
-        r.resolved_amount == null ? undefined : Math.round(Number(r.resolved_amount) * 100),
-      authoritativeStatementTotalCents:
-        r.authoritative_total == null
-          ? undefined
-          : Math.round(Number(r.authoritative_total) * 100),
-      // Sem a PROCEDÊNCIA o núcleo descarta a resolução — `applyAuthoritativeResolution`
-      // exige as duas. Informar o valor oficial não recalculava nada, e o selo
-      // «A CONCILIAR» voltava logo depois de confirmar.
-      authoritativeSource: (r.authoritative_source ?? null) as AuthoritativeSource | null,
-    });
-  }
-  return fora;
-}
-
-interface ReconciliationResolutionInputLike {
-  kind: ResolutionKind;
-  resolvedAmountCents?: number;
-  authoritativeStatementTotalCents?: number;
-  /** O núcleo exige valor E procedência para aceitar um total autoritativo. */
-  authoritativeSource?: AuthoritativeSource | null;
-}
+/** Linha de resolução como o banco devolve. Mesmo formato lido pela Edge function. */
+export type ActiveCardResolutionRow = ResolutionRow;
 
 /**
- * O vínculo de reversão pode chegar como objeto ou array, conforme a
- * cardinalidade que o PostgREST infere — o índice único sobre `resolution_id`
- * mudou isso uma vez, e o desfazer parou de fazer efeito em silêncio. Aceitar
- * as duas formas tira essa dependência.
+ * Conta → competência → resoluções ativas, pela conversão compartilhada com a
+ * Edge function (`reconciliationRows.ts`): mesma ordem, mesmo arredondamento,
+ * mesma regra de reversão. Duas conversões já deram números diferentes para os
+ * mesmos dados.
  */
-function foiRevertida(vinculo: unknown): boolean {
-  if (vinculo == null) return false;
-  if (Array.isArray(vinculo)) return vinculo.length > 0;
-  return typeof vinculo === 'object';
+export function groupActiveCardResolutions(
+  rows: readonly ActiveCardResolutionRow[]
+): Record<string, Record<string, ReconciliationResolutionInput[]>> {
+  return activeResolutionsByAccountAndMonth(rows);
 }

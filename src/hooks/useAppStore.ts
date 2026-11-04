@@ -71,6 +71,19 @@ import {
 } from '../services/transactionEconomicIdentityService';
 import { scheduleManualCreditCardSync } from '../services/creditCardManualMotorSync';
 import {
+  TransactionDeletionError,
+  deleteTransactionsWithPaymentCleanup,
+} from '../services/invoicePaymentDeletion';
+import {
+  INVOICE_PAYMENT_EDIT_GUIDANCE,
+  accountLookup,
+  expandInvoicePaymentSelection,
+  findInvoicePaymentPair,
+  isInvoicePaymentLeg,
+  restrictInvoicePaymentUpdate,
+  wouldChangeInvoicePaymentMoney,
+} from '../domain/credit-card/invoicePaymentPair';
+import {
   prepareManualPurchaseCompetenceOnPaymentDateEdit,
   referenceMonthFromTransaction,
 } from '../services/creditCardManualCompetence';
@@ -602,6 +615,7 @@ const cleanupOrphanUserEvents = async (eventIds: Array<string | null | undefined
     if (await cleanupOrphanUserEvent(id)) forget(id);
   }
 };
+
 
 /** `numeric` pode chegar como string: normaliza sempre. */
 const normalizeBudgetMonthRow = (row: unknown): BudgetMonth => {
@@ -2480,8 +2494,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Defesa em profundidade: a UI já restringe, mas o contrato vale para qualquer chamador.
     // Importada só aceita os campos amigáveis que mudaram; manual passa como sempre.
-    const fieldsToUpdate = sanitizeTransactionUpdate(oldTransaction, requestedFieldsToUpdate);
+    let fieldsToUpdate = sanitizeTransactionUpdate(oldTransaction, requestedFieldsToUpdate);
     if (!isManualTransaction(oldTransaction) && Object.keys(fieldsToUpdate).length === 0) return;
+
+    // Pagamento de fatura: só nome e categoria. Mudar valor, data ou conta de um lado só desalinharia o cartão.
+    if (isInvoicePaymentLeg(oldTransaction, accountLookup(get().accounts))) {
+      const blocked = wouldChangeInvoicePaymentMoney(oldTransaction, requestedFieldsToUpdate);
+      fieldsToUpdate = restrictInvoicePaymentUpdate(oldTransaction, fieldsToUpdate);
+      if (blocked) await appAlert(INVOICE_PAYMENT_EDIT_GUIDANCE, 'Pagamento de fatura', 'warning');
+      if (Object.keys(fieldsToUpdate).length === 0) return;
+    }
 
     const oldAssetId = oldTransaction.linked_asset_id;
 
@@ -2595,6 +2617,66 @@ export const useAppStore = create<AppState>((set, get) => ({
     const assetId = transaction?.linked_asset_id;
     const { user, accounts } = get();
 
+    // Pagamento de fatura: os dois lados (cartão e conta de origem) saem juntos, com o evento e o registro do cartão.
+    const pair =
+      transaction && isManualOrigin(transaction)
+        ? findInvoicePaymentPair(transaction, get().transactions, accounts)
+        : null;
+    if (pair) {
+      let result: Awaited<ReturnType<typeof deleteTransactionsWithPaymentCleanup>>;
+      try {
+        result = await deleteTransactionsWithPaymentCleanup({
+          transactions: pair.legs,
+          invoicePaymentLegIds: new Set(pair.legs.map((t) => String(t.ID_Transacao))),
+          deps: {
+            recalculateCard:
+              user && isCreditCardEngineEnabled(user)
+                ? (cardId) => creditCardEngineService.recalculateAllStatementsForCard(cardId)
+                : undefined,
+          },
+        });
+      } catch (error) {
+        await appAlert(
+          error instanceof TransactionDeletionError
+            ? error.message
+            : 'Não foi possível excluir o pagamento. Nada foi alterado. Tente novamente.',
+          'Excluir pagamento',
+          'danger'
+        );
+        return;
+      }
+      const deleted = new Set(result.deletedIds);
+      set((state) => ({
+        transactions: state.transactions.filter((t) => !deleted.has(String(t.ID_Transacao))),
+      }));
+      for (const id of result.removedEventIds) get().forgetEconomicEvent(id);
+      for (const leg of pair.legs) {
+        if (leg.linked_asset_id && deleted.has(String(leg.ID_Transacao)) && isAssetSessionCurrent()) {
+          await get().recalculateAssetBalance(leg.linked_asset_id);
+        }
+      }
+      const cardLeg = pair.cardLeg && deleted.has(String(pair.cardLeg.ID_Transacao)) ? pair.cardLeg : null;
+      const cardAccount = cardLeg ? accounts.find((a) => a.id === cardLeg.ID_Conta) : undefined;
+      if (user && cardLeg && cardAccount && shouldAutoSyncCreditCardLedger(user)) {
+        const ref = referenceMonthFromTransaction(cardLeg, cardAccount);
+        scheduleManualCreditCardSync({
+          getState: () => ({
+            transactions: get().transactions,
+            accounts: get().accounts,
+            importLogs: get().importLogs,
+          }),
+          user,
+          accountId: cardAccount.id,
+          extraReferenceMonths: REF_MONTH_RE.test(ref) ? [ref] : [],
+          rules: engineClassifierRulesFromUser(user),
+          classifierRules: getCardClassifierRules(user),
+          onComplete: () => get().bumpCreditCardEngineRevision(),
+        });
+      }
+      if (deleted.size > 0) get().bumpCreditCardEngineRevision();
+      return;
+    }
+
     const { error } = await supabase.from('transactions').delete().eq('ID_Transacao', transactionId);
 
     if (error) {
@@ -2682,37 +2764,48 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (transactionIds.length === 0) return 0;
 
     const uniqueIds = [...new Set(transactionIds)];
-    const toDelete = get().transactions.filter(
+    const selected = get().transactions.filter(
       (t) =>
         uniqueIds.includes(t.ID_Transacao) &&
         String(t.Origem || 'manual').trim().toLowerCase() === 'manual'
     );
 
-    if (toDelete.length === 0) return 0;
+    if (selected.length === 0) return 0;
 
-    const ids = toDelete.map((t) => t.ID_Transacao);
+    // Um lado de pagamento de fatura selecionado leva o outro junto.
+    const toDelete = expandInvoicePaymentSelection(selected, get().transactions, get().accounts).transactions;
     const affectedAssetIds = new Set(
       toDelete.filter((t) => t.linked_asset_id).map((t) => t.linked_asset_id as string)
     );
 
-    const chunkSize = 100;
-    for (let i = 0; i < ids.length; i += chunkSize) {
-      const chunk = ids.slice(i, i + chunkSize);
-      const { error } = await supabase.from('transactions').delete().in('ID_Transacao', chunk);
-      if (error) {
-        console.error('Erro ao deletar transações manuais:', error);
-        return 0;
-      }
+    let deletion: Awaited<ReturnType<typeof deleteTransactionsWithPaymentCleanup>>;
+    try {
+      const engineUser = get().user;
+      const lookup = accountLookup(get().accounts);
+      deletion = await deleteTransactionsWithPaymentCleanup({
+        transactions: toDelete,
+        invoicePaymentLegIds: new Set(
+          toDelete.filter((t) => isInvoicePaymentLeg(t, lookup)).map((t) => String(t.ID_Transacao))
+        ),
+        deps: {
+          recalculateCard:
+            engineUser && isCreditCardEngineEnabled(engineUser)
+              ? (cardId) => creditCardEngineService.recalculateAllStatementsForCard(cardId)
+              : undefined,
+        },
+      });
+    } catch (error) {
+      console.error('Erro ao deletar transações manuais:', error);
+      return 0;
     }
+    const ids = deletion.deletedIds;
+    const deletedSet = new Set(ids);
 
     set((state) => ({
-      transactions: state.transactions.filter((t) => !ids.includes(t.ID_Transacao)),
+      transactions: state.transactions.filter((t) => !deletedSet.has(String(t.ID_Transacao))),
     }));
 
-    await cleanupOrphanUserEvents(
-      toDelete.map((t) => t.economic_event_id),
-      (id) => get().forgetEconomicEvent(id)
-    );
+    for (const id of deletion.removedEventIds) get().forgetEconomicEvent(id);
 
     for (const assetId of affectedAssetIds) {
       if (isAssetSessionCurrent()) await get().recalculateAssetBalance(assetId);

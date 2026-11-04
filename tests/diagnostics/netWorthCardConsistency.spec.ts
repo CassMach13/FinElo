@@ -291,10 +291,12 @@ describe('historical and family limitations must remain explicit', () => {
     expect(computeAccountBalanceAsOf(bank, [tx(bank.id, -300, { economic_event_id: 'card-payment' })], at(TODAY))).toBe(700);
   });
 
-  it('confirmation and observed payment are additive: duplicated settlement becomes suspense, not spendable credit', () => {
+  // A confirmação «está pago» cobre só o que falta: o pagamento observado já
+  // quitou a fatura, então nada é contado de novo (nem crédito, nem suspense).
+  it('confirmation does not double count an observed payment: no spendable credit and no suspense', () => {
     const card = account('card', 'Cartão de Crédito');
     const p = cardProjection(card, [purchase(card.id, 100), payment(card.id, 100)], [], [{ referenceMonth: '2026-09', settledAmount: 100, confirmedAt: '2026-10-10T12:00:00Z' }]);
-    expect(p.competences[0].recognizedPaymentsCents).toBe(20000);
-    expect(p.economicUsedCents).toBe(0); expect(p.economicCarryCents).toBe(0); expect(p.suspenseBalanceCents).toBe(10000);
+    expect(p.competences[0].recognizedPaymentsCents).toBe(10000);
+    expect(p.economicUsedCents).toBe(0); expect(p.economicCarryCents).toBe(0); expect(p.suspenseBalanceCents).toBe(0);
   });
 });

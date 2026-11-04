@@ -2,7 +2,7 @@ import { supabase } from '../supabaseClient';
 import type { Account } from '../types';
 import { collectPaginatedRows } from '../utils/paginatedFetch';
 import type { CompetenceHistoryCard } from './creditCardRebuildFromImportHistoryService';
-import { applySequentialCreditCarryForward } from './creditCardRebuildFromImportHistoryService';
+import { applySequentialCreditCarryForward, confirmedAmountToApply } from './creditCardRebuildFromImportHistoryService';
 
 const STORAGE_KEY = 'finelo_competence_payment_confirmations_v1';
 const MIGRATED_FLAG_KEY = 'finelo_competence_payment_confirmations_db_migrated_v1';
@@ -177,13 +177,15 @@ export function applyCompetenceUserPaymentConfirmations(
     if (!conf || conf.settledAmount < 0.005) {
       return { ...card, files: [...card.files] };
     }
+    const aplicado = confirmedAmountToApply(conf.settledAmount, card.statementTotal, card.totalPayments);
     return {
       ...card,
       files: [...card.files],
       userConfirmedPaid: true,
       userConfirmedAt: conf.confirmedAt,
       userConfirmedAmount: round2(conf.settledAmount),
-      totalPayments: round2(card.totalPayments + conf.settledAmount),
+      userConfirmedAppliedAmount: aplicado,
+      totalPayments: round2(card.totalPayments + aplicado),
     };
   });
 

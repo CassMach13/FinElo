@@ -13,6 +13,7 @@ import {
 } from '../../services/creditCardDirectedPayment';
 import type { Account, Category } from '../../types';
 import { localTodayIso } from '../../utils/dateOnly';
+import { formatPaymentAmountInput, parsePaymentAmountInput } from '../../domain/credit-card/invoicePaymentPair';
 
 export interface PayCreditCardInvoiceModalProps {
   isOpen: boolean;
@@ -25,15 +26,20 @@ export interface PayCreditCardInvoiceModalProps {
   savedSourceAccountId?: string | null;
   lastCreatedCategory?: string | null;
   initialAmount?: number;
+  /** Valor que o usuário já digitou em outra tela: vem preenchido no lugar do saldo em aberto. */
+  presetAmount?: number;
+  /** Conta de origem que o usuário já escolheu em outra tela. */
+  presetSourceAccountId?: string;
   onClose: () => void;
   onOpenCreateCategory?: () => void;
+  /** `false` = não registrou (o modal fica aberto com o que o usuário preencheu). */
   onSubmit: (payload: {
     referenceMonth: string;
     paymentDate: string;
     amount: number;
     category: string;
     sourceAccountId: string;
-  }) => Promise<void>;
+  }) => Promise<boolean | void>;
 }
 
 const competenceStatusLabel = (card: CompetenceHistoryCard): string => {
@@ -53,6 +59,8 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   savedSourceAccountId,
   lastCreatedCategory,
   initialAmount = 0,
+  presetAmount,
+  presetSourceAccountId,
   onClose,
   onOpenCreateCategory,
   onSubmit,
@@ -67,16 +75,20 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   const [sourceAccountId, setSourceAccountId] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [sourceAccountError, setSourceAccountError] = useState('');
+  const [amountError, setAmountError] = useState('');
+  /** O usuário já definiu o valor: trocar de fatura não sobrescreve. */
+  const [amountTouched, setAmountTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pickDefaultSourceAccountId = useMemo(() => {
     const ids = new Set(fundingAccounts.map((a) => a.id));
+    if (presetSourceAccountId && ids.has(presetSourceAccountId)) return presetSourceAccountId;
     if (savedSourceAccountId && ids.has(savedSourceAccountId)) return savedSourceAccountId;
     const linked = (account as Account & { linked_payment_account_id?: string | null })
       ?.linked_payment_account_id;
     if (linked && ids.has(linked)) return linked;
     return fundingAccounts[0]?.id || '';
-  }, [fundingAccounts, savedSourceAccountId, account]);
+  }, [fundingAccounts, presetSourceAccountId, savedSourceAccountId, account]);
 
   useEffect(() => {
     if (!isOpen || !account) return;
@@ -84,23 +96,29 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
     const ref = oldest?.referenceMonth || openCards[0]?.referenceMonth || '';
     setReferenceMonth(ref);
     setPaymentDate(localTodayIso());
+    const preset = presetAmount && presetAmount > 0.005 ? presetAmount : 0;
     const suggested =
-      oldest && oldest.openBalance > 0.005
-        ? oldest.openBalance
-        : initialAmount > 0.005
-          ? initialAmount
-          : 0;
-    setAmountDraft(suggested > 0 ? suggested.toFixed(2) : '');
+      preset > 0
+        ? preset
+        : oldest && oldest.openBalance > 0.005
+          ? oldest.openBalance
+          : initialAmount > 0.005
+            ? initialAmount
+            : 0;
+    setAmountDraft(suggested > 0 ? formatPaymentAmountInput(suggested) : '');
+    setAmountTouched(preset > 0);
     setCategory(pickDefaultCreditCardPaymentCategory(categories, savedPaymentCategory));
     setSourceAccountId(pickDefaultSourceAccountId);
     setCategoryError('');
     setSourceAccountError('');
+    setAmountError('');
   }, [
     isOpen,
     account,
     competenceCards,
     openCards,
     initialAmount,
+    presetAmount,
     categories,
     savedPaymentCategory,
     pickDefaultSourceAccountId,
@@ -114,14 +132,16 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   }, [lastCreatedCategory]);
 
   const selectedCard = openCards.find((c) => c.referenceMonth === referenceMonth);
+  const parsedAmount = parsePaymentAmountInput(amountDraft);
 
-  useEffect(() => {
-    if (!referenceMonth) return;
-    const card = openCards.find((c) => c.referenceMonth === referenceMonth);
-    if (card && card.openBalance > 0.005) {
-      setAmountDraft(card.openBalance.toFixed(2));
+  /** Trocar de fatura preenche o que falta pagar nela, a menos que o usuário já tenha definido o valor. */
+  const chooseInvoice = (card: CompetenceHistoryCard) => {
+    setReferenceMonth(card.referenceMonth);
+    if (!amountTouched && card.openBalance > 0.005) {
+      setAmountDraft(formatPaymentAmountInput(card.openBalance));
+      setAmountError('');
     }
-  }, [referenceMonth, openCards]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,19 +154,23 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
       setSourceAccountError('Escolha a conta de onde sairá o pagamento.');
       return;
     }
-    const amount = Number(amountDraft.replace(',', '.'));
-    if (Number.isNaN(amount) || amount <= 0) return;
+    const amount = parsePaymentAmountInput(amountDraft);
+    if (amount === null) {
+      setAmountError('Informe o valor pago, por exemplo 2.000,00.');
+      return;
+    }
+    if (!paymentDate) return;
 
     setIsSubmitting(true);
     try {
-      await onSubmit({
+      const registered = await onSubmit({
         referenceMonth,
         paymentDate,
         amount,
         category: category.trim(),
         sourceAccountId: sourceAccountId.trim(),
       });
-      onClose();
+      if (registered !== false) onClose();
     } catch {
       /* onSubmit exibe alerta; mantém o modal aberto */
     } finally {
@@ -179,8 +203,8 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
     >
       <form id="pay-credit-card-invoice-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <p className="text-xs text-gray-400 leading-relaxed">
-          Escolha qual <span className="text-gray-300 font-medium">competência</span> do histórico você está
-          quitando. O valor abate nessa fatura (não usa a regra automática do extrato XP por data).
+          Escolha qual <span className="text-gray-300 font-medium">fatura</span> você está pagando. O valor abate
+          só nessa fatura. Pode pagar em partes: registre cada pagamento quando ele sair da conta.
         </p>
         <p className="text-sm text-gray-400">
           Cartão: <span className="text-white font-medium">{account.Nome_Conta}</span>
@@ -188,7 +212,8 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
 
         {openCards.length === 0 ? (
           <p className="text-sm text-amber-200/90 py-4 text-center">
-            Nenhuma fatura com saldo em aberto. Confira o histórico ou importe o extrato.
+            Nenhuma fatura com valor em aberto neste cartão. Se você acabou de lançar compras, confira o
+            histórico de faturas.
           </p>
         ) : fundingAccounts.length === 0 ? (
           <p className="text-sm text-amber-200/90 py-4 text-center">
@@ -206,7 +231,7 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
                       key={card.referenceMonth}
                       type="button"
                       disabled={isSubmitting}
-                      onClick={() => setReferenceMonth(card.referenceMonth)}
+                      onClick={() => chooseInvoice(card)}
                       className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${
                         selected
                           ? 'border-teal-500/60 bg-teal-500/10'
@@ -215,16 +240,16 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div>
-                          <span className="text-[10px] text-gray-500 uppercase font-semibold">Competência</span>
+                          <span className="text-[10px] text-gray-500 uppercase font-semibold">Fatura</span>
                           <p className="text-sm font-bold text-white tabular-nums">{card.competenceBR}</p>
-                          <p className="text-[10px] text-gray-500">Venc.: {card.vencimentoBR}</p>
+                          <p className="text-[10px] text-gray-500">Vence em {card.vencimentoBR}</p>
                         </div>
                         <span className="text-[10px] font-bold uppercase text-gray-400 shrink-0">
                           {competenceStatusLabel(card)}
                         </span>
                       </div>
                       <p className="text-xs text-amber-200/90 mt-1.5 tabular-nums">
-                        Em aberto: {formatCurrency(card.openBalance)}
+                        Falta pagar: {formatCurrency(card.openBalance)}
                       </p>
                     </button>
                   );
@@ -253,8 +278,9 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
               ))}
             </Select>
             <p className="text-[11px] text-gray-500 -mt-2">
-              Será lançada uma <span className="text-gray-400">saída</span> nesta conta e o{' '}
-              <span className="text-gray-400">abatimento</span> na fatura do cartão, para conciliação correta.
+              O FinElo lança a <span className="text-gray-400">saída</span> nesta conta e o{' '}
+              <span className="text-gray-400">abatimento</span> na fatura, juntos. Se excluir depois, os dois saem
+              juntos.
             </p>
 
             <div className="flex items-end gap-2">
@@ -301,15 +327,26 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
             <Input
               label="Valor pago (R$)"
               type="text"
+              inputMode="decimal"
               value={amountDraft}
-              onChange={(e) => setAmountDraft(e.target.value)}
+              onChange={(e) => {
+                setAmountDraft(e.target.value);
+                setAmountTouched(true);
+                setAmountError('');
+              }}
               placeholder="0,00"
+              error={amountError}
               disabled={isSubmitting}
             />
-            {selectedCard && Number(amountDraft.replace(',', '.')) > selectedCard.openBalance + 0.02 ? (
+            {selectedCard && parsedAmount !== null && parsedAmount > selectedCard.openBalance + 0.02 ? (
               <p className="text-[11px] text-gray-500">
-                Valor acima do saldo em aberto ({formatCurrency(selectedCard.openBalance)}). O excedente vira
-                crédito nas competências seguintes.
+                Valor acima do que falta pagar nesta fatura ({formatCurrency(selectedCard.openBalance)}). A diferença
+                fica como crédito para as próximas faturas.
+              </p>
+            ) : selectedCard && parsedAmount !== null && parsedAmount < selectedCard.openBalance - 0.005 ? (
+              <p className="text-[11px] text-gray-500">
+                Pagamento parcial: depois dele ainda faltarão{' '}
+                {formatCurrency(Math.round((selectedCard.openBalance - parsedAmount) * 100) / 100)} nesta fatura.
               </p>
             ) : null}
           </>
