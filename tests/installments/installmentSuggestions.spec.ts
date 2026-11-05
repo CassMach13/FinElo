@@ -153,6 +153,12 @@ describe('7. diferença de R$ 0,01 — candidato secundário', () => {
     expect(candidatos[0].confianca).toBe('centavo');
   });
 
+  it('um estorno com a mesma magnitude da compra não é candidato', () => {
+    const anterior = existente({ Valor: 100 });
+    const atual = importada({ Valor: -100 });
+    expect(encontrarCandidatosDeParcelaIrma(atual, CONTA, [anterior])).toEqual([]);
+  });
+
   it('dois centavos já é longe demais — não candidata', () => {
     expect(
       encontrarCandidatosDeParcelaIrma(importada({ Valor: -100.02 }), CONTA, [existente({ Valor: -100 })])
@@ -348,12 +354,12 @@ describe('10/12. a consulta não toca em dado nenhum', () => {
 
     // Valor/parcela/data existem só para o usuário reconhecer a compra na
     // tela de escolha — não são o que a sugestão copia.
-    // As evidências (nível, mesma data, mesmo estabelecimento, parcela lida
+    // As evidências (mesma data, mesmo estabelecimento, parcela lida
     // do texto) explicam POR QUE o lançamento foi oferecido; também não são copiadas.
     expect(Object.keys(candidato).sort()).toEqual(
       [
         'categoria', 'confianca', 'data', 'idTransacao', 'nomeFantasia', 'parcelaAtual', 'totalParcelas', 'valor',
-        'nivel', 'mesmaDataDeCompra', 'descricaoSemelhante', 'parcelaLidaDoTexto',
+        'mesmaDataDeCompra', 'descricaoSemelhante', 'parcelaLidaDoTexto',
       ].sort()
     );
   });

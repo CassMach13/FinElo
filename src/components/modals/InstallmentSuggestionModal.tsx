@@ -47,7 +47,6 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
   };
 
   const aplicadas = Array.from(escolhas.values()).filter(Boolean).length;
-  const reconhecidas = sugestoes.filter((s) => s.nivel === 'reconhecida').length;
   const pendentes = sugestoes.filter((s) => (escolhas.get(s.indice) ?? null) === null).length;
 
   return (
@@ -67,12 +66,10 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <p className="text-gray-300 text-sm">
-            {reconhecidas === sugestoes.length
-              ? sugestoes.length === 1
-                ? 'Uma parcela do arquivo continua uma compra que você já classificou.'
-                : `${sugestoes.length} parcelas do arquivo continuam compras que você já classificou.`
-              : `${sugestoes.length} parcelas do arquivo podem ser de compras que você já classificou.`}{' '}
-            Só a <strong className="text-white">descrição</strong> e a{' '}
+            {sugestoes.length === 1
+              ? 'Uma parcela do arquivo tem sugestão de classificação.'
+              : `${sugestoes.length} parcelas do arquivo têm sugestões de classificação.`}{' '}
+            Só o <strong className="text-white">nome</strong> e a{' '}
             <strong className="text-white">categoria</strong> são copiadas — valor, data e parcela
             vêm do arquivo.
           </p>
@@ -96,7 +93,7 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
 
         {sugestoes.map((sugestao) => {
           const escolhido = escolhas.get(sugestao.indice) ?? null;
-          const ambigua = sugestao.nivel === 'reconhecida' && sugestao.candidatos.length > 1;
+          const ambigua = sugestao.candidatos.length > 1;
 
           return (
             <div key={sugestao.indice} className="border border-slate-700 rounded-md p-3 bg-slate-900/50">
@@ -116,22 +113,6 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
                   como está.
                 </p>
               )}
-              {sugestao.nivel === 'historico' && (
-                <p className="text-xs text-yellow-400 mb-2">
-                  Não encontramos a parcela anterior desta compra, mas{' '}
-                  {sugestao.candidatos.length === 1
-                    ? 'este lançamento anterior parece ser da mesma compra.'
-                    : 'estes lançamentos anteriores parecem ser da mesma compra.'}{' '}
-                  Confira antes de aplicar.
-                </p>
-              )}
-              {sugestao.contaIndefinida && (
-                <p className="text-xs text-gray-400 mb-2">
-                  Esta importação não tem conta associada: comparamos apenas com lançamentos também
-                  sem conta.
-                </p>
-              )}
-
               <div className="space-y-1">
                 {sugestao.candidatos.map((candidato) => (
                   <label
