@@ -1,3 +1,4 @@
+import '../appearance/financial.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
@@ -181,7 +182,7 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
   if (!isOpen || !account) return null;
 
   return (
-    <Modal
+    <Modal manageFocus
       isOpen={isOpen}
       onClose={() => (isSubmitting ? undefined : onClose())}
       title="Pagar fatura do cartão"
@@ -202,32 +203,32 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
       }
     >
       <form id="pay-credit-card-invoice-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        <p className="text-xs text-gray-400 leading-relaxed">
-          Escolha qual <span className="text-gray-300 font-medium">fatura</span> você está pagando. O valor abate
+        <p data-finance="muted" className="text-xs text-gray-400 leading-relaxed">
+          Escolha qual <span data-finance="muted" className="text-gray-300 font-medium">fatura</span> você está pagando. O valor abate
           só nessa fatura. Pode pagar em partes: registre cada pagamento quando ele sair da conta.
         </p>
-        <p className="text-sm text-gray-400">
-          Cartão: <span className="text-white font-medium">{account.Nome_Conta}</span>
+        <p data-finance="muted" className="text-sm text-gray-400">
+          Cartão: <span data-finance="content" className="text-white font-medium">{account.Nome_Conta}</span>
         </p>
 
         {openCards.length === 0 ? (
-          <p className="text-sm text-amber-200/90 py-4 text-center">
+          <p data-finance="warning" className="text-sm text-amber-200/90 py-4 text-center">
             Nenhuma fatura com valor em aberto neste cartão. Se você acabou de lançar compras, confira o
             histórico de faturas.
           </p>
         ) : fundingAccounts.length === 0 ? (
-          <p className="text-sm text-amber-200/90 py-4 text-center">
+          <p data-finance="warning" className="text-sm text-amber-200/90 py-4 text-center">
             Cadastre uma conta corrente ou poupança para registrar de onde saiu o pagamento da fatura.
           </p>
         ) : (
           <>
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5">Fatura a pagar</label>
+              <label data-finance="muted" className="block text-xs font-medium text-gray-400 mb-1.5">Fatura a pagar</label>
               <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                 {openCards.map((card) => {
                   const selected = card.referenceMonth === referenceMonth;
                   return (
-                    <button
+                    <button data-finance={selected ? 'selected' : 'inset divider hover'} aria-pressed={selected}
                       key={card.referenceMonth}
                       type="button"
                       disabled={isSubmitting}
@@ -240,15 +241,15 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div>
-                          <span className="text-[10px] text-gray-500 uppercase font-semibold">Fatura</span>
-                          <p className="text-sm font-bold text-white tabular-nums">{card.competenceBR}</p>
-                          <p className="text-[10px] text-gray-500">Vence em {card.vencimentoBR}</p>
+                          <span data-finance="muted" className="text-[10px] text-gray-500 uppercase font-semibold">Fatura</span>
+                          <p data-finance="content" className="text-sm font-bold text-white tabular-nums">{card.competenceBR}</p>
+                          <p data-finance="muted" className="text-[10px] text-gray-500">Vence em {card.vencimentoBR}</p>
                         </div>
-                        <span className="text-[10px] font-bold uppercase text-gray-400 shrink-0">
+                        <span data-finance="muted" className="text-[10px] font-bold uppercase text-gray-400 shrink-0">
                           {competenceStatusLabel(card)}
                         </span>
                       </div>
-                      <p className="text-xs text-amber-200/90 mt-1.5 tabular-nums">
+                      <p data-finance="warning" className="text-xs text-amber-200/90 mt-1.5 tabular-nums">
                         Falta pagar: {formatCurrency(card.openBalance)}
                       </p>
                     </button>
@@ -277,9 +278,9 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
                 </option>
               ))}
             </Select>
-            <p className="text-[11px] text-gray-500 -mt-2">
-              O FinElo lança a <span className="text-gray-400">saída</span> nesta conta e o{' '}
-              <span className="text-gray-400">abatimento</span> na fatura, juntos. Se excluir depois, os dois saem
+            <p data-finance="muted" className="text-[11px] text-gray-500 -mt-2">
+              O FinElo lança a <span data-finance="muted" className="text-gray-400">saída</span> nesta conta e o{' '}
+              <span data-finance="muted" className="text-gray-400">abatimento</span> na fatura, juntos. Se excluir depois, os dois saem
               juntos.
             </p>
 
@@ -312,7 +313,7 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
                 </Select>
               </div>
             </div>
-            <p className="text-[11px] text-gray-500 -mt-2">
+            <p data-finance="muted" className="text-[11px] text-gray-500 -mt-2">
               Use a mesma categoria que você classifica pagamentos de fatura no extrato. A escolha fica salva para
               os próximos pagamentos.
             </p>
@@ -339,12 +340,12 @@ const PayCreditCardInvoiceModal: React.FC<PayCreditCardInvoiceModalProps> = ({
               disabled={isSubmitting}
             />
             {selectedCard && parsedAmount !== null && parsedAmount > selectedCard.openBalance + 0.02 ? (
-              <p className="text-[11px] text-gray-500">
+              <p data-finance="muted" className="text-[11px] text-gray-500">
                 Valor acima do que falta pagar nesta fatura ({formatCurrency(selectedCard.openBalance)}). A diferença
                 fica como crédito para as próximas faturas.
               </p>
             ) : selectedCard && parsedAmount !== null && parsedAmount < selectedCard.openBalance - 0.005 ? (
-              <p className="text-[11px] text-gray-500">
+              <p data-finance="muted" className="text-[11px] text-gray-500">
                 Pagamento parcial: depois dele ainda faltarão{' '}
                 {formatCurrency(Math.round((selectedCard.openBalance - parsedAmount) * 100) / 100)} nesta fatura.
               </p>

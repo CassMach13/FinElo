@@ -208,3 +208,134 @@ Todas as linhas abaixo comparam desktop e mobile nos quatro caminhos, incluindo 
 Evidências compactas: seis PNGs, manifestos por suíte, resumo e índice em [`evidencias-ciclo-3b/`](evidencias-ciclo-3b/). Pacote externo completo: `finelo-ciclo-3b-evidencias.zip`, **73.493.415 bytes**, **1.113 arquivos indexados**, incluindo capturas, PDFs, renderizações, JSONs financeiros completos, logs e fontes auditadas. SHA-256 do ZIP: `abc294b0b298dfba121826375790b34948ef02a9f6482667972b3f432d88caa1`. O ZIP foi reaberto, seu CRC conferido e cada entrada indexada validada por SHA-256. O índice versionado permite verificar o pacote sem colocá-lo no Git.
 
 O lote 3B está concluído para revisão na PR #97 em rascunho. A confirmação do Quality baseline do commit publicado será registrada na descrição da PR. Não houve merge, deploy, migration ou modificação de dados reais; o Claro global continua pendente do 3C e da homologação transversal.
+
+## Lote 3C — Cartões, faturas e pagamentos
+
+Continuação de `3e7341556b5d55eb2dcbb549e7d35e0141fb8fb9`, na mesma branch/PR em rascunho. A main remota e o ancestral comum foram confirmados em `6fa1188b1864e85da587e61c7e46009a5e82adb4`. Antes de editar a interface: **3.289 testes/203 arquivos aprovados**, TypeScript com 14 diagnósticos conhecidos/zero novos e build/PWA aprovado (49 entradas). Os arquivos não rastreados anteriores foram preservados.
+
+### Inventário e separação dos motores
+
+| Motor | Gate exercitado na fixture | Caminho efetivo |
+| --- | --- | --- |
+| Legado | Novo e V2 desligados | Ledger e métricas legadas; histórico por competência com a projeção econômica canônica |
+| V2 | `isCardV2Enabled=true`, novo desligado | Snapshots de `credit_card_statements`, merge com lançamentos manuais e a mesma navegação de histórico |
+| Novo | `isCreditCardEngineEnabled=true`, V2 desativado pela precedência existente | Snapshots do motor novo, histórico canônico, pagamento direcionado e auditoria de competências/sombra somente leitura |
+
+As flags acima pertencem somente à identidade fictícia da referência local. Não houve opt-in de conta real, mudança de coorte ou alteração dos gates. `ensureCreditCardForAccount` já faz upsert dos metadados ao montar os caminhos com snapshots; esse contrato é reproduzido em memória. A troca de pele não deve repetir essa operação nem qualquer requisição financeira.
+
+Proteção/rollback: o app completo continua Escuro e a flag/coorte dos Ciclos 1–2 permanece inalterada; o Claro de cartões só existe na referência isolada. Desativar o piloto mantém o visual legado, coberto por captura sem o atributo de tema. Um eventual revert do commit visual 3C não exige desfazer pagamentos ou dados, pois não há migration, novo formato financeiro ou escrita de preferência introduzidos neste lote.
+
+| Superfície | Tratamento |
+| --- | --- |
+| `AccountBalanceCard` | Reutiliza os adaptadores do 3A; disponibilidade negativa passa a usar o papel negativo no Claro, conservando a classe Escura. Homologação de limites, saldo, dívida, carregamento, vencimento e ações nos três motores |
+| `TransactionsView`, ramos de cartão | Histórico, competência selecionada, auditoria de lançamentos, composição/pagamentos/fontes, confirmação de quitação e desfazer, erros e modais encadeados; ramos remanescentes de faturas também recebem papéis explícitos |
+| `PayCreditCardInvoiceModal` | Fatura selecionada, aberto/vencido/pago, conta/categoria, valor/data, parcial/excedente, validação, persistência, erro, cancelamento e carregamento |
+| `CreditCardInvoiceCyclesModal` | Seleção de cartão, arquivos, competência/vencimento, totais, validações, bloqueios e toda a apresentação dos relatórios de auditoria/simulações, sem executar ativação/reparo/reconciliação |
+| `CardDiagnosticsModal` | Superfície, itens informativos/de atenção, ações e vazio; novo gerenciador de foco sem DOM para preservar a geometria |
+| `CompetenceInvoiceBarChart` | Barras, valores, meses/legenda, seleção/hover/foco; setas/Home/End acionam a seleção já existente |
+| `NewTransactionModal`, ramos de cartão | Reutilizados e homologados com os tokens do 3A: compra, parcelas, estorno, competência e encaminhamento ao fluxo dedicado de pagamento. Seus handlers e conteúdo não foram modificados |
+
+Compartilhados reutilizados: Card, Button, Input, Select, Modal, GlobalDialog, AccountModal e CategoryModal. Não foi criada uma segunda biblioteca de controles. O seletor de tema não foi colocado no fluxo financeiro nem se expôs Claro global.
+
+### Proteção financeira e fidelidade
+
+Antes da conversão foram arquivadas capturas Escuras em desktop/mobile dos três motores, incluindo a aplicação, histórico, pagamento, gráfico, ciclos e diagnóstico. Os snapshots imutáveis de main (268 fontes) e revisado (277 fontes) são verificados por SHA-256 antes da automação.
+
+Sete fingerprints dos consumidores preservam classes e implementação original, excluindo somente os atributos declarados de apresentação/acessibilidade e o componente nominal `DialogFocusManager`, que não renderiza DOM. **156 módulos** de domínio, serviços, store, hooks, utilitários e métricas têm hash normalizado LF selado contra o commit revisado. Não se alteram cálculo, vencimento, competência, alocação, fim de semana, reconhecimento de pagamentos/estornos, parcelas, limite, classificação, permissões ou confirmações manuais.
+
+Os atributos `data-finance` atribuem papéis explícitos aos nós existentes. As regras adicionais ficam em `@media screen` e sob Claro. Classes, fórmulas de altura/largura das barras, callbacks de clique, formatos e textos continuam os originais. Não há filtros/inversão de cor, substituição de classes ou ajuste estrutural para corrigir cores. As melhorias de teclado/foco são intencionais dentro do escopo de acessibilidade, sem mudança do conteúdo Escuro ou de handlers financeiros.
+
+A medição inicial encontrou contraste insuficiente no CTA de auditoria sobre seu gradiente legado, em badges fúcsia de simulação e no checksum semitransparente. A correção usa superfície informativa e tokens existentes, com opacidade legível somente no checksum Claro; não redesenha os componentes nem muda o Escuro.
+
+### Fixtures, automação e isolamento
+
+`card-fixtures.ts` declara entradas sintéticas em centavos, com IDs de QA, três competências e compras parceladas com a mesma data de compra em meses distintos. Cobre: aberta, fechada, paga, parcial antes do vencimento, segundo pagamento que quita o restante, atraso, vencimento nominal em sábado, estornos antes/depois do fechamento, parcelas futuras, competência legada inconsistente, vazio, múltiplos cartões/limites, disponibilidade insuficiente, confirmação de quitação/cancelamento, falhas de leitura/autorização/persistência e recuperação.
+
+A entrada de diagnóstico instala armazenamento em memória e transporte fechado **antes** dos imports. URL/chaves são fictícias; não há sessão SDK nem credenciais reais. O navegador é novo, bloqueia rede externa e confere um sentinela do armazenamento original. Leitura de snapshots e confirmações usa os serviços existentes com respostas sintéticas; a auditoria usa o método original do store e os relatórios originais. Registro de lançamentos/pagamento e preferências têm efeitos externos substituídos por memória/eventos verificáveis. Os payloads dos handlers reais e as projeções financeiras resultantes são comparados; isso não é homologação de RLS ou de persistência no servidor real.
+
+Cada cenário conserva JSON completo de lançamentos, contas, saldos, histórico, confirmações, eventos econômicos e requisições sanitizadas, além da projeção em centavos. O segundo pagamento tem duas pernas opostas de 6.000 centavos e quita a competência correspondente; cancelar ou confirmar quitação externa não inventa lançamentos. Falha de registro conserva o formulário e o ledger, permitindo nova tentativa.
+
+A troca local do atributo de aparência é medida com React Profiler e contadores de requisições/eventos: deve manter dados, valores e contadores idênticos, sem commits React. A persistência da preferência continua no mecanismo do Ciclo 2, inalterado; a medição do 3C corresponde à troca CSS da referência isolada, sem alegar um seletor global de aplicação já publicado.
+
+As quatro variantes são main, revisado, Escuro atual e Claro atual, em 1440×1000 e 390×844, escala/relógio/fuso fixos. Comparam-se payloads/resultados por motor, conteúdo, geometria e cores computadas. Só depois dessa igualdade é admissível a tolerância de raster do 3A (até 2 níveis por canal/0,01% dos pixels, mínimo 20); eventual uso exige prova bruta, sem exceções automáticas de conteúdo.
+
+### Impressão, limites e riscos independentes
+
+Não há alteração de regras de impressão. A fixture impressa inclui múltiplos cartões e competências, fatura paga e histórico aberto. A comparação verifica todas as páginas, dimensões, raster, texto extraído, valores e datas, sem gravar lançamentos. Modais fixos e botões do gráfico continuam excluídos da impressão pelas regras legadas; equivalência não significa criação de um novo relatório PDF de faturas.
+
+Permanecem fora do lote: conciliação por `Nome_Fantasia`/apelido, OFX manual, consentimento secundário de Open Finance e correções de competências históricas. O dado legado inconsistente é apresentado e comparado, sem reclassificação/reprocessamento. Na entrada manual, a inferência preexistente pode limpar o tipo ao passar para Renda sem descrição suficiente; as fixtures preenchem a descrição para exercitar os caminhos de estorno e pagamento, sem corrigir a regra. A confirmação “já está pago no banco” preserva sua distinção de um pagamento efetivo com saída de conta.
+
+A homologação mobile é por viewport no Edge headless. Safari/iOS/Android físicos, PWA instalada, leitor de tela e popups nativos permanecem na homologação transversal. Contraste computado e teclado não constituem certificação WCAG 2.2 integral do app; as limitações AA preexistentes do Escuro não foram corrigidas com diferenças não autorizadas.
+
+### Alterações de acessibilidade e correções de pintura
+
+As diferenças de interação do Escuro foram analisadas dentro do escopo de acessibilidade: os modais de ciclos/pagamento passam a usar o gerenciamento de foco compartilhado; o diagnóstico customizado recebe nome/papel de diálogo, contenção de Tab/Shift+Tab, Escape e restauração do foco, sem acrescentar DOM; o gráfico aceita setas/Home/End, acionando o mesmo `onSelect`. Não se alteraram textos, classes Escuras, dimensões ou handlers financeiros. A paridade é medida com o mesmo controle focado nas variantes antigas e atuais; esses avanços de teclado não são exceções de conteúdo nem usam tolerância raster.
+
+A medição encontrou e corrigiu exclusivamente no Claro: fundo em gradiente de uma chamada de auditoria que reduzia o contraste, rótulos fúcsia sem papel semântico, opacidade do checksum e precedência do hover legado sobre a cor das barras. As regras novas são de pintura, delimitadas por `@media screen` e `data-finelo-theme="light"`. Não há filtros ou substituição de classes. A disponibilidade negativa conserva a cor funcional negativa no Claro; o texto/valor existente continua indicando o estado em ambos os temas.
+
+A revisão React não introduziu efeitos de dados ou dependências financeiras. O detector visual Impeccable apontou dois padrões anteriores (borda lateral de card e texto cinza em superfície colorida). A borda/geometria e as classes antigas foram preservadas por requisito; a apresentação Clara é verificada pelo contraste efetivamente computado, em vez de redesenhar esses componentes.
+
+### Reprodução isolada
+
+Preparar os snapshots com `prepare-financial-baseline.py --base 6fa1188b1864e85da587e61c7e46009a5e82adb4 --target-name theme-card-main-baseline` e `--base 3e7341556b5d55eb2dcbb549e7d35e0141fb8fb9 --target-name theme-card-reviewed-baseline`. `serve-card-preview.ps1 -Port 5203` inicia somente o servidor local com configuração fictícia temporária de processo. Nenhum arquivo de ambiente é modificado.
+
+Com Python/Playwright, Edge e PyMuPDF disponíveis, executar `validate-card-themes.py --port 5203 --themes all --suite <core|payments|manual|cycles|controls|supplement> --out-dir <pasta>` para cada suíte, e `validate-card-print.py --port 5203 --out-dir <pasta>`. As validações conferem os hashes dos baselines, bloqueiam rede externa e armazenam cada resultado financeiro completo. O pacote inclui fontes auditadas, snapshots, manifestos, logs e a prova de que a correção final de tipagem do handler do gráfico emite JavaScript idêntico em desenvolvimento e produção. Os relatórios finais de navegador foram refeitos após essa correção e a correção de hover.
+
+### Resultado final e matriz de homologação 3C
+
+**PASS — lote 3C concluído para revisão, com Claro isolado.** São **2.200 capturas preservadas**, **1.100 comparações Escuras, todas 1.100 exatas**, e **58.161 verificações de contraste Claro aprovadas**, sem exceção nova de conteúdo ou uso de tolerância raster. Os três motores foram exercitados em desktop e mobile nas quatro variantes. O código dos consumidores, CSS e fixtures de cada manifesto foi conferido com a versão final.
+
+| Bateria | Capturas | Paridades / exatas | Contrastes Claro | Resultado |
+| --- | ---: | ---: | ---: | --- |
+| Cartões/histórico: 19 cenários | 936 | 468 / 468 | 16309 | PASS |
+| Pagamentos/confirmações/erros | 360 | 180 / 180 | 2418 | PASS |
+| Compra/parcelas/estorno/encaminhamento | 240 | 120 / 120 | 3915 | PASS |
+| Ciclos/validações/auditoria longa | 304 | 152 / 152 | 33107 | PASS |
+| Gráfico/teclado/foco/nativos/bloqueios | 288 | 144 / 144 | 1962 | PASS |
+| Diagnósticos com avisos/configuração | 72 | 36 / 36 | 450 | PASS |
+
+Mínimos computados: **5,122:1 para texto/campos** e **3,567:1 para elementos essenciais/foco**. A bateria inclui valores positivos/negativos/zero, dívida/disponibilidade, barras e seleção, hover, foco, controles desabilitados, campos monetários/data, overlays, listas longas e validações. Nenhum overflow horizontal do documento, erro JavaScript não tratado ou requisição remota. As tabelas/modais preservam seu rolamento interno.
+
+Na matriz abaixo, os três PASS de cada linha abrangem os motores legado, V2 e novo; as colunas visuais incluem desktop/mobile, Escuro/Claro e comparação main/revisado. Equivalência significa igualdade de payloads/resultados, valores em centavos, datas, competências, totais, saldos e limites entre variantes — não correção retrospectiva de dados legados.
+
+| Cenário | Visual/contraste | Financeiro | Legado/V2/novo |
+| --- | --- | --- | --- |
+| 1. Fatura aberta com compras e parcelas | PASS | PASS | PASS |
+| 2. Fatura fechada não paga | PASS | PASS | PASS |
+| 3. Fatura integralmente paga | PASS | PASS | PASS |
+| 4. Pagamento parcial antes do vencimento | PASS | PASS | PASS |
+| 5. Segundo pagamento que quita o restante | PASS | PASS | PASS |
+| 6. Pagamento após o vencimento | PASS | PASS | PASS |
+| 7. Vencimento nominal em fim de semana | PASS | PASS | PASS |
+| 8. Estorno antes e após o fechamento | PASS | PASS | PASS |
+| 9. Parcelas futuras atravessando competências | PASS | PASS | PASS |
+| 10. Competência histórica legada inconsistente | PASS | PASS | PASS |
+| 11. Cartão sem lançamentos | PASS | PASS | PASS |
+| 12. Múltiplos cartões e limites distintos | PASS | PASS | PASS |
+| 13. Disponibilidade negativa/insuficiente | PASS | PASS | PASS |
+| 14. Confirmação de fatura já paga e desfazer | PASS | PASS | PASS |
+| 15. Cancelamento de pagamento sem gravação | PASS | PASS | PASS |
+| 16. Erro de leitura/autorização/persistência e retry | PASS | PASS | PASS |
+
+A entrada manual também **gravou sinteticamente** três parcelas cuja soma é -12.345 centavos e um estorno de +12.345 centavos, comparando os payloads completos. O cancelamento das três modalidades não grava. O segundo pagamento gera pernas opostas de 6.000 centavos e zera o saldo da competência; confirmação externa de quitação e desfazer preservam a ausência de novas linhas financeiras. Erro/latência de persistência, formulário preservado e retry são reproduzidos por transporte em memória, sem alegar validação do backend real.
+
+Foram aprovadas **228 trocas CSS de ida/volta**, com zero commits React, requisições ou eventos financeiros adicionais e estado financeiro idêntico. A persistência Auth/entre abas do Ciclo 2 não foi modificada nem substituída por esse teste local de pintura. Os sete fingerprints de consumidores e 156 selos financeiros passam; `NewTransactionModal` e os compartilhados foram reutilizados sem alteração neste lote.
+
+**Testes e build:** suíte completa **3.297 testes/204 arquivos PASS**; focal financeira **1.384/94 PASS**; revalidação de aparência após os ajustes finais **85/6 PASS**. TypeScript mantém **14 diagnósticos conhecidos, zero novos**; build/PWA **PASS**, 49 entradas de precache. E864 e regressões financeiras/impressão estão na suíte completa. A confirmação do Quality baseline no commit publicado será registrada na descrição da PR, sem merge ou deploy.
+
+**Impressão:** **36 PDFs/96 páginas PASS**, com dimensões, contagem, texto, valores/datas e raster idênticos nas quatro variantes por cenário/motor. Não houve ajuste de paginação ou de regras de impressão. As exclusões legadas de modais fixos e botões continuam documentadas acima.
+
+**Evidências:** [seis capturas comparativas, resumo e manifestos compactos](evidencias-ciclo-3c/README.md); pacote externo `finelo-ciclo-3c-evidencias.zip`, **247.566.436 bytes**, **3.261 arquivos indexados**. SHA-256 do ZIP: `4ec83dd6dfb045f120b4688a5e303f23c3000ac54228e7bd5882c5ea0407f0de`. Índice SHA-256: `daf2de4cd3bacbc7875db07163cd20b9b75a767b881e86bb690e9abc397ec3ad`. O pacote foi reaberto, com CRC e SHA-256 de cada entrada indexada verificados. Contém todas as capturas, resultados financeiros, PDFs/renderizações/textos, versões do ambiente, logs, snapshots e fontes. Os manifestos originais conservam o hash do harness registrado ao encerrar cada suíte; a evolução de cenários independentes do runner está identificada no README, sem alterar os selos dos consumidores/CSS/fixtures.
+
+Os limites de ambiente e os riscos legados acima permanecem separados do PASS visual. A PR #97 continua em rascunho; nenhum dado financeiro real, coorte, permissão, migration ou ambiente de produção foi alterado. O 3D e a homologação transversal seguem pendentes; este resultado não autoriza publicação geral do Claro.
+
+### Próximo lote 3D
+
+O 3D deve tratar os fluxos completos de conciliação: abertura por competência, diagnóstico versus resolução, estados pendente/resolvido, classificações/vínculos, confirmação, cancelamento, desfazer, permissão/erro e impressão. Exigir fixtures próprias de dois livros e comparação de todos os saldos/payloads; não incorporar correções por apelido sem proposta funcional específica. Depois, concluir a homologação transversal e os consumidores restantes antes de discutir liberação global do Claro. Mantêm-se coorte, flag e possibilidade de rollback visual sem desfazer dados.
+
+Execução proposta, ainda sem implementação/autorização de publicação:
+
+1. Selar `ReconciliationFlow`, `ReconciliationResolutionModal`, seus pontos de entrada em Transações/diagnóstico e `cardReconciliationService`; registrar baselines dos três motores e do ledger de resoluções. A competência deve continuar explícita por prop.
+2. Converter apenas apresentação dos estados calculando/pronto/erro/concluído e das opções/valores/fontes autoritativas. Preservar os dois passos: selecionar uma resolução não grava; a confirmação final mantém a mesma intenção/chave de idempotência.
+3. Exercitar delta negativo/zero/positivo, cancelamento nos dois passos, resolução ativa, reversão, ausência de permissão, timeout depois de gravar, retry com a mesma chave, concorrência, troca de competência e estado ocupado. Uma mudança de tema não deve recalcular a conciliação ou recriar a intenção; medir as chamadas e a identidade da chave.
+4. Exigir paridade Escura nas quatro variantes, contraste Claro/teclado/scroll desktop-mobile, igualdade em centavos dos dois livros e de payloads/resoluções, impressão existente, suítes financeiras/TypeScript/build e pacote verificável. Revisar o 3D antes de qualquer piloto mais amplo; Dashboard, investimentos, plataformas físicas/PWA e demais consumidores continuam em lotes próprios.

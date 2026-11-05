@@ -251,7 +251,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                             <p data-finance="muted" className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap">
                               Disponível
                             </p>
-                            <p data-finance="positive" className="text-sm sm:text-[15px] font-black text-emerald-400 tabular-nums leading-none whitespace-nowrap">
+                            <p data-finance={limiteDisponivel < 0 ? 'negative' : 'positive'} className="text-sm sm:text-[15px] font-black text-emerald-400 tabular-nums leading-none whitespace-nowrap">
                               {formatCurrency(limiteDisponivel)}
                             </p>
                           </div>

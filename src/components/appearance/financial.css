@@ -124,4 +124,10 @@
   [data-finelo-theme="light"][data-finance~="tour"] .driver-popover-btn-disabled {
     opacity: 1; color: rgb(var(--appearance-on-disabled)); background-color: rgb(var(--appearance-disabled)); border-color: rgb(var(--appearance-control-border));
   }
+  [data-finelo-theme="light"] [data-finance~="card-chart-bar"] { background-color: rgb(var(--appearance-chart-1)); box-shadow: none; }
+  [data-finelo-theme="light"] [data-finance~="card-chart-active-bar"] { background-color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="card-chart-tab"]:hover [data-finance~="card-chart-bar"] { background-color: rgb(var(--appearance-chart-1)); }
+  [data-finelo-theme="light"] [data-finance~="card-chart-tab"]:hover [data-finance~="card-chart-active-bar"] { background-color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="card-chart-tab"]:focus-visible [data-finance~="card-chart-value"] { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="audit-checksum"] { opacity: 1; }
 }

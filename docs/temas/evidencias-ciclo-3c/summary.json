@@ -1,0 +1,119 @@
+{
+  "status": "PASS",
+  "suites": {
+    "core": {
+      "status": "PASS",
+      "captures": 936,
+      "parity": 468,
+      "exact": 468,
+      "contrast_samples": 16309,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": 0,
+      "theme_switch_checks": 228,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "payments": {
+      "status": "PASS",
+      "captures": 360,
+      "parity": 180,
+      "exact": 180,
+      "contrast_samples": 2418,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "manual": {
+      "status": "PASS",
+      "captures": 240,
+      "parity": 120,
+      "exact": 120,
+      "contrast_samples": 3915,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "cycles": {
+      "status": "PASS",
+      "captures": 304,
+      "parity": 152,
+      "exact": 152,
+      "contrast_samples": 33107,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "controls": {
+      "status": "PASS",
+      "captures": 288,
+      "parity": 144,
+      "exact": 144,
+      "contrast_samples": 1962,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "supplement": {
+      "status": "PASS",
+      "captures": 72,
+      "parity": 36,
+      "exact": 36,
+      "contrast_samples": 450,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    }
+  },
+  "tests": {
+    "full": 3297,
+    "full_files": 204,
+    "focal": 1384,
+    "focal_files": 94,
+    "appearance": 85,
+    "typescript_known": 14,
+    "typescript_new": 0,
+    "build_precache": 49
+  },
+  "print": {
+    "documents": 36,
+    "pages": 96,
+    "raster_identical": true,
+    "text_identical": true,
+    "remote_requests": 0
+  },
+  "totals": {
+    "captures": 2200,
+    "parity": 1100,
+    "exact": 1100,
+    "contrast_samples": 58161,
+    "failures": 0,
+    "theme_switch_checks": 228,
+    "remote_requests": 0
+  },
+  "minimum_text": 5.122,
+  "minimum_essential": 3.567,
+  "package": {
+    "file": "finelo-ciclo-3c-evidencias.zip",
+    "bytes": 247566436,
+    "sha256": "4ec83dd6dfb045f120b4688a5e303f23c3000ac54228e7bd5882c5ea0407f0de",
+    "indexed_files": 3261,
+    "index_sha256": "daf2de4cd3bacbc7875db07163cd20b9b75a767b881e86bb690e9abc397ec3ad",
+    "crc_and_all_hashes_verified": true
+  }
+}

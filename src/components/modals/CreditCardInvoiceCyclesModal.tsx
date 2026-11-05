@@ -1,3 +1,4 @@
+import '../appearance/financial.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -2650,7 +2651,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
   const showCardPicker = !filterAccountId;
 
   return (
-    <Modal
+    <Modal manageFocus
       isOpen={isOpen}
       onClose={() => !busy && onClose()}
       title={modalTitle}
@@ -2767,13 +2768,13 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
       }
     >
       <div className="space-y-4">
-        <p className="text-sm text-gray-300 leading-relaxed">
-          Lista os arquivos do <strong className="text-white">histórico de importações</strong> do cartão escolhido (ex.: Cartão XP).
-          Para cada arquivo, confira ou informe a <strong className="text-white">competência</strong> (<strong className="text-white">MM/AAAA</strong>) e o{' '}
-          <strong className="text-white">vencimento</strong> (o valor confirmado no histórico é preservado; o cálculo automático só preenche datas ausentes).
-          Use <strong className="text-white">Salvar competências</strong> para registrar apenas esses metadados, sem alterar lançamentos ou conciliação.
-          Uma ativação só é liberada depois de uma auditoria segura. A Sprint 2C atualiza apenas linhas que já existem, em uma única transação, e cria um snapshot individual para desfazer. A projeção <strong className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e os{' '}
-          <strong className="text-white">estornos</strong> na competência do arquivo; <strong className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong className="text-white">anterior</strong> (padrão N+1 do extrato).
+        <p data-finance="muted" className="text-sm text-gray-300 leading-relaxed">
+          Lista os arquivos do <strong data-finance="content" className="text-white">histórico de importações</strong> do cartão escolhido (ex.: Cartão XP).
+          Para cada arquivo, confira ou informe a <strong data-finance="content" className="text-white">competência</strong> (<strong data-finance="content" className="text-white">MM/AAAA</strong>) e o{' '}
+          <strong data-finance="content" className="text-white">vencimento</strong> (o valor confirmado no histórico é preservado; o cálculo automático só preenche datas ausentes).
+          Use <strong data-finance="content" className="text-white">Salvar competências</strong> para registrar apenas esses metadados, sem alterar lançamentos ou conciliação.
+          Uma ativação só é liberada depois de uma auditoria segura. A Sprint 2C atualiza apenas linhas que já existem, em uma única transação, e cria um snapshot individual para desfazer. A projeção <strong data-finance="content" className="text-white">soma as linhas de saída</strong> do extrato para o total da fatura e os{' '}
+          <strong data-finance="content" className="text-white">estornos</strong> na competência do arquivo; <strong data-finance="content" className="text-white">pagamentos de fatura</strong> no CSV quitam a competência <strong data-finance="content" className="text-white">anterior</strong> (padrão N+1 do extrato).
         </p>
 
         {showCardPicker && (
@@ -2791,23 +2792,26 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
             ))}
           </Select>
         )}
-        <p className="text-xs text-gray-500">{summaryHint}</p>
-        <p className="text-[11px] text-slate-600">
-          Arquivos ordenados por <strong className="text-slate-400">vencimento</strong> (mais recente no topo) para facilitar a auditoria.
+        <p data-finance="muted" className="text-xs text-gray-500">{summaryHint}</p>
+        <p data-finance="muted" className="text-[11px] text-slate-600">
+          Arquivos ordenados por <strong data-finance="muted" className="text-slate-400">vencimento</strong> (mais recente no topo) para facilitar a auditoria.
         </p>
 
         {busy && applyProgress && (
-          <div
+          <div data-finance="info-panel info"
             role="status"
             aria-live="polite"
             className="rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-2.5 text-sm text-cyan-100"
           >
-            <span className="font-medium text-white">Em andamento.</span> {applyProgress}
+            <span data-finance="content" className="font-medium text-white">Em andamento.</span> {applyProgress}
           </div>
         )}
 
         {shadowAudit && (
-          <div
+          <div data-finance={(shadowAudit.comparison.status === 'blocked' ||
+              (shadowAudit.comparison.status === 'different' &&
+                !shadowAudit.comparison.safeToActivate) ? "danger-chip negative" : (shadowAudit.comparison.status === 'identical' ||
+                    shadowAudit.comparison.status === 'informational' ? "success-panel positive" : "warning-panel warning"))}
             className={`rounded-xl border px-3 py-3 text-xs ${
               shadowAudit.comparison.status === 'blocked' ||
               (shadowAudit.comparison.status === 'different' &&
@@ -2819,7 +2823,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   : 'border-amber-500/40 bg-amber-500/10 text-amber-100'
             }`}
           >
-            <p className="font-semibold text-white">
+            <p data-finance="content" className="font-semibold text-white">
               Sprint 2C — auditoria e ativação atômica:{' '}
               {shadowAudit.comparison.status === 'blocked'
                 ? 'bloqueada'
@@ -2842,18 +2846,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 ? 'nenhuma nova troca atômica necessária'
                 : `futura troca atômica ${shadowAudit.comparison.safeToActivate ? 'apta' : 'não apta'}`}. Nenhum dado foi gravado.
             </p>
-            <p className="mt-1 font-mono text-[10px] opacity-75">{shadowAudit.shadow.checksum}</p>
+            <p data-finance="audit-checksum content" className="mt-1 font-mono text-[10px] opacity-75">{shadowAudit.shadow.checksum}</p>
             {shadowAuditForensics && (
-              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Etapa forense — causas agregadas</p>
-                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                  <p data-finance="content" className="font-semibold text-white">Etapa forense — causas agregadas</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
                     somente leitura · sem identificadores
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Ação recomendada:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {shadowAuditForensics.recommendedAction === 'investigate'
                       ? 'investigar antes de reparar'
                       : shadowAuditForensics.recommendedAction === 'repair-narrow'
@@ -2866,99 +2870,99 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 </p>
 
                 <div className="mt-3 grid gap-2 md:grid-cols-3">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Itens alterados por campo</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Itens alterados por campo</p>
                     {shadowAuditForensics.entryChangeProfiles.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditForensics.entryChangeProfiles.slice(0, 6).map((profile) => (
                           <li key={profile.key} className="flex justify-between gap-2">
                             <span>{profile.fields.map((field) => FORENSIC_FIELD_LABELS[field] || field).join(' + ')}</span>
-                            <strong className="text-white">{profile.count}</strong>
+                            <strong data-finance="content" className="text-white">{profile.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma alteração de item.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma alteração de item.</p>
                     )}
                   </div>
 
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Faturas alteradas por campo</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Faturas alteradas por campo</p>
                     {shadowAuditForensics.statementChangeProfiles.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditForensics.statementChangeProfiles.slice(0, 6).map((profile) => (
                           <li key={profile.key} className="flex justify-between gap-2">
                             <span>{profile.fields.map((field) => FORENSIC_FIELD_LABELS[field] || field).join(' + ')}</span>
-                            <strong className="text-white">{profile.count}</strong>
+                            <strong data-finance="content" className="text-white">{profile.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma alteração de fatura.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma alteração de fatura.</p>
                     )}
                   </div>
 
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Pagamentos alterados por campo</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Pagamentos alterados por campo</p>
                     {shadowAuditForensics.paymentChangeProfiles.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditForensics.paymentChangeProfiles.slice(0, 6).map((profile) => (
                           <li key={profile.key} className="flex justify-between gap-2">
                             <span>{profile.fields.map((field) => FORENSIC_FIELD_LABELS[field] || field).join(' + ')}</span>
-                            <strong className="text-white">{profile.count}</strong>
+                            <strong data-finance="content" className="text-white">{profile.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma alteração de pagamento.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma alteração de pagamento.</p>
                     )}
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Duplicidades de itens</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Duplicidades de itens</p>
                     {shadowAuditForensics.duplicateTransactionCohorts.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditForensics.duplicateTransactionCohorts.map((cohort) => (
                           <li key={cohort.code} className="flex justify-between gap-2">
                             <span>{FORENSIC_DUPLICATE_LABELS[cohort.code]}</span>
-                            <strong className="text-white">{cohort.count}</strong>
+                            <strong data-finance="content" className="text-white">{cohort.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma duplicidade de item.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma duplicidade de item.</p>
                     )}
                   </div>
 
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Itens ausentes por competência</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Itens ausentes por competência</p>
                     {shadowAuditForensics.missingTransactionsByStatement.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditForensics.missingTransactionsByStatement.slice(0, 8).map((cohort) => (
                           <li key={cohort.statementKey} className="flex justify-between gap-2">
                             <span>{cohort.statementKey === 'unknown' ? 'competência não identificada' : cohort.statementKey}</span>
-                            <strong className="text-white">{cohort.count}</strong>
+                            <strong data-finance="content" className="text-white">{cohort.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhum item ausente.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhum item ausente.</p>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
                   <p>
-                    Pagamentos órfãos: <strong className="text-white">{shadowAuditForensics.orphanPaymentsWithIdentity}</strong> com identidade e{' '}
-                    <strong className="text-white">{shadowAuditForensics.orphanPaymentsWithoutIdentity}</strong> sem identidade · candidatos determinísticos:{' '}
-                    <strong className="text-white">{shadowAuditForensics.repairableEntryRows}</strong> item(ns) e{' '}
-                    <strong className="text-white">{shadowAuditForensics.repairablePaymentRows}</strong> pagamento(s) · faturas protegidas:{' '}
-                    <strong className="text-white">{shadowAuditForensics.protectedStatementCount}</strong>.
+                    Pagamentos órfãos: <strong data-finance="content" className="text-white">{shadowAuditForensics.orphanPaymentsWithIdentity}</strong> com identidade e{' '}
+                    <strong data-finance="content" className="text-white">{shadowAuditForensics.orphanPaymentsWithoutIdentity}</strong> sem identidade · candidatos determinísticos:{' '}
+                    <strong data-finance="content" className="text-white">{shadowAuditForensics.repairableEntryRows}</strong> item(ns) e{' '}
+                    <strong data-finance="content" className="text-white">{shadowAuditForensics.repairablePaymentRows}</strong> pagamento(s) · faturas protegidas:{' '}
+                    <strong data-finance="content" className="text-white">{shadowAuditForensics.protectedStatementCount}</strong>.
                   </p>
                   {shadowAuditForensics.recommendationCodes.length > 0 && (
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                       {shadowAuditForensics.recommendationCodes.map((code) => (
                         <li key={code}>{FORENSIC_RECOMMENDATION_LABELS[code]}</li>
                       ))}
@@ -2968,40 +2972,40 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {shadowAuditLineage && (
-              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Etapa forense — conservação e linhagem</p>
-                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                  <p data-finance="content" className="font-semibold text-white">Etapa forense — conservação e linhagem</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
                     explicativo · não autoriza reparo
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
-                  Diagnóstico: <strong className="text-white">{LINEAGE_STATUS_LABELS[shadowAuditLineage.status]}</strong>.
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
+                  Diagnóstico: <strong data-finance="content" className="text-white">{LINEAGE_STATUS_LABELS[shadowAuditLineage.status]}</strong>.
                   O pareamento usa somente assinaturas de conteúdo em memória; nenhuma linha foi escolhida para exclusão ou atualização.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Linhas projetadas / persistidas</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Linhas projetadas / persistidas</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditLineage.conservation.projectedRowCount} / {shadowAuditLineage.conservation.persistedRowCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Identidades únicas projetadas / atuais</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Identidades únicas projetadas / atuais</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditLineage.conservation.projectedUniqueIdentityCount} / {shadowAuditLineage.conservation.persistedUniqueIdentityCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Identidades ausentes / linhas excedentes</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Identidades ausentes / linhas excedentes</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditLineage.conservation.missingIdentityCount} / {shadowAuditLineage.conservation.duplicateExcessRowCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Balanço de identidade</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Balanço de identidade</p>
+                    <p data-finance={(shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? "positive" : "warning")} className={`mt-1 text-base font-semibold ${shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus ? 'text-emerald-300' : 'text-amber-300'}`}>
                       {shadowAuditLineage.conservation.missingIdentityCount === 0 && shadowAuditLineage.conservation.duplicateExcessRowCount === 0
                         ? 'sem déficit'
                         : shadowAuditLineage.conservation.missingBalancedByDuplicateSurplus
@@ -3012,38 +3016,38 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Explicação por assinatura de conteúdo</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Explicação por assinatura de conteúdo</p>
                     {shadowAuditLineage.matchProfiles.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditLineage.matchProfiles.map((profile) => (
                           <li key={profile.code} className="flex justify-between gap-2">
                             <span>{LINEAGE_MATCH_LABELS[profile.code]}</span>
-                            <strong className="text-white">{profile.count}</strong>
+                            <strong data-finance="content" className="text-white">{profile.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma quebra de identidade para explicar.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma quebra de identidade para explicar.</p>
                     )}
-                    <p className="mt-2 border-t border-white/10 pt-2 text-slate-300">
-                      Explicadas: <strong className="text-white">{shadowAuditLineage.matchedIdentityCount}</strong> · ainda sem explicação:{' '}
-                      <strong className="text-white">{shadowAuditLineage.unexplainedMissingIdentityCount}</strong> · excedentes sem correspondência:{' '}
-                      <strong className="text-white">{shadowAuditLineage.unexplainedSurplusRowCount}</strong>.
+                    <p data-finance="divider muted" className="mt-2 border-t border-white/10 pt-2 text-slate-300">
+                      Explicadas: <strong data-finance="content" className="text-white">{shadowAuditLineage.matchedIdentityCount}</strong> · ainda sem explicação:{' '}
+                      <strong data-finance="content" className="text-white">{shadowAuditLineage.unexplainedMissingIdentityCount}</strong> · excedentes sem correspondência:{' '}
+                      <strong data-finance="content" className="text-white">{shadowAuditLineage.unexplainedSurplusRowCount}</strong>.
                     </p>
                   </div>
 
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Coortes de origem afetadas</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Coortes de origem afetadas</p>
                     {shadowAuditLineage.sourceCohorts.length > 0 ? (
                       <ul className="mt-1 space-y-1.5">
                         {shadowAuditLineage.sourceCohorts.slice(0, 8).map((cohort) => (
-                          <li key={cohort.cohort} className="rounded border border-white/5 bg-black/10 px-2 py-1.5">
+                          <li data-finance="inset divider" key={cohort.cohort} className="rounded border border-white/5 bg-black/10 px-2 py-1.5">
                             <div className="flex flex-wrap justify-between gap-2">
-                              <strong className="text-white">{cohort.cohort}</strong>
+                              <strong data-finance="content" className="text-white">{cohort.cohort}</strong>
                               <span>{cohort.statementKeys.join(', ') || 'competência não identificada'}</span>
                             </div>
-                            <p className="mt-0.5 text-slate-400">
+                            <p data-finance="muted" className="mt-0.5 text-slate-400">
                               {cohort.projectedEntryCount} linha(s) · {cohort.missingIdentityCount} identidade(s) ausente(s) ·{' '}
                               {cohort.duplicateExcessRowCount} excedente(s) · {cohort.repeatedSourceRowSignatureCount} assinatura(s) de origem repetida(s)
                             </p>
@@ -3051,24 +3055,24 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma coorte de origem afetada.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma coorte de origem afetada.</p>
                     )}
                     {shadowAuditLineage.sourceCohorts.length > 8 && (
-                      <p className="mt-1 text-slate-500">
+                      <p data-finance="muted" className="mt-1 text-slate-500">
                         Mais {shadowAuditLineage.sourceCohorts.length - 8} coorte(s) preservada(s) no resumo agregado.
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
                   <p>
-                    Grupos de identidade duplicada: <strong className="text-white">{shadowAuditLineage.conservation.duplicateIdentityGroupCount}</strong> ·{' '}
-                    identidades órfãs: <strong className="text-white">{shadowAuditLineage.conservation.orphanIdentityCount}</strong> ·{' '}
-                    linhas com reparo determinístico já comprovado: <strong className="text-white">{shadowAuditLineage.deterministicRepairRowCount}</strong>.
+                    Grupos de identidade duplicada: <strong data-finance="content" className="text-white">{shadowAuditLineage.conservation.duplicateIdentityGroupCount}</strong> ·{' '}
+                    identidades órfãs: <strong data-finance="content" className="text-white">{shadowAuditLineage.conservation.orphanIdentityCount}</strong> ·{' '}
+                    linhas com reparo determinístico já comprovado: <strong data-finance="content" className="text-white">{shadowAuditLineage.deterministicRepairRowCount}</strong>.
                   </p>
                   {shadowAuditLineage.recommendationCodes.length > 0 && (
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                       {shadowAuditLineage.recommendationCodes.map((code) => (
                         <li key={code}>{LINEAGE_RECOMMENDATION_LABELS[code]}</li>
                       ))}
@@ -3078,78 +3082,78 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {shadowAuditProvenance && (
-              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2F — proveniência histórica</p>
-                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2F — proveniência histórica</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
                     somente leitura · não cria reparo
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
-                  Diagnóstico: <strong className="text-white">{PROVENANCE_STATUS_LABELS[shadowAuditProvenance.status]}</strong>.
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
+                  Diagnóstico: <strong data-finance="content" className="text-white">{PROVENANCE_STATUS_LABELS[shadowAuditProvenance.status]}</strong>.
                   A análise cruza origem e hash apenas em memória; nomes de arquivos, hashes, lotes e IDs de linha não aparecem neste relatório.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Linhas atuais com / sem proveniência</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Linhas atuais com / sem proveniência</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditProvenance.coverage.persistedRowsWithSourceIdentity} / {shadowAuditProvenance.coverage.persistedRowsWithoutSourceIdentity}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Ausentes / localizadas pela origem</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Ausentes / localizadas pela origem</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditProvenance.missingIdentityCount} / {shadowAuditProvenance.exactProvenanceMatchCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Âncoras confirmadas / pendentes</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Âncoras confirmadas / pendentes</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditProvenance.ownerAnchorConfirmedCount} / {shadowAuditProvenance.ownerAnchorMissingCount + shadowAuditProvenance.ownerAnchorAmbiguousCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Candidatas rastreáveis / não resolvidas</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditProvenance.unresolvedCount === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Candidatas rastreáveis / não resolvidas</p>
+                    <p data-finance={(shadowAuditProvenance.unresolvedCount === 0 ? "positive" : "warning")} className={`mt-1 text-base font-semibold ${shadowAuditProvenance.unresolvedCount === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
                       {shadowAuditProvenance.recoveryCandidateCount} / {shadowAuditProvenance.unresolvedCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Evidências agregadas</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Evidências agregadas</p>
                     {shadowAuditProvenance.evidenceProfiles.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditProvenance.evidenceProfiles.map((profile) => (
                           <li key={profile.code} className="flex justify-between gap-2">
                             <span>{PROVENANCE_EVIDENCE_LABELS[profile.code]}</span>
-                            <strong className="text-white">{profile.count}</strong>
+                            <strong data-finance="content" className="text-white">{profile.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma identidade ausente exige reconstrução.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma identidade ausente exige reconstrução.</p>
                     )}
-                    <p className="mt-2 border-t border-white/10 pt-2 text-slate-300">
+                    <p data-finance="divider muted" className="mt-2 border-t border-white/10 pt-2 text-slate-300">
                       Colisões atuais / projetadas:{' '}
-                      <strong className="text-white">{shadowAuditProvenance.coverage.persistedSourceCollisionGroupCount}</strong> /{' '}
-                      <strong className="text-white">{shadowAuditProvenance.coverage.projectedSourceCollisionGroupCount}</strong>.
+                      <strong data-finance="content" className="text-white">{shadowAuditProvenance.coverage.persistedSourceCollisionGroupCount}</strong> /{' '}
+                      <strong data-finance="content" className="text-white">{shadowAuditProvenance.coverage.projectedSourceCollisionGroupCount}</strong>.
                     </p>
                   </div>
 
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Coortes opacas afetadas</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Coortes opacas afetadas</p>
                     {shadowAuditProvenance.sourceCohorts.length > 0 ? (
                       <ul className="mt-1 space-y-1.5">
                         {shadowAuditProvenance.sourceCohorts.slice(0, 8).map((cohort) => (
-                          <li key={cohort.cohort} className="rounded border border-white/5 bg-black/10 px-2 py-1.5">
+                          <li data-finance="inset divider" key={cohort.cohort} className="rounded border border-white/5 bg-black/10 px-2 py-1.5">
                             <div className="flex flex-wrap justify-between gap-2">
-                              <strong className="text-white">{cohort.cohort}</strong>
+                              <strong data-finance="content" className="text-white">{cohort.cohort}</strong>
                               <span>{cohort.statementKeys.join(', ') || 'competência não identificada'}</span>
                             </div>
-                            <p className="mt-0.5 text-slate-400">
+                            <p data-finance="muted" className="mt-0.5 text-slate-400">
                               {cohort.missingIdentityCount} ausente(s) · {cohort.exactProvenanceMatchCount} localizada(s) ·{' '}
                               {cohort.recoveryCandidateCount} rastreável(is) · {cohort.unresolvedCount} pendente(s)
                             </p>
@@ -3157,15 +3161,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma coorte de origem afetada.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma coorte de origem afetada.</p>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
                   <p>
                     Evidência para uma futura simulação individual:{' '}
-                    <strong className={shadowAuditProvenance.status === 'clean' || shadowAuditProvenance.eligibleForFutureDryRunPlan ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditProvenance.status === 'clean' || shadowAuditProvenance.eligibleForFutureDryRunPlan ? "positive" : "warning")} className={shadowAuditProvenance.status === 'clean' || shadowAuditProvenance.eligibleForFutureDryRunPlan ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditProvenance.status === 'clean'
                         ? 'não necessária'
                         : shadowAuditProvenance.eligibleForFutureDryRunPlan
@@ -3175,7 +3179,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     {' '}Isso não autoriza escrita, ativação ou reparo.
                   </p>
                   {shadowAuditProvenance.recommendationCodes.length > 0 && (
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                    <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                       {shadowAuditProvenance.recommendationCodes.map((code) => (
                         <li key={code}>{PROVENANCE_RECOMMENDATION_LABELS[code]}</li>
                       ))}
@@ -3185,73 +3189,73 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {shadowAuditIdentityDryRun && (
-              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2G — simulação individual de identidade</p>
-                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2G — simulação individual de identidade</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
                     zero escritas · sem payload de banco
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
-                  Resultado: <strong className="text-white">{IDENTITY_DRY_RUN_STATUS_LABELS[shadowAuditIdentityDryRun.status]}</strong>.
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
+                  Resultado: <strong data-finance="content" className="text-white">{IDENTITY_DRY_RUN_STATUS_LABELS[shadowAuditIdentityDryRun.status]}</strong>.
                   A prévia usa um clone em memória, preserva as âncoras e recalcula a auditoria sem expor IDs, hashes, lotes ou nomes de arquivos.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Identidades ausentes</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Identidades ausentes</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditIdentityDryRun.before.missingIdentityCount} → {shadowAuditIdentityDryRun.after.missingIdentityCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos duplicados</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos duplicados</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditIdentityDryRun.before.duplicateIdentityGroupCount} → {shadowAuditIdentityDryRun.after.duplicateIdentityGroupCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Diferenças estruturais</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Diferenças estruturais</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditIdentityDryRun.before.structuralDifferenceCount} → {shadowAuditIdentityDryRun.after.structuralDifferenceCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Linhas antes / depois</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditIdentityDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Linhas antes / depois</p>
+                    <p data-finance={(shadowAuditIdentityDryRun.rowCountDelta === 0 ? "positive" : "warning")} className={`mt-1 text-base font-semibold ${shadowAuditIdentityDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
                       {shadowAuditIdentityDryRun.rowCountBefore} / {shadowAuditIdentityDryRun.rowCountAfter}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Escopo hipotético</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Escopo hipotético</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       {shadowAuditIdentityDryRun.hypotheticalUpdateCount} linha(s) simulada(s) ·{' '}
                       {shadowAuditIdentityDryRun.confirmedAnchorCount} âncora(s) preservada(s) ·{' '}
                       {shadowAuditIdentityDryRun.unresolvedCount} pendência(s).
                     </p>
-                    <p className="mt-1 text-slate-400">
-                      Operações reais executadas: <strong className="text-emerald-300">{shadowAuditIdentityDryRun.actualWriteOperationCount}</strong>.
+                    <p data-finance="muted" className="mt-1 text-slate-400">
+                      Operações reais executadas: <strong data-finance="positive" className="text-emerald-300">{shadowAuditIdentityDryRun.actualWriteOperationCount}</strong>.
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Depois da simulação</p>
-                    <p className="mt-1 text-slate-300">
-                      Identidades ainda alteradas: <strong className="text-white">{shadowAuditIdentityDryRun.after.changedIdentityCount}</strong> ·{' '}
-                      diferenças residuais: <strong className="text-white">{shadowAuditIdentityDryRun.residualDifferenceCount}</strong>.
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Depois da simulação</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
+                      Identidades ainda alteradas: <strong data-finance="content" className="text-white">{shadowAuditIdentityDryRun.after.changedIdentityCount}</strong> ·{' '}
+                      diferenças residuais: <strong data-finance="content" className="text-white">{shadowAuditIdentityDryRun.residualDifferenceCount}</strong>.
                     </p>
-                    <p className="mt-1 text-slate-400">A simulação de identidade não equivale à ativação integral da projeção.</p>
+                    <p data-finance="muted" className="mt-1 text-slate-400">A simulação de identidade não equivale à ativação integral da projeção.</p>
                   </div>
                 </div>
 
                 {shadowAuditIdentityDryRun.changeProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Mudanças simuladas por grupo</p>
+                  <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Mudanças simuladas por grupo</p>
                     <ul className="mt-1 space-y-1.5">
                       {shadowAuditIdentityDryRun.changeProfiles.slice(0, 12).map((profile) => (
-                        <li
+                        <li data-finance="inset divider"
                           key={`${profile.code}-${profile.fromStatementKey}-${profile.toStatementKey}-${profile.fromEntryType}-${profile.toEntryType}`}
                           className="flex flex-wrap justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5"
                         >
@@ -3261,12 +3265,12 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                               ? ` · ${profile.fromEntryType} → ${profile.toEntryType}`
                               : ''}
                           </span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                     {shadowAuditIdentityDryRun.changeProfiles.length > 12 && (
-                      <p className="mt-1 text-slate-500">
+                      <p data-finance="muted" className="mt-1 text-slate-500">
                         Mais {shadowAuditIdentityDryRun.changeProfiles.length - 12} grupo(s) permanecem no resumo agregado.
                       </p>
                     )}
@@ -3274,9 +3278,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 )}
 
                 {shadowAuditIdentityDryRun.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-amber-400/25 bg-amber-500/5 p-2">
-                    <p className="font-semibold text-amber-100">Bloqueios da simulação</p>
-                    <ul className="mt-1 space-y-1 text-amber-100/90">
+                  <div data-finance="warning-panel" className="mt-2 rounded border border-amber-400/25 bg-amber-500/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Bloqueios da simulação</p>
+                    <ul data-finance="warning" className="mt-1 space-y-1 text-amber-100/90">
                       {shadowAuditIdentityDryRun.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{IDENTITY_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
@@ -3288,7 +3292,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 )}
 
                 {shadowAuditIdentityDryRun.recommendationCodes.length > 0 && (
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditIdentityDryRun.recommendationCodes.map((code) => (
                       <li key={code}>{IDENTITY_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3297,16 +3301,16 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditCompetenceForensics && (
-              <div className="mt-3 rounded-lg border border-sky-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-sky-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2H — causa das divergências de competência</p>
-                  <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2H — causa das divergências de competência</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-sky-300/30 bg-sky-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-100">
                     agregado · somente leitura · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Diagnóstico:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {COMPETENCE_FORENSIC_STATUS_LABELS[shadowAuditCompetenceForensics.status]}
                   </strong>
                   {' '}· confiança {shadowAuditCompetenceForensics.confidence === 'high'
@@ -3320,78 +3324,78 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Linhas pareadas / projetadas</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Linhas pareadas / projetadas</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceForensics.matchedRowCount} / {shadowAuditCompetenceForensics.rowCountProjected}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Divergências de competência</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Divergências de competência</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceForensics.competenceMismatchCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Só competência / competência + tipo</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Só competência / competência + tipo</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceForensics.competenceOnlyMismatchCount} / {shadowAuditCompetenceForensics.competenceAndTypeMismatchCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Com evidência confirmada</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Com evidência confirmada</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceForensics.confirmedEvidenceMismatchCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Causas agregadas</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Causas agregadas</p>
                     <ul className="mt-1 space-y-1">
                       {shadowAuditCompetenceForensics.causeProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{COMPETENCE_CAUSE_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Fonte da competência divergente</p>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Fonte da competência divergente</p>
                     {shadowAuditCompetenceForensics.evidenceProfiles.length > 0 ? (
                       <ul className="mt-1 space-y-1">
                         {shadowAuditCompetenceForensics.evidenceProfiles.map((profile) => (
                           <li key={profile.source} className="flex justify-between gap-2">
                             <span>{COMPETENCE_EVIDENCE_LABELS[profile.source]}</span>
-                            <strong className="text-white">{profile.count}</strong>
+                            <strong data-finance="content" className="text-white">{profile.count}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhuma competência divergente.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhuma competência divergente.</p>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                  <p className="font-semibold text-white">Conservação e regra de fechamento</p>
-                  <p className="mt-1 text-slate-300">
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p data-finance="content" className="font-semibold text-white">Conservação e regra de fechamento</p>
+                  <p data-finance="muted" className="mt-1 text-slate-300">
                     Linhas projetadas / atuais: {shadowAuditCompetenceForensics.rowCountProjected} / {shadowAuditCompetenceForensics.rowCountPersisted}
                     {' '}· não pareadas: {shadowAuditCompetenceForensics.unmatchedProjectedRowCount}
                     {' '}· ambíguas: {shadowAuditCompetenceForensics.ambiguousMatchCount}
                     {' '}· conteúdo econômico divergente: {shadowAuditCompetenceForensics.economicMismatchCount}.
                   </p>
                   {shadowAuditCompetenceForensics.closingDayConfigured ? (
-                    <p className="mt-1 text-slate-300">
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       A regra configurada de fechamento apoia {shadowAuditCompetenceForensics.closingRuleSupportsExpectedCount} competência(s) divergente(s) e conflita com {shadowAuditCompetenceForensics.closingRuleConflictsExpectedCount}; ela permanece apenas como fallback.
                     </p>
                   ) : (
-                    <p className="mt-1 text-slate-400">Dia de fechamento não configurado; nenhuma inferência automática foi promovida a fonte de verdade.</p>
+                    <p data-finance="muted" className="mt-1 text-slate-400">Dia de fechamento não configurado; nenhuma inferência automática foi promovida a fonte de verdade.</p>
                   )}
                   {shadowAuditCompetenceForensics.shiftProfiles.length > 0 && (
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Deslocamentos (atual → sombra):{' '}
                       {shadowAuditCompetenceForensics.shiftProfiles
                         .map((profile) => `${profile.monthsFromCurrentToExpected == null ? 'indefinido' : `${profile.monthsFromCurrentToExpected} mês(es)`}: ${profile.count}`)
@@ -3400,15 +3404,15 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   )}
                 </div>
 
-                <div className="mt-2 rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                <div data-finance="info-panel" className="mt-2 rounded border border-sky-300/20 bg-sky-400/5 p-2">
                   <p>
                     Elegível para desenvolver uma futura simulação de competência:{' '}
-                    <strong className={shadowAuditCompetenceForensics.eligibleForFutureCompetenceDryRun ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditCompetenceForensics.eligibleForFutureCompetenceDryRun ? "positive" : "warning")} className={shadowAuditCompetenceForensics.eligibleForFutureCompetenceDryRun ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditCompetenceForensics.eligibleForFutureCompetenceDryRun ? 'sim' : 'não'}
                     </strong>.
-                    {' '}Operações reais executadas: <strong className="text-emerald-300">{shadowAuditCompetenceForensics.actualWriteOperationCount}</strong>.
+                    {' '}Operações reais executadas: <strong data-finance="positive" className="text-emerald-300">{shadowAuditCompetenceForensics.actualWriteOperationCount}</strong>.
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditCompetenceForensics.recommendationCodes.map((code) => (
                       <li key={code}>{COMPETENCE_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3417,72 +3421,72 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditCompetenceDryRun && (
-              <div className="mt-3 rounded-lg border border-teal-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-teal-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2I — simulação individual de competência</p>
-                  <span className="rounded-full border border-teal-300/30 bg-teal-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2I — simulação individual de competência</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-teal-300/30 bg-teal-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-100">
                     clone em memória · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {COMPETENCE_DRY_RUN_STATUS_LABELS[shadowAuditCompetenceDryRun.status]}
                   </strong>.
                   {' '}Somente a competência das linhas inequivocamente comprovadas é alterada no clone; o relatório não contém IDs, hashes, nomes de arquivos ou payload de banco.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Divergências antes / depois</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Divergências antes / depois</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceDryRun.competenceMismatchBefore} → {shadowAuditCompetenceDryRun.competenceMismatchAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Mudanças simuladas</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Mudanças simuladas</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceDryRun.hypotheticalUpdateCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Exceções isoladas</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditCompetenceDryRun.excludedRowCount === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Exceções isoladas</p>
+                    <p data-finance={(shadowAuditCompetenceDryRun.excludedRowCount === 0 ? "positive" : "warning")} className={`mt-1 text-base font-semibold ${shadowAuditCompetenceDryRun.excludedRowCount === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
                       {shadowAuditCompetenceDryRun.excludedRowCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Linhas antes / depois</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditCompetenceDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Linhas antes / depois</p>
+                    <p data-finance={(shadowAuditCompetenceDryRun.rowCountDelta === 0 ? "positive" : "warning")} className={`mt-1 text-base font-semibold ${shadowAuditCompetenceDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
                       {shadowAuditCompetenceDryRun.rowCountBefore} / {shadowAuditCompetenceDryRun.rowCountAfter}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Invariantes preservados</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Invariantes preservados</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Identidade / data / valor / tipo / origem:{' '}
-                      <strong className="text-emerald-300">
+                      <strong data-finance="positive" className="text-emerald-300">
                         {shadowAuditCompetenceDryRun.identityMutationCount} / {shadowAuditCompetenceDryRun.dateMutationCount} / {shadowAuditCompetenceDryRun.amountMutationCount} / {shadowAuditCompetenceDryRun.typeMutationCount} / {shadowAuditCompetenceDryRun.sourceMutationCount}
                       </strong> alteração(ões).
                     </p>
-                    <p className="mt-1 text-slate-400">
-                      Faturas / pagamentos alterados: {shadowAuditCompetenceDryRun.statementRecordMutationCount} / {shadowAuditCompetenceDryRun.paymentRecordMutationCount}. Operações reais: <strong className="text-emerald-300">{shadowAuditCompetenceDryRun.actualWriteOperationCount}</strong>.
+                    <p data-finance="muted" className="mt-1 text-slate-400">
+                      Faturas / pagamentos alterados: {shadowAuditCompetenceDryRun.statementRecordMutationCount} / {shadowAuditCompetenceDryRun.paymentRecordMutationCount}. Operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditCompetenceDryRun.actualWriteOperationCount}</strong>.
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Depois da simulação</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Depois da simulação</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Transações alteradas: {shadowAuditCompetenceDryRun.before.changedTransactionCount} → {shadowAuditCompetenceDryRun.after.changedTransactionCount} · diferenças estruturais: {shadowAuditCompetenceDryRun.before.structuralDifferenceCount} → {shadowAuditCompetenceDryRun.after.structuralDifferenceCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Linhas envolvendo metadados protegidos: {shadowAuditCompetenceDryRun.protectedMetadataTouchCount}.
                     </p>
                     <p className="mt-1">
                       Elegível para futura execução restrita:{' '}
-                      <strong className={shadowAuditCompetenceDryRun.eligibleForFutureScopedExecution ? 'text-emerald-300' : 'text-amber-300'}>
+                      <strong data-finance={(shadowAuditCompetenceDryRun.eligibleForFutureScopedExecution ? "positive" : "warning")} className={shadowAuditCompetenceDryRun.eligibleForFutureScopedExecution ? 'text-emerald-300' : 'text-amber-300'}>
                         {shadowAuditCompetenceDryRun.eligibleForFutureScopedExecution ? 'sim' : 'não'}
                       </strong>.
                     </p>
@@ -3490,23 +3494,23 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 </div>
 
                 {shadowAuditCompetenceDryRun.changeProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Mudanças simuladas por competência</p>
+                  <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Mudanças simuladas por competência</p>
                     <ul className="mt-1 space-y-1.5">
                       {shadowAuditCompetenceDryRun.changeProfiles.slice(0, 12).map((profile) => (
-                        <li
+                        <li data-finance="inset divider"
                           key={`${profile.fromStatementKey}-${profile.toStatementKey}-${profile.evidenceSource}`}
                           className="flex flex-wrap justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5"
                         >
                           <span>
                             {profile.fromStatementKey} → {profile.toStatementKey} · {COMPETENCE_EVIDENCE_LABELS[profile.evidenceSource]}
                           </span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                     {shadowAuditCompetenceDryRun.changeProfiles.length > 12 && (
-                      <p className="mt-1 text-slate-500">
+                      <p data-finance="muted" className="mt-1 text-slate-500">
                         Mais {shadowAuditCompetenceDryRun.changeProfiles.length - 12} grupo(s) permanecem no resumo agregado.
                       </p>
                     )}
@@ -3514,9 +3518,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 )}
 
                 {shadowAuditCompetenceDryRun.exclusionProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-amber-400/25 bg-amber-500/5 p-2">
-                    <p className="font-semibold text-amber-100">Exceções fora da simulação</p>
-                    <ul className="mt-1 space-y-1 text-amber-100/90">
+                  <div data-finance="warning-panel" className="mt-2 rounded border border-amber-400/25 bg-amber-500/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Exceções fora da simulação</p>
+                    <ul data-finance="warning" className="mt-1 space-y-1 text-amber-100/90">
                       {shadowAuditCompetenceDryRun.exclusionProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{COMPETENCE_DRY_RUN_EXCLUSION_LABELS[profile.code]}</span>
@@ -3528,9 +3532,9 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 )}
 
                 {shadowAuditCompetenceDryRun.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-rose-400/25 bg-rose-500/5 p-2">
-                    <p className="font-semibold text-rose-100">Bloqueios da simulação</p>
-                    <ul className="mt-1 space-y-1 text-rose-100/90">
+                  <div data-finance="danger-chip" className="mt-2 rounded border border-rose-400/25 bg-rose-500/5 p-2">
+                    <p data-finance="negative" className="font-semibold text-rose-100">Bloqueios da simulação</p>
+                    <ul data-finance="negative" className="mt-1 space-y-1 text-rose-100/90">
                       {shadowAuditCompetenceDryRun.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{COMPETENCE_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
@@ -3542,7 +3546,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                 )}
 
                 {shadowAuditCompetenceDryRun.recommendationCodes.length > 0 && (
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditCompetenceDryRun.recommendationCodes.map((code) => (
                       <li key={code}>{COMPETENCE_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3551,101 +3555,101 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditCompetenceExceptionForensics && (
-              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2J — dependências das exceções</p>
-                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2J — dependências das exceções</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
                     auditoria agregada · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {COMPETENCE_EXCEPTION_STATUS_LABELS[shadowAuditCompetenceExceptionForensics.status]}
                   </strong>.
                   {' '}A classificação determina somente a ordem dos pré-requisitos e não contém linhas, IDs, competências, arquivos ou payload executável.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Exceções recebidas</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Exceções recebidas</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditCompetenceExceptionForensics.totalExceptionCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Classificadas</p>
-                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Classificadas</p>
+                    <p data-finance="positive" className="mt-1 text-base font-semibold text-emerald-300">
                       {shadowAuditCompetenceExceptionForensics.classifiedExceptionCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Sem classificação</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditCompetenceExceptionForensics.unclassifiedExceptionCount === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Sem classificação</p>
+                    <p data-finance={(shadowAuditCompetenceExceptionForensics.unclassifiedExceptionCount === 0 ? "positive" : "negative")} className={`mt-1 text-base font-semibold ${shadowAuditCompetenceExceptionForensics.unclassifiedExceptionCount === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
                       {shadowAuditCompetenceExceptionForensics.unclassifiedExceptionCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Operações reais</p>
-                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Operações reais</p>
+                    <p data-finance="positive" className="mt-1 text-base font-semibold text-emerald-300">
                       {shadowAuditCompetenceExceptionForensics.actualWriteOperationCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
-                    <p className="font-semibold text-sky-100">Pré-requisito de identidade</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-sky-100">Pré-requisito de identidade</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       {COMPETENCE_IDENTITY_PREREQUISITE_LABELS[shadowAuditCompetenceExceptionForensics.identityPrerequisite.status]} · {shadowAuditCompetenceExceptionForensics.identityPrerequisite.exceptionCount} exceção(ões).
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Identidades divergentes: {shadowAuditCompetenceExceptionForensics.identityPrerequisite.identityMismatchCount} · âncoras em grupos duplicados: {shadowAuditCompetenceExceptionForensics.identityPrerequisite.duplicateIdentityAnchorCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Simulação anterior: {shadowAuditCompetenceExceptionForensics.identityPrerequisite.hypotheticalIdentityChangeCount} troca(s), {shadowAuditCompetenceExceptionForensics.identityPrerequisite.confirmedAnchorCount} âncora(s), {shadowAuditCompetenceExceptionForensics.identityPrerequisite.unresolvedIdentityCount} não resolvida(s).
                     </p>
                   </div>
-                  <div className="rounded border border-amber-300/20 bg-amber-400/5 p-2">
-                    <p className="font-semibold text-amber-100">Pré-requisito das faturas</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="warning-panel" className="rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Pré-requisito das faturas</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       {COMPETENCE_STATEMENT_PREREQUISITE_LABELS[shadowAuditCompetenceExceptionForensics.statementPrerequisite.status]} · {shadowAuditCompetenceExceptionForensics.statementPrerequisite.affectedEntryCount} lançamento(s) afetado(s).
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Grupos duplicados: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.duplicateGroupCount} · idênticos: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.identicalGroupCount} · conflitantes: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.conflictingGroupCount} · protegidos: {shadowAuditCompetenceExceptionForensics.statementPrerequisite.protectedGroupCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Outras revisões isoladas: {shadowAuditCompetenceExceptionForensics.otherReviewCount}.
                     </p>
                   </div>
                 </div>
 
                 {shadowAuditCompetenceExceptionForensics.laneProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Ordem forense dos pré-requisitos</p>
+                  <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Ordem forense dos pré-requisitos</p>
                     <ol className="mt-1 space-y-1.5">
                       {shadowAuditCompetenceExceptionForensics.laneProfiles.map((profile) => (
-                        <li
+                        <li data-finance="inset divider"
                           key={profile.code}
                           className="flex flex-wrap justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5"
                         >
                           <span>{profile.order}. {COMPETENCE_EXCEPTION_LANE_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ol>
                   </div>
                 )}
 
-                <div className="mt-2 rounded border border-violet-300/20 bg-violet-400/5 p-2">
+                <div data-finance="info-panel" className="mt-2 rounded border border-violet-300/20 bg-violet-400/5 p-2">
                   <p>
                     Elegível para desenvolver uma futura simulação sequencial:{' '}
-                    <strong className={shadowAuditCompetenceExceptionForensics.eligibleForFutureSequencedDryRun ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditCompetenceExceptionForensics.eligibleForFutureSequencedDryRun ? "positive" : "warning")} className={shadowAuditCompetenceExceptionForensics.eligibleForFutureSequencedDryRun ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditCompetenceExceptionForensics.eligibleForFutureSequencedDryRun ? 'sim' : 'não'}
                     </strong>.
-                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>.
+                    {' '}Elegível para escrita: <strong data-finance="negative" className="text-rose-300">não</strong>.
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditCompetenceExceptionForensics.recommendationCodes.map((code) => (
                       <li key={code}>{COMPETENCE_EXCEPTION_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3654,57 +3658,57 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditAffectedEntryReconciliation && (
-              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2L — reconciliação da contagem afetada</p>
-                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2L — reconciliação da contagem afetada</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
                     somente contagens agregadas · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {AFFECTED_ENTRY_RECONCILIATION_STATUS_LABELS[shadowAuditAffectedEntryReconciliation.status]}
                   </strong>.
                   {' '}Esta etapa separa o vínculo físico atual, o destino pretendido pela sombra e as exceções já classificadas pela auditoria de competência.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Vinculadas hoje</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Vinculadas hoje</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditAffectedEntryReconciliation.currentAttachedEntryCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Destino projetado</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Destino projetado</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditAffectedEntryReconciliation.projectedTargetEntryCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Exceções de competência</p>
-                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Exceções de competência</p>
+                    <p data-finance="info" className="mt-1 text-base font-semibold text-cyan-200">
                       {shadowAuditAffectedEntryReconciliation.upstreamAffectedEntryCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Diferença sem explicação</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditAffectedEntryReconciliation.unexplainedCountDelta === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Diferença sem explicação</p>
+                    <p data-finance={(shadowAuditAffectedEntryReconciliation.unexplainedCountDelta === 0 ? "positive" : "negative")} className={`mt-1 text-base font-semibold ${shadowAuditAffectedEntryReconciliation.unexplainedCountDelta === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
                       {shadowAuditAffectedEntryReconciliation.unexplainedCountDelta}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                <div data-finance="info-panel" className="mt-2 rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
                   <p>
                     Contagem liberada para a análise forense da Sprint 2K:{' '}
-                    <strong className={shadowAuditAffectedEntryReconciliation.eligibleForConflictForensics ? 'text-emerald-300' : 'text-rose-300'}>
+                    <strong data-finance={(shadowAuditAffectedEntryReconciliation.eligibleForConflictForensics ? "positive" : "negative")} className={shadowAuditAffectedEntryReconciliation.eligibleForConflictForensics ? 'text-emerald-300' : 'text-rose-300'}>
                       {shadowAuditAffectedEntryReconciliation.eligibleForConflictForensics ? 'sim' : 'não'}
                     </strong>.
-                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditAffectedEntryReconciliation.actualWriteOperationCount}</strong>.
+                    {' '}Elegível para escrita: <strong data-finance="negative" className="text-rose-300">não</strong>. Operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditAffectedEntryReconciliation.actualWriteOperationCount}</strong>.
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditAffectedEntryReconciliation.recommendationCodes.map((code) => (
                       <li key={code}>{AFFECTED_ENTRY_RECONCILIATION_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3713,101 +3717,101 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditStatementConflictForensics && (
-              <div className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2K — conflito das faturas duplicadas</p>
-                  <span className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2K — conflito das faturas duplicadas</p>
+                  <span data-finance="info-chip" className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-100">
                     comparação em memória · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {STATEMENT_CONFLICT_STATUS_LABELS[shadowAuditStatementConflictForensics.status]}
                   </strong>.
                   {' '}O relatório compara os registros campo a campo, mas mostra apenas contagens agregadas: nenhuma competência, identidade, origem ou valor financeiro é exposto.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos / registros duplicados</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos / registros duplicados</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditStatementConflictForensics.duplicateGroupCount} / {shadowAuditStatementConflictForensics.duplicateRecordCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Exceções reconciliadas</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Exceções reconciliadas</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditStatementConflictForensics.affectedEntryCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos conflitantes</p>
-                    <p className="mt-1 text-base font-semibold text-amber-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos conflitantes</p>
+                    <p data-finance="warning" className="mt-1 text-base font-semibold text-amber-300">
                       {shadowAuditStatementConflictForensics.conflictingGroupCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos não classificados</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditStatementConflictForensics.unclassifiedGroupCount === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos não classificados</p>
+                    <p data-finance={(shadowAuditStatementConflictForensics.unclassifiedGroupCount === 0 ? "positive" : "negative")} className={`mt-1 text-base font-semibold ${shadowAuditStatementConflictForensics.unclassifiedGroupCount === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
                       {shadowAuditStatementConflictForensics.unclassifiedGroupCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-amber-300/20 bg-amber-400/5 p-2">
-                    <p className="font-semibold text-amber-100">Metadados que precisam ser conservados</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="warning-panel" className="rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Metadados que precisam ser conservados</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Grupos protegidos: {shadowAuditStatementConflictForensics.protectedMetadata.protectedGroupCount} · payloads manuais: {shadowAuditStatementConflictForensics.protectedMetadata.manualPayloadRecordCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Com total oficial da fatura: {shadowAuditStatementConflictForensics.protectedMetadata.officialStatementTotalGroupCount} · com pagamento oficial: {shadowAuditStatementConflictForensics.protectedMetadata.officialPaymentTotalGroupCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Conservação inequívoca / ambígua: {shadowAuditStatementConflictForensics.protectedMetadata.unambiguousConservationGroupCount} / {shadowAuditStatementConflictForensics.protectedMetadata.ambiguousConservationGroupCount}.
                     </p>
                   </div>
-                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
-                    <p className="font-semibold text-sky-100">Confronto com a reconstrução sombra</p>
+                  <div data-finance="info-panel" className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-sky-100">Confronto com a reconstrução sombra</p>
                     {shadowAuditStatementConflictForensics.shadowMatchProfiles.length > 0 ? (
-                      <ul className="mt-1 space-y-1 text-slate-300">
+                      <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                         {shadowAuditStatementConflictForensics.shadowMatchProfiles.map((profile) => (
                           <li key={profile.code} className="flex justify-between gap-2">
                             <span>{STATEMENT_SHADOW_MATCH_LABELS[profile.code]}</span>
-                            <strong className="text-white">{profile.groupCount}</strong>
+                            <strong data-finance="content" className="text-white">{profile.groupCount}</strong>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-slate-400">Nenhum grupo duplicado precisa ser confrontado.</p>
+                      <p data-finance="muted" className="mt-1 text-slate-400">Nenhum grupo duplicado precisa ser confrontado.</p>
                     )}
                   </div>
                 </div>
 
                 {shadowAuditStatementConflictForensics.fieldProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="font-semibold text-white">Campos divergentes entre os registros</p>
+                  <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="content" className="font-semibold text-white">Campos divergentes entre os registros</p>
                     <ul className="mt-1 grid gap-1 sm:grid-cols-2">
                       {shadowAuditStatementConflictForensics.fieldProfiles.map((profile) => (
-                        <li key={profile.code} className="flex justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5">
+                        <li data-finance="inset divider" key={profile.code} className="flex justify-between gap-2 rounded border border-white/5 bg-black/10 px-2 py-1.5">
                           <span>{STATEMENT_CONFLICT_FIELD_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.conflictingGroupCount}</strong>
+                          <strong data-finance="content" className="text-white">{profile.conflictingGroupCount}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                <div className="mt-2 rounded border border-fuchsia-300/20 bg-fuchsia-400/5 p-2">
+                <div data-finance="info-panel" className="mt-2 rounded border border-fuchsia-300/20 bg-fuchsia-400/5 p-2">
                   <p>
                     Elegível para uma futura simulação de conservação:{' '}
-                    <strong className={shadowAuditStatementConflictForensics.eligibleForFutureConservationDryRun ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditStatementConflictForensics.eligibleForFutureConservationDryRun ? "positive" : "warning")} className={shadowAuditStatementConflictForensics.eligibleForFutureConservationDryRun ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditStatementConflictForensics.eligibleForFutureConservationDryRun ? 'sim' : 'não'}
                     </strong>.
-                    {' '}Elegível para escrita: <strong className="text-rose-300">não</strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditStatementConflictForensics.actualWriteOperationCount}</strong>.
+                    {' '}Elegível para escrita: <strong data-finance="negative" className="text-rose-300">não</strong>. Operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditStatementConflictForensics.actualWriteOperationCount}</strong>.
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditStatementConflictForensics.recommendationCodes.map((code) => (
                       <li key={code}>{STATEMENT_CONFLICT_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3816,95 +3820,95 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditStatementConservationDryRun && (
-              <div className="mt-3 rounded-lg border border-emerald-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-emerald-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2M — simulação de conservação dos metadados</p>
-                  <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2M — simulação de conservação dos metadados</p>
+                  <span data-finance="success-panel positive" className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
                     clone em memória · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {STATEMENT_CONSERVATION_STATUS_LABELS[shadowAuditStatementConservationDryRun.status]}
                   </strong>.
                   {' '}A simulação combina campos derivados da sombra com a presença dos metadados protegidos do grupo completo, sem produzir uma alteração executável.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos simulados / em revisão</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos simulados / em revisão</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditStatementConservationDryRun.simulatedGroupCount} / {shadowAuditStatementConservationDryRun.reviewGroupCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Registros antes → depois</p>
-                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Registros antes → depois</p>
+                    <p data-finance="positive" className="mt-1 text-base font-semibold text-emerald-300">
                       {shadowAuditStatementConservationDryRun.duplicateRecordCountBefore} → {shadowAuditStatementConservationDryRun.duplicateRecordCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Payloads manuais antes → depois</p>
-                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Payloads manuais antes → depois</p>
+                    <p data-finance="positive" className="mt-1 text-base font-semibold text-emerald-300">
                       {shadowAuditStatementConservationDryRun.manualPayloadRecordCountBefore} → {shadowAuditStatementConservationDryRun.manualPayloadRecordCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Divergências derivadas antes → clone</p>
-                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Divergências derivadas antes → clone</p>
+                    <p data-finance="info" className="mt-1 text-base font-semibold text-cyan-200">
                       {shadowAuditStatementConservationDryRun.simulatedDerivedMismatchCountBefore} → {shadowAuditStatementConservationDryRun.simulatedDerivedMismatchCountAfter}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
-                    <p className="font-semibold text-emerald-100">Invariantes de conservação</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="success-panel" className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p data-finance="positive" className="font-semibold text-emerald-100">Invariantes de conservação</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Registros com metadados protegidos: {shadowAuditStatementConservationDryRun.protectedMetadataRecordCountBefore} → {shadowAuditStatementConservationDryRun.protectedMetadataRecordCountAfter}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Valores oficiais contabilizados: {shadowAuditStatementConservationDryRun.officialMetadataValueCountBefore} → {shadowAuditStatementConservationDryRun.officialMetadataValueCountAfter} · perdas detectadas: {shadowAuditStatementConservationDryRun.protectedMetadataLossCount}.
                     </p>
                   </div>
-                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
-                    <p className="font-semibold text-sky-100">Limites deliberados da simulação</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-sky-100">Limites deliberados da simulação</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Linhas selecionadas: {shadowAuditStatementConservationDryRun.selectedRecordCount} · exclusões: {shadowAuditStatementConservationDryRun.recordDeletionCount} · mesclas: {shadowAuditStatementConservationDryRun.recordMergeCount}.
                     </p>
-                    <p className="mt-1 font-semibold text-white">
+                    <p data-finance="content" className="mt-1 font-semibold text-white">
                       Nenhuma linha foi escolhida, removida ou mesclada.
                     </p>
                   </div>
                 </div>
 
                 {shadowAuditStatementConservationDryRun.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
-                    <p className="font-semibold text-amber-100">Evidências que impedem uma simulação completa</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                  <div data-finance="warning-panel" className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Evidências que impedem uma simulação completa</p>
+                    <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                       {shadowAuditStatementConservationDryRun.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{STATEMENT_CONSERVATION_BLOCKER_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.groupCount}</strong>
+                          <strong data-finance="content" className="text-white">{profile.groupCount}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                <div data-finance="success-panel" className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
                   <p>
                     Elegível para desenhar um futuro plano reversível:{' '}
-                    <strong className={shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? "positive" : "warning")} className={shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditStatementConservationDryRun.eligibleForFutureConservationPlan ? 'sim' : 'não'}
                     </strong>.
                     {' '}Elegível para escrita:{' '}
-                    <strong className={shadowAuditStatementConservationDryRun.eligibleForWrite ? 'text-emerald-300' : 'text-rose-300'}>
+                    <strong data-finance={(shadowAuditStatementConservationDryRun.eligibleForWrite ? "positive" : "negative")} className={shadowAuditStatementConservationDryRun.eligibleForWrite ? 'text-emerald-300' : 'text-rose-300'}>
                       {shadowAuditStatementConservationDryRun.eligibleForWrite ? 'sim' : 'não'}
-                    </strong>. Operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationDryRun.actualWriteOperationCount}</strong>.
+                    </strong>. Operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditStatementConservationDryRun.actualWriteOperationCount}</strong>.
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditStatementConservationDryRun.recommendationCodes.map((code) => (
                       <li key={code}>{STATEMENT_CONSERVATION_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -3913,100 +3917,100 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditStatementConservationPlan && (
-              <div className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-violet-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2N — plano reversível de conservação</p>
-                  <span className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2N — plano reversível de conservação</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-violet-300/30 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
                     desenho agregado · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {STATEMENT_CONSERVATION_PLAN_STATUS_LABELS[shadowAuditStatementConservationPlan.status]}
                   </strong>.
                   {' '}O plano substitui cada grupo duplicado por uma futura fatura composta nova, sem escolher uma linha antiga como vencedora e sem gerar payload executável.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos localizados / duplicados</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos localizados / duplicados</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditStatementConservationPlan.locatedGroupCount} / {shadowAuditStatementConservationPlan.duplicateGroupCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Faturas afetadas → compostas</p>
-                    <p className="mt-1 text-base font-semibold text-violet-200">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Faturas afetadas → compostas</p>
+                    <p data-finance="info" className="mt-1 text-base font-semibold text-violet-200">
                       {shadowAuditStatementConservationPlan.sourceStatementRecordCount} → {shadowAuditStatementConservationPlan.plannedCompositeStatementCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Vínculos de itens / pagamentos</p>
-                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Vínculos de itens / pagamentos</p>
+                    <p data-finance="info" className="mt-1 text-base font-semibold text-cyan-200">
                       {shadowAuditStatementConservationPlan.affectedEntryLinkCount} / {shadowAuditStatementConservationPlan.affectedPaymentLinkCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Travas desenhadas / executáveis</p>
-                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Travas desenhadas / executáveis</p>
+                    <p data-finance="positive" className="mt-1 text-base font-semibold text-emerald-300">
                       {shadowAuditStatementConservationPlan.designedGuardCount} / {shadowAuditStatementConservationPlan.executableGuardCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-violet-300/20 bg-violet-400/5 p-2">
-                    <p className="font-semibold text-violet-100">Escopo obrigatório do snapshot futuro</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-violet-300/20 bg-violet-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-violet-100">Escopo obrigatório do snapshot futuro</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Faturas: {shadowAuditStatementConservationPlan.snapshotStatementRecordCount} · vínculos de itens: {shadowAuditStatementConservationPlan.snapshotEntryLinkCount} · vínculos de pagamentos: {shadowAuditStatementConservationPlan.snapshotPaymentLinkCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Grupos com metadados protegidos: {shadowAuditStatementConservationPlan.protectedMetadataGroupCount} · perdas projetadas: {shadowAuditStatementConservationPlan.protectedMetadataLossCount}.
                     </p>
                   </div>
-                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
-                    <p className="font-semibold text-sky-100">Contrato do rollback futuro</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-sky-100">Contrato do rollback futuro</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Remover compostas: {shadowAuditStatementConservationPlan.rollbackRemoveCompositeCount} · restaurar faturas: {shadowAuditStatementConservationPlan.rollbackRestoreStatementRecordCount} · restaurar vínculos: {shadowAuditStatementConservationPlan.rollbackRestoreEntryLinkCount + shadowAuditStatementConservationPlan.rollbackRestorePaymentLinkCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Cardinalidade reversível: {shadowAuditStatementConservationPlan.rollbackCardinalityBalanced ? 'sim' : 'não'} · revisão vinculada: {shadowAuditStatementConservationPlan.revisionGuardBound ? 'sim' : 'não'}.
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
-                  <p className="font-semibold text-emerald-100">Invariantes que permanecem intocadas</p>
-                  <p className="mt-1 text-slate-300">
+                <div data-finance="success-panel" className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                  <p data-finance="positive" className="font-semibold text-emerald-100">Invariantes que permanecem intocadas</p>
+                  <p data-finance="muted" className="mt-1 text-slate-300">
                     Alterações planejadas em valores financeiros: {shadowAuditStatementConservationPlan.plannedFinancialValueChangeCount} · alterações em transações do usuário: {shadowAuditStatementConservationPlan.plannedTransactionRecordChangeCount} · operações reais nesta Sprint: {shadowAuditStatementConservationPlan.actualWriteOperationCount}.
                   </p>
                 </div>
 
                 {shadowAuditStatementConservationPlan.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
-                    <p className="font-semibold text-amber-100">Evidências que suspendem o plano</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                  <div data-finance="warning-panel" className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Evidências que suspendem o plano</p>
+                    <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                       {shadowAuditStatementConservationPlan.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{STATEMENT_CONSERVATION_PLAN_BLOCKER_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.groupCount}</strong>
+                          <strong data-finance="content" className="text-white">{profile.groupCount}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                <div className="mt-2 rounded border border-violet-300/20 bg-violet-400/5 p-2">
+                <div data-finance="info-panel" className="mt-2 rounded border border-violet-300/20 bg-violet-400/5 p-2">
                   <p>
                     Elegível para futura implementação transacional:{' '}
-                    <strong className={shadowAuditStatementConservationPlan.eligibleForFutureTransactionalImplementation ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditStatementConservationPlan.eligibleForFutureTransactionalImplementation ? "positive" : "warning")} className={shadowAuditStatementConservationPlan.eligibleForFutureTransactionalImplementation ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditStatementConservationPlan.eligibleForFutureTransactionalImplementation ? 'sim' : 'não'}
                     </strong>.
                     {' '}Elegível para escrita agora:{' '}
-                    <strong className="text-rose-300">não</strong>.
+                    <strong data-finance="negative" className="text-rose-300">não</strong>.
                   </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                  <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                     {shadowAuditStatementConservationPlan.recommendationCodes.map((code) => (
                       <li key={code}>{STATEMENT_CONSERVATION_PLAN_RECOMMENDATION_LABELS[code]}</li>
                     ))}
@@ -4015,73 +4019,73 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditStatementConservationExecution && (
-              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2O — contrato transacional de conservação</p>
-                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2O — contrato transacional de conservação</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
                     prévia agregada · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {STATEMENT_CONSERVATION_EXECUTION_STATUS_LABELS[shadowAuditStatementConservationExecution.status]}
                   </strong>.
                   {' '}Este painel não contém identidades, não chama o executor e não altera dados. A operação de banco exige flag dedicada, revisão e checksum válidos, snapshot integral e uma única competência por transação.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos preparados / duplicados</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos preparados / duplicados</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditStatementConservationExecution.preparedGroupCount} / {shadowAuditStatementConservationExecution.duplicateGroupCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Faturas físicas de origem</p>
-                    <p className="mt-1 text-base font-semibold text-cyan-200">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Faturas físicas de origem</p>
+                    <p data-finance="info" className="mt-1 text-base font-semibold text-cyan-200">
                       {shadowAuditStatementConservationExecution.sourceStatementCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Vínculos de itens / pagamentos</p>
-                    <p className="mt-1 text-base font-semibold text-violet-200">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Vínculos de itens / pagamentos</p>
+                    <p data-finance="info" className="mt-1 text-base font-semibold text-violet-200">
                       {shadowAuditStatementConservationExecution.expectedEntryLinkCount} / {shadowAuditStatementConservationExecution.expectedPaymentLinkCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Travas de banco preparadas</p>
-                    <p className="mt-1 text-base font-semibold text-emerald-300">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Travas de banco preparadas</p>
+                    <p data-finance="positive" className="mt-1 text-base font-semibold text-emerald-300">
                       {shadowAuditStatementConservationExecution.preparedDatabaseGuardCount} / {shadowAuditStatementConservationExecution.requiredDatabaseGuardCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
-                    <p className="font-semibold text-cyan-100">Conservação e isolamento</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-cyan-100">Conservação e isolamento</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Metadados protegidos localizados: {shadowAuditStatementConservationExecution.protectedMetadataSourceCount} · revisão vinculada: {shadowAuditStatementConservationExecution.revisionBound ? 'sim' : 'não'} · checksum vinculado: {shadowAuditStatementConservationExecution.checksumBound ? 'sim' : 'não'}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Cada usuário e cartão são novamente validados dentro da transação protegida por lock.
                     </p>
                   </div>
-                  <div className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
-                    <p className="font-semibold text-sky-100">Snapshot e rollback</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-sky-300/20 bg-sky-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-sky-100">Snapshot e rollback</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Vínculos legados incluídos no snapshot: {shadowAuditStatementConservationExecution.snapshotIncludesLegacyItemLinks ? 'sim' : 'não'} · rollback condicionado à revisão posterior: {shadowAuditStatementConservationExecution.rollbackRequiresAfterRevision ? 'sim' : 'não'}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       A recuperação permanece disponível mesmo com a flag de aplicação desligada.
                     </p>
                   </div>
                 </div>
 
                 {shadowAuditStatementConservationExecution.blockerCodes.length > 0 && (
-                  <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
-                    <p className="font-semibold text-amber-100">Travas que impedem a homologação transacional</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-4 text-slate-300">
+                  <div data-finance="warning-panel" className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2">
+                    <p data-finance="warning" className="font-semibold text-amber-100">Travas que impedem a homologação transacional</p>
+                    <ul data-finance="muted" className="mt-1 list-disc space-y-1 pl-4 text-slate-300">
                       {shadowAuditStatementConservationExecution.blockerCodes.map((code) => (
                         <li key={code}>{STATEMENT_CONSERVATION_EXECUTION_BLOCKER_LABELS[code]}</li>
                       ))}
@@ -4089,109 +4093,109 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                   </div>
                 )}
 
-                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                <div data-finance="success-panel" className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
                   <p>
                     Apta para validar a migration no staging:{' '}
-                    <strong className={shadowAuditStatementConservationExecution.eligibleForStagingMigrationValidation ? 'text-emerald-300' : 'text-amber-300'}>
+                    <strong data-finance={(shadowAuditStatementConservationExecution.eligibleForStagingMigrationValidation ? "positive" : "warning")} className={shadowAuditStatementConservationExecution.eligibleForStagingMigrationValidation ? 'text-emerald-300' : 'text-amber-300'}>
                       {shadowAuditStatementConservationExecution.eligibleForStagingMigrationValidation ? 'sim' : 'não'}
                     </strong>.
-                    {' '}Elegível para escrita por este painel: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditStatementConservationExecution.actualWriteOperationCount}</strong>.
+                    {' '}Elegível para escrita por este painel: <strong data-finance="negative" className="text-rose-300">não</strong> · operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditStatementConservationExecution.actualWriteOperationCount}</strong>.
                   </p>
                 </div>
               </div>
             )}
             {engineOn && shadowAuditSequentialDryRun && (
-              <div className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-fuchsia-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2Q — simulação sequencial de identidade e competência</p>
-                  <span className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2Q — simulação sequencial de identidade e competência</p>
+                  <span data-finance="info-chip" className="rounded-full border border-fuchsia-300/30 bg-fuchsia-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-100">
                     dois clones em memória · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {SEQUENTIAL_DRY_RUN_STATUS_LABELS[shadowAuditSequentialDryRun.status]}
                   </strong>.
                   {' '}A sequência aplica primeiro a reconstrução comprovada de identidade e só então recalcula a competência, sem expor IDs, hashes, arquivos ou payload de banco.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Identidades ausentes</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Identidades ausentes</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditSequentialDryRun.before.missingIdentityCount} → {shadowAuditSequentialDryRun.afterSequential.missingIdentityCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Grupos duplicados</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Grupos duplicados</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditSequentialDryRun.before.duplicateIdentityGroupCount} → {shadowAuditSequentialDryRun.afterSequential.duplicateIdentityGroupCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Diferenças estruturais</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Diferenças estruturais</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditSequentialDryRun.before.structuralDifferenceCount} → {shadowAuditSequentialDryRun.afterSequential.structuralDifferenceCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Linhas antes / depois</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditSequentialDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Linhas antes / depois</p>
+                    <p data-finance={(shadowAuditSequentialDryRun.rowCountDelta === 0 ? "positive" : "negative")} className={`mt-1 text-base font-semibold ${shadowAuditSequentialDryRun.rowCountDelta === 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
                       {shadowAuditSequentialDryRun.rowCountBefore} / {shadowAuditSequentialDryRun.rowCountAfter}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-fuchsia-300/20 bg-fuchsia-400/5 p-2">
-                    <p className="font-semibold text-fuchsia-100">Sequência simulada</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-fuchsia-300/20 bg-fuchsia-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-fuchsia-100">Sequência simulada</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Identidade: {IDENTITY_DRY_RUN_STATUS_LABELS[shadowAuditSequentialDryRun.identityStepStatus]} · {shadowAuditSequentialDryRun.hypotheticalIdentityUpdateCount} linha(s) · {shadowAuditSequentialDryRun.confirmedAnchorCount} âncora(s).
                     </p>
-                    <p className="mt-1 text-slate-300">
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Competência: {COMPETENCE_DRY_RUN_STATUS_LABELS[shadowAuditSequentialDryRun.competenceStepStatus]} · {shadowAuditSequentialDryRun.hypotheticalCompetenceUpdateCount} linha(s).
                     </p>
                   </div>
-                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
-                    <p className="font-semibold text-emerald-100">Invariantes verificadas</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="success-panel" className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p data-finance="positive" className="font-semibold text-emerald-100">Invariantes verificadas</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Data / valor / origem: {shadowAuditSequentialDryRun.dateMutationCount} / {shadowAuditSequentialDryRun.amountMutationCount} / {shadowAuditSequentialDryRun.sourceMutationCount} alteração(ões) indevida(s).
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Faturas preservadas: {shadowAuditSequentialDryRun.statementRecordsPreserved ? 'sim' : 'não'} · pagamentos preservados: {shadowAuditSequentialDryRun.paymentRecordsPreserved ? 'sim' : 'não'}.
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                  <p className="font-semibold text-white">Resultado combinado</p>
-                  <p className="mt-1 text-slate-300">
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p data-finance="content" className="font-semibold text-white">Resultado combinado</p>
+                  <p data-finance="muted" className="mt-1 text-slate-300">
                     Linhas com identidade reconstruída: {shadowAuditSequentialDryRun.identityMutationCount} · competência reposicionada: {shadowAuditSequentialDryRun.competenceMutationCount} · tipo revisado no clone: {shadowAuditSequentialDryRun.typeMutationCount}.
                   </p>
-                  <p className="mt-1 text-slate-400">
+                  <p data-finance="muted" className="mt-1 text-slate-400">
                     Transações ainda alteradas: {shadowAuditSequentialDryRun.afterSequential.changedTransactionCount} · faturas: {shadowAuditSequentialDryRun.afterSequential.changedStatementCount} · pagamentos: {shadowAuditSequentialDryRun.afterSequential.changedPaymentCount} · diferenças residuais: {shadowAuditSequentialDryRun.residualDifferenceCount}.
                   </p>
                   <p className="mt-1">
-                    Elegível para escrita: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditSequentialDryRun.actualWriteOperationCount}</strong>.
+                    Elegível para escrita: <strong data-finance="negative" className="text-rose-300">não</strong> · operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditSequentialDryRun.actualWriteOperationCount}</strong>.
                   </p>
                 </div>
 
                 {shadowAuditSequentialDryRun.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
-                    <p className="font-semibold text-rose-100">Bloqueios da sequência</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                  <div data-finance="danger-chip" className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
+                    <p data-finance="negative" className="font-semibold text-rose-100">Bloqueios da sequência</p>
+                    <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                       {shadowAuditSequentialDryRun.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{SEQUENTIAL_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                   {shadowAuditSequentialDryRun.recommendationCodes.map((code) => (
                     <li key={code}>{SEQUENTIAL_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                   ))}
@@ -4199,112 +4203,112 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditResidualStatementDryRun && (
-              <div className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-cyan-300/25 bg-slate-950/45 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2R — separação entre pagamento do arquivo e quitação aplicada</p>
-                  <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2R — separação entre pagamento do arquivo e quitação aplicada</p>
+                  <span data-finance="info-panel info" className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100">
                     faturas clonadas · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {RESIDUAL_STATEMENT_DRY_RUN_STATUS_LABELS[shadowAuditResidualStatementDryRun.status]}
                   </strong>.
                   {' '}A prévia conserva os totais informados no CSV como evidência e testa separadamente a quitação derivada dos vínculos de pagamento, sem alterar lançamentos, pagamentos ou faturas reais.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Faturas divergentes</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Faturas divergentes</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditResidualStatementDryRun.changedStatementCountBefore} → {shadowAuditResidualStatementDryRun.changedStatementCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Diferenças estruturais</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Diferenças estruturais</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditResidualStatementDryRun.structuralDifferenceCountBefore} → {shadowAuditResidualStatementDryRun.structuralDifferenceCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Vínculos de pagamento divergentes</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Vínculos de pagamento divergentes</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditResidualStatementDryRun.changedPaymentCountBefore} → {shadowAuditResidualStatementDryRun.changedPaymentCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Faturas físicas antes / depois</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditResidualStatementDryRun.statementCountBefore === shadowAuditResidualStatementDryRun.statementCountAfter ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Faturas físicas antes / depois</p>
+                    <p data-finance={(shadowAuditResidualStatementDryRun.statementCountBefore === shadowAuditResidualStatementDryRun.statementCountAfter ? "positive" : "negative")} className={`mt-1 text-base font-semibold ${shadowAuditResidualStatementDryRun.statementCountBefore === shadowAuditResidualStatementDryRun.statementCountAfter ? 'text-emerald-300' : 'text-rose-300'}`}>
                       {shadowAuditResidualStatementDryRun.statementCountBefore} / {shadowAuditResidualStatementDryRun.statementCountAfter}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
-                    <p className="font-semibold text-cyan-100">Evidência da causa residual</p>
-                    <p className="mt-1 text-slate-300">
-                      Pagamento do próprio arquivo materializado na mesma competência: <strong className="text-white">{shadowAuditResidualStatementDryRun.sameCycleFilePaymentMaterializationCount}</strong> fatura(s).
+                  <div data-finance="info-panel" className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-cyan-100">Evidência da causa residual</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
+                      Pagamento do próprio arquivo materializado na mesma competência: <strong data-finance="content" className="text-white">{shadowAuditResidualStatementDryRun.sameCycleFilePaymentMaterializationCount}</strong> fatura(s).
                     </p>
-                    <p className="mt-1 text-slate-300">
-                      Cadeia física de quitação compatível com a sombra: <strong className="text-white">{shadowAuditResidualStatementDryRun.settlementChainSupportedCount}</strong> fatura(s).
+                    <p data-finance="muted" className="mt-1 text-slate-300">
+                      Cadeia física de quitação compatível com a sombra: <strong data-finance="content" className="text-white">{shadowAuditResidualStatementDryRun.settlementChainSupportedCount}</strong> fatura(s).
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Evidências de pagamento protegido no arquivo: {shadowAuditResidualStatementDryRun.protectedFilePaymentEvidenceCount} · anteriores à janela: {shadowAuditResidualStatementDryRun.outsideWindowPaymentWarningCount}.
                     </p>
                   </div>
-                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
-                    <p className="font-semibold text-emerald-100">Invariantes verificadas</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="success-panel" className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p data-finance="positive" className="font-semibold text-emerald-100">Invariantes verificadas</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Lançamentos preservados: {shadowAuditResidualStatementDryRun.entryRecordsPreserved ? 'sim' : 'não'} · pagamentos preservados: {shadowAuditResidualStatementDryRun.paymentRecordsPreserved ? 'sim' : 'não'}.
                     </p>
-                    <p className="mt-1 text-slate-300">
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Metadados protegidos preservados: {shadowAuditResidualStatementDryRun.protectedMetadataPreserved ? 'sim' : 'não'} · faturas protegidas: {shadowAuditResidualStatementDryRun.protectedStatementCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Diferenças apenas informativas após o clone: {shadowAuditResidualStatementDryRun.informationalDifferenceCountAfter}.
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                  <p className="font-semibold text-white">Campos derivados testados no clone</p>
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p data-finance="content" className="font-semibold text-white">Campos derivados testados no clone</p>
                   {shadowAuditResidualStatementDryRun.fieldProfiles.length > 0 ? (
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                    <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                       {shadowAuditResidualStatementDryRun.fieldProfiles.map((profile) => (
                         <li key={profile.field} className="flex justify-between gap-2">
                           <span>{RESIDUAL_STATEMENT_FIELD_LABELS[profile.field]}</span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-1 text-slate-400">Nenhum campo derivado precisa ser recalculado.</p>
+                    <p data-finance="muted" className="mt-1 text-slate-400">Nenhum campo derivado precisa ser recalculado.</p>
                   )}
-                  <p className="mt-2 text-slate-400">
+                  <p data-finance="muted" className="mt-2 text-slate-400">
                     Faturas candidatas: {shadowAuditResidualStatementDryRun.candidateStatementCount} · campos hipotéticos: {shadowAuditResidualStatementDryRun.hypotheticalStatementFieldUpdateCount}.
                   </p>
                   <p className="mt-1">
-                    Elegível para escrita: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditResidualStatementDryRun.actualWriteOperationCount}</strong>.
+                    Elegível para escrita: <strong data-finance="negative" className="text-rose-300">não</strong> · operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditResidualStatementDryRun.actualWriteOperationCount}</strong>.
                   </p>
                 </div>
 
                 {shadowAuditResidualStatementDryRun.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
-                    <p className="font-semibold text-rose-100">Bloqueios da separação residual</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                  <div data-finance="danger-chip" className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
+                    <p data-finance="negative" className="font-semibold text-rose-100">Bloqueios da separação residual</p>
+                    <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                       {shadowAuditResidualStatementDryRun.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{RESIDUAL_STATEMENT_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                   {shadowAuditResidualStatementDryRun.recommendationCodes.map((code) => (
                     <li key={code}>{RESIDUAL_STATEMENT_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                   ))}
@@ -4312,100 +4316,100 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditEndToEndDryRun && (
-              <div className="mt-3 rounded-lg border border-emerald-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-emerald-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Sprint 2S — certificação ponta a ponta da reconciliação</p>
-                  <span className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                  <p data-finance="content" className="font-semibold text-white">Sprint 2S — certificação ponta a ponta da reconciliação</p>
+                  <span data-finance="success-panel positive" className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
                     cadeia completa · zero escritas
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Resultado:{' '}
-                  <strong className="text-white">
+                  <strong data-finance="content" className="text-white">
                     {END_TO_END_DRY_RUN_STATUS_LABELS[shadowAuditEndToEndDryRun.status]}
                   </strong>.
                   {' '}O diagnóstico encadeia identidade, competência e liquidação residual no mesmo clone, mantendo a projeção real intocada.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Diferenças estruturais</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Diferenças estruturais</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditEndToEndDryRun.structuralDifferenceCountBefore} → {shadowAuditEndToEndDryRun.structuralDifferenceCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Diferenças informativas finais</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Diferenças informativas finais</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditEndToEndDryRun.informationalDifferenceCountAfter}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Campos hipotéticos</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Campos hipotéticos</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditEndToEndDryRun.hypotheticalTotalUpdateCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Pronta para planejar execução reversível</p>
-                    <p className={`mt-1 text-base font-semibold ${shadowAuditEndToEndDryRun.readyForReversibleExecutionPlanning ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Pronta para planejar execução reversível</p>
+                    <p data-finance={(shadowAuditEndToEndDryRun.readyForReversibleExecutionPlanning ? "positive" : "negative")} className={`mt-1 text-base font-semibold ${shadowAuditEndToEndDryRun.readyForReversibleExecutionPlanning ? 'text-emerald-300' : 'text-rose-300'}`}>
                       {shadowAuditEndToEndDryRun.readyForReversibleExecutionPlanning ? 'sim' : 'não'}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                  <div className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
-                    <p className="font-semibold text-emerald-100">Registros físicos conservados</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="success-panel" className="rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                    <p data-finance="positive" className="font-semibold text-emerald-100">Registros físicos conservados</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Lançamentos: {shadowAuditEndToEndDryRun.entryCountBefore} / {shadowAuditEndToEndDryRun.entryCountAfter} · faturas: {shadowAuditEndToEndDryRun.statementCountBefore} / {shadowAuditEndToEndDryRun.statementCountAfter} · pagamentos: {shadowAuditEndToEndDryRun.paymentCountBefore} / {shadowAuditEndToEndDryRun.paymentCountAfter}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Contagens preservadas: {shadowAuditEndToEndDryRun.physicalRecordCountsPreserved ? 'sim' : 'não'} · lançamentos e pagamentos preservados na etapa residual: {shadowAuditEndToEndDryRun.entryRecordsPreservedByResidualStep && shadowAuditEndToEndDryRun.paymentRecordsPreservedByResidualStep ? 'sim' : 'não'}.
                     </p>
                   </div>
-                  <div className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
-                    <p className="font-semibold text-cyan-100">Sequência simulada</p>
-                    <p className="mt-1 text-slate-300">
+                  <div data-finance="info-panel" className="rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
+                    <p data-finance="info" className="font-semibold text-cyan-100">Sequência simulada</p>
+                    <p data-finance="muted" className="mt-1 text-slate-300">
                       Identidade: {shadowAuditEndToEndDryRun.hypotheticalIdentityUpdateCount} · competência: {shadowAuditEndToEndDryRun.hypotheticalCompetenceUpdateCount} · campos de fatura: {shadowAuditEndToEndDryRun.hypotheticalStatementFieldUpdateCount}.
                     </p>
-                    <p className="mt-1 text-slate-400">
+                    <p data-finance="muted" className="mt-1 text-slate-400">
                       Resíduos finais — transações: {shadowAuditEndToEndDryRun.changedTransactionCountAfter} · faturas: {shadowAuditEndToEndDryRun.changedStatementCountAfter} · pagamentos: {shadowAuditEndToEndDryRun.changedPaymentCountAfter}.
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
-                  <p className="font-semibold text-white">Invariantes de segurança</p>
-                  <p className="mt-1 text-slate-300">
+                <div data-finance="inset divider" className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+                  <p data-finance="content" className="font-semibold text-white">Invariantes de segurança</p>
+                  <p data-finance="muted" className="mt-1 text-slate-300">
                     Data / valor / origem alterados indevidamente: {shadowAuditEndToEndDryRun.dateMutationCount} / {shadowAuditEndToEndDryRun.amountMutationCount} / {shadowAuditEndToEndDryRun.sourceMutationCount}.
                   </p>
-                  <p className="mt-1 text-slate-300">
+                  <p data-finance="muted" className="mt-1 text-slate-300">
                     Metadados protegidos preservados: {shadowAuditEndToEndDryRun.protectedMetadataPreserved ? 'sim' : 'não'} · cobertura completa: {shadowAuditEndToEndDryRun.protectedMetadataCoverageComplete ? 'sim' : 'não'} · faturas protegidas: {shadowAuditEndToEndDryRun.protectedStatementCount}.
                   </p>
-                  <p className="mt-1 text-slate-400">
+                  <p data-finance="muted" className="mt-1 text-slate-400">
                     Pagamentos anteriores à janela mantidos como contexto: {shadowAuditEndToEndDryRun.outsideWindowPaymentWarningCount}.
                   </p>
                   <p className="mt-1">
-                    Elegível para escrita: <strong className="text-rose-300">não</strong> · operações reais: <strong className="text-emerald-300">{shadowAuditEndToEndDryRun.actualWriteOperationCount}</strong>.
+                    Elegível para escrita: <strong data-finance="negative" className="text-rose-300">não</strong> · operações reais: <strong data-finance="positive" className="text-emerald-300">{shadowAuditEndToEndDryRun.actualWriteOperationCount}</strong>.
                   </p>
                 </div>
 
                 {shadowAuditEndToEndDryRun.blockerProfiles.length > 0 && (
-                  <div className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
-                    <p className="font-semibold text-rose-100">Bloqueios da certificação</p>
-                    <ul className="mt-1 space-y-1 text-slate-300">
+                  <div data-finance="danger-chip" className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2">
+                    <p data-finance="negative" className="font-semibold text-rose-100">Bloqueios da certificação</p>
+                    <ul data-finance="muted" className="mt-1 space-y-1 text-slate-300">
                       {shadowAuditEndToEndDryRun.blockerProfiles.map((profile) => (
                         <li key={profile.code} className="flex justify-between gap-2">
                           <span>{END_TO_END_DRY_RUN_BLOCKER_LABELS[profile.code]}</span>
-                          <strong className="text-white">{profile.count}</strong>
+                          <strong data-finance="content" className="text-white">{profile.count}</strong>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+                <ul data-finance="muted" className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
                   {shadowAuditEndToEndDryRun.recommendationCodes.map((code) => (
                     <li key={code}>{END_TO_END_DRY_RUN_RECOMMENDATION_LABELS[code]}</li>
                   ))}
@@ -4413,16 +4417,16 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAudit && (
-              <div className="mt-3 rounded-lg border border-violet-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-violet-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">
+                  <p data-finance="content" className="font-semibold text-white">
                     Fluxo estrutural legado aposentado
                   </p>
-                  <span className="rounded-full border border-violet-300/35 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
+                  <span data-finance="info-panel info" className="rounded-full border border-violet-300/35 bg-violet-300/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">
                     somente auditoria
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   Novas aplicações e o rollback estrutural não estão disponíveis. Este cartão
                   usa o fluxo atual de dois livros e reconciliação explícita. O snapshot e o
                   histórico legados permanecem preservados para auditoria.
@@ -4430,12 +4434,12 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
               </div>
             )}
             {engineOn && shadowAuditDerivedSettlementExecution && (
-              <div className="mt-3 rounded-lg border border-cyan-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
+              <div data-finance="inset content" className="mt-3 rounded-lg border border-cyan-300/30 bg-slate-950/50 px-3 py-3 text-slate-200">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-white">
+                  <p data-finance="content" className="font-semibold text-white">
                     Sprint 2T — contrato reversível de reconciliação
                   </p>
-                  <span
+                  <span data-finance={(shadowAuditDerivedSettlementExecution.report.status === 'contract-ready' ? "success-panel positive" : (shadowAuditDerivedSettlementExecution.report.status === 'not-needed' ? "info-panel info" : "danger-chip negative"))}
                     className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                       shadowAuditDerivedSettlementExecution.report.status === 'contract-ready'
                         ? 'border-emerald-300/35 bg-emerald-300/10 text-emerald-100'
@@ -4451,60 +4455,60 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                         : 'contrato bloqueado'}
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p data-finance="muted" className="mt-1 leading-relaxed text-slate-300">
                   A escrita foi reduzida aos campos derivados de quitação das faturas existentes.
                   Identidades, datas, competências, valores de lançamentos, pagamentos físicos e
                   metadados protegidos não fazem parte do payload.
                 </p>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Faturas executáveis</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Faturas executáveis</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditDerivedSettlementExecution.report.expectedStatementUpdateCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Campos executáveis</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Campos executáveis</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditDerivedSettlementExecution.report.expectedLogicalFieldUpdateCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Guardas preparadas</p>
-                    <p className="mt-1 text-base font-semibold text-white">
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Guardas preparadas</p>
+                    <p data-finance="content" className="mt-1 text-base font-semibold text-white">
                       {shadowAuditDerivedSettlementExecution.report.preparedDatabaseGuardCount} /{' '}
                       {shadowAuditDerivedSettlementExecution.report.requiredDatabaseGuardCount}
                     </p>
                   </div>
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2">
-                    <p className="text-slate-400">Kill switch individual</p>
-                    <p className={`mt-1 text-base font-semibold ${derivedSettlementEnabled ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  <div data-finance="inset divider" className="rounded border border-white/10 bg-white/[0.03] p-2">
+                    <p data-finance="muted" className="text-slate-400">Kill switch individual</p>
+                    <p data-finance={(derivedSettlementEnabled ? "positive" : "warning")} className={`mt-1 text-base font-semibold ${derivedSettlementEnabled ? 'text-emerald-300' : 'text-amber-300'}`}>
                       {derivedSettlementEnabled ? 'habilitado' : 'desabilitado'}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
-                  <p className="font-semibold text-emerald-100">Invariantes do contrato</p>
-                  <p className="mt-1 text-slate-300">
+                <div data-finance="success-panel" className="mt-2 rounded border border-emerald-300/20 bg-emerald-400/5 p-2">
+                  <p data-finance="positive" className="font-semibold text-emerald-100">Invariantes do contrato</p>
+                  <p data-finance="muted" className="mt-1 text-slate-300">
                     Lançamentos preservados: {shadowAuditDerivedSettlementExecution.report.preservesEntries ? 'sim' : 'não'} · pagamentos preservados: {shadowAuditDerivedSettlementExecution.report.preservesPayments ? 'sim' : 'não'} · metadados protegidos preservados: {shadowAuditDerivedSettlementExecution.report.preservesProtectedMetadata ? 'sim' : 'não'}.
                   </p>
-                  <p className="mt-1 text-slate-400">
+                  <p data-finance="muted" className="mt-1 text-slate-400">
                     Checksum vinculado: {shadowAuditDerivedSettlementExecution.report.checksumBound ? 'sim' : 'não'} · revisão vinculada: {shadowAuditDerivedSettlementExecution.report.revisionBound ? 'sim' : 'não'} · rollback condicionado à revisão posterior: sim.
                   </p>
                 </div>
 
                 {shadowAuditDerivedSettlementExecution.report.blockerCodes.length > 0 && (
-                  <p className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2 text-rose-100">
+                  <p data-finance="danger-chip negative" className="mt-2 rounded border border-rose-300/20 bg-rose-400/5 p-2 text-rose-100">
                     Bloqueios: {shadowAuditDerivedSettlementExecution.report.blockerCodes.join(', ')}.
                   </p>
                 )}
               </div>
             )}
             {shadowAuditDiagnosticLines.length > 0 && (
-              <details className="mt-3 rounded-lg border border-white/15 bg-slate-950/35 px-3 py-2">
-                <summary className="cursor-pointer select-none font-semibold text-white">
+              <details data-finance="inset divider" className="mt-3 rounded-lg border border-white/15 bg-slate-950/35 px-3 py-2">
+                <summary data-finance="content" className="cursor-pointer select-none font-semibold text-white">
                   Ver diagnóstico detalhado ({shadowAuditDiagnosticLines.length} linhas)
                 </summary>
                 <ol className="mt-2 list-decimal space-y-1.5 pl-5 leading-relaxed">
@@ -4518,7 +4522,7 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         )}
 
         {rows.length > 0 && (
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-3 space-y-2">
+          <div data-finance="inset divider" className="rounded-xl border border-slate-700 bg-slate-900/30 p-3 space-y-2">
             <Input
               label="Dia de vencimento da fatura"
               type="text"
@@ -4539,11 +4543,11 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
         )}
 
         {rows.length > 0 && (
-          <div className="rounded-xl border border-slate-700 overflow-hidden">
+          <div data-finance="divider" className="rounded-xl border border-slate-700 overflow-hidden">
             <div className="max-h-[min(52vh,520px)] overflow-auto">
               <table className="min-w-full text-xs">
-                <thead className="sticky top-0 bg-slate-800/95 border-b border-slate-700">
-                  <tr className="text-left text-[10px] uppercase tracking-wider text-gray-400">
+                <thead data-finance="inset divider" className="sticky top-0 bg-slate-800/95 border-b border-slate-700">
+                  <tr data-finance="muted" className="text-left text-[10px] uppercase tracking-wider text-gray-400">
                     <th className="px-3 py-2 font-semibold">Arquivo / origem</th>
                     {showAccountColumn && <th className="px-3 py-2 font-semibold">Cartão</th>}
                     <th className="px-3 py-2 font-semibold text-center">Lanç.</th>
@@ -4553,17 +4557,18 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                     <th className="px-3 py-2 font-semibold text-right">Pagamentos</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody data-finance="divided" className="divide-y divide-slate-800">
                   {rowsSortedByVencimento.map((r) => (
-                    <tr key={r.key} className="bg-slate-900/40 hover:bg-slate-900/70">
-                      <td className="px-3 py-2 align-top text-gray-200 max-w-[200px] break-all">{r.displayOrigin}</td>
+                    <tr data-finance="inset hover" key={r.key} className="bg-slate-900/40 hover:bg-slate-900/70">
+                      <td data-finance="content" className="px-3 py-2 align-top text-gray-200 max-w-[200px] break-all">{r.displayOrigin}</td>
                       {showAccountColumn && (
-                        <td className="px-3 py-2 align-top text-gray-300 whitespace-nowrap">{r.accountName}</td>
+                        <td data-finance="muted" className="px-3 py-2 align-top text-gray-300 whitespace-nowrap">{r.accountName}</td>
                       )}
-                      <td className="px-3 py-2 align-top text-center text-gray-400">{r.txCount}</td>
+                      <td data-finance="muted" className="px-3 py-2 align-top text-center text-gray-400">{r.txCount}</td>
                       <td className="px-3 py-2 align-top min-w-[118px]">
                         <Input
                           label=""
+                          aria-label={`Competência de ${r.displayOrigin}`}
                           type="text"
                           inputMode="numeric"
                           placeholder="MM/AAAA"
@@ -4575,19 +4580,19 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
                         />
                       </td>
                       <td className="px-3 py-2 align-top min-w-[118px]">
-                        <span
+                        <span data-finance="muted"
                           className="inline-block font-mono text-[11px] text-gray-300 pt-1.5 min-h-[32px]"
                           title="DD/MM/AAAA — vencimento confirmado no histórico"
                         >
                           {r.vencimentoBR.trim() || '—'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 align-top text-right text-rose-300 font-mono text-[11px] whitespace-nowrap">
+                      <td data-finance="negative" className="px-3 py-2 align-top text-right text-rose-300 font-mono text-[11px] whitespace-nowrap">
                         {previewByRowKey.get(r.key)
                           ? formatCurrency(previewByRowKey.get(r.key)!.totals.statementTotal)
                           : '—'}
                       </td>
-                      <td className="px-3 py-2 align-top text-right text-emerald-300 font-mono text-[11px] whitespace-nowrap">
+                      <td data-finance="positive" className="px-3 py-2 align-top text-right text-emerald-300 font-mono text-[11px] whitespace-nowrap">
                         {previewByRowKey.get(r.key)
                           ? formatCurrency(previewByRowKey.get(r.key)!.totals.totalPayments)
                           : '—'}
@@ -4600,10 +4605,10 @@ const CreditCardInvoiceCyclesModal: React.FC<Props> = ({
           </div>
         )}
 
-        <p className="text-[11px] text-gray-500 leading-snug">
+        <p data-finance="muted" className="text-[11px] text-gray-500 leading-snug">
           A prévia usa as linhas já importadas (aba Transações). Por arquivo, a coluna Pagamentos mostra o valor do CSV; no histórico por competência, esse valor abate a fatura do mês anterior.
         </p>
-        <p className="text-[11px] text-amber-300/80 leading-snug">
+        <p data-finance="warning" className="text-[11px] text-amber-300/80 leading-snug">
           <strong>Auditar sem alterar dados</strong> apenas lê e compara importações e lançamentos manuais. <strong>Reconstruir faturas deste cartão</strong> altera a projeção e permanece bloqueado até a auditoria declarar a troca segura.
         </p>
       </div>

@@ -1,4 +1,6 @@
+import '../appearance/financial.css';
 import React from 'react';
+import DialogFocusManager from '../ui/DialogFocusManager';
 import type { CardDiagnostic } from '../../domain/credit-card/cardDiagnostics';
 
 /**
@@ -47,14 +49,15 @@ const CardDiagnosticsModal: React.FC<CardDiagnosticsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
+    <div data-finance="scrim" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div id="card-diagnostics-dialog" role="dialog" aria-modal="true" aria-label="Revisar cartão" data-finance="surface divider content" className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
+        <DialogFocusManager dialogId="card-diagnostics-dialog" onClose={onClose}/>
+        <div data-finance="divider" className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white">Revisar cartão</h2>
-            <p className="mt-0.5 truncate text-xs text-slate-400">{accountName}</p>
+            <h2 data-finance="content" className="text-lg font-bold text-white">Revisar cartão</h2>
+            <p data-finance="muted" className="mt-0.5 truncate text-xs text-slate-400">{accountName}</p>
           </div>
-          <button
+          <button data-finance="muted hover"
             type="button"
             onClick={onClose}
             aria-label="Fechar"
@@ -66,15 +69,15 @@ const CardDiagnosticsModal: React.FC<CardDiagnosticsModalProps> = ({
 
         <div className="max-h-[60vh] space-y-3 overflow-y-auto p-5">
           {total === 0 ? (
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-              <p className="text-sm font-semibold text-emerald-200">Cartão consistente</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-emerald-100/80">
+            <div data-finance="success-panel" className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-4">
+              <p data-finance="positive" className="text-sm font-semibold text-emerald-200">Cartão consistente</p>
+              <p data-finance="positive" className="mt-1 text-[13px] leading-relaxed text-emerald-100/80">
                 Não encontramos nada que precise de revisão neste cartão.
               </p>
             </div>
           ) : (
             <>
-              <p className="text-[13px] text-slate-400">
+              <p data-finance="muted" className="text-[13px] text-slate-400">
                 {total === 1
                   ? 'Encontramos 1 informação que pode precisar de revisão.'
                   : `Encontramos ${total} informações que podem precisar de revisão.`}
@@ -83,7 +86,7 @@ const CardDiagnosticsModal: React.FC<CardDiagnosticsModalProps> = ({
               {diagnosticos.map((item, i) => {
                 const atencao = item.severity === 'atencao';
                 return (
-                  <div
+                  <div data-finance={(atencao ? "warning-panel" : "inset divider")}
                     key={`${item.code}-${item.severity}-${i}`}
                     className={`rounded-xl border p-4 ${
                       atencao
@@ -91,14 +94,14 @@ const CardDiagnosticsModal: React.FC<CardDiagnosticsModalProps> = ({
                         : 'border-white/10 bg-white/[0.04]'
                     }`}
                   >
-                    <p
+                    <p data-finance={(atencao ? "warning" : "content")}
                       className={`text-sm font-semibold ${
                         atencao ? 'text-amber-100' : 'text-slate-200'
                       }`}
                     >
                       {item.title}
                     </p>
-                    <p
+                    <p data-finance={(atencao ? "warning" : "muted")}
                       className={`mt-1.5 text-[13px] leading-relaxed ${
                         atencao ? 'text-amber-100/85' : 'text-slate-300/85'
                       }`}
@@ -106,12 +109,12 @@ const CardDiagnosticsModal: React.FC<CardDiagnosticsModalProps> = ({
                       {item.message}
                     </p>
                     {item.competenceLabel ? (
-                      <p className="mt-2 text-[11px] uppercase tracking-wide text-slate-400">
+                      <p data-finance="muted" className="mt-2 text-[11px] uppercase tracking-wide text-slate-400">
                         {item.competenceLabel}
                       </p>
                     ) : null}
                     {(onOpenHistory || onOpenReconciliation) && (
-                      <button
+                      <button data-finance="inset divider content hover"
                         type="button"
                         onClick={() => executar(item)}
                         className="mt-3 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/10"
@@ -126,8 +129,8 @@ const CardDiagnosticsModal: React.FC<CardDiagnosticsModalProps> = ({
           )}
         </div>
 
-        <div className="flex justify-end border-t border-white/10 p-4">
-          <button
+        <div data-finance="divider" className="flex justify-end border-t border-white/10 p-4">
+          <button data-finance="divider content hover"
             type="button"
             onClick={onClose}
             className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/10"

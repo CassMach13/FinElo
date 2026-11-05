@@ -1,0 +1,8 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinElo · Cartões sintéticos isolados</title></head><body><div id="root"></div>
+<script>
+window.__cardNativeModule=source=>{
+ const url=new URL(source,location.origin);
+ if(url.origin!==location.origin||!/^\/(src|scripts\/diagnostics\/theme-card-(main|reviewed)-baseline\/src)\//.test(url.pathname))throw Error('Módulo fora da referência');
+ return import(url.href);
+};
+</script><script type="module" src="/scripts/diagnostics/card-preview.tsx"></script></body></html>

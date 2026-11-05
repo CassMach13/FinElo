@@ -24,6 +24,8 @@ dist-ssr
 scripts/diagnostics/theme-financial-baseline/
 scripts/diagnostics/theme-import-main-baseline/
 scripts/diagnostics/theme-import-reviewed-baseline/
+scripts/diagnostics/theme-card-main-baseline/
+scripts/diagnostics/theme-card-reviewed-baseline/
 .vscode
 
 # Assets / Media (Large Files)
