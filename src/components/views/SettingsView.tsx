@@ -19,6 +19,7 @@ import AssetModal from '../modals/AssetModal';
 import AssetDetailModal from '../modals/AssetDetailModal';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
+import AppearanceSettings from '../appearance/AppearanceSettings';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 import {
     buildImportLogAlerts,
@@ -583,6 +584,7 @@ const SettingsView: React.FC = () => {
             </div>
 
             <div className="space-y-6">
+                <AppearanceSettings />
                 {/* 1. Gerenciar Configurações de Importação */}
                 <div id="settings-configs" className="lg:col-span-2">
                     <CrudCard<ImportConfig>

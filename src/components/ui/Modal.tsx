@@ -11,6 +11,7 @@ interface ModalProps {
   hideCloseButton?: boolean;
   /** Camada acima de outros modais (ex.: z-[60]). */
   overlayClassName?: string;
+  dialogLabel?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -22,21 +23,22 @@ const Modal: React.FC<ModalProps> = ({
   className = 'max-w-md',
   hideCloseButton = false,
   overlayClassName = 'z-50',
+  dialogLabel,
 }) => {
   if (!isOpen) return null;
 
   return (
-    <div
+    <div data-appearance-part="scrim"
       className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 sm:p-4 ${overlayClassName}`}
     >
       {/* O container do modal agora é um flex container vertical com altura máxima */}
-      <div className={`bg-secondary rounded-lg shadow-xl w-full ${className} mx-auto flex flex-col max-h-[90vh]`}>
+      <div data-appearance-part="modal" role={dialogLabel ? 'dialog' : undefined} aria-modal={dialogLabel ? true : undefined} aria-label={dialogLabel} className={`bg-secondary rounded-lg shadow-xl w-full ${className} mx-auto flex flex-col max-h-[90vh]`}>
 
         {/* 1. Cabeçalho Fixo */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-600">
-          <h3 className="text-xl font-bold text-light">{title}</h3>
+        <div data-appearance-part="divider" className="flex justify-between items-center p-4 border-b border-slate-600">
+          <h3 data-appearance-part="title" className="text-xl font-bold text-light">{title}</h3>
           {!hideCloseButton && (
-            <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">&times;</button>
+            <button data-appearance-part="muted" onClick={onClose} className="text-gray-400 hover:text-white transition-colors">&times;</button>
           )}
         </div>
 
@@ -47,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({
 
         {/* 3. Rodapé Fixo (Opcional) */}
         {footer && (
-          <div className="p-4 border-t border-slate-600 flex-shrink-0">
+          <div data-appearance-part="divider" className="p-4 border-t border-slate-600 flex-shrink-0">
             {footer}
           </div>
         )}

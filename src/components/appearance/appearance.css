@@ -1,0 +1,171 @@
+/* Semântica disponível para os próximos ciclos. O piloto aplica Claro só na amostra. */
+:root {
+  --appearance-canvas: 26 32 44;
+  --appearance-surface: 45 55 72;
+  --appearance-raised: 45 55 72;
+  --appearance-content: 247 250 252;
+  --appearance-muted: 148 163 184;
+  --appearance-placeholder: 100 116 139;
+  --appearance-divider: 71 85 105;
+  --appearance-control: 2 6 23;
+  --appearance-control-border: 71 85 105;
+  --appearance-hover: 51 65 85;
+  --appearance-focus: 56 189 248;
+  --appearance-selected: 22 78 99;
+  --appearance-disabled: 51 65 85;
+  --appearance-on-disabled: 203 213 225;
+  --appearance-action: 8 145 178;
+  --appearance-action-end: 37 99 235;
+  --appearance-action-hover: 6 182 212;
+  --appearance-action-hover-end: 59 130 246;
+  --appearance-on-action: 255 255 255;
+  --appearance-success: 110 231 183;
+  --appearance-success-surface: 6 78 59;
+  --appearance-warning: 252 211 77;
+  --appearance-warning-surface: 69 26 3;
+  --appearance-danger: 248 113 113;
+  --appearance-danger-surface: 69 10 10;
+  --appearance-info: 147 197 253;
+  --appearance-info-surface: 23 37 84;
+  --appearance-positive: 52 211 153;
+  --appearance-negative: 251 113 133;
+  --appearance-chart-1: 56 178 172;
+  --appearance-chart-2: 66 153 225;
+  --appearance-chart-3: 167 139 250;
+  --appearance-chart-4: 251 191 36;
+  --appearance-chart-5: 248 113 113;
+  --appearance-scrim: 0 0 0;
+}
+
+[data-finelo-theme="light"] {
+  --appearance-canvas: 245 247 250;
+  --appearance-surface: 255 255 255;
+  --appearance-raised: 255 255 255;
+  --appearance-content: 23 35 52;
+  --appearance-muted: 82 97 117;
+  --appearance-placeholder: 93 107 125;
+  --appearance-divider: 216 224 232;
+  --appearance-control: 255 255 255;
+  --appearance-control-border: 107 122 138;
+  --appearance-hover: 237 242 247;
+  --appearance-focus: 29 78 216;
+  --appearance-selected: 219 234 254;
+  --appearance-disabled: 226 232 240;
+  --appearance-on-disabled: 82 97 117;
+  --appearance-action: 14 116 144;
+  --appearance-action-end: 29 78 216;
+  --appearance-action-hover: 21 94 117;
+  --appearance-action-hover-end: 30 64 175;
+  --appearance-on-action: 255 255 255;
+  --appearance-success: 22 101 52;
+  --appearance-success-surface: 236 253 243;
+  --appearance-warning: 133 77 14;
+  --appearance-warning-surface: 255 251 235;
+  --appearance-danger: 180 35 24;
+  --appearance-danger-surface: 254 243 242;
+  --appearance-info: 30 64 175;
+  --appearance-info-surface: 239 246 255;
+  --appearance-positive: 22 101 52;
+  --appearance-negative: 180 35 24;
+  --appearance-chart-1: 15 118 110;
+  --appearance-chart-2: 29 78 216;
+  --appearance-chart-3: 126 34 206;
+  --appearance-chart-4: 146 64 14;
+  --appearance-chart-5: 185 28 28;
+  --appearance-scrim: 15 23 42;
+}
+
+@media screen {
+  [data-finelo-theme="light"] {
+    color-scheme: light;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="card"] {
+    background-color: rgb(var(--appearance-surface));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="card-shine"] {
+    background-image: linear-gradient(to right, transparent, rgb(var(--appearance-divider)), transparent);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="title"] {
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="muted"] {
+    color: rgb(var(--appearance-muted));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="error"] {
+    color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="scrim"] {
+    background-color: rgb(var(--appearance-scrim) / 0.48);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="modal"] {
+    background-color: rgb(var(--appearance-raised));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="divider"] {
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"] {
+    background-color: rgb(var(--appearance-control));
+    border-color: rgb(var(--appearance-control-border));
+    color: rgb(var(--appearance-content));
+    color-scheme: light;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"]::placeholder {
+    color: rgb(var(--appearance-placeholder));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-invalid="true"] {
+    border-color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"]::-webkit-calendar-picker-indicator,
+  [data-finelo-theme="light"] [data-appearance-part="control"]::-webkit-calendar-picker-indicator:hover {
+    filter: none;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="button"] {
+    color: rgb(var(--appearance-content));
+    border-color: rgb(var(--appearance-control-border));
+    background-color: rgb(var(--appearance-surface));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="button"]:not(:disabled):hover {
+    background-color: rgb(var(--appearance-hover));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="primary"] {
+    color: rgb(var(--appearance-on-action));
+    background-image: linear-gradient(to right, rgb(var(--appearance-action)), rgb(var(--appearance-action-end)));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="primary"]:not(:disabled):hover {
+    background-image: linear-gradient(to right, rgb(var(--appearance-action-hover)), rgb(var(--appearance-action-hover-end)));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="control"], [data-appearance-part="button"]):focus-visible {
+    outline: 2px solid rgb(var(--appearance-focus));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="control"], [data-appearance-part="button"]):disabled {
+    background: rgb(var(--appearance-disabled));
+    color: rgb(var(--appearance-on-disabled));
+    opacity: 1;
+  }
+
+  [data-finelo-theme="light"] ::selection {
+    background-color: rgb(var(--appearance-selected));
+    color: rgb(var(--appearance-content));
+  }
+}

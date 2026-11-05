@@ -16,13 +16,15 @@ const Input: React.FC<InputProps> = ({ className = '', label, id, error, helpTex
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-slate-400 mb-1 ml-1">
+        <label data-appearance-part="muted" htmlFor={id} className="block text-sm font-medium text-slate-400 mb-1 ml-1">
           {label}
         </label>
       )}
       <div className="relative">
         <input
           id={id}
+          data-appearance-part="control"
+          data-appearance-invalid={error ? 'true' : undefined}
           className={`
             w-full 
             bg-slate-950/60 
@@ -42,8 +44,8 @@ const Input: React.FC<InputProps> = ({ className = '', label, id, error, helpTex
           {...props}
         />
       </div>
-      {helpText && !error && <p className="mt-1.5 ml-1 text-xs text-slate-400">{helpText}</p>}
-      {error && <p className="mt-1.5 ml-1 text-xs text-red-400 font-medium animate-pulse">{error}</p>}
+      {helpText && !error && <p data-appearance-part="muted" className="mt-1.5 ml-1 text-xs text-slate-400">{helpText}</p>}
+      {error && <p data-appearance-part="error" className="mt-1.5 ml-1 text-xs text-red-400 font-medium animate-pulse">{error}</p>}
     </div>
   );
 };

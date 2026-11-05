@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { appAlert } from './useDialogStore';
-import { supabase } from '../supabaseClient';
+import { persistAppearanceTheme, supabase } from '../supabaseClient';
+import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
 import {
   Transaction,
   Category,
@@ -561,6 +562,7 @@ let transactionsFetchGeneration = 0;
 // Invalida trabalho de bens em voo mesmo em A → logout/B → A. Refresh de token do mesmo usuário não invalida.
 let assetSessionGeneration = 0;
 let assetsFetchGeneration = 0;
+const appearanceSaves = new Set<string>();
 const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
   const userId = get().user?.id;
   const generation = assetSessionGeneration;
@@ -735,6 +737,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   updateUserPreferences: async (preferences) => {
     const { user } = get();
+    if (Object.hasOwn(preferences, APPEARANCE_THEME_KEY)) {
+      const theme = preferences[APPEARANCE_THEME_KEY];
+      if (!user || !isAppearancePilotEnabled(user) || !isAppearanceTheme(theme) || Object.keys(preferences).length !== 1) {
+        throw new Error('Preferência de aparência indisponível.');
+      }
+      if (appearanceSaves.has(user.id)) throw new Error('A aparência já está sendo salva.');
+      appearanceSaves.add(user.id);
+      const isCurrentSession = captureAssetSession(get);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || session?.user.id !== user.id || !isCurrentSession()) {
+          throw new Error('A sessão mudou antes de salvar a aparência.');
+        }
+        // Vincula a escrita a esta conta mesmo se o SDK trocar de sessão durante a requisição.
+        await persistAppearanceTheme(session.access_token, theme);
+        if (isCurrentSession()) {
+          const currentUser = get().user!;
+          set({ user: { ...currentUser, user_metadata: { ...currentUser.user_metadata, [APPEARANCE_THEME_KEY]: theme } } });
+        }
+      } finally {
+        appearanceSaves.delete(user.id);
+      }
+      return;
+    }
     if (!user) return;
     
     // Update local state optimistically
