@@ -24,6 +24,7 @@ import SaveConfigModal from '../modals/SaveConfigModal';
 import {
   getDistinctCardImportReferenceMonths,
   resolveAutomaticCardReferenceMonth,
+  resolveCardImportCycleCoordinates,
 } from '../../utils/cardImportReference';
 import { buildFileImportFingerprint } from '../../utils/importBatchIntegrity';
 import {
@@ -35,6 +36,11 @@ import {
 import InstallmentSuggestionModal, {
   type EscolhasDeParcela,
 } from '../modals/InstallmentSuggestionModal';
+
+function mesDoCiclo(input?: CardImportCycleInput): string | undefined {
+  const { dueDate, purchaseReferenceLabel } = resolveCardImportCycleCoordinates(input);
+  return dueDate?.slice(0, 7) ?? purchaseReferenceLabel;
+}
 
 // --- BankCard: reusable card with favorite star toggle ---
 interface BankCardProps {
@@ -147,13 +153,29 @@ const ImportView: React.FC = () => {
   const revisarParcelasIrmas = async <T extends ParcelaImportada>(
     novas: T[],
     contaDestino: string | null,
-    origemEhCartao: boolean
+    origemEhCartao: boolean,
+    cardCycle?: CardImportCycleInput,
+    bancoNativo?: string
   ): Promise<T[] | null> => {
     const estado = useAppStore.getState();
-    const contaEhCartao =
-      origemEhCartao ||
-      estado.accounts.find((conta) => conta.id === contaDestino)?.Tipo_Conta === 'Cartão de Crédito';
-    const sugestoes = construirSugestoesDeParcela(novas, contaDestino, estado.transactions, { contaEhCartao });
+    const conta = estado.accounts.find((item) => item.id === contaDestino);
+    const contaEhCartao = origemEhCartao || conta?.Tipo_Conta === 'Cartão de Crédito';
+    const cicloDaFatura = mesDoCiclo(cardCycle);
+    const ciclosPorLote = new Map<string, string>();
+    if (cicloDaFatura) {
+      for (const lote of estado.importLogs) {
+        if (!lote.id || !Array.isArray(lote.imported_details)) continue;
+        const meta = lote.imported_details.find((item) => item?.Card_Reference_Label || item?.Card_Due_Date);
+        const ciclo = mesDoCiclo({ referenceLabel: meta?.Card_Reference_Label, dueDate: meta?.Card_Due_Date });
+        if (ciclo) ciclosPorLote.set(lote.id, ciclo);
+      }
+    }
+    const sugestoes = construirSugestoesDeParcela(novas, contaDestino, estado.transactions, {
+      contaEhCartao,
+      cicloDaFatura,
+      ciclosPorLote,
+      repeteDataDeCompra: (bancoNativo ?? conta?.bank_id) === 'cartao-xp',
+    });
     if (sugestoes.length === 0) return novas;
 
     setIsLoading(false);
@@ -637,7 +659,9 @@ const ImportView: React.FC = () => {
         const transacoesParaImportar = await revisarParcelasIrmas(
           result.newTransactions,
           selectedNativeAccountId || null,
-          bankCfg.sourceType === 'Cartao'
+          bankCfg.sourceType === 'Cartao',
+          resolvedCardCycle,
+          bankCfg.id
         );
         if (!transacoesParaImportar) {
           setNotification({
@@ -862,7 +886,8 @@ const ImportView: React.FC = () => {
         const transacoesParaImportar = await revisarParcelasIrmas(
           result.newTransactions,
           (effectiveConfig as ImportConfig).ID_Conta_Associada || null,
-          tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito'
+          tempSourceType === 'Cartao' || tempSourceType === 'Cartão de Crédito',
+          resolvedCardCycle
         );
         if (!transacoesParaImportar) {
           setNotification({
