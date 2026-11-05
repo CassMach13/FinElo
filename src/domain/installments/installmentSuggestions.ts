@@ -1,6 +1,7 @@
 /** Sugestão de nome e categoria a partir da parcela imediatamente anterior. */
 
-import type { Transaction } from '../../types';
+import type { CardImportCycleInput, Transaction } from '../../types';
+import { resolveCardImportCycleCoordinates } from '../../utils/cardImportReference';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../../utils/dateOnly';
 import { extractInstallments } from './installmentMarker';
 
@@ -47,6 +48,7 @@ export interface ParcelaImportada {
   Parcela_Atual?: number | null;
   Total_Parcelas?: number | null;
   Data: Date | string;
+  Data_Pagamento?: Date | string | null;
 }
 
 export interface OpcoesDeSugestao {
@@ -58,8 +60,8 @@ export interface OpcoesDeSugestao {
   contaEhCartao?: boolean;
   /** O formato da fatura usa a data da compra em todas as parcelas. */
   repeteDataDeCompra?: boolean;
-  cicloDaFatura?: string | null;
-  ciclosPorLote?: ReadonlyMap<string, string>;
+  cicloDaFatura?: CardImportCycleInput;
+  ciclosPorLote?: ReadonlyMap<string, CardImportCycleInput>;
 }
 
 const emCentavos = (valor: number): number => Math.sign(valor) * Math.round(Math.abs(valor) * 100);
@@ -147,6 +149,31 @@ interface ExistenteAvaliada {
   parcela: ParcelaLida | null;
   centavos: number;
   dia: string;
+  ciclo?: CoordenadasDaFatura;
+}
+
+interface CoordenadasDaFatura {
+  mesVencimento?: string;
+  referencia?: string;
+}
+
+function coordenadasDaFatura(
+  ciclo: CardImportCycleInput | undefined,
+  dataPagamento: ParcelaImportada['Data_Pagamento'],
+  diaCompra: string
+): CoordenadasDaFatura {
+  const { dueDate, purchaseReferenceLabel } = resolveCardImportCycleCoordinates(ciclo);
+  const pagamento = toDateOnlyIso(dataPagamento);
+  // Os parsers usam a própria data da compra quando não recebem vencimento.
+  const vencimento = dueDate ?? (pagamento > diaCompra ? pagamento : undefined);
+  return { mesVencimento: vencimento?.slice(0, 7), referencia: purchaseReferenceLabel };
+}
+
+function compararCiclos(anterior?: CoordenadasDaFatura, atual?: CoordenadasDaFatura): number | undefined {
+  if (anterior?.mesVencimento && atual?.mesVencimento) {
+    return anterior.mesVencimento.localeCompare(atual.mesVencimento);
+  }
+  if (anterior?.referencia && atual?.referencia) return anterior.referencia.localeCompare(atual.referencia);
 }
 
 /** Só o que pode servir de sugestão: mesma conta, com data válida e já classificado. */
@@ -164,7 +191,9 @@ function prepararHistorico(
     if (!dia) continue;
     const centavos = emCentavos(t.Valor);
     if (!Number.isFinite(centavos)) continue;
-    avaliadas.push({ transacao: t, parcela: parcelaDaExistente(t, opcoes), centavos, dia });
+    const lote = t.import_log_id ? opcoes.ciclosPorLote?.get(t.import_log_id) : undefined;
+    const ciclo = opcoes.contaEhCartao ? coordenadasDaFatura(lote, t.Data_Pagamento, dia) : undefined;
+    avaliadas.push({ transacao: t, parcela: parcelaDaExistente(t, opcoes), centavos, dia, ciclo });
   }
   return avaliadas;
 }
@@ -204,9 +233,10 @@ interface NovaAvaliada {
   centavos: number;
   dia: string;
   descricao: string | undefined;
+  ciclo?: CoordenadasDaFatura;
 }
 
-function avaliarNova(nova: ParcelaImportada): NovaAvaliada | null {
+function avaliarNova(nova: ParcelaImportada, opcoes: OpcoesDeSugestao): NovaAvaliada | null {
   const parcelaAtual = Number(nova.Parcela_Atual ?? 0);
   const totalParcelas = Number(nova.Total_Parcelas ?? 0);
   // 1/X não roda: não existe parcela anterior para copiar.
@@ -216,10 +246,11 @@ function avaliarNova(nova: ParcelaImportada): NovaAvaliada | null {
   if (!dia) return null;
   const centavos = emCentavos(nova.Valor);
   if (!Number.isFinite(centavos)) return null;
-  return { parcelaAtual, totalParcelas, centavos, dia, descricao: nova.Descricao_Original };
+  const ciclo = opcoes.contaEhCartao ? coordenadasDaFatura(opcoes.cicloDaFatura, nova.Data_Pagamento, dia) : undefined;
+  return { parcelaAtual, totalParcelas, centavos, dia, descricao: nova.Descricao_Original, ciclo };
 }
 
-/** Nível A: parcelas anteriores do MESMO plano, com evidência de que é a mesma compra. */
+/** Parcelas do mesmo plano, com evidência de anterioridade. */
 function candidatosReconhecidos(
   nova: NovaAvaliada,
   historico: ExistenteAvaliada[],
@@ -234,10 +265,9 @@ function candidatosReconhecidos(
     if (h.dia > nova.dia) continue;
 
     const mesmaDataDeCompra = h.dia === nova.dia;
-    if (mesmaDataDeCompra && !opcoes.contaEhCartao) continue;
-    const lote = h.transacao.import_log_id;
-    const cicloAnterior = lote ? opcoes.ciclosPorLote?.get(lote) : undefined;
-    if (cicloAnterior && opcoes.cicloDaFatura && cicloAnterior >= opcoes.cicloDaFatura) continue;
+    const ordemDoCiclo = compararCiclos(h.ciclo, nova.ciclo);
+    // Uma data de compra repetida precisa de um ciclo comparável para comprovar a ordem.
+    if (ordemDoCiclo === undefined ? mesmaDataDeCompra : ordemDoCiclo >= 0) continue;
     const diferenca = Math.abs(h.centavos - nova.centavos);
     if (diferenca > 1) continue;
     if (!temClassificacao(h.transacao.Categoria)) continue;
@@ -258,7 +288,7 @@ export function encontrarCandidatosDeParcelaIrma(
   existentes: Transaction[],
   opcoes: OpcoesDeSugestao = {}
 ): ParcelaCandidata[] {
-  const avaliada = avaliarNova(nova);
+  const avaliada = avaliarNova(nova, opcoes);
   if (!avaliada) return [];
   const historico = prepararHistorico(contaId, existentes, opcoes);
   return candidatosReconhecidos(avaliada, historico, opcoes);
@@ -286,7 +316,7 @@ export function construirSugestoesDeParcela(
   const sugestoes: SugestaoDeParcela[] = [];
 
   novas.forEach((nova, indice) => {
-    const avaliada = avaliarNova(nova);
+    const avaliada = avaliarNova(nova, opcoes);
     if (!avaliada) return;
 
     const candidatos = candidatosReconhecidos(avaliada, historico, opcoes);

@@ -55,10 +55,10 @@ const importarAceitandoPreMarcadas = (lote: Importada[], conta: string | null, h
 
 describe('uso mensal — importação nativa (XP: coluna de parcela, data da compra repetida)', () => {
   it('a 1/6 classificada em janeiro é sugerida na 2/6 de fevereiro, mesmo com a MESMA data', () => {
-    const janeiro = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], undefined, 'jan.csv');
+    const janeiro = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], new Date(2026, 1, 10), 'jan.csv');
     const historico = gravar(janeiro.newTransactions, CARTAO, { 'LOJA ALFA SP': ['Sofá da sala', 'Casa'] });
 
-    const fevereiro = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, historico, [], undefined, 'fev.csv');
+    const fevereiro = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, historico, [], new Date(2026, 2, 10), 'fev.csv');
     const [sugestao] = construirSugestoesDeParcela(fevereiro.newTransactions, CARTAO, historico, { contaEhCartao: true });
 
     expect(sugestao).toMatchObject({ parcelaAtual: 2, totalParcelas: 6 });
@@ -72,14 +72,14 @@ describe('uso mensal — importação nativa (XP: coluna de parcela, data da com
 
   it('a continuidade segue da 2/6 até a 6/6, sempre com UMA opção pré-marcada', () => {
     let historico = gravar(
-      parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], undefined, 'm1.csv').newTransactions,
+      parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], new Date(2026, 1, 10), 'm1.csv').newTransactions,
       CARTAO,
       { 'LOJA ALFA SP': ['Sofá da sala', 'Casa'] }
     );
 
     for (let parcela = 2; parcela <= 6; parcela++) {
       const lote = parseNativeBankCSV(
-        faturaXp([`05/01/2026;LOJA ALFA SP;TITULAR;100,00;${parcela} de 6`]), xp, historico, [], undefined, `m${parcela}.csv`
+        faturaXp([`05/01/2026;LOJA ALFA SP;TITULAR;100,00;${parcela} de 6`]), xp, historico, [], new Date(2026, parcela, 10), `m${parcela}.csv`
       ).newTransactions;
       const { sugestoes, gravadas } = importarAceitandoPreMarcadas(lote, CARTAO, historico);
 
@@ -96,11 +96,11 @@ describe('uso mensal — importação nativa (XP: coluna de parcela, data da com
 
   it('não oferece a 1/6 para a 3/6 quando a 2/6 está sem classificação', () => {
     const historico = [
-      ...gravar(parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], undefined, 'm1.csv').newTransactions, CARTAO, { 'LOJA ALFA SP': ['Sofá da sala', 'Casa'] }),
+      ...gravar(parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], new Date(2026, 1, 10), 'm1.csv').newTransactions, CARTAO, { 'LOJA ALFA SP': ['Sofá da sala', 'Casa'] }),
       // 2/6 entrou sem classificação («importar como veio»).
-      ...gravar(parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, [], [], undefined, 'm2.csv').newTransactions, CARTAO),
+      ...gravar(parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, [], [], new Date(2026, 2, 10), 'm2.csv').newTransactions, CARTAO),
     ];
-    const lote = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;3 de 6']), xp, historico, [], undefined, 'm3.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;3 de 6']), xp, historico, [], new Date(2026, 3, 10), 'm3.csv').newTransactions;
     expect(construirSugestoesDeParcela(lote, CARTAO, historico, { contaEhCartao: true })).toEqual([]);
   });
 
@@ -111,25 +111,25 @@ describe('uso mensal — importação nativa (XP: coluna de parcela, data da com
     );
     const historico = [{ ...anterior, import_log_id: 'lote-1' }];
     const lote = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA;TITULAR;100,00;2 de 6']), xp, [], [], undefined, 'm2.csv').newTransactions;
-    const opcoes = { contaEhCartao: true, cicloDaFatura: '2026-02', repeteDataDeCompra: true };
+    const opcoes = { contaEhCartao: true, cicloDaFatura: { referenceLabel: '2026-02' }, repeteDataDeCompra: true };
     for (const ciclo of ['2026-02', '2026-03']) {
       expect(construirSugestoesDeParcela(lote, CARTAO, historico, {
-        ...opcoes, ciclosPorLote: new Map([['lote-1', ciclo]]),
+        ...opcoes, ciclosPorLote: new Map([['lote-1', { referenceLabel: ciclo }]]),
       })).toEqual([]);
     }
     const [sugestao] = construirSugestoesDeParcela(lote, CARTAO, historico, {
-      ...opcoes, ciclosPorLote: new Map([['lote-1', '2026-01']]),
+      ...opcoes, ciclosPorLote: new Map([['lote-1', { referenceLabel: '2026-01' }]]),
     });
     expect(podePreSugerir(sugestao)).toBe(true);
   });
 
   it('descrição diferente para a mesma compra não impede o reconhecimento', () => {
     const historico = gravar(
-      parseNativeBankCSV(faturaXp(['12/03/2026;MERCADOLIVRE*VENDEDORX;TITULAR;83,33;1 de 3']), xp, [], [], undefined, 'm1.csv').newTransactions,
+      parseNativeBankCSV(faturaXp(['12/03/2026;MERCADOLIVRE*VENDEDORX;TITULAR;83,33;1 de 3']), xp, [], [], new Date(2026, 3, 10), 'm1.csv').newTransactions,
       CARTAO,
       { 'MERCADOLIVRE*VENDEDORX': ['Cadeira de escritório', 'Trabalho'] }
     );
-    const lote = parseNativeBankCSV(faturaXp(['12/03/2026;MP *CADEIRAS LTDA;TITULAR;83,33;2 de 3']), xp, historico, [], undefined, 'm2.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['12/03/2026;MP *CADEIRAS LTDA;TITULAR;83,33;2 de 3']), xp, historico, [], new Date(2026, 4, 10), 'm2.csv').newTransactions;
     const [sugestao] = construirSugestoesDeParcela(lote, CARTAO, historico, { contaEhCartao: true });
 
     expect(sugestao.candidatos[0]).toMatchObject({ nomeFantasia: 'Cadeira de escritório', mesmaDataDeCompra: true, descricaoSemelhante: false });
@@ -138,10 +138,10 @@ describe('uso mensal — importação nativa (XP: coluna de parcela, data da com
 
   it('arredondamento do plano (33,34 + 33,33) continua reconhecido, marcado como diferença de centavo', () => {
     const historico = gravar(
-      parseNativeBankCSV(faturaXp(['02/02/2026;LOJA BETA;TITULAR;33,34;1 de 3']), xp, [], [], undefined, 'm1.csv').newTransactions,
+      parseNativeBankCSV(faturaXp(['02/02/2026;LOJA BETA;TITULAR;33,34;1 de 3']), xp, [], [], new Date(2026, 1, 10), 'm1.csv').newTransactions,
       CARTAO, { 'LOJA BETA': ['Presente', 'Presentes'] }
     );
-    const lote = parseNativeBankCSV(faturaXp(['02/02/2026;LOJA BETA;TITULAR;33,33;2 de 3']), xp, historico, [], undefined, 'm2.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['02/02/2026;LOJA BETA;TITULAR;33,33;2 de 3']), xp, historico, [], new Date(2026, 2, 10), 'm2.csv').newTransactions;
     const [sugestao] = construirSugestoesDeParcela(lote, CARTAO, historico, { contaEhCartao: true });
     expect(sugestao.candidatos[0].confianca).toBe('centavo');
     expect(evidenciasDoCandidato(sugestao.candidatos[0])).toContain('difere em R$ 0,01');
@@ -153,7 +153,7 @@ describe('duas compras diferentes com o mesmo valor', () => {
   const historico = gravar(
     parseNativeBankCSV(
       faturaXp(['05/01/2026;FARMACIA GAMA;TITULAR;50,00;1 de 4', '20/01/2026;LIVRARIA DELTA;TITULAR;50,00;1 de 4']),
-      xp, [], [], undefined, 'm1.csv'
+      xp, [], [], new Date(2026, 1, 10), 'm1.csv'
     ).newTransactions,
     CARTAO,
     { 'FARMACIA GAMA': ['Remédios', 'Saúde'], 'LIVRARIA DELTA': ['Livros do curso', 'Educação'] }
@@ -162,7 +162,7 @@ describe('duas compras diferentes com o mesmo valor', () => {
   it('cada 2/4 reconhece a SUA compra pela data, sem ambiguidade', () => {
     const lote = parseNativeBankCSV(
       faturaXp(['05/01/2026;FARMACIA GAMA;TITULAR;50,00;2 de 4', '20/01/2026;LIVRARIA DELTA;TITULAR;50,00;2 de 4']),
-      xp, historico, [], undefined, 'm2.csv'
+      xp, historico, [], new Date(2026, 2, 10), 'm2.csv'
     ).newTransactions;
     const sugestoes = construirSugestoesDeParcela(lote, CARTAO, historico, { contaEhCartao: true, repeteDataDeCompra: true });
 
@@ -175,11 +175,11 @@ describe('duas compras diferentes com o mesmo valor', () => {
     const historicoComDoisMeses = [
       ...historico,
       ...gravar(
-        parseNativeBankCSV(faturaXp(['05/01/2026;FARMACIA GAMA;TITULAR;50,00;2 de 4']), xp, [], [], undefined, 'm2.csv').newTransactions,
+        parseNativeBankCSV(faturaXp(['05/01/2026;FARMACIA GAMA;TITULAR;50,00;2 de 4']), xp, [], [], new Date(2026, 2, 10), 'm2.csv').newTransactions,
         CARTAO, { 'FARMACIA GAMA': ['Remédios', 'Saúde'] }
       ),
     ];
-    const lote = parseNativeBankCSV(faturaXp(['11/01/2026;PETSHOP OMEGA;TITULAR;50,00;2 de 4']), xp, historicoComDoisMeses, [], undefined, 'm3.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['11/01/2026;PETSHOP OMEGA;TITULAR;50,00;2 de 4']), xp, historicoComDoisMeses, [], new Date(2026, 3, 10), 'm3.csv').newTransactions;
 
     // O valor e o prazo coincidem, mas nada diz que é a mesma compra: nada a perguntar.
     expect(construirSugestoesDeParcela(lote, CARTAO, historicoComDoisMeses, { contaEhCartao: true, repeteDataDeCompra: true })).toEqual([]);
@@ -189,14 +189,14 @@ describe('duas compras diferentes com o mesmo valor', () => {
     const gemeas = gravar(
       parseNativeBankCSV(
         faturaXp(['09/02/2026;LOJA SIGMA;TITULAR;70,00;1 de 2', '09/02/2026;LOJA SIGMA;TITULAR;70,00;1 de 2']),
-        xp, [], [], undefined, 'm1.csv'
+        xp, [], [], new Date(2026, 1, 10), 'm1.csv'
       ).newTransactions,
       CARTAO
     );
     gemeas[0] = { ...gemeas[0], Nome_Fantasia: 'Tênis do Pedro', Categoria: 'Vestuário' };
     gemeas[1] = { ...gemeas[1], Nome_Fantasia: 'Presente da Ana', Categoria: 'Presentes' };
 
-    const lote = parseNativeBankCSV(faturaXp(['09/02/2026;LOJA SIGMA;TITULAR;70,00;2 de 2']), xp, gemeas, [], undefined, 'm2.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['09/02/2026;LOJA SIGMA;TITULAR;70,00;2 de 2']), xp, gemeas, [], new Date(2026, 2, 10), 'm2.csv').newTransactions;
     const [sugestao] = construirSugestoesDeParcela(lote, CARTAO, gemeas, { contaEhCartao: true });
 
     expect(sugestao.candidatos.map((c) => c.categoria).sort()).toEqual(['Presentes', 'Vestuário']);
@@ -217,7 +217,7 @@ describe('duas compras diferentes com o mesmo valor', () => {
   });
 
   it('outro cartão nunca candidata, mesmo com tudo igual', () => {
-    const lote = parseNativeBankCSV(faturaXp(['05/01/2026;FARMACIA GAMA;TITULAR;50,00;2 de 4']), xp, historico, [], undefined, 'm2.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['05/01/2026;FARMACIA GAMA;TITULAR;50,00;2 de 4']), xp, historico, [], new Date(2026, 2, 10), 'm2.csv').newTransactions;
     expect(construirSugestoesDeParcela(lote, OUTRO_CARTAO, historico, { contaEhCartao: true })).toEqual([]);
   });
 });
@@ -226,11 +226,11 @@ describe('histórico sem a numeração da parcela', () => {
   it('recuperável: lançamento antigo perdeu os campos, mas o texto do banco diz "Parcela 1/6"', () => {
     // Estado real de lançamentos editados antes da proteção de metadados:
     // Parcela_Atual/Total_Parcelas nulos, texto original preservado.
-    const janeiro = parseNativeBankCSV(faturaNubank(['2026-01-08,Loja Kappa - Parcela 1/6,"120,00"']), nubank, [], [], undefined, 'nu-jan.csv');
+    const janeiro = parseNativeBankCSV(faturaNubank(['2026-01-08,Loja Kappa - Parcela 1/6,"120,00"']), nubank, [], [], new Date(2026, 1, 10), 'nu-jan.csv');
     const historico = gravar(janeiro.newTransactions, CARTAO, { 'Loja Kappa - Parcela 1/6': ['Geladeira', 'Casa'] })
       .map((t) => ({ ...t, Parcela_Atual: undefined, Total_Parcelas: undefined, Fonte: 'Manual' }));
 
-    const fevereiro = parseNativeBankCSV(faturaNubank(['2026-01-08,Loja Kappa - Parcela 2/6,"120,00"']), nubank, historico, [], undefined, 'nu-fev.csv');
+    const fevereiro = parseNativeBankCSV(faturaNubank(['2026-01-08,Loja Kappa - Parcela 2/6,"120,00"']), nubank, historico, [], new Date(2026, 2, 10), 'nu-fev.csv');
     expect(fevereiro.newTransactions[0]).toMatchObject({ Parcela_Atual: 2, Total_Parcelas: 6 });
 
     const [sugestao] = construirSugestoesDeParcela(fevereiro.newTransactions, CARTAO, historico, { contaEhCartao: true });
@@ -276,12 +276,12 @@ describe('histórico sem a numeração da parcela', () => {
 
   it('compra anterior ainda sem categoria não é oferecida', () => {
     const historico = gravar(
-      parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], undefined, 'm1.csv').newTransactions, CARTAO
+      parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], new Date(2026, 1, 10), 'm1.csv').newTransactions, CARTAO
     );
     expect(historico[0].Categoria).toBe('-');
     // Renomeada, mas ainda sem categoria: não há classificação a reaproveitar.
     const renomeada = historico.map((t) => ({ ...t, Nome_Fantasia: 'Loja Alfa (a classificar)' }));
-    const lote = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, renomeada, [], undefined, 'm2.csv').newTransactions;
+    const lote = parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, renomeada, [], new Date(2026, 2, 10), 'm2.csv').newTransactions;
     expect(construirSugestoesDeParcela(lote, CARTAO, renomeada, { contaEhCartao: true })).toEqual([]);
     expect(construirSugestoesDeParcela(lote, CARTAO, renomeada.map((t) => ({ ...t, Categoria: '' })), { contaEhCartao: true })).toEqual([]);
   });
@@ -291,7 +291,7 @@ describe('importação manual (mapeamento de colunas)', () => {
   const manual = async (conteudo: string, nome: string, comColunaDeParcela: boolean) => {
     const silencio = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
-      return await processStatementFile(new File([conteudo], nome), null, [], [], undefined, {
+      return await processStatementFile(new File([conteudo], nome), null, [], [], new Date(2026, nome === 'fev.csv' ? 2 : 1, 10), {
         hasHeader: true,
         dateColumnIndex: 0,
         descriptionColumnIndicies: [1],
@@ -346,7 +346,7 @@ describe('importação manual (mapeamento de colunas)', () => {
 
 describe('integridade: a sugestão muda só Nome_Fantasia e Categoria', () => {
   const historico = gravar(
-    parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], undefined, 'm1.csv').newTransactions,
+    parseNativeBankCSV(faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;1 de 6']), xp, [], [], new Date(2026, 1, 10), 'm1.csv').newTransactions,
     CARTAO, { 'LOJA ALFA SP': ['Sofá da sala', 'Casa'] }
   );
   const lote = () => parseNativeBankCSV(
@@ -393,7 +393,7 @@ describe('integridade: a sugestão muda só Nome_Fantasia e Categoria', () => {
   it('parcela que já chega com a mesma descrição e categoria da irmã não gera pergunta', () => {
     const regra = [{ Texto_Contido_Descricao: 'LOJA ALFA', Nome_Fantasia_Sugerido: 'Sofá da sala', Categoria_Sugerida: 'Casa' }];
     const jaClassificado = parseNativeBankCSV(
-      faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, historico, regra as never, undefined, 'm2.csv'
+      faturaXp(['05/01/2026;LOJA ALFA SP;TITULAR;100,00;2 de 6']), xp, historico, regra as never, new Date(2026, 2, 10), 'm2.csv'
     ).newTransactions;
     expect(jaClassificado[0]).toMatchObject({ Nome_Fantasia: 'Sofá da sala', Categoria: 'Casa' });
     expect(construirSugestoesDeParcela(jaClassificado, CARTAO, historico, { contaEhCartao: true })).toEqual([]);

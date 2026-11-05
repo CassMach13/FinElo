@@ -24,7 +24,6 @@ import SaveConfigModal from '../modals/SaveConfigModal';
 import {
   getDistinctCardImportReferenceMonths,
   resolveAutomaticCardReferenceMonth,
-  resolveCardImportCycleCoordinates,
 } from '../../utils/cardImportReference';
 import { buildFileImportFingerprint } from '../../utils/importBatchIntegrity';
 import {
@@ -36,11 +35,6 @@ import {
 import InstallmentSuggestionModal, {
   type EscolhasDeParcela,
 } from '../modals/InstallmentSuggestionModal';
-
-function mesDoCiclo(input?: CardImportCycleInput): string | undefined {
-  const { dueDate, purchaseReferenceLabel } = resolveCardImportCycleCoordinates(input);
-  return dueDate?.slice(0, 7) ?? purchaseReferenceLabel;
-}
 
 // --- BankCard: reusable card with favorite star toggle ---
 interface BankCardProps {
@@ -160,19 +154,17 @@ const ImportView: React.FC = () => {
     const estado = useAppStore.getState();
     const conta = estado.accounts.find((item) => item.id === contaDestino);
     const contaEhCartao = origemEhCartao || conta?.Tipo_Conta === 'Cartão de Crédito';
-    const cicloDaFatura = mesDoCiclo(cardCycle);
-    const ciclosPorLote = new Map<string, string>();
-    if (cicloDaFatura) {
+    const ciclosPorLote = new Map<string, CardImportCycleInput>();
+    if (contaEhCartao) {
       for (const lote of estado.importLogs) {
         if (!lote.id || !Array.isArray(lote.imported_details)) continue;
         const meta = lote.imported_details.find((item) => item?.Card_Reference_Label || item?.Card_Due_Date);
-        const ciclo = mesDoCiclo({ referenceLabel: meta?.Card_Reference_Label, dueDate: meta?.Card_Due_Date });
-        if (ciclo) ciclosPorLote.set(lote.id, ciclo);
+        if (meta) ciclosPorLote.set(lote.id, { referenceLabel: meta.Card_Reference_Label, dueDate: meta.Card_Due_Date });
       }
     }
     const sugestoes = construirSugestoesDeParcela(novas, contaDestino, estado.transactions, {
       contaEhCartao,
-      cicloDaFatura,
+      cicloDaFatura: cardCycle,
       ciclosPorLote,
       repeteDataDeCompra: (bancoNativo ?? conta?.bank_id) === 'cartao-xp',
     });
