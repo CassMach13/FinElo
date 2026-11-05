@@ -52,9 +52,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
                 <div className="flex items-center gap-2">
                     <h3 data-appearance-part="summary-label" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">{title}</h3>
                     {tooltip && (
-                        <div data-appearance-part="tooltip-trigger" className="group/tooltip relative">
+                        <div data-finance="dashboard-hint-trigger" tabIndex={0} role="img" aria-label={(tooltip) + " " + "Informação sobre este indicador"} data-appearance-part="tooltip-trigger" className="group/tooltip relative">
                             <InformationCircleIcon className="h-3.5 w-3.5 text-gray-600 hover:text-gray-300 cursor-help transition-colors" />
-                            <div data-appearance-part="tooltip" className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden w-48 p-3 bg-slate-950/98 backdrop-blur-2xl text-[10px] leading-relaxed text-gray-300 rounded-xl shadow-2xl border border-white/10 group-hover/tooltip:block z-[9999] pointer-events-none">
+                            <div data-finance="dashboard-hint" role="tooltip" data-appearance-part="tooltip" className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden w-48 p-3 bg-slate-950/98 backdrop-blur-2xl text-[10px] leading-relaxed text-gray-300 rounded-xl shadow-2xl border border-white/10 group-hover/tooltip:block z-[9999] pointer-events-none">
                                 {tooltip}
                                 <div data-appearance-part="tooltip-arrow" className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/10"></div>
                             </div>

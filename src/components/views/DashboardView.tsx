@@ -1,3 +1,5 @@
+import '../appearance/dashboard.css';
+import DashboardTourAppearance from '../appearance/DashboardTourAppearance';
 import { selectCurrentNetWorthScope } from '../../domain/dashboard/currentNetWorth';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from './../../hooks/useAppStore';
@@ -755,15 +757,15 @@ const DashboardView: React.FC = () => {
         aria-live="polite"
       >
         <div>
-          <div className="h-9 w-64 max-w-full animate-pulse rounded-lg bg-slate-700/50" />
-          <div className="mt-3 h-4 w-96 max-w-full animate-pulse rounded bg-slate-700/40" />
+          <div data-finance="dashboard-skeleton" className="h-9 w-64 max-w-full animate-pulse rounded-lg bg-slate-700/50" />
+          <div data-finance="dashboard-skeleton" className="mt-3 h-4 w-96 max-w-full animate-pulse rounded bg-slate-700/40" />
         </div>
-        <div className="rounded-xl border border-slate-700/60 bg-secondary p-6 shadow-lg">
+        <div data-finance="divider inset" className="rounded-xl border border-slate-700/60 bg-secondary p-6 shadow-lg">
           <div className="flex items-center gap-3">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+            <div data-finance="spinner" className="h-5 w-5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
             <div>
-              <p className="font-semibold text-light">Carregando seus dados financeiros…</p>
-              <p className="mt-1 text-sm text-slate-400">
+              <p data-finance="content" className="font-semibold text-light">Carregando seus dados financeiros…</p>
+              <p data-finance="muted" className="mt-1 text-sm text-slate-400">
                 Seus lançamentos permanecem seguros enquanto preparamos o painel.
               </p>
             </div>
@@ -771,7 +773,7 @@ const DashboardView: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {[0, 1, 2].map((item) => (
-            <div key={item} className="h-32 animate-pulse rounded-xl border border-slate-700/50 bg-secondary" />
+            <div data-finance="dashboard-skeleton" key={item} className="h-32 animate-pulse rounded-xl border border-slate-700/50 bg-secondary" />
           ))}
         </div>
       </div>
@@ -781,12 +783,12 @@ const DashboardView: React.FC = () => {
   if (dashboardDataDisplayState === 'error') {
     return (
       <div id="dashboard-load-error" className="pb-12" role="alert">
-        <div className="rounded-xl border border-amber-500/30 bg-secondary p-6 shadow-lg">
-          <h2 className="text-xl font-bold text-light">Não foi possível concluir a atualização</h2>
-          <p className="mt-2 max-w-2xl text-sm text-slate-300">
+        <div data-finance="inset" className="rounded-xl border border-amber-500/30 bg-secondary p-6 shadow-lg">
+          <h2 data-finance="content" className="text-xl font-bold text-light">Não foi possível concluir a atualização</h2>
+          <p data-finance="muted" className="mt-2 max-w-2xl text-sm text-slate-300">
             Nenhum dado foi apagado. Evitamos mostrar valores incompletos; tente carregar o painel novamente.
           </p>
-          <button
+          <button data-finance="content action"
             type="button"
             onClick={() => void fetchAllData()}
             className="mt-5 rounded-lg bg-accent px-5 py-2 font-semibold text-white transition-colors hover:bg-accent/80"
@@ -799,15 +801,16 @@ const DashboardView: React.FC = () => {
   }
 
   return (
-    <div id="dashboard-content" className="space-y-8 print:space-y-4 pb-12">
+    <div data-finance="dashboard-view" id="dashboard-content" className="space-y-8 print:space-y-4 pb-12">
+      <DashboardTourAppearance/>
 
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row justify-between items-end gap-6 pb-2 no-print">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
-            {greeting}, <span className="text-accent">{displayName}</span>
+          <h1 data-finance="content" className="text-3xl font-bold text-white tracking-tight mb-2">
+            {greeting}, <span data-finance="positive" className="text-accent">{displayName}</span>
           </h1>
-          <p className="text-gray-400">Aqui está o resumo da sua saúde financeira hoje.</p>
+          <p data-finance="muted" className="text-gray-400">Aqui está o resumo da sua saúde financeira hoje.</p>
           {ownerScope && (
             <div className="mt-3">
               <DashboardOwnerSelector
@@ -822,14 +825,14 @@ const DashboardView: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <div className="hidden sm:block text-right mr-4">
-            <div className="text-xs text-gray-500 uppercase font-bold tracking-wider">
+            <div data-finance="muted" className="text-xs text-gray-500 uppercase font-bold tracking-wider">
               {compareEnabled ? 'Comparando períodos' : 'Período selecionado'}
             </div>
-            <div className="text-sm font-medium text-white">
+            <div data-finance="content" className="text-sm font-medium text-white">
               {compareEnabled ? (
                 <>
-                  <span className="text-accent">{dateLabelShort}</span>
-                  <span className="text-gray-500 mx-1.5">vs</span>
+                  <span data-finance="positive" className="text-accent">{dateLabelShort}</span>
+                  <span data-finance="muted" className="text-gray-500 mx-1.5">vs</span>
                   <span>{compareDateLabelShort}</span>
                 </>
               ) : (
@@ -847,13 +850,13 @@ const DashboardView: React.FC = () => {
         os números. Invisível na tela (`hidden`), visível ao imprimir (`print:block`).
       */}
       <div id="dashboard-print-header" className="hidden print:block">
-        <p className="text-sm text-gray-400">{printHeader.title}</p>
-        <p className="text-lg text-white">{printHeader.period}</p>
-        {printHeader.compare && <p className="text-sm text-gray-300">{printHeader.compare}</p>}
+        <p data-finance="muted" className="text-sm text-gray-400">{printHeader.title}</p>
+        <p data-finance="content" className="text-lg text-white">{printHeader.period}</p>
+        {printHeader.compare && <p data-finance="muted" className="text-sm text-gray-300">{printHeader.compare}</p>}
       </div>
 
       {ownerScope && ownerScope.kind !== 'self' && (
-        <div
+        <div data-finance={(ownerScope.kind === 'family' ? "warning warning-panel" : "investment investment-panel")}
           data-dashboard-scope-banner={ownerScope.kind}
           role="status"
           className={`rounded-xl border px-4 py-2.5 text-sm ${ownerScope.kind === 'family' ? 'border-amber-400/30 bg-amber-400/10 text-amber-100' : 'border-violet-400/30 bg-violet-500/10 text-violet-100'}`}
@@ -888,7 +891,7 @@ const DashboardView: React.FC = () => {
       )}
       {firstSteps.canResume && (
         <div className="flex justify-end mb-4 no-print">
-          <button
+          <button data-finance="positive"
             type="button"
             onClick={handleFirstStepsResume}
             className="text-sm font-medium text-accent hover:text-accent/80 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
@@ -900,27 +903,27 @@ const DashboardView: React.FC = () => {
 
       {/* Family Invites Banner */}
       {pendingInvites.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 rounded-xl p-5 border border-blue-500/30 shadow-xl mb-6 flex flex-col lg:flex-row items-center justify-between gap-6 animate-fade-in-up overflow-hidden">
+        <div data-finance="info-panel" className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 rounded-xl p-5 border border-blue-500/30 shadow-xl mb-6 flex flex-col lg:flex-row items-center justify-between gap-6 animate-fade-in-up overflow-hidden">
           <div className="flex items-center gap-4 text-center lg:text-left flex-1 min-w-0">
-            <div className="bg-blue-500/20 p-3 rounded-full flex-shrink-0 hidden sm:flex">
+            <div data-finance="info-panel" className="bg-blue-500/20 p-3 rounded-full flex-shrink-0 hidden sm:flex">
               <span className="text-2xl">👨‍👩‍👧‍👦</span>
             </div>
             <div className="min-w-0">
-              <h3 className="text-lg font-bold text-white leading-tight">Convite para Plano Família</h3>
-              <p className="text-blue-100/70 text-sm mt-1 leading-relaxed">
+              <h3 data-finance="content" className="text-lg font-bold text-white leading-tight">Convite para Plano Família</h3>
+              <p data-finance="info" className="text-blue-100/70 text-sm mt-1 leading-relaxed">
                 O usuário <b>{pendingInvites[0].owner_email || 'Um usuário'}</b> te convidou para compartilhar uma conta premium.
                 Aceite para herdar os benefícios e visualizar as contas compartilhadas.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 w-full lg:w-auto shrink-0 justify-center">
-            <button
+            <button data-finance="content divider secondary"
               onClick={() => respondToInvite(pendingInvites[0].id, 'declined')}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-lg transition-colors border border-white/10 text-sm whitespace-nowrap"
             >
               Recusar
             </button>
-            <button
+            <button data-finance="content action"
               onClick={() => respondToInvite(pendingInvites[0].id, 'accepted')}
               className="px-6 py-2 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-lg transition-all shadow-lg shadow-blue-500/20 text-sm whitespace-nowrap"
             >
@@ -932,26 +935,26 @@ const DashboardView: React.FC = () => {
 
       {/* Asset Review Alert */}
       {viewingOwnData && showAssetReviewAlert && scopedAssets.length > 0 && !scopedAssets.some(a => a.is_financed) && (
-        <div className="bg-gradient-to-r from-amber-600/30 to-orange-700/30 rounded-xl p-5 border border-amber-500/30 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
+        <div data-finance="warning-panel" className="bg-gradient-to-r from-amber-600/30 to-orange-700/30 rounded-xl p-5 border border-amber-500/30 shadow-lg mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up">
           <div className="flex items-center gap-4">
-            <div className="bg-amber-500/20 p-3 rounded-full flex-shrink-0">
+            <div data-finance="warning-panel" className="bg-amber-500/20 p-3 rounded-full flex-shrink-0">
                 <span className="text-2xl">🚜</span>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Revise seus Patrimônios</h3>
-              <p className="text-amber-100/80 text-sm">
+              <h3 data-finance="content" className="text-lg font-bold text-white">Revise seus Patrimônios</h3>
+              <p data-finance="warning" className="text-amber-100/80 text-sm">
                 Agora você pode detalhar <b>financiamentos e dívidas</b> dos seus bens para ver seu Patrimônio Líquido real!
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <button data-finance="warning"
                onClick={handleDismissAssetAlert}
                className="text-xs text-amber-200/50 hover:text-white transition-colors underline px-2"
             >
               Ignorar
             </button>
-            <button
+            <button data-finance="muted secondary"
               onClick={() => setCurrentView('settings')}
               className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg transition-all shadow-md shadow-amber-500/20 text-sm whitespace-nowrap"
             >
@@ -969,14 +972,14 @@ const DashboardView: React.FC = () => {
                 <span className="text-2xl">🏦</span>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Identifique seus bancos</h3>
+              <h3 data-finance="content" className="text-lg font-bold text-white">Identifique seus bancos</h3>
               <p className="text-highlight/80 text-sm">
                 Seus cards de conta ficarão muito mais bonitos com os <b>logos oficiais</b>. Configure agora!
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <button data-finance="content"
               onClick={() => {
                 const firstAccount = accountsWithMissingBank[0];
                 setEditingAccount(firstAccount);
@@ -991,22 +994,22 @@ const DashboardView: React.FC = () => {
       )}
 
       {/* Filters Bar */}
-      <div id="dashboard-header" className="bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-white/5 shadow-lg print:hidden space-y-2">
+      <div data-finance="divider inset" id="dashboard-header" className="bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-white/5 shadow-lg print:hidden space-y-2">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           {viewMode === 'custom' ? (
             <div className="flex items-center gap-2 p-2 w-full sm:w-auto">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 shrink-0">Principal</span>
+              <span data-finance="muted" className="text-[10px] font-bold uppercase tracking-wider text-gray-500 shrink-0">Principal</span>
               <Input type="date" value={customDateRange.start} onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
-              <span className="text-gray-400">até</span>
+              <span data-finance="muted" className="text-gray-400">até</span>
               <Input type="date" value={customDateRange.end} onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
-              <button onClick={() => handleNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+            <div data-finance="inset" className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
+              <button data-finance="muted" onClick={() => handleNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <span className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{dateLabel}</span>
-              <button onClick={() => handleNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+              <span data-finance="content" className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{dateLabel}</span>
+              <button data-finance="muted" onClick={() => handleNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
@@ -1034,24 +1037,24 @@ const DashboardView: React.FC = () => {
         </div>
 
         {compareEnabled && (
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 px-2 pb-1 border-t border-white/5 pt-2">
+          <div data-finance="divider" className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 px-2 pb-1 border-t border-white/5 pt-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Comparar com</span>
-              <button
+              <span data-finance="muted" className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Comparar com</span>
+              <button data-finance={(comparePreset === 'previous' ? "positive action" : "muted divider secondary")}
                 type="button"
                 onClick={() => handleComparePresetChange('previous')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comparePreset === 'previous' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-black/20 text-gray-400 hover:text-white border border-white/5'}`}
               >
                 Período anterior
               </button>
-              <button
+              <button data-finance={(comparePreset === 'year_over_year' ? "positive action" : "muted divider secondary")}
                 type="button"
                 onClick={() => handleComparePresetChange('year_over_year')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comparePreset === 'year_over_year' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-black/20 text-gray-400 hover:text-white border border-white/5'}`}
               >
                 Mesmo período, ano anterior
               </button>
-              <button
+              <button data-finance={(comparePreset === 'custom' ? "positive action" : "muted divider secondary")}
                 type="button"
                 onClick={() => handleComparePresetChange('custom')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comparePreset === 'custom' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-black/20 text-gray-400 hover:text-white border border-white/5'}`}
@@ -1064,16 +1067,16 @@ const DashboardView: React.FC = () => {
               viewMode === 'custom' ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   <Input type="date" value={compareCustomDateRange.start} onChange={(e) => setCompareCustomDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
-                  <span className="text-gray-400">até</span>
+                  <span data-finance="muted" className="text-gray-400">até</span>
                   <Input type="date" value={compareCustomDateRange.end} onChange={(e) => setCompareCustomDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-36 bg-black/20 border-white/10" />
                 </div>
               ) : (
-                <div className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
-                  <button onClick={() => handleCompareNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                <div data-finance="inset" className="flex items-center gap-2 bg-black/20 rounded-xl p-1 w-full sm:w-auto justify-between sm:justify-start">
+                  <button data-finance="muted" onClick={() => handleCompareNavigate('prev')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                   </button>
-                  <span className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{compareDateLabel}</span>
-                  <button onClick={() => handleCompareNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                  <span data-finance="content" className="text-sm font-bold text-white capitalize w-32 text-center select-none truncate">{compareDateLabel}</span>
+                  <button data-finance="muted" onClick={() => handleCompareNavigate('next')} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
@@ -1081,7 +1084,7 @@ const DashboardView: React.FC = () => {
             )}
 
             {comparePreset !== 'custom' && (
-              <span className="text-xs text-gray-500 lg:ml-auto">{compareDateLabel}</span>
+              <span data-finance="muted" className="text-xs text-gray-500 lg:ml-auto">{compareDateLabel}</span>
             )}
           </div>
         )}
@@ -1172,7 +1175,7 @@ const DashboardView: React.FC = () => {
         <div id="dashboard-budgets" className="grid grid-cols-1 gap-6">
         <Card title="Monitoramento de Orçamento">
           <div className="-mt-3 mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
-            <p className="min-w-0 text-xs text-gray-400">
+            <p data-finance="muted" className="min-w-0 text-xs text-gray-400">
               {budgetStatus.length > 0 ? 'Categorias com orçamento no período selecionado.' : ''}
             </p>
             <Button variant="secondary" className="!px-4 !py-2 text-sm" onClick={() => setBudgetManagerOpen(true)}>
@@ -1182,13 +1185,13 @@ const DashboardView: React.FC = () => {
           {budgetStatus.length > 0 ? (
             <div className="space-y-4">
               {compareEnabled && (
-                <p className="text-[10px] text-gray-500 pb-2 border-b border-slate-700/50">
-                  <span className="text-accent font-semibold">{dateLabelShort}</span>
+                <p data-finance="muted divider" className="text-[10px] text-gray-500 pb-2 border-b border-slate-700/50">
+                  <span data-finance="positive" className="text-accent font-semibold">{dateLabelShort}</span>
                   <span className="mx-1.5">vs</span>
-                  <span className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
+                  <span data-finance="muted" className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
                 </p>
               )}
-              <div className="flex flex-wrap gap-4 mb-4 text-[10px] text-gray-400 border-b border-slate-700/50 pb-3">
+              <div data-finance="muted divider" className="flex flex-wrap gap-4 mb-4 text-[10px] text-gray-400 border-b border-slate-700/50 pb-3">
                 {[
                   {
                     color: 'bg-accent',
@@ -1206,10 +1209,10 @@ const DashboardView: React.FC = () => {
                     explicacao: 'Ritmo de gastos muito alto — mais de 20% acima do esperado para a data atual — ou limite já estourado.',
                   },
                 ].map(({ color, label, explicacao }) => (
-                  <div key={label} className="group/legend relative flex items-center gap-1.5 cursor-help">
-                    <div className={`w-2 h-2 rounded-full ${color}`}></div>
+                  <div data-finance="dashboard-hint-trigger" tabIndex={0} role="img" aria-label={(explicacao)} key={label} className="group/legend relative flex items-center gap-1.5 cursor-help">
+                    <div data-finance={color === 'bg-accent' ? 'positive-line' : color === 'bg-danger' ? 'negative-line' : 'warning-line'} className={`w-2 h-2 rounded-full ${color}`}></div>
                     <span>{label}</span>
-                    <div className="absolute left-0 top-full mt-2 hidden w-56 p-3 bg-slate-950/98 backdrop-blur-xl text-[10px] leading-relaxed text-slate-300 normal-case rounded-xl shadow-2xl border border-white/10 group-hover/legend:block z-[9999] pointer-events-none">
+                    <div role="tooltip" data-finance="muted divider inset dashboard-hint" className="absolute left-0 top-full mt-2 hidden w-56 p-3 bg-slate-950/98 backdrop-blur-xl text-[10px] leading-relaxed text-slate-300 normal-case rounded-xl shadow-2xl border border-white/10 group-hover/legend:block z-[9999] pointer-events-none">
                       {explicacao}
                     </div>
                   </div>
@@ -1228,7 +1231,7 @@ const DashboardView: React.FC = () => {
                     : null;
 
                 return (
-                  <div className="pb-4 mb-1 border-b border-slate-700/50">
+                  <div data-finance="divider" className="pb-4 mb-1 border-b border-slate-700/50">
                     <div
                       className={`grid gap-3 items-center ${
                         compareEnabled
@@ -1236,7 +1239,7 @@ const DashboardView: React.FC = () => {
                           : 'grid-cols-1 sm:grid-cols-4'
                       }`}
                     >
-                      <span className="font-bold text-light">Categorias com orçamento</span>
+                      <span data-finance="content" className="font-bold text-light">Categorias com orçamento</span>
                       <div className={compareEnabled ? '' : 'col-span-2'}>
                         <ProgressBar
                           value={budgetTotal.spent}
@@ -1247,11 +1250,11 @@ const DashboardView: React.FC = () => {
                       {compareEnabled && compareBudgetTotal ? (
                         <>
                           <div className="rounded-lg px-3 py-2.5 text-right bg-accent/[0.06] border border-accent/20 min-w-0">
-                            <p className="text-[9px] font-bold uppercase text-accent truncate mb-1">
+                            <p data-finance="positive" className="text-[9px] font-bold uppercase text-accent truncate mb-1">
                               {dateLabelShort}
                             </p>
                             <p className="text-sm leading-tight tabular-nums">
-                              <span
+                              <span data-finance={(budgetTotal.spent > budgetTotal.limit ? "negative" : "content")}
                                 className={
                                   budgetTotal.spent > budgetTotal.limit
                                     ? 'text-danger font-bold'
@@ -1260,15 +1263,15 @@ const DashboardView: React.FC = () => {
                               >
                                 {formatCurrency(budgetTotal.spent)}
                               </span>
-                              <span className="text-gray-500 text-xs">
+                              <span data-finance="muted" className="text-gray-500 text-xs">
                                 {' '}
                                 / {formatCurrency(budgetTotal.limit)}
                               </span>
                             </p>
-                            <p className="text-[10px] text-gray-400">{totalConsumedPct}% consumido</p>
-                            <p className="text-[10px] text-gray-400">{budgetTotalRemaining.kind === 'remaining' ? `Restam ${formatCurrency(budgetTotalRemaining.amount)}` : `${formatCurrency(budgetTotalRemaining.amount)} acima`}</p>
+                            <p data-finance="muted" className="text-[10px] text-gray-400">{totalConsumedPct}% consumido</p>
+                            <p data-finance="muted" className="text-[10px] text-gray-400">{budgetTotalRemaining.kind === 'remaining' ? `Restam ${formatCurrency(budgetTotalRemaining.amount)}` : `${formatCurrency(budgetTotalRemaining.amount)} acima`}</p>
                             {compareTotalDelta && (
-                              <p
+                              <p data-finance={(compareTotalDelta.tone === 'positive' ? "positive" : (compareTotalDelta.tone === 'negative' ? "negative" : "muted"))}
                                 className={`text-[10px] font-semibold mt-1 ${
                                   compareTotalDelta.tone === 'positive'
                                     ? 'text-accent'
@@ -1281,20 +1284,20 @@ const DashboardView: React.FC = () => {
                               </p>
                             )}
                           </div>
-                          <div className="rounded-lg px-3 py-2.5 text-right bg-black/25 border border-white/8 min-w-0">
-                            <p className="text-[9px] font-bold uppercase text-slate-400 truncate mb-1">
+                          <div data-finance="divider inset" className="rounded-lg px-3 py-2.5 text-right bg-black/25 border border-white/8 min-w-0">
+                            <p data-finance="muted" className="text-[9px] font-bold uppercase text-slate-400 truncate mb-1">
                               {compareDateLabelShort}
                             </p>
-                            <p className="text-sm text-slate-300 font-semibold tabular-nums">
+                            <p data-finance="muted" className="text-sm text-slate-300 font-semibold tabular-nums">
                               {formatCurrency(compareBudgetTotal.spent)}
                             </p>
-                            <p className="text-[10px] text-gray-500">gasto no período</p>
+                            <p data-finance="muted" className="text-[10px] text-gray-500">gasto no período</p>
                           </div>
                         </>
                       ) : (
                         <div className="col-span-1 text-right flex flex-col justify-center gap-0.5">
                           <div className="text-sm leading-tight">
-                            <span
+                            <span data-finance={(budgetTotal.spent > budgetTotal.limit ? "negative" : "muted")}
                               className={
                                 budgetTotal.spent > budgetTotal.limit
                                   ? 'text-danger font-bold'
@@ -1303,13 +1306,13 @@ const DashboardView: React.FC = () => {
                             >
                               {formatCurrency(budgetTotal.spent)}
                             </span>
-                            <span className="text-gray-500 hidden sm:inline">
+                            <span data-finance="muted" className="text-gray-500 hidden sm:inline">
                               {' '}
                               / {formatCurrency(budgetTotal.limit)}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-400">{totalConsumedPct}% consumido</div>
-                          <div className="text-xs text-gray-300">{budgetTotalRemaining.kind === 'remaining' ? `Restam ${formatCurrency(budgetTotalRemaining.amount)}` : `${formatCurrency(budgetTotalRemaining.amount)} acima`}</div>
+                          <div data-finance="muted" className="text-xs text-gray-400">{totalConsumedPct}% consumido</div>
+                          <div data-finance="muted" className="text-xs text-gray-300">{budgetTotalRemaining.kind === 'remaining' ? `Restam ${formatCurrency(budgetTotalRemaining.amount)}` : `${formatCurrency(budgetTotalRemaining.amount)} acima`}</div>
                         </div>
                       )}
                     </div>
@@ -1342,9 +1345,9 @@ const DashboardView: React.FC = () => {
                           : 'grid-cols-1 sm:grid-cols-4'
                       }`}
                     >
-                      <span className="min-w-0 break-words font-semibold text-light">
+                      <span data-finance="content" className="min-w-0 break-words font-semibold text-light">
                         {item.Categoria}
-                        {itemOwnerLabel && <span className="block text-[10px] font-normal text-gray-400">{itemOwnerLabel}</span>}
+                        {itemOwnerLabel && <span data-finance="muted" className="block text-[10px] font-normal text-gray-400">{itemOwnerLabel}</span>}
                       </span>
                       <div className={compareEnabled ? '' : 'col-span-2'}>
                         <ProgressBar
@@ -1356,26 +1359,26 @@ const DashboardView: React.FC = () => {
                       {compareEnabled ? (
                         <>
                           <div className="rounded-lg px-3 py-2.5 text-right bg-accent/[0.06] border border-accent/20 min-w-0">
-                            <p className="text-[9px] font-bold uppercase text-accent truncate mb-1">
+                            <p data-finance="positive" className="text-[9px] font-bold uppercase text-accent truncate mb-1">
                               {dateLabelShort}
                             </p>
                             <p className="text-sm leading-tight tabular-nums">
-                              <span
+                              <span data-finance={(item.spent > item.adjustedLimit ? "negative" : "content")}
                                 className={
                                   item.spent > item.adjustedLimit ? 'text-danger font-bold' : 'text-gray-200'
                                 }
                               >
                                 {formatCurrency(item.spent)}
                               </span>
-                              <span className="text-gray-500 text-xs">
+                              <span data-finance="muted" className="text-gray-500 text-xs">
                                 {' '}
                                 / {formatCurrency(item.adjustedLimit)}
                               </span>
                             </p>
-                            <p className="text-[10px] text-gray-400">{consumedPct}% consumido</p>
-                            <p className="text-[10px] text-gray-400">{itemRemaining.kind === 'remaining' ? `Restam ${formatCurrency(itemRemaining.amount)}` : `${formatCurrency(itemRemaining.amount)} acima`}</p>
+                            <p data-finance="muted" className="text-[10px] text-gray-400">{consumedPct}% consumido</p>
+                            <p data-finance="muted" className="text-[10px] text-gray-400">{itemRemaining.kind === 'remaining' ? `Restam ${formatCurrency(itemRemaining.amount)}` : `${formatCurrency(itemRemaining.amount)} acima`}</p>
                             {spentDelta && (
-                              <p
+                              <p data-finance={(spentDelta.tone === 'positive' ? "positive" : (spentDelta.tone === 'negative' ? "negative" : "muted"))}
                                 className={`text-[10px] font-semibold mt-1 ${
                                   spentDelta.tone === 'positive'
                                     ? 'text-accent'
@@ -1388,33 +1391,33 @@ const DashboardView: React.FC = () => {
                               </p>
                             )}
                           </div>
-                          <div className="rounded-lg px-3 py-2.5 text-right bg-black/25 border border-white/8 min-w-0">
-                            <p className="text-[9px] font-bold uppercase text-slate-400 truncate mb-1">
+                          <div data-finance="divider inset" className="rounded-lg px-3 py-2.5 text-right bg-black/25 border border-white/8 min-w-0">
+                            <p data-finance="muted" className="text-[9px] font-bold uppercase text-slate-400 truncate mb-1">
                               {compareDateLabelShort}
                             </p>
-                            <p className="text-sm text-slate-300 font-semibold tabular-nums">
+                            <p data-finance="muted" className="text-sm text-slate-300 font-semibold tabular-nums">
                               {formatCurrency(compareSpent)}
                             </p>
-                            <p className="text-[10px] text-gray-500">gasto no período</p>
+                            <p data-finance="muted" className="text-[10px] text-gray-500">gasto no período</p>
                           </div>
                         </>
                       ) : (
                         <div className="col-span-1 text-right flex flex-col justify-center gap-0.5">
                           <div className="text-sm leading-tight">
-                            <span
+                            <span data-finance={(item.spent > item.adjustedLimit ? "negative" : "muted")}
                               className={
                                 item.spent > item.adjustedLimit ? 'text-danger font-bold' : 'text-gray-300'
                               }
                             >
                               {formatCurrency(item.spent)}
                             </span>
-                            <span className="text-gray-500 hidden sm:inline">
+                            <span data-finance="muted" className="text-gray-500 hidden sm:inline">
                               {' '}
                               / {formatCurrency(item.adjustedLimit)}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-400">{consumedPct}% consumido</div>
-                          <div className="text-xs text-gray-300">{itemRemaining.kind === 'remaining' ? `Restam ${formatCurrency(itemRemaining.amount)}` : `${formatCurrency(itemRemaining.amount)} acima`}</div>
+                          <div data-finance="muted" className="text-xs text-gray-400">{consumedPct}% consumido</div>
+                          <div data-finance="muted" className="text-xs text-gray-300">{itemRemaining.kind === 'remaining' ? `Restam ${formatCurrency(itemRemaining.amount)}` : `${formatCurrency(itemRemaining.amount)} acima`}</div>
                         </div>
                       )}
                     </div>
@@ -1424,7 +1427,7 @@ const DashboardView: React.FC = () => {
             </div>
           ) : (
             <div className="py-4 text-center">
-              <p className="text-gray-400">Defina limites por categoria para acompanhar o mês.</p>
+              <p data-finance="muted" className="text-gray-400">Defina limites por categoria para acompanhar o mês.</p>
             </div>
           )}
         </Card>
@@ -1447,18 +1450,18 @@ const DashboardView: React.FC = () => {
 
         <Card title="Método 50-30-20 (Saúde Financeira)" className="relative overflow-hidden">
           <div className="mb-4 space-y-2">
-            <p className="text-sm text-gray-400">
+            <p data-finance="muted" className="text-sm text-gray-400">
               Analisa como sua renda líquida está distribuída entre Necessidades, Estilo de Vida e Investimentos.
             </p>
             {compareEnabled && (
-              <p className="text-[10px] text-gray-500">
-                <span className="text-accent font-semibold">{dateLabelShort}</span>
+              <p data-finance="muted" className="text-[10px] text-gray-500">
+                <span data-finance="positive" className="text-accent font-semibold">{dateLabelShort}</span>
                 <span className="mx-1.5">vs</span>
-                <span className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
+                <span data-finance="muted" className="text-slate-300 font-semibold">{compareDateLabelShort}</span>
               </p>
             )}
           </div>
-          <div className={!isPremium ? "blur-md opacity-40 pointer-events-none select-none" : ""}>
+          <div inert={!isPremium} className={!isPremium ? "blur-md opacity-40 pointer-events-none select-none" : ""}>
             <Rule503020Widget
               income={summary.income}
               operationalExpenses={chartData}
@@ -1480,11 +1483,11 @@ const DashboardView: React.FC = () => {
           </div>
           {!isPremium && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center mt-8 no-print">
-              <div className="bg-slate-900/90 backdrop-blur-sm border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
-                <svg className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                <h3 className="text-lg font-bold text-white mb-2">Diagnóstico Inteligente</h3>
-                <p className="text-sm text-gray-300 mb-4">Descubra sua nota de saúde financeira e se está gastando demais em estilo de vida com o plano Premium.</p>
-                <button onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-colors shadow-[0_0_15px_rgba(234,179,8,0.3)] text-sm">Seja Premium Mantenha o Foco</button>
+              <div data-finance="inset" className="bg-slate-900/90 backdrop-blur-sm border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
+                <svg data-finance="warning" className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <h3 data-finance="content" className="text-lg font-bold text-white mb-2">Diagnóstico Inteligente</h3>
+                <p data-finance="muted" className="text-sm text-gray-300 mb-4">Descubra sua nota de saúde financeira e se está gastando demais em estilo de vida com o plano Premium.</p>
+                <button data-finance="muted action" onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-colors shadow-[0_0_15px_rgba(234,179,8,0.3)] text-sm">Seja Premium Mantenha o Foco</button>
               </div>
             </div>
           )}
@@ -1517,7 +1520,7 @@ const DashboardView: React.FC = () => {
             revision={creditCardEngineRevision}
           />
         ) : ownerScope && ownerInvestments.status === 'loading' ? (
-          <div data-networth-loading="" role="status" className="rounded-xl border border-slate-700/60 bg-secondary p-6 text-sm text-slate-300">
+          <div data-finance="muted divider inset" data-networth-loading="" role="status" className="rounded-xl border border-slate-700/60 bg-secondary p-6 text-sm text-slate-300">
             Calculando o patrimônio de {ownerScope.label}…
           </div>
         ) : (
@@ -1563,7 +1566,7 @@ const DashboardView: React.FC = () => {
           }
           className="relative overflow-hidden"
         >
-          <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
+          <div inert={!isPremium} className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
             <MonthlyEvolutionChart
               data={transactionsWithoutAmbosAndInvestments}
               viewMode={viewMode}
@@ -1579,11 +1582,11 @@ const DashboardView: React.FC = () => {
           </div>
           {!isPremium && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
-              <div className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
-                <svg className="w-12 h-12 text-yellow-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                <h3 className="text-xl font-bold text-white mb-2">Recurso Premium</h3>
-                <p className="text-sm text-gray-300 mb-6 font-medium">Desbloqueie a Evolução Financeira detalhada para visualizar seu histórico e tendências.</p>
-                <button onClick={() => setCurrentView('pricing')} className="px-6 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/20 text-sm w-full">Fazer Upgrade</button>
+              <div data-finance="inset" className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
+                <svg data-finance="warning" className="w-12 h-12 text-yellow-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <h3 data-finance="content" className="text-xl font-bold text-white mb-2">Recurso Premium</h3>
+                <p data-finance="muted" className="text-sm text-gray-300 mb-6 font-medium">Desbloqueie a Evolução Financeira detalhada para visualizar seu histórico e tendências.</p>
+                <button data-finance="action" onClick={() => setCurrentView('pricing')} className="px-6 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/20 text-sm w-full">Fazer Upgrade</button>
               </div>
             </div>
           )}
@@ -1605,7 +1608,7 @@ const DashboardView: React.FC = () => {
       {/* Charts Row 2 & Recent Transactions */}
       <div id="dashboard-charts-secondary" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Despesas por Categoria" className="lg:col-span-2 relative overflow-hidden">
-          <div className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
+          <div inert={!isPremium} className={!isPremium ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
             <CategorySpendChart
               data={chartData}
               compareData={compareEnabled ? compareChartData : undefined}
@@ -1615,11 +1618,11 @@ const DashboardView: React.FC = () => {
           </div>
           {!isPremium && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center no-print">
-              <div className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
-                <svg className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                <h3 className="text-lg font-bold text-white mb-2">Despesas por Categoria</h3>
-                <p className="text-sm text-gray-300 mb-4">Veja exatamente onde seu dinheiro está indo com o plano Premium.</p>
-                <button onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500/20 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 font-bold rounded-lg transition-colors border border-yellow-500/50 text-sm">Desbloquear Funcionalidade</button>
+              <div data-finance="inset" className="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center">
+                <svg data-finance="warning" className="w-10 h-10 text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <h3 data-finance="content" className="text-lg font-bold text-white mb-2">Despesas por Categoria</h3>
+                <p data-finance="muted" className="text-sm text-gray-300 mb-4">Veja exatamente onde seu dinheiro está indo com o plano Premium.</p>
+                <button data-finance="warning action" onClick={() => setCurrentView('pricing')} className="px-5 py-2 bg-yellow-500/20 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 font-bold rounded-lg transition-colors border border-yellow-500/50 text-sm">Desbloquear Funcionalidade</button>
               </div>
             </div>
           )}
@@ -1631,23 +1634,23 @@ const DashboardView: React.FC = () => {
               {recentTransactions.map(t => (
                 <div key={t.ID_Transacao} className="flex justify-between items-center p-2 hover:bg-primary rounded transition-colors">
                   <div className="overflow-hidden">
-                    <p className="font-semibold text-sm truncate text-light">{t.Nome_Fantasia}</p>
-                    <p className="text-xs text-gray-500">{new Date(t.Data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • {t.Categoria}</p>
+                    <p data-finance="content" className="font-semibold text-sm truncate text-light">{t.Nome_Fantasia}</p>
+                    <p data-finance="muted" className="text-xs text-gray-500">{new Date(t.Data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} • {t.Categoria}</p>
                   </div>
-                  <span className={`font-bold text-sm ${t.Tipo === 'Renda' ? 'text-accent' : 'text-danger'}`}>
+                  <span data-finance={(t.Tipo === 'Renda' ? "positive" : "negative")} className={`font-bold text-sm ${t.Tipo === 'Renda' ? 'text-accent' : 'text-danger'}`}>
                     {formatCurrencySigned(t.Tipo === 'Despesa' ? -Math.abs(t.Valor) : Math.abs(t.Valor), { showPlusForPositive: true })}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-4">Sem transações no período.</p>
+            <p data-finance="muted" className="text-gray-400 text-center py-4">Sem transações no período.</p>
           )}
         </Card>
       </div>
 
       {/* Mobile Floating Action Button (FAB) */}
-      <button
+      <button data-finance="action"
         onClick={() => setNewTransactionModalOpen(true)}
         className="fixed lg:hidden bottom-24 landscape:max-lg:bottom-10 right-6 sm:right-10 w-14 h-14 bg-highlight hover:bg-sky-400 text-white rounded-full shadow-[0_4px_14px_rgba(56,189,248,0.5)] flex items-center justify-center transition-transform active:scale-95 z-40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-highlight"
         aria-label="Nova Transação"

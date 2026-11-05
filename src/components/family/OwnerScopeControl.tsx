@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import type { OwnerDiscoveryResult } from '../../services/investmentOwnerDiscovery';
 
@@ -27,8 +28,8 @@ const OwnerScopeControl: React.FC<{
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         {options.length > 1 ? (
           <>
-            <label htmlFor={id} className="text-sm text-gray-300">Visão:</label>
-            <select
+            <label data-finance="muted" htmlFor={id} className="text-sm text-gray-300">Visão:</label>
+            <select data-finance="content divider control"
               id={id}
               value={selected?.value ?? ''}
               onChange={(e) => onChange(e.target.value)}
@@ -39,12 +40,12 @@ const OwnerScopeControl: React.FC<{
             </select>
           </>
         ) : (
-          <p className="min-w-0 break-words text-sm text-gray-300">Visão: <strong className="font-medium text-white">Você</strong></p>
+          <p data-finance="muted" className="min-w-0 break-words text-sm text-gray-300">Visão: <strong data-finance="content" className="font-medium text-white">Você</strong></p>
         )}
       </div>
-      <p id={statusId} role="status" className="break-words text-xs text-gray-300">{familyAvailabilityMessage(context)}</p>
+      <p data-finance="muted" id={statusId} role="status" className="break-words text-xs text-gray-300">{familyAvailabilityMessage(context)}</p>
       {context.status === 'ready' && context.unresolvedFamilyCount > 0 && (
-        <p className="break-words text-xs text-gray-300">Visões familiares só ficam disponíveis quando é possível identificar o titular com segurança.</p>
+        <p data-finance="muted" className="break-words text-xs text-gray-300">Visões familiares só ficam disponíveis quando é possível identificar o titular com segurança.</p>
       )}
     </div>
   );

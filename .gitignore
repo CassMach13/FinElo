@@ -28,6 +28,8 @@ scripts/diagnostics/theme-card-main-baseline/
 scripts/diagnostics/theme-card-reviewed-baseline/
 scripts/diagnostics/theme-reconciliation-main-baseline/
 scripts/diagnostics/theme-reconciliation-reviewed-baseline/
+scripts/diagnostics/theme-dashboard-main-baseline/
+scripts/diagnostics/theme-dashboard-reviewed-baseline/
 .vscode
 
 # Assets / Media (Large Files)

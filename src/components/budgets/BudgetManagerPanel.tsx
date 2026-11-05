@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React, { useMemo, useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -163,7 +164,7 @@ const BudgetManagerPanel: React.FC<Props> = ({
       className="max-w-2xl"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="min-w-0 text-xs text-gray-400" role="status" aria-live="polite">
+          <p data-finance="muted" className="min-w-0 text-xs text-gray-400" role="status" aria-live="polite">
             {message}
           </p>
           <div className="flex gap-2">
@@ -180,7 +181,7 @@ const BudgetManagerPanel: React.FC<Props> = ({
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2" role="group" aria-label="Mês do orçamento">
-            <button
+            <button data-finance="content divider"
               type="button"
               aria-label="Mês anterior"
               onClick={() => go(prev)}
@@ -188,8 +189,8 @@ const BudgetManagerPanel: React.FC<Props> = ({
             >
               ‹
             </button>
-            <span className="min-w-[8.5rem] text-center text-sm font-semibold capitalize text-white">{monthTitle(period)}</span>
-            <button
+            <span data-finance="content" className="min-w-[8.5rem] text-center text-sm font-semibold capitalize text-white">{monthTitle(period)}</span>
+            <button data-finance="content divider"
               type="button"
               aria-label="Próximo mês"
               disabled={!canGoNext}
@@ -201,9 +202,9 @@ const BudgetManagerPanel: React.FC<Props> = ({
           </div>
 
           {familyActive && (
-            <label className="flex items-center gap-2 text-xs text-gray-300">
+            <label data-finance="muted" className="flex items-center gap-2 text-xs text-gray-300">
               Responsável
-              <select
+              <select data-finance="content divider control"
                 value={ownerId}
                 onChange={(e) => {
                   setOwnerId(e.target.value);
@@ -223,13 +224,13 @@ const BudgetManagerPanel: React.FC<Props> = ({
           )}
         </div>
 
-        {!rights.canCreate && <p className="text-xs text-amber-300/90">{BUDGET_ONLY_OWNER_CREATES}</p>}
+        {!rights.canCreate && <p data-finance="warning" className="text-xs text-amber-300/90">{BUDGET_ONLY_OWNER_CREATES}</p>}
 
-        <div className="rounded-xl border border-white/5 bg-black/20 p-3">
-          <p className="text-sm text-gray-200">
+        <div data-finance="divider inset" className="rounded-xl border border-white/5 bg-black/20 p-3">
+          <p data-finance="content" className="text-sm text-gray-200">
             Copiar de <span className="font-semibold">{MONTH_NAMES[prev.month - 1]}</span>
           </p>
-          <p className="text-xs text-gray-400">
+          <p data-finance="muted" className="text-xs text-gray-400">
             {copyPlan.toCreate.length} {copyPlan.toCreate.length === 1 ? 'categoria' : 'categorias'} ·{' '}
             {formatCurrency(copyPlan.totalAmount)} planejados
             {copyPlan.skippedExisting > 0 && ` · ${copyPlan.skippedExisting} já definidas neste mês`}
@@ -246,7 +247,7 @@ const BudgetManagerPanel: React.FC<Props> = ({
         </div>
 
         {rows.length === 0 ? (
-          <p className="text-sm text-gray-400">Nenhuma categoria de despesa disponível. Crie categorias em Configurações.</p>
+          <p data-finance="muted" className="text-sm text-gray-400">Nenhuma categoria de despesa disponível. Crie categorias em Configurações.</p>
         ) : (
           <ul className="divide-y divide-white/5" aria-label={`Orçamento de ${monthTitle(period)}`}>
             {rows.map((row) => {
@@ -257,14 +258,14 @@ const BudgetManagerPanel: React.FC<Props> = ({
                 <li key={row.Categoria} className="min-w-0 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold text-gray-100">{row.Categoria}</p>
-                      <p className="text-xs text-gray-400">
+                      <p data-finance="content" className="break-words text-sm font-semibold text-gray-100">{row.Categoria}</p>
+                      <p data-finance="muted" className="text-xs text-gray-400">
                         {label}
                         {row.effective && <> · {formatCurrency(row.effective.amount)}</>}
                       </p>
                     </div>
                     {row.monthly && rights.canDeleteExisting && (
-                      <button
+                      <button data-finance="negative"
                         type="button"
                         onClick={() => void removeMonthly(row)}
                         className="rounded text-xs text-danger hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -287,7 +288,7 @@ const BudgetManagerPanel: React.FC<Props> = ({
                       />
                     </div>
                   ) : (
-                    !row.eligible && row.effective && <p className="mt-1 text-xs text-gray-500">Categoria fora das regras de novos orçamentos.</p>
+                    !row.eligible && row.effective && <p data-finance="muted" className="mt-1 text-xs text-gray-500">Categoria fora das regras de novos orçamentos.</p>
                   )}
                 </li>
               );
