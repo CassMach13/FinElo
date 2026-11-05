@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import "../appearance/financial.css";
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { PluggyTransactionDraft, PluggyConnection, PluggyConfidence } from '../../types';
@@ -122,7 +123,7 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
     };
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={isOpen}
             onClose={handleClose}
             title={`🏦 ${connection.bank_name} — Sincronizar Transações`}
@@ -135,12 +136,13 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                     <div className="flex flex-col gap-6">
 
                         {/* Account Selection */}
-                        <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl">
-                            <label className="text-sm text-gray-300 font-medium mb-2 block">
-                                Qual conta no FinElo receberá as transações deste banco? <span className="text-red-400">*</span>
+                        <div data-finance="inset divider" className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl">
+                            <label data-finance="muted" className="text-sm text-gray-300 font-medium mb-2 block">
+                                Qual conta no FinElo receberá as transações deste banco? <span data-finance="negative" className="text-red-400">*</span>
                             </label>
-                            <select
+                            <select data-finance="control"
                                 value={selectedAccount}
+                                aria-label="Conta de destino Open Finance"
                                 onChange={e => setSelectedAccount(e.target.value)}
                                 className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 transition-colors"
                             >
@@ -149,42 +151,45 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                                     <option key={acc.id} value={acc.id}>{acc.Nome_Conta}</option>
                                 ))}
                             </select>
-                            <p className="text-xs text-gray-500 mt-2">Isso garante que o saldo seja abatido da conta correta.</p>
+                            <p data-finance="muted" className="text-xs text-gray-500 mt-2">Isso garante que o saldo seja abatido da conta correta.</p>
 
                             {/* Credit Card Details (Conditional) */}
                             {(() => {
                                 const acc = useAppStore.getState().accounts.find(a => a.id === selectedAccount);
                                 if (acc?.Tipo_Conta === 'Cartão de Crédito') {
                                     return (
-                                        <div className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div data-finance="divider" className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-1 sm:grid-cols-3 gap-3">
                                             <div>
-                                                <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Limite do Cartão (R$)</label>
-                                                <input
+                                                <label data-finance="muted" className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Limite do Cartão (R$)</label>
+                                                <input data-finance="control"
                                                     type="number"
                                                     placeholder="Ex: 5000"
                                                     value={creditLimit}
+                                                    aria-label="Limite do Cartão (R$)"
                                                     onChange={e => setCreditLimit(e.target.value)}
                                                     className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Dia Fechamento</label>
-                                                <input
+                                                <label data-finance="muted" className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Dia Fechamento</label>
+                                                <input data-finance="control"
                                                     type="number"
                                                     min="1" max="31"
                                                     placeholder="Ex: 5"
                                                     value={closingDate}
+                                                    aria-label="Dia Fechamento"
                                                     onChange={e => setClosingDate(e.target.value)}
                                                     className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Dia Vencimento</label>
-                                                <input
+                                                <label data-finance="muted" className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Dia Vencimento</label>
+                                                <input data-finance="control"
                                                     type="number"
                                                     min="1" max="31"
                                                     placeholder="Ex: 10"
                                                     value={dueDate}
+                                                    aria-label="Dia Vencimento"
                                                     onChange={e => setDueDate(e.target.value)}
                                                     className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
                                                 />
@@ -198,11 +203,11 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
 
                         {/* Period Selection */}
                         <div className="flex flex-col gap-3">
-                            <label className="text-sm text-gray-300 font-medium">Selecione o período que deseja sincronizar:</label>
+                            <label data-finance="muted" className="text-sm text-gray-300 font-medium">Selecione o período que deseja sincronizar:</label>
 
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 {([['7', 'Última semana'], ['15', 'Últimas 2 semanas'], ['30', 'Último mês'], ['90', 'Últimos 3 meses']] as const).map(([val, label]) => (
-                                    <button
+                                    <button data-finance={preset === val ? "selected" : "secondary"}
                                         key={val}
                                         onClick={() => setPreset(val)}
                                         className={`p-3 rounded-xl border text-sm font-medium transition-all ${preset === val
@@ -215,7 +220,7 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                                 ))}
                             </div>
 
-                            <button
+                            <button data-finance={preset === "custom" ? "selected" : "secondary"}
                                 onClick={() => setPreset('custom')}
                                 className={`p-3 rounded-xl border text-sm font-medium transition-all text-left ${preset === 'custom'
                                     ? 'bg-indigo-600 border-indigo-500 text-white'
@@ -228,19 +233,21 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                             {preset === 'custom' && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">De</label>
-                                        <input
+                                        <label data-finance="muted" className="text-xs text-gray-400 mb-1 block">De</label>
+                                        <input data-finance="control"
                                             type="date"
                                             value={customFrom}
+                                            aria-label="Período de"
                                             onChange={e => setCustomFrom(e.target.value)}
                                             className="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">Até</label>
-                                        <input
+                                        <label data-finance="muted" className="text-xs text-gray-400 mb-1 block">Até</label>
+                                        <input data-finance="control"
                                             type="date"
                                             value={customTo}
+                                            aria-label="Período até"
                                             onChange={e => setCustomTo(e.target.value)}
                                             className="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
                                         />
@@ -248,11 +255,11 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                                 </div>
                             )}
 
-                            {error && <p className="text-red-400 text-sm bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
+                            {error && <p data-finance="danger-chip negative" className="text-red-400 text-sm bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
 
-                            <div className="flex gap-3 justify-end pt-4 border-t border-slate-700/50">
+                            <div data-finance="divider" className="flex gap-3 justify-end pt-4 border-t border-slate-700/50">
                                 <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
-                                <Button
+                                <Button data-finance="action"
                                     onClick={handleFetch}
                                     disabled={isFetching || !selectedAccount || (preset === 'custom' && !customFrom)}
                                     className="bg-indigo-600 hover:bg-indigo-500 text-white border-none disabled:opacity-50"
@@ -268,22 +275,22 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                 {step === 'review' && (
                     <div className="flex flex-col gap-4">
                         {/* Summary bar */}
-                        <div className="flex items-center justify-between bg-slate-800/60 rounded-xl px-4 py-3 border border-slate-700/50">
+                        <div data-finance="inset divider" className="flex items-center justify-between bg-slate-800/60 rounded-xl px-4 py-3 border border-slate-700/50">
                             <div className="flex items-center gap-4 text-sm">
-                                <span className="text-white font-semibold">{drafts.length} transações encontradas</span>
-                                <span className="text-emerald-400">🟢 {autoCount} auto-categorizadas</span>
-                                <span className="text-yellow-400">🟡 {drafts.filter(d => d.confianca === 'media').length} sugeridas</span>
-                                <span className="text-red-400">🔴 {drafts.filter(d => d.confianca === 'nova').length} novas</span>
+                                <span data-finance="content" className="text-white font-semibold">{drafts.length} transações encontradas</span>
+                                <span data-finance="positive" className="text-emerald-400">🟢 {autoCount} auto-categorizadas</span>
+                                <span data-finance="warning" className="text-yellow-400">🟡 {drafts.filter(d => d.confianca === 'media').length} sugeridas</span>
+                                <span data-finance="negative" className="text-red-400">🔴 {drafts.filter(d => d.confianca === 'nova').length} novas</span>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => toggleAll(true)} className="text-xs text-indigo-400 hover:text-indigo-300">Selecionar todas</button>
-                                <span className="text-slate-600">|</span>
-                                <button onClick={() => toggleAll(false)} className="text-xs text-gray-400 hover:text-gray-300">Limpar</button>
+                                <button data-finance="info link" onClick={() => toggleAll(true)} className="text-xs text-indigo-400 hover:text-indigo-300">Selecionar todas</button>
+                                <span data-finance="muted" className="text-slate-600">|</span>
+                                <button data-finance="muted" onClick={() => toggleAll(false)} className="text-xs text-gray-400 hover:text-gray-300">Limpar</button>
                             </div>
                         </div>
 
                         {drafts.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400">
+                            <div data-finance="muted" className="text-center py-10 text-gray-400">
                                 <p className="text-2xl mb-2">✅</p>
                                 <p>Nenhuma transação nova encontrada neste período.</p>
                                 <p className="text-xs mt-1">Tudo já está sincronizado!</p>
@@ -292,9 +299,9 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                             <div className="overflow-auto max-h-[50vh]">
                                 <table className="min-w-[800px] sm:min-w-full text-sm">
                                     <thead>
-                                        <tr className="text-xs text-gray-500 border-b border-slate-700/50">
+                                        <tr data-finance="divider muted" className="text-xs text-gray-500 border-b border-slate-700/50">
                                             <th className="pb-2 text-left w-6">
-                                                <input type="checkbox" checked={selectedCount === drafts.length} onChange={e => toggleAll(e.target.checked)} className="rounded" />
+                                                <input data-finance="choice" aria-label="Selecionar todas as transações" type="checkbox" checked={selectedCount === drafts.length} onChange={e => toggleAll(e.target.checked)} className="rounded" />
                                             </th>
                                             <th className="pb-2 text-left">Data</th>
                                             <th className="pb-2 text-left">Descrição</th>
@@ -304,26 +311,27 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                                             <th className="pb-2 text-center">Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-700/30">
+                                    <tbody data-finance="divided" className="divide-y divide-slate-700/30">
                                         {drafts.map((d, idx) => {
                                             const badge = CONFIDENCE_BADGE[d.confianca];
                                             return (
-                                                <tr key={d.pluggy_id} className={`transition-colors ${d.selecionada ? '' : 'opacity-40'}`}>
+                                                <tr data-finance={d.selecionada ? "row" : "row readonly-row inset"} key={d.pluggy_id} className={`transition-colors ${d.selecionada ? '' : 'opacity-40'}`}>
                                                     <td className="py-2 pr-2">
-                                                        <input type="checkbox" checked={d.selecionada} onChange={e => updateDraft(idx, 'selecionada', e.target.checked)} className="rounded" />
+                                                        <input data-finance="choice" aria-label={`Selecionar ${d.descricao}`} type="checkbox" checked={d.selecionada} onChange={e => updateDraft(idx, 'selecionada', e.target.checked)} className="rounded" />
                                                     </td>
-                                                    <td className="py-2 pr-3 text-gray-400 whitespace-nowrap">
+                                                    <td data-finance="muted" className="py-2 pr-3 text-gray-400 whitespace-nowrap">
                                                         {new Date(`${d.data}T00:00:00`).toLocaleDateString('pt-BR')}
                                                     </td>
-                                                    <td className="py-2 pr-3 text-gray-200 max-w-[180px]">
+                                                    <td data-finance="muted" className="py-2 pr-3 text-gray-200 max-w-[180px]">
                                                         <span className="block truncate" title={d.descricao}>{d.descricao}</span>
                                                         {d.id_match_manual && (
-                                                            <span className="text-xs text-blue-400">🔗 Merge com lançamento manual</span>
+                                                            <span data-finance="info" className="text-xs text-blue-400">🔗 Merge com lançamento manual</span>
                                                         )}
                                                     </td>
                                                     <td className="py-2 pr-3">
-                                                        <select
+                                                        <select data-finance="control"
                                                             value={d.tipo}
+                                                            aria-label={`Tipo de ${d.descricao}`}
                                                             onChange={e => updateDraft(idx, 'tipo', e.target.value)}
                                                             className="bg-slate-700 border border-slate-600 text-xs rounded px-2 py-1 text-white focus:outline-none focus:border-indigo-500"
                                                         >
@@ -332,19 +340,20 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                                                         </select>
                                                     </td>
                                                     <td className="py-2 pr-3">
-                                                        <select
+                                                        <select data-finance="control"
                                                             value={d.categoria}
+                                                            aria-label={`Categoria de ${d.descricao}`}
                                                             onChange={e => updateDraft(idx, 'categoria', e.target.value)}
                                                             className="bg-slate-700 border border-slate-600 text-xs rounded px-2 py-1 text-white focus:outline-none focus:border-indigo-500 max-w-[130px]"
                                                         >
                                                             {catOptions.map(c => <option key={c} value={c}>{c}</option>)}
                                                         </select>
                                                     </td>
-                                                    <td className={`py-2 pr-3 text-right font-medium whitespace-nowrap ${d.tipo === 'Despesa' ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                    <td data-finance={d.tipo === "Despesa" ? "negative" : "positive"} className={`py-2 pr-3 text-right font-medium whitespace-nowrap ${d.tipo === 'Despesa' ? 'text-red-400' : 'text-emerald-400'}`}>
                                                         {d.tipo === 'Despesa' ? '-' : '+'}R$ {d.valor.toFixed(2).replace('.', ',')}
                                                     </td>
                                                     <td className="py-2 text-center">
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full border ${badge.color}`}>
+                                                        <span data-finance={d.confianca === "alta" ? "success-chip" : d.confianca === "media" ? "warning-chip" : "danger-chip"} className={`text-xs px-2 py-0.5 rounded-full border ${badge.color}`}>
                                                             {badge.dot} {badge.label}
                                                         </span>
                                                     </td>
@@ -356,14 +365,14 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                             </div>
                         )}
 
-                        {error && <p className="text-red-400 text-sm bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
+                        {error && <p data-finance="danger-chip negative" className="text-red-400 text-sm bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
 
-                        <div className="flex gap-3 justify-between items-center pt-2 border-t border-slate-700/50">
-                            <button onClick={() => setStep('period')} className="text-sm text-gray-400 hover:text-white transition-colors">← Voltar</button>
+                        <div data-finance="divider" className="flex gap-3 justify-between items-center pt-2 border-t border-slate-700/50">
+                            <button data-finance="muted" onClick={() => setStep('period')} className="text-sm text-gray-400 hover:text-white transition-colors">← Voltar</button>
                             <div className="flex gap-3">
                                 <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
                                 {drafts.length > 0 && (
-                                    <Button
+                                    <Button data-finance="action"
                                         onClick={handleConfirm}
                                         disabled={isConfirming || selectedCount === 0}
                                         className="bg-emerald-600 hover:bg-emerald-500 text-white border-none"
@@ -380,21 +389,21 @@ const OpenFinanceReviewModal: React.FC<Props> = ({ isOpen, onClose, connection, 
                 {step === 'done' && result && (
                     <div className="flex flex-col items-center gap-4 py-4 text-center">
                         <div className="text-5xl">🎉</div>
-                        <h3 className="text-white text-lg font-semibold">Sincronização concluída!</h3>
+                        <h3 data-finance="content" className="text-white text-lg font-semibold">Sincronização concluída!</h3>
                         <div className="flex gap-6 text-sm">
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-5 py-3">
-                                <p className="text-emerald-400 text-2xl font-bold">{result.inserted}</p>
-                                <p className="text-gray-400">novas transações</p>
+                            <div data-finance="success-panel divider" className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-5 py-3">
+                                <p data-finance="positive" className="text-emerald-400 text-2xl font-bold">{result.inserted}</p>
+                                <p data-finance="muted" className="text-gray-400">novas transações</p>
                             </div>
-                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-5 py-3">
-                                <p className="text-blue-400 text-2xl font-bold">{result.merged}</p>
-                                <p className="text-gray-400">mergeadas com manuais</p>
+                            <div data-finance="info-panel divider" className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-5 py-3">
+                                <p data-finance="info" className="text-blue-400 text-2xl font-bold">{result.merged}</p>
+                                <p data-finance="muted" className="text-gray-400">mergeadas com manuais</p>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500 max-w-xs">
+                        <p data-finance="muted" className="text-xs text-gray-500 max-w-xs">
                             As categorias que você ajustou foram aprendidas — próximas sincronizações serão mais automáticas! 🧠
                         </p>
-                        <Button onClick={handleClose} className="bg-indigo-600 hover:bg-indigo-500 text-white border-none mt-2">
+                        <Button data-finance="action" onClick={handleClose} className="bg-indigo-600 hover:bg-indigo-500 text-white border-none mt-2">
                             Ver no Dashboard →
                         </Button>
                     </div>

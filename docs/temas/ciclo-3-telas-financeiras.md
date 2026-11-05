@@ -121,3 +121,90 @@ Próximos lotes, mantendo a mesma coorte:
 4. **Homologação transversal:** plataformas físicas/PWA, leitores de tela, PDF nativo e restantes consumidores antes de propor qualquer Claro global. Correções AA do Escuro exigem revisão explícita.
 
 PR #97 permanece em rascunho para revisão do lote 3A. A publicação geral continua pendente dos lotes seguintes e de autorização específica.
+
+## Lote 3B — Importação completa
+
+Continuação autorizada de `6f7a94b11286843d073295cc2be4e3c7601ea531`, com a main `6fa1188b1864e85da587e61c7e46009a5e82adb4` como segunda referência. O lote converte a apresentação da Importação e dos seus auxiliares. Faturas, pagamentos e conciliação continuam reservados ao 3C. Nenhuma conta foi incluída no piloto e nenhuma preferência, sessão ou base remota foi utilizada na homologação deste lote.
+
+### Componentes e limites da conversão
+
+| Consumidor | Estados convertidos |
+| --- | --- |
+| `ImportView` | Catálogo e favoritos, configurações nativas, conta, datas e competência; arquivos, carregamento, mapeamento, seleção, inversão e linhas ignoradas; confirmações, alertas, sucesso, limites e integração |
+| `OpenFinanceReviewModal` | Leitura, período, conta, metadados opcionais de cartão, confiança, seleção, categoria, revisão, confirmação, erro e conclusão |
+| `SaveConfigModal` | Criar/atualizar mapeamento, campos, opções, aviso e cancelamento |
+| `ImportSuccessPanel` | Resumo, avisos e ações de retorno |
+| `ImportDetailsModal` | Lançamentos importados/ignorados; distinção entre ativos, excluídos e legado sem ID |
+| Trechos de `SettingsView` | Histórico de importações, busca e paginação; configurações e regras; detalhes, confirmação e correção de conta. Outras áreas de Configurações não integram este lote |
+| Auxiliares | `AccountModal`, diálogos globais e controles compartilhados reutilizados; popover do tour recebe tokens somente quando aberto na Importação isolada em Claro |
+
+Os papéis explícitos `data-finance` reutilizam os adaptadores financeiros do 3A. As novas regras de pintura estão dentro de `@media screen` e de seletores de Claro; as classes legadas permanecem. Não há inversão de cores, substituição ampla de Tailwind ou mudança de disposição. Datas e selects nativos recebem identificação acessível; controles de arquivo e cabeçalhos de seleção operam por teclado; modais optam pelo gerenciamento de foco existente. A estrela de favorito não propaga Enter/Espaço para a seleção do banco. O fechamento por teclado do consentimento devolve o foco ao acionador.
+
+### Exceção de conteúdo expressamente aprovada
+
+O upload manual e alguns estados de Open Finance já definiam `notification`, mas não a exibiam nesses contextos. A falha foi reproduzida no baseline. A resposta do usuário foi **“Autorizar a correção visual mínima”** para exibir as notificações existentes nos dois temas.
+
+O novo `ImportFeedback` apenas apresenta a mensagem já produzida pelo fluxo, com `alert/assertive` para erro e `status/polite` para resultado. Não duplica o resumo positivo que já possui painel. Não altera validação, tratamento de arquivo, consentimento, requisição ou gravação. A diferença de conteúdo no Escuro é registrada separadamente no manifesto como exceção aprovada, sem aplicar tolerância de rasterização. A classe `no-print` impede que o feedback acrescente conteúdo ou paginação ao PDF existente.
+
+### Homologação reproduzível e isolamento
+
+A entrada de diagnóstico usa URL/chaves fictícias, armazenamento em memória, BroadcastChannel desativado e nenhuma sessão do SDK. O transporte sintético é instalado **antes** dos imports da aplicação, intercepta todas as chamadas remotas e `/api/`, e recusa rotas não previstas. Uma segunda barreira no navegador bloqueia tráfego externo; um sentinela verifica que o armazenamento real não foi alterado. Não há senha, token de usuário nem uso de perfil pessoal do navegador. O simulador de janela do provedor registra apenas host/caminho, sem abrir conexão externa.
+
+São exercitados os componentes, parsers, serviços e handlers originais. A importação em lote chama o `addMultipleTransactions` original e percorre os contratos RPC com respostas sintéticas. Operações individuais de integração e CRUD usam armazenamento em memória; a evidência comprova igualdade dos argumentos e resultados do cliente, sem alegar homologação de um provedor ou banco reais. A sessão, o backend remoto e a autorização do Supabase não são substituídos no aplicativo publicado.
+
+As fixtures incluem CSV, XLSX, XLS, OFX, arquivo vazio, cabeçalho sem dados, CSV sem colunas válidas, ZIP Excel truncado, regra `MERCADO`, valores positivos/negativos/zero, linhas ignoradas e repetidas, falhas de leitura/gravação e repetição após interrupção. O teste cobre o mesmo arquivo renomeado na mesma conta e na segunda conta, respeitando a idempotência por conta existente. Inclui 65 linhas de prévia, revisão de integração extensa e 25 históricos.
+
+O E864 é reutilizado sem mudança: candidato único, recusa, dois candidatos distintos com a mesma categoria, escolha manual e cancelamento. A compra repetida permanece em setembro, a parcela importada é `2/4`, com referência de outubro e vencimento em novembro. Configuração manual sem vencimento ou competência continua bloqueada pelas mesmas validações.
+
+### Equivalência financeira
+
+Cada cenário guarda o estado completo antes/depois e compara os quatro caminhos: commit revisado, main, Escuro atual e Claro atual. Os JSONs externos contêm argumentos de parsing/importação, corpos e filtros de requisição sanitizados, respostas e lançamentos, contas, saldos calculados, vínculos de lote, logs, regras e configurações. Cabeçalhos, credenciais e respostas de token não são registrados. Os hashes resumidos não substituem os JSONs verificáveis do pacote completo.
+
+Além dos testes de fluxo, seis fingerprints de implementação preservam classes, cálculos, branches e callbacks dos consumidores. Somente atributos e os acréscimos de apresentação/acessibilidade declarados são excluídos; o componente puro `ImportFeedback` é a exceção nominal aprovada. Onze arquivos financeiros têm SHA-256 normalizado selado contra `6f7a94b`: parsers e auxiliares, serviços de importação/integração/histórico, store, sugestões E864, referência/ciclo do cartão e integridade do lote. O código financeiro nesses arquivos permanece idêntico. Quatro testes adicionais verificam escape de HTML, regiões vivas e supressão de feedback inativo/duplicado.
+
+### Evidência visual, contraste e impressão
+
+Os resultados consolidados, hashes e capturas selecionadas ficam em `evidencias-ciclo-3b/`. O pacote completo externo contém as quatro variantes de cada estado em **1440×1000** e **390×844**, com relógio, fuso, dados, escala e dimensões fixos. A captura aguarda fontes/imagens e usa composição por software em sRGB para evitar artefatos do driver gráfico. O foco é igualado para comparação; os contratos de teclado, contenção e restauração são verificados separadamente.
+
+A comparação exige igualdade de geometria, conteúdo e cores computadas antes de admitir a tolerância do 3A: no máximo 2 níveis por canal e 0,01% dos pixels (mínimo de 20). Casos não exatos incluem prova JSON das apresentações de referência/atual e seu hash. A tolerância não se aplica à exceção aprovada de feedback, nem autoriza mudar cores funcionais.
+
+O contraste do Claro é calculado sobre estilos efetivamente renderizados, considerando transparência e os fundos em gradiente. Exige **4,5:1** para texto, valores, placeholders e campos; **3:1** para bordas de controle, ícones de ação e foco verificável. A amostragem inclui hover, foco, desabilitados, seleção, sobreposições, alertas, campos de data e controles nativos. Logotipos de marca não são avaliados como texto comum; os nomes legíveis dos bancos são. O estado de favorito tem rótulo, `aria-pressed` e contorno contrastante, além do símbolo.
+
+A Importação não possui um exportador PDF próprio. A verificação compara a impressão existente da prévia com valores financeiros, do histórico completo e do upload com erro aprovado. Compara dimensões, contagem e raster de **todas** as páginas entre main, commit revisado, Escuro e Claro; verifica a presença dos dados e a ausência de gravações. A inspeção visual confirma limitações anteriores: a prévia tem uma página inicial só com título, parte da tabela não aparece na impressão e o histórico termina com uma página sem texto. O conteúdo financeiro está na prévia textual e nas páginas de histórico verificadas. Não se redesenha o documento nem se interpreta a equivalência como correção editorial da impressão legada. Os testes gerais de paginação permanecem obrigatórios.
+
+### Limitações e riscos legados separados
+
+- **OFX pela interface manual:** a precedência de `manualMapping.fileContent` no parser encaminha esse fluxo para CSV. A fixture OFX selecionável termina com zero lançamentos nos dois baselines e nos dois temas. O parser OFX dedicado existe, mas esse defeito de roteamento não foi corrigido neste lote visual. A evidência comprova mensagem legível e ausência de gravação, não sucesso de importação OFX pela interface.
+- **Consentimento secundário:** o botão legado “Continuar →” passa o evento diretamente a `handleConsentSubmit(isRetail = false)`, podendo ativar o ramo demonstrativo preexistente por truthiness. A homologação usa “Importar via Open Finance”, que passa `false` explicitamente. O risco antecede esta alteração e requer correção funcional separada; não houve bypass de autenticação real.
+- **Conta nativa ausente:** a dica visual de conta não era a mesma condição do `disabled` do input; os contratos SQL existentes aceitam conta nula em determinados casos. Preserva-se a regra. `aria-disabled` descreve o bloqueio real, enquanto o papel de pintura conserva a dica visual; não se cria silenciosamente uma nova validação financeira.
+- Chrome/Edge headless verifica o cliente em viewports mobile, sem substituir teste físico de Safari/iOS/Android, PWA instalada, leitor de tela ou seletor nativo de arquivo/calendário. Alerts/confirms nativos são registrados por mensagem/tipo e mantêm a implementação do navegador.
+- Não foram testados credenciais reais de Open Finance, consentimento no provedor, RLS ou uma importação real de produção. O risco legado de conciliação por `Nome_Fantasia`, já documentado no 3A, permanece fora deste lote.
+
+### Reprodução, rollback e pendências do 3C
+
+Preparar os snapshots com `prepare-financial-baseline.py --base <SHA> --target-name theme-import-main-baseline` e `theme-import-reviewed-baseline`, usando os SHAs acima. Iniciar `serve-import-preview.ps1 -Port 5202`. Executar `validate-import-themes.py --port 5202 --themes all --suite <files|integration|history|extras|controls> --out-dir <diretório> --manifest <diretório>/validation.json` e `validate-import-print.py --port 5202 --out-dir <diretório>`. Python requer Playwright, PyMuPDF e Edge. A captura desabilita otimizações Skia detectadas em runtime, opção que o [Chromium documenta para seu caminho de testes](https://chromium.googlesource.com/chromium/src/+/HEAD/content/public/common/content_switches.cc), além de aguardar composição e recursos. Os snapshots são verificados por hash e não fazem parte da entrega publicada.
+
+O Claro permanece isolado à referência de teste; o app integral continua Escuro. Flag, elegibilidade e preferências não foram ampliadas. Rollback é desligar a flag/reconstruir ou reverter o commit visual, sem desfazer dados. O 3C deve converter os fluxos completos de faturas, pagamentos, histórico de cartões e conciliação, com seus próprios cenários financeiros e de impressão; depois seguem plataformas físicas/PWA e homologação transversal antes de qualquer autorização de Claro global.
+
+### Resultado final e matriz de aceite do 3B
+
+Todas as linhas abaixo comparam desktop e mobile nos quatro caminhos, incluindo equivalência dos resultados financeiros. “PASS” de OFX e impressão significa **preservação do comportamento legado**, com as limitações já descritas.
+
+| Grupo | Cobertura | Capturas | Resultado |
+| --- | --- | ---: | --- |
+| Arquivos e E864 | Seleção, vazio/inválido, leitura, mapeamento, ignorados/inversão, sucesso, duplicidade por conta, erros/retry/interrupção; datas/competências; E864 único/recusa/ambíguo/manual/cancelamento | 344 | PASS |
+| Integração | Conexões/loading, limites, consentimento/erro, janela simulada, leitura/período, revisão extensa, seleção/categorias, merge, metadados e persistência/recuperação | 216 | PASS |
+| Histórico e configurações | Busca/vazio, detalhes/ignorados/ativos/excluídos/sem ID, paginação, correção de conta/cancelamento, confirmações, configurações e regras | 184 | PASS |
+| Auxiliares | Conta nova, tutorial, prévia extensa, mapeamento incorreto, XLS/XLSX/OFX, salvar configuração/erro, cota, flag desligada | 168 | PASS |
+| Controles complementares | Foco em favoritos/data/remoção, aviso de banco divergente, desconexão/cancelamento, navegação e tabelas roladas até as últimas colunas | 80 | PASS |
+
+- **992 capturas**; **482 comparações de paridade Escura exatas** entre main/revisado/atual. Nenhuma precisou da tolerância do 3A. Outras **14 comparações** registram somente a exceção aprovada de feedback em sete estados por viewport.
+- **11.371 verificações de contraste Claro aprovadas**: mínimo **4,894:1** para texto/campos e **3,567:1** para elementos essenciais/foco. Sem overflow horizontal do documento; tabelas largas preservam seu rolamento interno. O controle transparente legado também entra na comparação de geometria, mesmo quando o foco o revela no Claro.
+- Teclado: favorito não seleciona banco; upload realmente desabilitado não abre seletor; upload nativo habilitado e upload manual abrem por teclado; Tab/Shift+Tab ficam no modal; Escape fecha e o consentimento restaura foco. Nenhuma dessas verificações grava lançamentos. Estes controles não constituem certificação integral WCAG do aplicativo ou do Escuro legado.
+- **Payloads, lançamentos, regras, metadados, logs, contas e saldos equivalentes** em todos os cenários; zero requisições externas e zero erros JavaScript não tratados.
+- **12 PDFs**, com **3, 12 e 2 páginas por variante**, respectivamente prévia/histórico/erro. Todas as 68 páginas comparadas têm raster idêntico; sem mudança de conteúdo, dimensões ou paginação em relação aos baselines.
+- Suíte completa: **3.289 testes em 203 arquivos**, todos aprovados, incluindo E864 e regressões financeiras/38 contratos de impressão. Revalidação focal: **181 testes**; revalidação final após limpeza de whitespace: **77 testes de aparência**. TypeScript: **14 diagnósticos conhecidos, zero novos**. Build/PWA: **PASS**, 49 entradas de precache.
+
+Evidências compactas: seis PNGs, manifestos por suíte, resumo e índice em [`evidencias-ciclo-3b/`](evidencias-ciclo-3b/). Pacote externo completo: `finelo-ciclo-3b-evidencias.zip`, **73.493.415 bytes**, **1.113 arquivos indexados**, incluindo capturas, PDFs, renderizações, JSONs financeiros completos, logs e fontes auditadas. SHA-256 do ZIP: `abc294b0b298dfba121826375790b34948ef02a9f6482667972b3f432d88caa1`. O ZIP foi reaberto, seu CRC conferido e cada entrada indexada validada por SHA-256. O índice versionado permite verificar o pacote sem colocá-lo no Git.
+
+O lote 3B está concluído para revisão na PR #97 em rascunho. A confirmação do Quality baseline do commit publicado será registrada na descrição da PR. Não houve merge, deploy, migration ou modificação de dados reais; o Claro global continua pendente do 3C e da homologação transversal.

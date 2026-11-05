@@ -1,0 +1,145 @@
+{
+  "status": "PASS",
+  "bases": {
+    "main": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+    "reviewed": "6f7a94b11286843d073295cc2be4e3c7601ea531"
+  },
+  "source_sha256": {
+    "src/components/views/ImportView.tsx": "87f0d799142edf60137aa3810bdc8f547c585222dd3991f21e986ab0db1adc48",
+    "src/components/modals/OpenFinanceReviewModal.tsx": "64f6afdb4edaa83b164d0bc3abd0c9f4cde516f74dee566aab84911f404f0b91",
+    "src/components/modals/SaveConfigModal.tsx": "0cd25094c0c282d50198ad7b78b7c90bd56be098e4bf26e132b731b8f0edc295",
+    "src/components/modals/ImportDetailsModal.tsx": "2eb1cff34bd10ec533d90f2ed4b0b9ad0311264b88011fecd46bafdf4eedeb96",
+    "src/components/onboarding/ImportSuccessPanel.tsx": "2651e4bc042a22f9344ae4c9d678608bb85fc40888533deb956995aa46d63f0a",
+    "src/components/views/SettingsView.tsx": "f74a2a6c7c6b5ec5e1a0f1c037a282897346ce3c3d484fe8ab51534fed2067fd",
+    "src/components/imports/ImportFeedback.tsx": "c38bc8eae38691e4b870c7cd68779d1681b6fbfaa0ae8a15943c8f0f4426b312",
+    "src/components/appearance/financial.css": "dd044c50a0294e16ee0baee33b1a305f3cbc06926e59f41ba76d6958c71daf14",
+    "scripts/diagnostics/import-preview-runtime.tsx": "2f0ad6d987a1cc04be961f4a390fdb39fa1dd97f382b5d8cb7930c2f063d453e",
+    "scripts/diagnostics/import-preview.tsx": "b6e7823f79df98d53886f3b5b34530f8713d582f51c2498f89322c242530d418",
+    "scripts/diagnostics/validate-import-themes.py": "be6f01130a4233925e68ec7210a801c1f937d3feb0517576faf884ac44ff69a5",
+    "scripts/diagnostics/import_visual_checks.py": "a228014200d07847d31c377eb26ea48341438daf7c7d169831180d559872ec45"
+  },
+  "remote_requests": 0,
+  "javascript_errors": [],
+  "accessibility": {
+    "desktop-dark": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "desktop-light": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "mobile-dark": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "mobile-light": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    }
+  },
+  "approved_feedback_exceptions": {},
+  "external_manifest": {
+    "path": "extras/validation.json",
+    "sha256": "c31e0f5695b26cddd6bf4285a5da6eede0ba9be65523c1e013f51a78358c2584",
+    "bytes": 82112
+  },
+  "parity": {
+    "desktop-main": {
+      "pass": true,
+      "comparisons": 21,
+      "exact": 21,
+      "tolerances": {}
+    },
+    "desktop-dark": {
+      "pass": true,
+      "comparisons": 21,
+      "exact": 21,
+      "tolerances": {}
+    },
+    "mobile-main": {
+      "pass": true,
+      "comparisons": 21,
+      "exact": 21,
+      "tolerances": {}
+    },
+    "mobile-dark": {
+      "pass": true,
+      "comparisons": 21,
+      "exact": 21,
+      "tolerances": {}
+    }
+  },
+  "financial": {
+    "desktop-reviewed": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "desktop-main": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "desktop-dark": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "desktop-light": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "mobile-reviewed": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "mobile-main": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "mobile-dark": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    },
+    "mobile-light": {
+      "equivalent": true,
+      "sha256": "6c4fc221ea1d14ad687cb158af053a44acb1db7fd4222db3275e449033447747",
+      "states": 21
+    }
+  },
+  "contrast": {
+    "desktop": {
+      "samples": 881,
+      "minimum_text": 4.894,
+      "minimum_essential": 4.397,
+      "failures": 0
+    },
+    "mobile": {
+      "samples": 881,
+      "minimum_text": 4.894,
+      "minimum_essential": 4.397,
+      "failures": 0
+    }
+  }
+}

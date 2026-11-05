@@ -9,9 +9,11 @@ import tarfile
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--base',default='6fa1188')
+parser.add_argument('--target-name',default='theme-financial-baseline')
 args=parser.parse_args()
 repo=Path(__file__).resolve().parents[2]
-target=(repo/'scripts/diagnostics/theme-financial-baseline').resolve()
+if not args.target_name.startswith('theme-') or not args.target_name.endswith('-baseline') or Path(args.target_name).name!=args.target_name:raise RuntimeError('Unsafe diagnostic target')
+target=(repo/'scripts/diagnostics'/args.target_name).resolve()
 assert target.is_relative_to(repo/'scripts/diagnostics')
 commit=subprocess.check_output(['git','rev-parse',args.base+'^{commit}'],cwd=repo,text=True).strip()
 archive=subprocess.check_output(['git','archive','--format=tar',commit,'src'],cwd=repo)

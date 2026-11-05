@@ -22,6 +22,8 @@ dist-ssr
 
 # Snapshot imutável e reproduzível da main para comparação visual local
 scripts/diagnostics/theme-financial-baseline/
+scripts/diagnostics/theme-import-main-baseline/
+scripts/diagnostics/theme-import-reviewed-baseline/
 .vscode
 
 # Assets / Media (Large Files)

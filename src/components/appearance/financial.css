@@ -96,4 +96,32 @@
     outline: 2px solid rgb(var(--appearance-focus)); outline-offset: 2px; box-shadow: none;
   }
   [data-finelo-theme="light"] [data-finance~="rule-action"]:focus-visible { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="scrim"] { background-color: rgb(var(--appearance-scrim) / .48); }
+  [data-finelo-theme="light"] [data-finance~="upload-icon"] { color: rgb(var(--appearance-info)) !important; }
+  [data-finelo-theme="light"] [data-finance~="upload"] { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="upload"][data-finance-disabled="true"] {
+    background-color: rgb(var(--appearance-disabled)); color: rgb(var(--appearance-on-disabled)); border-color: rgb(var(--appearance-control-border));
+  }
+  [data-finelo-theme="light"] [data-finance~="favorite"]:focus-visible { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="favorite"] {
+    color: rgb(var(--appearance-content)); background-color: rgb(var(--appearance-surface)); box-shadow: 0 0 0 1px rgb(var(--appearance-content));
+  }
+  [data-finelo-theme="light"] [data-finance~="favorite"][aria-pressed="true"] { box-shadow: 0 0 0 2px rgb(var(--appearance-action-hover)); }
+  [data-finelo-theme="light"] [data-finance~="focus-reveal"]:focus-visible { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="active-tab"] { border-color: currentColor; }
+  [data-finelo-theme="light"] [data-finance~="native-select"] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23526175' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e") !important;
+  }
+  [data-finelo-theme="light"] [data-finance~="control"]:disabled {
+    color: rgb(var(--appearance-on-disabled)); background-color: rgb(var(--appearance-disabled)); opacity: 1;
+  }
+  [data-finelo-theme="light"] [data-finance~="control"]::placeholder { color: rgb(var(--appearance-muted)); opacity: 1; }
+  [data-finelo-theme="light"][data-finance~="tour"] { background-color: rgb(var(--appearance-surface)); color: rgb(var(--appearance-content)); }
+  [data-finelo-theme="light"][data-finance~="tour"] button { text-shadow: none; }
+  [data-finelo-theme="light"][data-finance~="tour"] [data-finance~="action"]:is(:hover,:focus) {
+    color: rgb(var(--appearance-on-action)); background-color: rgb(var(--appearance-action-hover)); border-color: rgb(var(--appearance-action));
+  }
+  [data-finelo-theme="light"][data-finance~="tour"] .driver-popover-btn-disabled {
+    opacity: 1; color: rgb(var(--appearance-on-disabled)); background-color: rgb(var(--appearance-disabled)); border-color: rgb(var(--appearance-control-border));
+  }
 }

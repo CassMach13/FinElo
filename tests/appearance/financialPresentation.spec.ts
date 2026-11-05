@@ -1,30 +1,12 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import ts from 'typescript';
 import postcss from 'postcss';
 import { describe, expect, it } from 'vitest';
 import Input from '../../src/components/ui/Input';
 import Select from '../../src/components/ui/Select';
 import baseline from './financial-presentation-baseline.json';
-
-/** Strip presentation/accessibility additions; preserve existing classes, formulas, branches and mutation callbacks. */
-export function financialImplementationFingerprint(path: string, source: string) {
-  const ast=ts.createSourceFile(path,source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
-  const presentation=new Set(['manageFocus','tabIndex','role','aria-label','onKeyDown','onFocus']);
-  const result=ts.transform(ast,[context=>root=>{
-    const visit:ts.Visitor=node=>{
-      if(ts.isImportDeclaration(node)&&ts.isStringLiteral(node.moduleSpecifier)&&node.moduleSpecifier.text.endsWith('/appearance/financial.css'))return undefined;
-      if(ts.isJsxAttribute(node)&&(node.name.getText(ast).startsWith('data-finance')||presentation.has(node.name.getText(ast))))return undefined;
-      return ts.visitEachChild(node,visit,context);
-    };
-    return ts.visitNode(root,visit) as ts.SourceFile;
-  }]);
-  const normalized=ts.createPrinter({removeComments:true}).printFile(result.transformed[0]).replace(/\s+/g,'');
-  result.dispose();
-  return createHash('sha256').update(normalized).digest('hex');
-}
+import { financialImplementationFingerprint } from './financialPresentationFingerprint';
 
 describe('conversão financeira preserva a implementação da main',()=>{
   it.each(Object.entries(baseline.files))('%s conserva classes, cálculos e operações financeiras',(path,hash)=>{
@@ -69,7 +51,7 @@ describe('isolamento dos adaptadores financeiros',()=>{
     });
   });
   it('não modifica tipografia, dimensões, posicionamento ou paginação',()=>{
-    const paint=new Set(['color','background-color','background-image','border-color','border-left-color','border-top-color','color-scheme','accent-color','opacity','outline','outline-offset','box-shadow']);
+    const paint=new Set(['color','background-color','background-image','border-color','border-left-color','border-top-color','color-scheme','accent-color','opacity','outline','outline-offset','box-shadow','text-shadow']);
     css.walkDecls(declaration=>expect(declaration.prop.startsWith('--')||paint.has(declaration.prop)).toBe(true));
   });
 });

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import "../appearance/financial.css";
 import { ShieldCheckIcon } from '../ui/icons';
 import { useAppStore } from './../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
@@ -12,6 +13,7 @@ import Modal from './../ui/Modal';
 import Input from './../ui/Input';
 import Select from './../ui/Select';
 import ImportSuccessPanel from '../onboarding/ImportSuccessPanel';
+import ImportFeedback from '../imports/ImportFeedback';
 import { getImportGate } from '../../domain/imports/importGate';
 import { trackProductEvent, type ImportFailureStage } from '../../services/productAnalytics';
 import AccountModal from './AccountModal';
@@ -46,7 +48,7 @@ interface BankCardProps {
 }
 
 const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSelect, onToggleFavorite }) => (
-  <div
+  <div data-finance={isSelected ? "surface divider selected" : isFavorite ? "surface divider hover" : "surface divider hover"}
     role="button"
     tabIndex={0}
     aria-pressed={isSelected}
@@ -66,7 +68,7 @@ const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSel
     } cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight`}
   >
     {/* Logo */}
-    <div
+    <div data-finance="brand"
       className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-white transition-transform group-hover:scale-105"
       style={{ background: `linear-gradient(135deg, ${bank.brandColor}, ${bank.brandColorSecondary})` }}
     >
@@ -81,17 +83,17 @@ const BankCard: React.FC<BankCardProps> = ({ bank, isSelected, isFavorite, onSel
 
     {/* Name + description */}
     <div className="text-center">
-      <p className="text-white font-semibold text-xs leading-tight">{bank.name}</p>
-      <p className="text-gray-400 text-[10px] mt-0.5 leading-tight">{bank.description}</p>
+      <p data-finance="content" className="text-white font-semibold text-xs leading-tight">{bank.name}</p>
+      <p data-finance="muted" className="text-gray-400 text-[10px] mt-0.5 leading-tight">{bank.description}</p>
     </div>
 
     {/* ✓ Auto badge – top right */}
-    <span className="absolute top-2 right-2 text-[9px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-1.5 py-0.5">
+    <span data-finance="success-panel divider positive" className="absolute top-2 right-2 text-[9px] font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-full px-1.5 py-0.5">
       ✓ Auto
     </span>
 
     {/* ⭐ Favorite toggle – top left */}
-    <button
+    <button data-finance="favorite" aria-pressed={isFavorite} onKeyDown={event => event.stopPropagation()}
       type="button"
       onClick={onToggleFavorite}
       title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
@@ -938,21 +940,23 @@ const ImportView: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div data-finance="import-view" className="space-y-6">
       <div className="flex items-center gap-4">
-        <h1 className="text-3xl font-bold text-light">Importar Extrato</h1>
+        <h1 data-finance="content" className="text-3xl font-bold text-light">Importar Extrato</h1>
         <TourButton currentView="import" />
       </div>
 
+      <ImportFeedback notification={notification} visible={!selectedNativeBank && step !== 'mapping' && !showConsentModal} />
+
       {!isPremium && (
-        <div className="bg-slate-800 p-3 rounded-lg flex justify-between items-center text-sm mb-4 border border-slate-700">
-          <span className="text-gray-300">
-            Uso mensal gratuito: <strong className={gate.quotaExhausted ? "text-red-400" : "text-green-400"}>{importsThisMonth}/1</strong> importações.
+        <div data-finance="inset divider" className="bg-slate-800 p-3 rounded-lg flex justify-between items-center text-sm mb-4 border border-slate-700">
+          <span data-finance="muted" className="text-gray-300">
+            Uso mensal gratuito: <strong data-finance={gate.quotaExhausted ? "negative" : "positive"} className={gate.quotaExhausted ? "text-red-400" : "text-green-400"}>{importsThisMonth}/1</strong> importações.
           </span>
           {!gate.quotaExhausted ? (
-            <span className="text-xs text-blue-400">Você tem 1 importação grátis restante.</span>
+            <span data-finance="info" className="text-xs text-blue-400">Você tem 1 importação grátis restante.</span>
           ) : (
-            <span className="text-xs text-red-400 font-bold">Limite atingido.</span>
+            <span data-finance="negative" className="text-xs text-red-400 font-bold">Limite atingido.</span>
           )}
         </div>
       )}
@@ -960,13 +964,13 @@ const ImportView: React.FC = () => {
       {gate.successOnly ? (
         renderImportSuccess()
       ) : gate.showLimitBlock ? (
-        <Card className="border border-red-500/30 bg-red-500/10 text-center py-10">
+        <Card data-finance="danger-chip divider" className="border border-red-500/30 bg-red-500/10 text-center py-10">
           <div className="mb-4 text-4xl">🚫</div>
-          <h3 className="text-xl font-bold text-white mb-2">Limite Gratuito Atingido</h3>
-          <p className="text-gray-300 mb-6 max-w-md mx-auto">
+          <h3 data-finance="content" className="text-xl font-bold text-white mb-2">Limite Gratuito Atingido</h3>
+          <p data-finance="muted" className="text-gray-300 mb-6 max-w-md mx-auto">
             Você já realizou sua importação gratuita este mês. Para continuar organizando suas finanças com agilidade, faça o upgrade.
           </p>
-          <Button onClick={() => window.location.hash = '#pricing'} className="animate-pulse bg-gradient-to-r from-highlight to-blue-600 border-none">
+          <Button data-finance="divider" onClick={() => window.location.hash = '#pricing'} className="animate-pulse bg-gradient-to-r from-highlight to-blue-600 border-none">
             Liberar Importações Ilimitadas
           </Button>
         </Card>
@@ -977,11 +981,11 @@ const ImportView: React.FC = () => {
             <>
               {!selectedNativeBank && renderImportSuccess()}
               {hasMigrationNotice && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+                <div data-finance="warning-panel divider" className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
                   <span className="text-2xl">💡</span>
                   <div>
-                    <p className="text-amber-300 font-semibold text-sm">Novidade: Importação Automática Disponível!</p>
-                    <p className="text-amber-200/80 text-xs mt-1">
+                    <p data-finance="warning" className="text-amber-300 font-semibold text-sm">Novidade: Importação Automática Disponível!</p>
+                    <p data-finance="warning" className="text-amber-200/80 text-xs mt-1">
                       Alguns dos seus bancos agora têm importação nativa — selecione o banco abaixo para importar sem mapear colunas!
                     </p>
                   </div>
@@ -991,9 +995,9 @@ const ImportView: React.FC = () => {
               <Card>
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-xl font-bold text-white mb-1">Selecione o Banco ou Cartão</h2>
-                    <p className="text-sm text-gray-400">Escolha a fonte do seu extrato para uma importação automática, sem configurações manuais.</p>
-                    <button
+                    <h2 data-finance="content" className="text-xl font-bold text-white mb-1">Selecione o Banco ou Cartão</h2>
+                    <p data-finance="muted" className="text-sm text-gray-400">Escolha a fonte do seu extrato para uma importação automática, sem configurações manuais.</p>
+                    <button data-finance="info link"
                       type="button"
                       onClick={openHowToDownloadHelp}
                       className="mt-2 text-sm font-medium text-highlight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight rounded"
@@ -1006,9 +1010,9 @@ const ImportView: React.FC = () => {
                     {/* --- FAVORITES SECTION --- */}
                     {favoriteBanks.length > 0 && (
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-yellow-400/80 mb-3 flex items-center gap-1.5">
+                        <p data-finance="warning" className="text-xs font-bold uppercase tracking-widest text-yellow-400/80 mb-3 flex items-center gap-1.5">
                           <span>⭐</span> Meus Bancos
-                          <span className="text-slate-600 font-normal normal-case tracking-normal ml-1">(favoritos)</span>
+                          <span data-finance="muted" className="text-slate-600 font-normal normal-case tracking-normal ml-1">(favoritos)</span>
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {favoriteBanks.map(bank => (
@@ -1028,18 +1032,18 @@ const ImportView: React.FC = () => {
                     {/* --- ALL BANKS SECTION (collapsible when favorites exist) --- */}
                     <div>
                       {favoriteBanks.length > 0 ? (
-                        <button
+                        <button data-finance="muted"
                           onClick={() => setShowAllBanks(v => !v)}
                           className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors mb-3 group"
                         >
                           <span className={`transition-transform duration-200 ${showAllBanks ? 'rotate-90' : ''}`}>▶</span>
                           Todos os Bancos
-                          <span className="text-slate-600 font-normal normal-case tracking-normal">({sortedBanks.length} disponíveis)</span>
+                          <span data-finance="muted" className="text-slate-600 font-normal normal-case tracking-normal">({sortedBanks.length} disponíveis)</span>
                         </button>
                       ) : (
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">✅ Importação Automática Disponível</p>
-                          <p className="text-[10px] text-slate-600 italic">Clique em ⭐ para favoritar seus bancos</p>
+                          <p data-finance="muted" className="text-xs font-semibold uppercase tracking-wider text-gray-500">✅ Importação Automática Disponível</p>
+                          <p data-finance="muted" className="text-[10px] text-slate-600 italic">Clique em ⭐ para favoritar seus bancos</p>
                         </div>
                       )}
 
@@ -1057,18 +1061,18 @@ const ImportView: React.FC = () => {
                           ))}
 
                           {/* Manual Mapping Option — always at the end */}
-                          <button
+                          <button data-finance="secondary"
                             onClick={() => { setSelectedNativeBank(null); setStep('upload'); }}
                             className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-700 border-dashed hover:border-highlight bg-slate-800/20 hover:bg-slate-800/50 transition-all duration-200"
                           >
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-slate-400 bg-slate-800 transition-transform group-hover:scale-105 border border-slate-700 group-hover:text-highlight">
+                            <div data-finance="inset divider muted" className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-slate-400 bg-slate-800 transition-transform group-hover:scale-105 border border-slate-700 group-hover:text-highlight">
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                               </svg>
                             </div>
                             <div className="text-center">
-                              <p className="text-white font-semibold text-xs leading-tight">Mapeamento</p>
-                              <p className="text-gray-400 text-[10px] mt-0.5 leading-tight">Configuração Manual</p>
+                              <p data-finance="content" className="text-white font-semibold text-xs leading-tight">Mapeamento</p>
+                              <p data-finance="muted" className="text-gray-400 text-[10px] mt-0.5 leading-tight">Configuração Manual</p>
                             </div>
                           </button>
                         </div>
@@ -1079,23 +1083,23 @@ const ImportView: React.FC = () => {
                   {openFinanceEnabled ? (
                   <>
                   {/* ─── OPEN FINANCE (BELVO) ─────────────────────────────────────────── */}
-                  <div className="border border-indigo-500/30 bg-gradient-to-r from-indigo-900/40 to-slate-900/40 rounded-xl p-5 mt-4 relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-indigo-500/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
+                  <div data-finance="info-panel divider" className="border border-indigo-500/30 bg-gradient-to-r from-indigo-900/40 to-slate-900/40 rounded-xl p-5 mt-4 relative overflow-hidden group">
+                    <div data-finance="info-panel" className="absolute inset-0 bg-indigo-500/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></div>
                     <div className="relative z-10">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-bold text-white">🌐 Conexão Automática (Open Finance)</h3>
-                          <span className="bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">BETA</span>
+                          <h3 data-finance="content" className="text-lg font-bold text-white">🌐 Conexão Automática (Open Finance)</h3>
+                          <span data-finance="info-panel content" className="bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">BETA</span>
                         </div>
                         <div className="flex flex-col gap-2 w-full sm:w-auto">
-                          <Button
+                          <Button data-finance="action" id="import-open-finance-connect"
                             onClick={handleOpenFinanceConnect}
                             disabled={isBelvoLoading}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white border-none whitespace-nowrap shadow-lg shadow-indigo-500/20 text-sm w-full"
                           >
                             {isBelvoLoading ? 'Iniciando...' : '+ Conectar Novo Banco'}
                           </Button>
-                          <a 
+                          <a data-finance="muted"
                             href="https://dashboard.belvo.com/my-portal/" 
                             target="_blank" 
                             rel="noopener noreferrer"
@@ -1108,16 +1112,16 @@ const ImportView: React.FC = () => {
                           </a>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-400 mb-4">
+                      <p data-finance="muted" className="text-sm text-gray-400 mb-4">
                         Conecte Nubank, Itaú, Bradesco e mais de 100 instituições. Selecione o período e revise antes de salvar.
                       </p>
 
                       {/* Technical Error Box (Request ID) */}
                       {belvoError && (
-                        <div className="bg-red-500/20 border border-red-500/40 p-3 rounded-lg mb-4 text-[11px] text-red-300">
+                        <div data-finance="danger-chip divider negative" className="bg-red-500/20 border border-red-500/40 p-3 rounded-lg mb-4 text-[11px] text-red-300">
                           <p className="font-bold mb-1 flex items-center gap-1">❌ Detalhes para Suporte:</p>
-                          <code className="block bg-black/40 p-2 rounded mb-2 break-all">{belvoError}</code>
-                          <button 
+                          <code data-finance="inset" className="block bg-black/40 p-2 rounded mb-2 break-all">{belvoError}</code>
+                          <button data-finance="danger-chip hover"
                             onClick={() => {
                               const match = belvoError.match(/"request_id":\s*"([^"]+)"/);
                               const id = match ? match[1] : belvoError;
@@ -1131,27 +1135,27 @@ const ImportView: React.FC = () => {
                       )}
 
                       {isLoadingConnections ? (
-                        <p className="text-xs text-gray-500 animate-pulse">Carregando conexões...</p>
+                        <p data-finance="muted" className="text-xs text-gray-500 animate-pulse">Carregando conexões...</p>
                       ) : pluggyConnections.length > 0 ? (
                         <div className="flex flex-col gap-2">
-                          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Bancos Conectados</p>
+                          <p data-finance="muted" className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Bancos Conectados</p>
                           {pluggyConnections.map(conn => (
-                            <div key={conn.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 group">
+                            <div data-finance="inset divider" key={conn.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 group">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-sm">🏦</div>
+                                <div data-finance="info-panel divider" className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-sm">🏦</div>
                                 <div>
-                                  <p className="text-white text-sm font-medium">{conn.bank_name}</p>
-                                  <p className="text-gray-500 text-xs">Conectado em {new Date(conn.created_at).toLocaleDateString('pt-BR')}</p>
+                                  <p data-finance="content" className="text-white text-sm font-medium">{conn.bank_name}</p>
+                                  <p data-finance="muted" className="text-gray-500 text-xs">Conectado em {new Date(conn.created_at).toLocaleDateString('pt-BR')}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button
+                                <Button data-finance="action"
                                   onClick={() => setReviewConnection(conn)}
                                   className="bg-emerald-600/80 hover:bg-emerald-500 text-white border-none text-xs py-1.5 px-3"
                                 >
                                   🔄 Sincronizar
                                 </Button>
-                                <button
+                                <button data-finance="muted hover focus-reveal" aria-label={`Remover conexão com ${conn.bank_name}`}
                                   onClick={async () => {
                                     if (!(await appConfirm(`Remover a conexão com ${conn.bank_name}? Suas transações já importadas não serão afetadas.`, "Remover Conexão", "Remover", "danger"))) return;
                                     await deletePluggyConnection(conn.id);
@@ -1168,7 +1172,7 @@ const ImportView: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-xs text-gray-500 italic">Nenhum banco conectado ainda. Clique em "+ Conectar Novo Banco" para começar.</p>
+                        <p data-finance="muted" className="text-xs text-gray-500 italic">Nenhum banco conectado ainda. Clique em "+ Conectar Novo Banco" para começar.</p>
                       )}
                     </div>
                   </div>
@@ -1178,14 +1182,14 @@ const ImportView: React.FC = () => {
                   </>
                   ) : null}
 
-                  <div className="border-t border-slate-700/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div data-finance="divider" className="border-t border-slate-700/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
 
                     <div>
-                      <p className="text-white font-semibold text-sm">🏦 Meu banco não está na lista</p>
-                      <p className="text-gray-400 text-xs mt-0.5">Abra um pedido de suporte aqui no FinElo ou crie um mapeamento manual clicando na grade acima.</p>
+                      <p data-finance="content" className="text-white font-semibold text-sm">🏦 Meu banco não está na lista</p>
+                      <p data-finance="muted" className="text-gray-400 text-xs mt-0.5">Abra um pedido de suporte aqui no FinElo ou crie um mapeamento manual clicando na grade acima.</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
-                      <button
+                      <button data-finance="secondary"
                         type="button"
                         onClick={openBankRequestSupport}
                         className="text-xs font-semibold px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight"
@@ -1196,24 +1200,24 @@ const ImportView: React.FC = () => {
                   </div>
 
                   {/* ── PAYWALL MODAL ─────────────────────────────────────── */}
-                  <Modal
+                  <Modal manageFocus
                     isOpen={showPaywallModal !== null}
                     onClose={() => setShowPaywallModal(null)}
                     title={showPaywallModal === 'basic' ? "🎯 Recurso Premium" : "🌟 Conexão Extra"}
                   >
                     <div className="flex flex-col items-center justify-center p-4 text-center">
-                      <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center text-3xl mb-4 border border-indigo-500/30">
+                      <div data-finance="info-panel divider" className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center text-3xl mb-4 border border-indigo-500/30">
                         {showPaywallModal === 'basic' ? '💎' : '🏦'}
                       </div>
 
                       {showPaywallModal === 'basic' ? (
                         <>
-                          <h3 className="text-xl font-bold text-white mb-2">Open Finance é Premium!</h3>
-                          <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+                          <h3 data-finance="content" className="text-xl font-bold text-white mb-2">Open Finance é Premium!</h3>
+                          <p data-finance="muted" className="text-gray-300 text-sm mb-6 leading-relaxed">
                             A sincronização automática via Open Finance consome recursos avançados do sistema e está disponível exclusivamente para assinantes <strong>PRO</strong> ou <strong>Wealth</strong>.
                           </p>
                           <div className="flex flex-col gap-3 w-full">
-                            <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none py-3" onClick={() => setCurrentView('pricing')}>
+                            <Button data-finance="action" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none py-3" onClick={() => setCurrentView('pricing')}>
                               Ver Planos e Fazer Upgrade
                             </Button>
                             <Button variant="secondary" className="w-full py-3" onClick={() => setShowPaywallModal(null)}>
@@ -1223,17 +1227,17 @@ const ImportView: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <h3 className="text-xl font-bold text-white mb-2">Limite de Bancos Atingido</h3>
-                          <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                          <h3 data-finance="content" className="text-xl font-bold text-white mb-2">Limite de Bancos Atingido</h3>
+                          <p data-finance="muted" className="text-gray-300 text-sm mb-4 leading-relaxed">
                             Seu plano pago inclui <strong>1 conexão gratuita</strong>.
                           </p>
-                          <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/50 mb-6 text-sm">
-                            <p className="text-gray-400 mb-2">Para adicionar o <strong>2º banco</strong>, o custo adicional de infraestrutura é de:</p>
-                            <p className="text-2xl font-bold text-white mb-1"><span className="text-sm font-normal text-gray-500 mr-1">R$</span>3,00<span className="text-xs font-normal text-gray-500 ml-1">/mês</span></p>
-                            <p className="text-xs text-indigo-400 font-medium">Cobrado separadamente na sua fatura.</p>
+                          <div data-finance="inset divider" className="bg-slate-800/80 p-4 rounded-xl border border-slate-700/50 mb-6 text-sm">
+                            <p data-finance="muted" className="text-gray-400 mb-2">Para adicionar o <strong>2º banco</strong>, o custo adicional de infraestrutura é de:</p>
+                            <p data-finance="content" className="text-2xl font-bold text-white mb-1"><span data-finance="muted" className="text-sm font-normal text-gray-500 mr-1">R$</span>3,00<span data-finance="muted" className="text-xs font-normal text-gray-500 ml-1">/mês</span></p>
+                            <p data-finance="info" className="text-xs text-indigo-400 font-medium">Cobrado separadamente na sua fatura.</p>
                           </div>
                           <div className="flex flex-col gap-3 w-full">
-                            <Button
+                            <Button data-finance="action"
                               className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none py-3 font-semibold"
                               onClick={() => window.open('https://buy.stripe.com/test_XYZ_REPLACE_ME', '_blank')} // Awaiting real link from user
                             >
@@ -1255,7 +1259,7 @@ const ImportView: React.FC = () => {
 
           {
             selectedNativeBank && (
-              <Modal
+              <Modal manageFocus
                 isOpen={true}
                 onClose={() => {
                   setSelectedNativeBank(null);
@@ -1271,8 +1275,8 @@ const ImportView: React.FC = () => {
                 footer={null}
               >
                 <div className="flex flex-col gap-5">
-                  <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <div
+                  <div data-finance="inset divider" className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div data-finance="brand"
                       className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg text-white flex-shrink-0"
                       style={{ background: `linear-gradient(135deg, ${selectedNativeBank.brandColor}, ${selectedNativeBank.brandColorSecondary})` }}
                     >
@@ -1285,9 +1289,9 @@ const ImportView: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <h3 className="text-white font-bold">{selectedNativeBank.name}</h3>
-                      <p className="text-gray-400 text-sm">{selectedNativeBank.description}</p>
-                      <button
+                      <h3 data-finance="content" className="text-white font-bold">{selectedNativeBank.name}</h3>
+                      <p data-finance="muted" className="text-gray-400 text-sm">{selectedNativeBank.description}</p>
+                      <button data-finance="info link"
                         type="button"
                         onClick={openHowToDownloadHelp}
                         className="mt-1 text-xs font-medium text-highlight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-highlight rounded"
@@ -1298,26 +1302,26 @@ const ImportView: React.FC = () => {
                   </div>
 
                   {detectedNativeBank && detectedNativeBank.id !== selectedNativeBank.id && (
-                    <div className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm">
-                      <p className="text-amber-300">⚠️ O arquivo parece ser do <strong>{detectedNativeBank.name}</strong>, não do {selectedNativeBank.name}. Verifique se selecionou o banco correto.</p>
+                    <div data-finance="warning-panel divider" className="mb-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm">
+                      <p data-finance="warning" className="text-amber-300">⚠️ O arquivo parece ser do <strong>{detectedNativeBank.name}</strong>, não do {selectedNativeBank.name}. Verifique se selecionou o banco correto.</p>
                     </div>
                   )}
 
                   {selectedNativeBank.sourceType === 'Cartao' && (
-                    <div className="mb-2 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                      <label className="block text-sm font-medium text-blue-300 mb-1">📅 Vencimento da Fatura *</label>
-                      <input
+                    <div data-finance="info-panel divider" className="mb-2 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <label data-finance="info" className="block text-sm font-medium text-blue-300 mb-1">📅 Vencimento da Fatura *</label>
+                      <input data-finance="control" id="native-due-date" aria-label="Vencimento da Fatura"
                         type="date"
                         value={nativeDueDate}
                         onChange={e => setNativeDueDate(e.target.value)}
                         className="w-full sm:w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                       />
-                      <p className="text-xs text-blue-400 mt-1">Necessário para registrar a data de pagamento correta das despesas.</p>
-                      <div className="mt-3 pt-3 border-t border-blue-500/20">
-                        <p className="text-xs text-blue-300 font-semibold mb-2">Competência da fatura</p>
+                      <p data-finance="info" className="text-xs text-blue-400 mt-1">Necessário para registrar a data de pagamento correta das despesas.</p>
+                      <div data-finance="divider" className="mt-3 pt-3 border-t border-blue-500/20">
+                        <p data-finance="info" className="text-xs text-blue-300 font-semibold mb-2">Competência da fatura</p>
                         <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                          <label className="flex items-center gap-2 text-xs text-gray-300">
-                            <input
+                          <label data-finance="muted" className="flex items-center gap-2 text-xs text-gray-300">
+                            <input data-finance="choice"
                               type="radio"
                               name="nativeReferenceMode"
                               checked={nativeReferenceMode === 'auto'}
@@ -1326,8 +1330,8 @@ const ImportView: React.FC = () => {
                             />
                             Automática (pela compra mais recente)
                           </label>
-                          <label className="flex items-center gap-2 text-xs text-gray-300">
-                            <input
+                          <label data-finance="muted" className="flex items-center gap-2 text-xs text-gray-300">
+                            <input data-finance="choice"
                               type="radio"
                               name="nativeReferenceMode"
                               checked={nativeReferenceMode === 'manual'}
@@ -1339,13 +1343,13 @@ const ImportView: React.FC = () => {
                         </div>
                         {nativeReferenceMode === 'manual' && (
                           <div className="mt-2">
-                            <Input
+                            <Input aria-label="Competência da fatura nativa"
                               label="Competência (AAAA-MM)"
                               type="month"
                               value={nativeReferenceMonth}
                               onChange={(e) => setNativeReferenceMonth(e.target.value)}
                             />
-                            <p className="text-[11px] text-blue-400 mt-1">
+                            <p data-finance="info" className="text-[11px] text-blue-400 mt-1">
                               Recomendado para arquivos antigos, garantindo precisão da fatura no histórico.
                             </p>
                           </div>
@@ -1354,17 +1358,17 @@ const ImportView: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="mb-2 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                  <div data-finance="inset divider" className="mb-2 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                     <div className="flex justify-between items-center mb-1">
-                      <label className="block text-sm font-medium text-gray-300">💰 Conta de Destino *</label>
-                      <button
+                      <label data-finance="muted" className="block text-sm font-medium text-gray-300">💰 Conta de Destino *</label>
+                      <button data-finance="info link"
                         onClick={() => setAccountModalOpen(true)}
                         className="text-xs text-highlight hover:underline"
                       >
                         + Nova Conta
                       </button>
                     </div>
-                    <select
+                    <select data-finance="control" aria-label="Conta de destino"
                       value={selectedNativeAccountId}
                       onChange={e => setSelectedNativeAccountId(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-highlight focus:ring-1 focus:ring-highlight"
@@ -1381,10 +1385,10 @@ const ImportView: React.FC = () => {
                         accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.Nome_Conta}</option>)
                       }
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">As transações serão vinculadas a esta conta.</p>
+                    <p data-finance="muted" className="text-xs text-gray-500 mt-1">As transações serão vinculadas a esta conta.</p>
                   </div>
 
-                  <label
+                  <label data-finance="inset editable readonly-row upload" data-finance-disabled={isLoading || !selectedNativeAccountId || (selectedNativeBank.sourceType === 'Cartao' && (!nativeDueDate || (nativeReferenceMode === 'manual' && !nativeReferenceMonth)))} tabIndex={0} role="button" aria-label="Selecionar arquivo para importação nativa" aria-disabled={isLoading || (selectedNativeBank.sourceType === 'Cartao' && (!nativeDueDate || (nativeReferenceMode === 'manual' && !nativeReferenceMonth)))} onKeyDown={event => { if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); const input=event.currentTarget.querySelector('input'); if(!input?.disabled)input?.click(); } }}
                     htmlFor="native-file-upload"
                     className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all ${isLoading
                       ? 'border-slate-700 bg-slate-800/30 cursor-not-allowed'
@@ -1394,7 +1398,7 @@ const ImportView: React.FC = () => {
                         : 'border-slate-600 hover:border-green-500/50 hover:bg-slate-800/50 bg-slate-900/30'
                       }`}
                   >
-                    <input
+                    <input data-finance="control"
                       id="native-file-upload"
                       type="file"
                       accept=".csv,.xlsx,.xls"
@@ -1407,8 +1411,8 @@ const ImportView: React.FC = () => {
                       }
                     />
                     {isLoading ? (
-                      <div className="flex items-center gap-3 text-highlight">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-highlight"></div>
+                      <div data-finance="info" role="status" className="flex items-center gap-3 text-highlight">
+                        <div data-finance="spinner" className="animate-spin rounded-full h-6 w-6 border-b-2 border-highlight"></div>
                         <span className="font-medium">Importando automaticamente...</span>
                       </div>
                     ) : (
@@ -1417,11 +1421,11 @@ const ImportView: React.FC = () => {
                           className="w-16 h-16 rounded-full flex items-center justify-center mb-4 border"
                           style={{ backgroundColor: `${selectedNativeBank.brandColor}15`, borderColor: `${selectedNativeBank.brandColor}30` }}
                         >
-                          <svg className="w-7 h-7" style={{ color: selectedNativeBank.brandColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg data-finance="upload-icon" className="w-7 h-7" style={{ color: selectedNativeBank.brandColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                           </svg>
                         </div>
-                        <p className="text-white font-semibold mb-1 text-center">
+                        <p data-finance="content" className="text-white font-semibold mb-1 text-center">
                           {selectedNativeBank.sourceType === 'Cartao' && !nativeDueDate
                             ? 'Informe a data de vencimento acima'
                             : selectedNativeBank.sourceType === 'Cartao' && nativeReferenceMode === 'manual' && !nativeReferenceMonth
@@ -1430,7 +1434,7 @@ const ImportView: React.FC = () => {
                               ? 'Selecione a conta de destino para habilitar'
                               : `Clique para enviar o extrato`}
                         </p>
-                        <p className="text-gray-400 text-sm text-center">Formato: .csv, .xlsx ou .xls — O sistema lê tudo automaticamente ✨</p>
+                        <p data-finance="muted" className="text-gray-400 text-sm text-center">Formato: .csv, .xlsx ou .xls — O sistema lê tudo automaticamente ✨</p>
                       </>
                     )}
                   </label>
@@ -1451,7 +1455,7 @@ const ImportView: React.FC = () => {
 
                   {renderImportSuccess()}
                   {notification && !renderImportSuccess() && (
-                    <div className={`p-3 rounded-lg text-sm text-center ${notification.type === 'success' ? 'bg-green-800/50 text-green-200 border border-green-700' : 'bg-red-800/50 text-red-200 border border-red-700'
+                    <div role={notification.type === 'error' ? 'alert' : !notification.summary || notification.summary.imported === 0 ? 'status' : undefined} data-finance={notification.type === "success" ? "success-panel" : "danger-chip"} className={`p-3 rounded-lg text-sm text-center ${notification.type === 'success' ? 'bg-green-800/50 text-green-200 border border-green-700' : 'bg-red-800/50 text-red-200 border border-red-700'
                       }`}>
                       {notification.message}
                     </div>
@@ -1470,26 +1474,26 @@ const ImportView: React.FC = () => {
           <Card>
             {step === 'upload' ? (
               <div id="import-form" className="space-y-4 max-w-lg mx-auto">
-                <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-md mb-4">
-                  <h4 className="text-blue-200 font-bold flex items-center gap-2">
+                <div data-finance="info-panel divider" className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-md mb-4">
+                  <h4 data-finance="info" className="text-blue-200 font-bold flex items-center gap-2">
                     ✨ Importação Inteligente Manual
                   </h4>
-                  <p className="text-sm text-blue-300 mt-1">
+                  <p data-finance="info" className="text-sm text-blue-300 mt-1">
                     Importe <strong>qualquer planilha</strong> sem precisar pré-configurar. Basta carregar o arquivo e identificar as colunas.
                   </p>
                 </div>
                 <div className="flex justify-between items-center">
-                  <button onClick={() => { setStep('bank-select'); setSelectedNativeBank(null); }} className="text-sm text-highlight hover:text-sky-400 flex items-center gap-1">
+                  <button data-finance="info link" onClick={() => { setStep('bank-select'); setSelectedNativeBank(null); }} className="text-sm text-highlight hover:text-sky-400 flex items-center gap-1">
                     ← Voltar à seleção de banco
                   </button>
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label htmlFor="source-select" className="block text-sm font-medium text-gray-300">
+                    <label data-finance="muted" htmlFor="source-select" className="block text-sm font-medium text-gray-300">
                       Fonte do Arquivo (Opcional)
                     </label>
                     {selectedConfigSource && importConfigs.find(c => c.Nome_Fonte === selectedConfigSource) && (
-                      <button
+                      <button data-finance="negative"
                         onClick={async () => {
                           const config = importConfigs.find(c => c.Nome_Fonte === selectedConfigSource);
                           if (config && confirm(`Tem certeza que deseja excluir a configuração "${config.Nome_Fonte}"?`)) {
@@ -1512,19 +1516,19 @@ const ImportView: React.FC = () => {
                   </Select>
                 </div>
                 <div>
-                  <label htmlFor="file-upload" className="block text-sm font-medium text-gray-300 mb-1">Arquivo (.csv, .xlsx, .xls)</label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md hover:border-highlight transition-colors">
+                  <label data-finance="muted" htmlFor="file-upload" className="block text-sm font-medium text-gray-300 mb-1">Arquivo (.csv, .xlsx, .xls)</label>
+                  <div data-finance="divider" className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md hover:border-highlight transition-colors">
                     <div className="space-y-1 text-center">
-                      <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                      <svg data-finance="muted" className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                         <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                      <div className="flex text-sm text-gray-400 justify-center">
-                        <label htmlFor="file-upload" className="relative cursor-pointer bg-secondary rounded-md font-medium text-highlight hover:text-sky-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-primary focus-within:ring-highlight p-1">
+                      <div data-finance="muted" className="flex text-sm text-gray-400 justify-center">
+                        <label data-finance="inset info" tabIndex={0} role="button" aria-label="Selecionar arquivo para mapeamento" onKeyDown={event => { if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); const input=event.currentTarget.querySelector('input'); if(!input?.disabled)input?.click(); } }} htmlFor="file-upload" className="relative cursor-pointer bg-secondary rounded-md font-medium text-highlight hover:text-sky-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-primary focus-within:ring-highlight p-1">
                           Adicionar Arquivo
-                          <input id="file-upload" type="file" className="hidden" accept=".ofx,.csv,.xlsx,.xls" onChange={handleFileChange} disabled={isLoading} />
+                          <input data-finance="control" id="file-upload" type="file" className="hidden" accept=".ofx,.csv,.xlsx,.xls" onChange={handleFileChange} disabled={isLoading} />
                         </label>
                       </div>
-                      <p className="text-xs text-gray-500">CSV, Excel ou OFX</p>
+                      <p data-finance="muted" className="text-xs text-gray-500">CSV, Excel ou OFX</p>
                     </div>
                   </div>
                 </div>
@@ -1533,18 +1537,18 @@ const ImportView: React.FC = () => {
               <div className="space-y-6 animate-fadeIn">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-bold text-white">Mapeamento de Colunas</h3>
-                    <p className="text-sm text-gray-400">Identifique onde começam os dados e quais colunas importar.</p>
+                    <h3 data-finance="content" className="text-lg font-bold text-white">Mapeamento de Colunas</h3>
+                    <p data-finance="muted" className="text-sm text-gray-400">Identifique onde começam os dados e quais colunas importar.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={() => { setStep('upload'); setFile(null); }}>Cancelar</Button>
                 </div>
 
-                <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-4">
-                  <h4 className="text-sm font-medium text-gray-300">1. Detalhes da Fonte</h4>
+                <div data-finance="inset divider" className="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-4">
+                  <h4 data-finance="muted" className="text-sm font-medium text-gray-300">1. Detalhes da Fonte</h4>
                   <div className="flex flex-col sm:flex-row gap-6">
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input
+                        <input data-finance="choice"
                           type="radio"
                           name="sourceType"
                           value="Conta Corrente"
@@ -1558,10 +1562,10 @@ const ImportView: React.FC = () => {
                           }}
                           className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
                         />
-                        <span className="text-gray-300 text-sm">Conta Corrente</span>
+                        <span data-finance="muted" className="text-gray-300 text-sm">Conta Corrente</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input
+                        <input data-finance="choice"
                           type="radio"
                           name="sourceType"
                           value="Cartão de Crédito"
@@ -1572,35 +1576,35 @@ const ImportView: React.FC = () => {
                           }}
                           className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
                         />
-                        <span className="text-gray-300 text-sm">Cartão de Crédito</span>
+                        <span data-finance="muted" className="text-gray-300 text-sm">Cartão de Crédito</span>
                       </label>
                     </div>
                     {tempSourceType === 'Cartao' && (
                       <div className="animate-fadeIn">
                         <Input label="Vencimento da Fatura *" type="date" value={tempDueDate} onChange={e => setTempDueDate(e.target.value)} className="w-full sm:w-auto text-sm py-1" />
-                        <p className="text-xs text-blue-400 mt-1">Essa data será usada como <strong>Data de Pagamento</strong>.</p>
+                        <p data-finance="info" className="text-xs text-blue-400 mt-1">Essa data será usada como <strong>Data de Pagamento</strong>.</p>
                         <div className="mt-3 space-y-2">
-                          <p className="text-xs text-gray-300 font-medium">Competência da fatura</p>
+                          <p data-finance="muted" className="text-xs text-gray-300 font-medium">Competência da fatura</p>
                           <div className="flex flex-col sm:flex-row gap-3">
                             <label className="flex items-center gap-2 cursor-pointer">
-                              <input
+                              <input data-finance="choice"
                                 type="radio"
                                 name="tempReferenceMode"
                                 checked={tempReferenceMode === 'auto'}
                                 onChange={() => setTempReferenceMode('auto')}
                                 className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
                               />
-                              <span className="text-xs text-gray-300">Automática (compra mais recente)</span>
+                              <span data-finance="muted" className="text-xs text-gray-300">Automática (compra mais recente)</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
-                              <input
+                              <input data-finance="choice"
                                 type="radio"
                                 name="tempReferenceMode"
                                 checked={tempReferenceMode === 'manual'}
                                 onChange={() => setTempReferenceMode('manual')}
                                 className="text-highlight focus:ring-highlight bg-slate-700 border-slate-600"
                               />
-                              <span className="text-xs text-gray-300">Definir manualmente</span>
+                              <span data-finance="muted" className="text-xs text-gray-300">Definir manualmente</span>
                             </label>
                           </div>
                           {tempReferenceMode === 'manual' && (
@@ -1616,27 +1620,28 @@ const ImportView: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 pt-4 border-t border-slate-700">
+                  <div data-finance="divider" className="mt-4 pt-4 border-t border-slate-700">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={invertValues} onChange={(e) => setInvertValues(e.target.checked)} className="rounded border-slate-600 bg-slate-800 text-highlight focus:ring-highlight" />
+                      <input data-finance="choice" type="checkbox" checked={invertValues} onChange={(e) => setInvertValues(e.target.checked)} className="rounded border-slate-600 bg-slate-800 text-highlight focus:ring-highlight" />
                       <div className="flex flex-col">
-                        <span className="text-sm text-gray-300 font-medium">Inverter Valores (Positivo ↔ Negativo)</span>
-                        <span className="text-xs text-gray-500">Marque se os gastos aparecem como positivos (em verde) e deveriam ser despesas.</span>
+                        <span data-finance="muted" className="text-sm text-gray-300 font-medium">Inverter Valores (Positivo ↔ Negativo)</span>
+                        <span data-finance="muted" className="text-xs text-gray-500">Marque se os gastos aparecem como positivos (em verde) e deveriam ser despesas.</span>
                       </div>
                     </label>
                   </div>
                 </div>
 
-                <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">2. Onde começam os dados reais?</h4>
-                  <p className="text-xs text-gray-500 mb-3">
+                <div data-finance="inset divider" className="bg-slate-900 rounded-lg p-4 border border-slate-700">
+                  <h4 data-finance="muted" className="text-sm font-medium text-gray-300 mb-2">2. Onde começam os dados reais?</h4>
+                  <p data-finance="muted" className="text-xs text-gray-500 mb-3">
                     Arquivos de bancos geralmente têm linhas de "cabeçalho" (saldo, conta, datas) que atrapalham.<br />
-                    <span className="text-highlight">Clique na linha</span> abaixo que contém os títulos das colunas (Ex: Data, Histórico, Valor).
+                    <span data-finance="info" className="text-highlight">Clique na linha</span> abaixo que contém os títulos das colunas (Ex: Data, Histórico, Valor).
                   </p>
-                  <div className="max-h-40 overflow-y-auto font-mono text-xs bg-black/30 rounded border border-slate-800">
+                  <div data-finance="inset divider" className="max-h-40 overflow-y-auto font-mono text-xs bg-black/30 rounded border border-slate-800">
                     {fileContent.split('\n').slice(0, 15).map((line, idx) => (
-                      <div
+                      <div data-finance={mapping.skipLines === idx ? "selected hover" : idx < mapping.skipLines ? "muted hover" : "content hover"}
                         key={idx}
+                        role="button" tabIndex={0} aria-pressed={mapping.skipLines === idx} onKeyDown={event => { if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); event.currentTarget.click(); } }}
                         onClick={() => {
                           const skip = idx;
                           setMapping(prev => ({ ...prev, skipLines: skip }));
@@ -1644,37 +1649,37 @@ const ImportView: React.FC = () => {
                         }}
                         className={`flex cursor-pointer hover:bg-white/5 p-1 ${mapping.skipLines === idx ? 'bg-highlight/20 text-highlight font-bold' : (idx < mapping.skipLines ? 'text-gray-600 line-through' : 'text-gray-300')}`}
                       >
-                        <span className="w-8 text-gray-600 select-none text-right mr-3">{idx + 1}</span>
+                        <span data-finance="muted" className="w-8 text-gray-600 select-none text-right mr-3">{idx + 1}</span>
                         <span className="whitespace-pre-wrap">{line}</span>
                       </div>
                     ))}
                   </div>
                   <div className="mt-2 text-right">
-                    <span className="text-xs text-gray-400">Linhas ignoradas: <strong>{mapping.skipLines}</strong></span>
+                    <span data-finance="muted" className="text-xs text-gray-400">Linhas ignoradas: <strong>{mapping.skipLines}</strong></span>
                   </div>
                 </div>
 
-                <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">3. Identifique as Colunas</h4>
+                <div data-finance="inset divider" className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                  <h4 data-finance="muted" className="text-sm font-medium text-gray-300 mb-2">3. Identifique as Colunas</h4>
                   <div className="flex gap-4 items-center mb-4">
-                    <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                      <input type="checkbox" checked={mapping.hasHeader} onChange={e => setMapping(prev => ({ ...prev, hasHeader: e.target.checked }))} className="rounded border-slate-600 bg-slate-700 text-highlight focus:ring-highlight" />
+                    <label data-finance="muted" className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                      <input data-finance="choice" type="checkbox" checked={mapping.hasHeader} onChange={e => setMapping(prev => ({ ...prev, hasHeader: e.target.checked }))} className="rounded border-slate-600 bg-slate-700 text-highlight focus:ring-highlight" />
                       A primeira linha visível é o cabeçalho
                     </label>
                   </div>
                   {previewData.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">Nenhum dado detectado. Tente ajustar a linha de início acima.</div>
+                    <div data-finance="muted" className="text-center py-8 text-gray-500">Nenhum dado detectado. Tente ajustar a linha de início acima.</div>
                   ) : (
-                    <div className="overflow-x-auto border border-slate-600 rounded-lg">
-                      <table className="min-w-[1000px] sm:min-w-full text-sm text-left text-gray-400">
-                        <thead className="text-xs uppercase bg-slate-900 text-gray-400">
+                    <div data-finance="divider" className="overflow-x-auto border border-slate-600 rounded-lg">
+                      <table data-finance="muted" className="min-w-[1000px] sm:min-w-full text-sm text-left text-gray-400">
+                        <thead data-finance="head muted" className="text-xs uppercase bg-slate-900 text-gray-400">
                           <tr>
-                            <th className="px-4 py-3 border-b border-slate-700 w-10 text-center"><span title="Ignorar Linha">🚫</span></th>
+                            <th data-finance="divider" className="px-4 py-3 border-b border-slate-700 w-10 text-center"><span title="Ignorar Linha">🚫</span></th>
                             {previewData[0]?.map((_, colIndex) => (
-                              <th key={colIndex} className="px-4 py-3 min-w-[150px] border-b border-slate-700">
+                              <th data-finance="divider" key={colIndex} className="px-4 py-3 min-w-[150px] border-b border-slate-700">
                                 <div className="flex flex-col gap-2">
-                                  <span className="text-gray-500 font-mono text-[10px]">COLUNA {colIndex + 1}</span>
-                                  <select
+                                  <span data-finance="muted" className="text-gray-500 font-mono text-[10px]">COLUNA {colIndex + 1}</span>
+                                  <select data-finance="control" aria-label={`Mapear coluna ${colIndex + 1}`}
                                     className={`bg-slate-700 border-slate-600 rounded text-xs p-1 focus:ring-highlight focus:border-highlight ${mapping.dateColumnIndex === colIndex ? 'border-blue-500 ring-1 ring-blue-500' : mapping.amountColumnIndex === colIndex ? 'border-green-500 ring-1 ring-green-500' : ''}`}
                                     value={
                                       mapping.dateColumnIndex === colIndex ? 'date' :
@@ -1714,12 +1719,12 @@ const ImportView: React.FC = () => {
                             const actualIndex = rowIndex + (mapping.hasHeader ? 1 : 0);
                             const isIgnored = mapping.ignoredIndices.has(actualIndex);
                             return (
-                              <tr key={rowIndex} className={`border-b border-slate-700 hover:bg-slate-700/50 ${isIgnored ? 'opacity-40 bg-red-900/10' : ''}`}>
+                              <tr data-finance={isIgnored ? "divider row readonly-row danger-chip" : "divider row"} key={rowIndex} className={`border-b border-slate-700 hover:bg-slate-700/50 ${isIgnored ? 'opacity-40 bg-red-900/10' : ''}`}>
                                 <td className="px-4 py-2 text-center">
-                                  <input type="checkbox" checked={isIgnored} onChange={() => toggleIgnoreRow(actualIndex)} className="rounded border-slate-600 bg-slate-800 text-red-500 focus:ring-red-500" title="Ignorar esta linha" />
+                                  <input data-finance="choice" type="checkbox" checked={isIgnored} onChange={() => toggleIgnoreRow(actualIndex)} className="rounded border-slate-600 bg-slate-800 text-red-500 focus:ring-red-500" title="Ignorar esta linha" />
                                 </td>
                                 {row.map((cell, cellIndex) => (
-                                  <td key={cellIndex} className={`px-4 py-2 ${isIgnored ? 'line-through text-gray-500' : getCellColor(cell, cellIndex)}`}>{cell}</td>
+                                  <td data-finance={isIgnored ? "muted" : getCellColor(cell, cellIndex).includes("text-red") ? "negative" : getCellColor(cell, cellIndex).includes("text-green") ? "positive" : getCellColor(cell, cellIndex).includes("text-blue") ? "info-panel" : getCellColor(cell, cellIndex).includes("text-orange") ? "warning-panel" : "content"} key={cellIndex} className={`px-4 py-2 ${isIgnored ? 'line-through text-gray-500' : getCellColor(cell, cellIndex)}`}>{cell}</td>
                                 ))}
                               </tr>
                             );
@@ -1740,7 +1745,7 @@ const ImportView: React.FC = () => {
             )}
 
             {notification && step === 'mapping' && (
-              <div className={`mt-4 p-3 rounded-md text-sm text-center ${notification.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>
+              <div role={notification.type === 'error' ? 'alert' : 'status'} data-finance={notification.type === "success" ? "success-panel" : "danger-chip"} className={`mt-4 p-3 rounded-md text-sm text-center ${notification.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>
                 {notification.message}
               </div>
             )}
@@ -1852,20 +1857,28 @@ const ImportView: React.FC = () => {
       }
       {/* Modal de Consentimento Open Finance */}
       {openFinanceEnabled && showConsentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <div data-finance="scrim" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div data-finance="inset divider" role="dialog" aria-modal="true" aria-label="Conectar via Open Finance" onKeyDown={event => {
+            if(event.key === 'Escape'){event.preventDefault();event.stopPropagation();setShowConsentModal(false);requestAnimationFrame(()=>document.getElementById('import-open-finance-connect')?.focus());return;}
+            if(event.key !== 'Tab')return;
+            const nodes=[...(event.currentTarget as HTMLDivElement).querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)')].filter(node=>node.getClientRects().length>0);
+            const first=nodes[0],last=nodes[nodes.length-1];
+            if(event.shiftKey && document.activeElement===first){event.preventDefault();last?.focus();}
+            if(!event.shiftKey && document.activeElement===last){event.preventDefault();first?.focus();}
+          }} className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xl">🔐</div>
+              <div data-finance="info-panel divider" className="w-10 h-10 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xl">🔐</div>
               <div>
-                <h3 className="text-white font-bold text-lg">Conectar via Open Finance</h3>
-                <p className="text-gray-400 text-xs">Seus dados são enviados com criptografia</p>
+                <h3 data-finance="content" className="text-white font-bold text-lg">Conectar via Open Finance</h3>
+                <p data-finance="muted" className="text-gray-400 text-xs">Seus dados são enviados com criptografia</p>
               </div>
             </div>
 
             <div className="space-y-4">
+              <ImportFeedback notification={notification} visible={showConsentModal} />
               <div>
-                <label className="block text-sm text-gray-300 font-medium mb-1.5">Banco / Instituição</label>
-                <select
+                <label data-finance="muted" className="block text-sm text-gray-300 font-medium mb-1.5">Banco / Instituição</label>
+                <select data-finance="control" aria-label="Banco / Instituição" autoFocus
                   value={consentInstitution}
                   onChange={e => setConsentInstitution(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
@@ -1879,10 +1892,11 @@ const ImportView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-300 font-medium mb-1.5">Nome completo (como no banco)</label>
-                <input
+                <label data-finance="muted" className="block text-sm text-gray-300 font-medium mb-1.5">Nome completo (como no banco)</label>
+                <input data-finance="control"
                   type="text"
                   value={consentName}
+                  aria-label="Nome completo (como no banco)"
                   onChange={e => setConsentName(e.target.value)}
                   placeholder="Ex: João da Silva"
                   className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-600"
@@ -1890,26 +1904,27 @@ const ImportView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-300 font-medium mb-1.5">CPF (apenas números)</label>
-                <input
+                <label data-finance="muted" className="block text-sm text-gray-300 font-medium mb-1.5">CPF (apenas números)</label>
+                <input data-finance="control"
                   type="text"
                   value={consentCpf}
+                  aria-label="CPF (apenas números)"
                   onChange={e => setConsentCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
                   placeholder="00000000000"
                   maxLength={11}
                   className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 placeholder-gray-600 font-mono tracking-widest"
                 />
-                <p className="text-xs text-gray-500 mt-1">Digite apenas os 11 dígitos do CPF, sem pontos ou traços.</p>
+                <p data-finance="muted" className="text-xs text-gray-500 mt-1">Digite apenas os 11 dígitos do CPF, sem pontos ou traços.</p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                <button
+                <button data-finance="action"
                   onClick={() => handleConsentSubmit(false)}
                   disabled={isBelvoLoading || !consentName || !consentCpf}
                   className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-200"
                 >
                   {isBelvoLoading ? (
-                    <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path data-finance="readonly-row" className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   ) : (
                     <ShieldCheckIcon className="w-5 h-5" />
                   )}
@@ -1919,31 +1934,31 @@ const ImportView: React.FC = () => {
 
               {/* Modo Teste (apenas para Admin) */}
               {user?.email === 'cassiomq@gmail.com' && (
-                  <div className="mt-8 pt-6 border-t border-slate-700/30 flex flex-col items-center gap-2">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Ambiente de Desenvolvimento</p>
-                      <Button 
+                  <div data-finance="divider" className="mt-8 pt-6 border-t border-slate-700/30 flex flex-col items-center gap-2">
+                      <p data-finance="muted" className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Ambiente de Desenvolvimento</p>
+                      <Button data-finance="action"
                           variant="outline" 
                           onClick={() => handleConsentSubmit(true)}
                           className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 text-xs py-1 h-auto"
                       >
                           🧪 Conexão Padrão (Teste)
                       </Button>
-                      <p className="text-[9px] text-gray-600 max-w-[200px] text-center">Use este botão para simular uma conexão de sucesso sem precisar abrir a Belvo real.</p>
+                      <p data-finance="muted" className="text-[9px] text-gray-600 max-w-[200px] text-center">Use este botão para simular uma conexão de sucesso sem precisar abrir a Belvo real.</p>
                   </div>
               )}
-              <p className="mt-4 text-[10px] text-gray-500 text-center leading-tight">
+              <p data-finance="muted" className="mt-4 text-[10px] text-gray-500 text-center leading-tight">
                 🔒 Seus dados são usados exclusivamente para criar o consentimento de acesso junto ao banco. Nunca armazenamos o CPF.
               </p>
             </div>
 
             <div className="flex gap-3 mt-6">
-              <button
+              <button data-finance="secondary" onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.currentTarget.click();requestAnimationFrame(()=>document.getElementById('import-open-finance-connect')?.focus());}}}
                 onClick={() => setShowConsentModal(false)}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-slate-600 text-gray-300 text-sm hover:bg-slate-800 transition"
               >
                 Cancelar
               </button>
-              <button
+              <button data-finance="action"
                 onClick={handleConsentSubmit}
                 disabled={consentCpf.length !== 11 || !consentName.trim()}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1967,13 +1982,13 @@ const PaymentDateModal: React.FC<PaymentDateModalProps> = ({ onClose, onConfirm 
   const [date, setDate] = useState('');
   const handleConfirm = () => { if (date) onConfirm(new Date(date)); };
   return (
-    <Modal isOpen={true} onClose={onClose} title="Data de Vencimento da Fatura" footer={
+    <Modal manageFocus isOpen={true} onClose={onClose} title="Data de Vencimento da Fatura" footer={
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose}>Cancelar</Button>
         <Button onClick={handleConfirm} disabled={!date}>Confirmar e Importar</Button>
       </div>
     }>
-      <p className="text-gray-300 mb-4">Para faturas de cartão de crédito, por favor, informe a data de vencimento para registrar os pagamentos corretamente.</p>
+      <p data-finance="muted" className="text-gray-300 mb-4">Para faturas de cartão de crédito, por favor, informe a data de vencimento para registrar os pagamentos corretamente.</p>
       <Input label="Data de Vencimento" type="date" value={date} onChange={e => setDate(e.target.value)} autoFocus />
     </Modal>
   );

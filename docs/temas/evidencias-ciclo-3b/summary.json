@@ -1,0 +1,95 @@
+{
+  "status": "PASS",
+  "bases": {
+    "main": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+    "reviewed": "6f7a94b11286843d073295cc2be4e3c7601ea531"
+  },
+  "suites": {
+    "files": {
+      "status": "PASS",
+      "captures": 344,
+      "contrast_samples": 2486,
+      "minimum_text": 4.894,
+      "minimum_essential": 3.567,
+      "dark_comparisons": 170,
+      "exact": 170,
+      "approved_feedback_exceptions": 2
+    },
+    "integration": {
+      "status": "PASS",
+      "captures": 216,
+      "contrast_samples": 3288,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "dark_comparisons": 98,
+      "exact": 98,
+      "approved_feedback_exceptions": 10
+    },
+    "history": {
+      "status": "PASS",
+      "captures": 184,
+      "contrast_samples": 2377,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "dark_comparisons": 92,
+      "exact": 92,
+      "approved_feedback_exceptions": 0
+    },
+    "extras": {
+      "status": "PASS",
+      "captures": 168,
+      "contrast_samples": 1762,
+      "minimum_text": 4.894,
+      "minimum_essential": 4.397,
+      "dark_comparisons": 84,
+      "exact": 84,
+      "approved_feedback_exceptions": 0
+    },
+    "controls": {
+      "status": "PASS",
+      "captures": 80,
+      "contrast_samples": 1458,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "dark_comparisons": 38,
+      "exact": 38,
+      "approved_feedback_exceptions": 2
+    }
+  },
+  "captures": 992,
+  "dark_comparisons": 482,
+  "exact": 482,
+  "raster_tolerances": 0,
+  "approved_feedback_exceptions": 14,
+  "contrast_samples": 11371,
+  "minimum_text": 4.894,
+  "minimum_essential": 3.567,
+  "financial_equivalence": true,
+  "remote_requests": 0,
+  "tests": {
+    "full": 3289,
+    "files": 203,
+    "focal": 181,
+    "appearance_recheck": 77,
+    "typescript_known": 14,
+    "typescript_new": 0,
+    "build": "PASS",
+    "precache_entries": 49
+  },
+  "pdf": {
+    "documents": 12,
+    "pages_per_variant": {
+      "mapping": 3,
+      "history": 12,
+      "hidden-error": 2
+    },
+    "identical_all_pages": true
+  },
+  "external_package": {
+    "filename": "finelo-ciclo-3b-evidencias.zip",
+    "sha256": "abc294b0b298dfba121826375790b34948ef02a9f6482667972b3f432d88caa1",
+    "bytes": 73493415,
+    "indexed_files": 1113,
+    "index_sha256": "f3feddb304e27991a4c5492309a9db724b2789f491464b8b1d1534fc20ac51a4"
+  }
+}

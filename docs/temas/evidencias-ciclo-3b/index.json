@@ -1,0 +1,4456 @@
+{
+  "files": {
+    "README.txt": {
+      "sha256": "3514ef1c7fc41f480fced3dd89f7cd2f63fbe9fb183f07d1aaff5373c963a63c",
+      "bytes": 757
+    },
+    "checks/appearance-final.log": {
+      "sha256": "e66ac36055e21ed3ae4f090070a6904f685e60055f7bd2144f8cd95be39f316c",
+      "bytes": 1463
+    },
+    "checks/build-final.log": {
+      "sha256": "d6656fd7a7663b558dfdcc46847b6a0b19643e11a4341b2054d36004a4aa00c0",
+      "bytes": 4889
+    },
+    "checks/focal-final.log": {
+      "sha256": "837dc67afa09d35e0318429c2c1a0a52b7493069dcf9288167e9050c4857cece",
+      "bytes": 1344
+    },
+    "checks/full.log": {
+      "sha256": "b1249e97a76b2b5893a86c57dfb426851592bcfd02e533e88a0e7b9f0036a995",
+      "bytes": 52488
+    },
+    "checks/stability.log": {
+      "sha256": "35e53abe3d0b46dc4a462620a944e6c0d69a6e551a03133690a7e1522561a816",
+      "bytes": 849
+    },
+    "controls/desktop-dark-banco-divergente.png": {
+      "sha256": "45902be0e121704ff01240e9a084c2e0f87ae02f94ccdafcd6ffa6b490e2c4cf",
+      "bytes": 99561
+    },
+    "controls/desktop-dark-conexao-remover-confirmacao.png": {
+      "sha256": "0705662c37e3f55088778d5886f56d82c8a9369664d24e3a5b00f17a93159b67",
+      "bytes": 117200
+    },
+    "controls/desktop-dark-conexao-remover-foco.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "controls/desktop-dark-conexao-removida.png": {
+      "sha256": "3369f55d6e59dc7644e029a403e1ec499f82947aef74f5fad080fa51d24066f8",
+      "bytes": 177344
+    },
+    "controls/desktop-dark-data-nativa-foco.png": {
+      "sha256": "0a39dd743eb8a7b055b36d9715ef406764eb9e5a012c2a8fcfa5da4eda7ffc05",
+      "bytes": 91072
+    },
+    "controls/desktop-dark-detalhes-colunas-finais.png": {
+      "sha256": "5b2076fe8b840b8139ef603aa050f90f75d95e05f9cf1d3a4673d944d811862b",
+      "bytes": 86536
+    },
+    "controls/desktop-dark-favorito-foco.png": {
+      "sha256": "b9348b926a80540269c3664fa60ad04ac9ec05677efaabfed6e23f0e958869cf",
+      "bytes": 58082
+    },
+    "controls/desktop-dark-retorno-another.png": {
+      "sha256": "cabf2f75b3c1259b5c40a26220f8f9e050d5572ee301541a78edf631d350b238",
+      "bytes": 147777
+    },
+    "controls/desktop-dark-retorno-dashboard.png": {
+      "sha256": "65e3414c898b60082d1d27bdcd9e8b0528e6ad45efb253db3cb11e4f491c2fcf",
+      "bytes": 8735
+    },
+    "controls/desktop-dark-revisao-colunas-finais.png": {
+      "sha256": "c9b17bfedb8a1493eddc055223d033f64508815e8d404e2902e39642b07282d7",
+      "bytes": 112716
+    },
+    "controls/desktop-light-banco-divergente.png": {
+      "sha256": "86d53b4130a39895bd17ba5352ff3959aff588c9556df2207a3ea498ff6ba39e",
+      "bytes": 110533
+    },
+    "controls/desktop-light-conexao-remover-confirmacao.png": {
+      "sha256": "9ee59a082f921fa31f1d5ac720e192c9c5fa1fe4c455fac64f7b517820cbb57f",
+      "bytes": 132138
+    },
+    "controls/desktop-light-conexao-remover-foco.png": {
+      "sha256": "16e9504530c3fa677c1d7496b67719f1a4df5fb6f47d7ca96f2ff3bb9cf69271",
+      "bytes": 86023
+    },
+    "controls/desktop-light-conexao-removida.png": {
+      "sha256": "229b5d30753f2cbe8249f351a1d09b9139ff0e0601270619616700a00b284785",
+      "bytes": 78706
+    },
+    "controls/desktop-light-data-nativa-foco.png": {
+      "sha256": "87ea7cb3d94fd8098385e4f5bfe6eb2c8ea42fbc451e3badbb5a8ad75acedf22",
+      "bytes": 102105
+    },
+    "controls/desktop-light-detalhes-colunas-finais.png": {
+      "sha256": "681541636347a66e74d7ec48aaf52b020dc154434a841eba1731f4097309dab2",
+      "bytes": 93399
+    },
+    "controls/desktop-light-favorito-foco.png": {
+      "sha256": "c11e3353bb57b98c9cde4868699f72abb2dfe2b28ec79262a8ff5e5c30a07a4f",
+      "bytes": 58078
+    },
+    "controls/desktop-light-retorno-another.png": {
+      "sha256": "c6cd132db53d65122c3606b48a36c81eb6c2d12c1491fa0d8c73b4be9b94f4fa",
+      "bytes": 150310
+    },
+    "controls/desktop-light-retorno-dashboard.png": {
+      "sha256": "e6a8aeccf0eacd87ca71a7c4c54425e17246a046f585423a0a2c085d7b5753fb",
+      "bytes": 8714
+    },
+    "controls/desktop-light-revisao-colunas-finais.png": {
+      "sha256": "4231ae8f5efe94ec705ab5de99d63033359ba4759a56fc5509b4fc297464401b",
+      "bytes": 104652
+    },
+    "controls/desktop-main-banco-divergente.png": {
+      "sha256": "45902be0e121704ff01240e9a084c2e0f87ae02f94ccdafcd6ffa6b490e2c4cf",
+      "bytes": 99561
+    },
+    "controls/desktop-main-conexao-remover-confirmacao.png": {
+      "sha256": "0705662c37e3f55088778d5886f56d82c8a9369664d24e3a5b00f17a93159b67",
+      "bytes": 117200
+    },
+    "controls/desktop-main-conexao-remover-foco.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "controls/desktop-main-conexao-removida.png": {
+      "sha256": "172bbd568e3fbcfc8fcf275fc3a0adfa324bc7277490b9ce9b3800c3e656a7cf",
+      "bytes": 174460
+    },
+    "controls/desktop-main-data-nativa-foco.png": {
+      "sha256": "0a39dd743eb8a7b055b36d9715ef406764eb9e5a012c2a8fcfa5da4eda7ffc05",
+      "bytes": 91072
+    },
+    "controls/desktop-main-detalhes-colunas-finais.png": {
+      "sha256": "5b2076fe8b840b8139ef603aa050f90f75d95e05f9cf1d3a4673d944d811862b",
+      "bytes": 86536
+    },
+    "controls/desktop-main-favorito-foco.png": {
+      "sha256": "b9348b926a80540269c3664fa60ad04ac9ec05677efaabfed6e23f0e958869cf",
+      "bytes": 58082
+    },
+    "controls/desktop-main-retorno-another.png": {
+      "sha256": "cabf2f75b3c1259b5c40a26220f8f9e050d5572ee301541a78edf631d350b238",
+      "bytes": 147777
+    },
+    "controls/desktop-main-retorno-dashboard.png": {
+      "sha256": "65e3414c898b60082d1d27bdcd9e8b0528e6ad45efb253db3cb11e4f491c2fcf",
+      "bytes": 8735
+    },
+    "controls/desktop-main-revisao-colunas-finais.png": {
+      "sha256": "c9b17bfedb8a1493eddc055223d033f64508815e8d404e2902e39642b07282d7",
+      "bytes": 112716
+    },
+    "controls/desktop-reviewed-banco-divergente.png": {
+      "sha256": "45902be0e121704ff01240e9a084c2e0f87ae02f94ccdafcd6ffa6b490e2c4cf",
+      "bytes": 99561
+    },
+    "controls/desktop-reviewed-conexao-remover-confirmacao.png": {
+      "sha256": "0705662c37e3f55088778d5886f56d82c8a9369664d24e3a5b00f17a93159b67",
+      "bytes": 117200
+    },
+    "controls/desktop-reviewed-conexao-remover-foco.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "controls/desktop-reviewed-conexao-removida.png": {
+      "sha256": "172bbd568e3fbcfc8fcf275fc3a0adfa324bc7277490b9ce9b3800c3e656a7cf",
+      "bytes": 174460
+    },
+    "controls/desktop-reviewed-data-nativa-foco.png": {
+      "sha256": "0a39dd743eb8a7b055b36d9715ef406764eb9e5a012c2a8fcfa5da4eda7ffc05",
+      "bytes": 91072
+    },
+    "controls/desktop-reviewed-detalhes-colunas-finais.png": {
+      "sha256": "5b2076fe8b840b8139ef603aa050f90f75d95e05f9cf1d3a4673d944d811862b",
+      "bytes": 86536
+    },
+    "controls/desktop-reviewed-favorito-foco.png": {
+      "sha256": "b9348b926a80540269c3664fa60ad04ac9ec05677efaabfed6e23f0e958869cf",
+      "bytes": 58082
+    },
+    "controls/desktop-reviewed-retorno-another.png": {
+      "sha256": "cabf2f75b3c1259b5c40a26220f8f9e050d5572ee301541a78edf631d350b238",
+      "bytes": 147777
+    },
+    "controls/desktop-reviewed-retorno-dashboard.png": {
+      "sha256": "65e3414c898b60082d1d27bdcd9e8b0528e6ad45efb253db3cb11e4f491c2fcf",
+      "bytes": 8735
+    },
+    "controls/desktop-reviewed-revisao-colunas-finais.png": {
+      "sha256": "c9b17bfedb8a1493eddc055223d033f64508815e8d404e2902e39642b07282d7",
+      "bytes": 112716
+    },
+    "controls/financial-desktop-dark.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-desktop-light.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-desktop-main.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-desktop-reviewed.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-mobile-dark.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-mobile-light.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-mobile-main.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/financial-mobile-reviewed.json": {
+      "sha256": "68e5bc1ea3a0c66dd273ee89dd040702104ff07d2f77416593b54c3f50156040",
+      "bytes": 248939
+    },
+    "controls/mobile-dark-banco-divergente.png": {
+      "sha256": "ffb2241825f3809445e8f9ed5b84d3d15a3f9aff549314fa847e896b76f39fa3",
+      "bytes": 47152
+    },
+    "controls/mobile-dark-conexao-remover-confirmacao.png": {
+      "sha256": "e80e7588692d1afbcd0355ea2258c7bac89bc37ab5b3d55038a27e3b09099a9c",
+      "bytes": 62624
+    },
+    "controls/mobile-dark-conexao-remover-foco.png": {
+      "sha256": "1ba5a4547bcc9b443bd387af7c658839ecb961d2c13623918865c478d2ac972d",
+      "bytes": 119186
+    },
+    "controls/mobile-dark-conexao-removida.png": {
+      "sha256": "67c020abc2b1725ba91d3a879f18e2027ebecec22985a5b0ea206f55ca79e46b",
+      "bytes": 112450
+    },
+    "controls/mobile-dark-data-nativa-foco.png": {
+      "sha256": "a702f593af26aa977f5d0b9fc304f0559525b34afc8db7101926b18005335142",
+      "bytes": 48321
+    },
+    "controls/mobile-dark-detalhes-colunas-finais.png": {
+      "sha256": "ac8288972a4a7fa241fd0f6cc3f2e78821be039a280911a8bacc200cc32e9766",
+      "bytes": 37813
+    },
+    "controls/mobile-dark-favorito-foco.png": {
+      "sha256": "51f80b65369b3b3ed9a37badfff64df383b624d264173f3381494ea0d0eaf4f7",
+      "bytes": 50577
+    },
+    "controls/mobile-dark-retorno-another.png": {
+      "sha256": "371b303f3928e975cf2b9dab4ae87b648147088ce891ab5755d1b9c2a9e55702",
+      "bytes": 75676
+    },
+    "controls/mobile-dark-retorno-dashboard.png": {
+      "sha256": "3b6175f36dd56ac3cb44ff4a3a7723742711f4ea1716f0039a1607f3b8382caa",
+      "bytes": 4902
+    },
+    "controls/mobile-dark-revisao-colunas-finais.png": {
+      "sha256": "1ac709400e9a2cb3dda754516fdf0ab2dd9cfed5adb3ebc98ee8f6b7d19d77a2",
+      "bytes": 58280
+    },
+    "controls/mobile-light-banco-divergente.png": {
+      "sha256": "1f97a89a6ad38b7698915059e54bdb6171d5f631c1108b09053d1801541bd960",
+      "bytes": 49674
+    },
+    "controls/mobile-light-conexao-remover-confirmacao.png": {
+      "sha256": "ca65aafef071c83ef6de62ffabb1802b1c775329419e4db2899acf3fda206b17",
+      "bytes": 70888
+    },
+    "controls/mobile-light-conexao-remover-foco.png": {
+      "sha256": "23b1f19ee84726e2029cb14d8ac158aad1dbf7a0e4a9afe40ae4b65a11f663b2",
+      "bytes": 61063
+    },
+    "controls/mobile-light-conexao-removida.png": {
+      "sha256": "844269d2f9f30c9ec0cbba390359a909319811d980474750ed79f68cd2ef54b8",
+      "bytes": 59765
+    },
+    "controls/mobile-light-data-nativa-foco.png": {
+      "sha256": "f388ed3b5e2ead79b045ce1f93ef4e67b6ec01c7bfd12994d8ff1c3246c431fb",
+      "bytes": 51372
+    },
+    "controls/mobile-light-detalhes-colunas-finais.png": {
+      "sha256": "3c302d58d497f12ca8e33db82ee4241df2af9037ccdd3b4138ef2c759816ae41",
+      "bytes": 40843
+    },
+    "controls/mobile-light-favorito-foco.png": {
+      "sha256": "e7e637ff91b4ba4ae39630c41afb4460431495a642179eaecfc49bc59083f5e7",
+      "bytes": 49450
+    },
+    "controls/mobile-light-retorno-another.png": {
+      "sha256": "3aca0696cc56fbabd77dc45699ce123ce47201b2f982f41bfe104d1a3b0a1a0e",
+      "bytes": 75768
+    },
+    "controls/mobile-light-retorno-dashboard.png": {
+      "sha256": "6593d00154e7f4815be500cf66c502449a4fb81dacdf613cdb66c85fc41c32ed",
+      "bytes": 4889
+    },
+    "controls/mobile-light-revisao-colunas-finais.png": {
+      "sha256": "6bb3c857677934c02d00bb9ff432f9a3061c01b4a4a3460986b965076706e2b2",
+      "bytes": 54704
+    },
+    "controls/mobile-main-banco-divergente.png": {
+      "sha256": "ffb2241825f3809445e8f9ed5b84d3d15a3f9aff549314fa847e896b76f39fa3",
+      "bytes": 47152
+    },
+    "controls/mobile-main-conexao-remover-confirmacao.png": {
+      "sha256": "e80e7588692d1afbcd0355ea2258c7bac89bc37ab5b3d55038a27e3b09099a9c",
+      "bytes": 62624
+    },
+    "controls/mobile-main-conexao-remover-foco.png": {
+      "sha256": "1ba5a4547bcc9b443bd387af7c658839ecb961d2c13623918865c478d2ac972d",
+      "bytes": 119186
+    },
+    "controls/mobile-main-conexao-removida.png": {
+      "sha256": "67c020abc2b1725ba91d3a879f18e2027ebecec22985a5b0ea206f55ca79e46b",
+      "bytes": 112450
+    },
+    "controls/mobile-main-data-nativa-foco.png": {
+      "sha256": "a702f593af26aa977f5d0b9fc304f0559525b34afc8db7101926b18005335142",
+      "bytes": 48321
+    },
+    "controls/mobile-main-detalhes-colunas-finais.png": {
+      "sha256": "ac8288972a4a7fa241fd0f6cc3f2e78821be039a280911a8bacc200cc32e9766",
+      "bytes": 37813
+    },
+    "controls/mobile-main-favorito-foco.png": {
+      "sha256": "51f80b65369b3b3ed9a37badfff64df383b624d264173f3381494ea0d0eaf4f7",
+      "bytes": 50577
+    },
+    "controls/mobile-main-retorno-another.png": {
+      "sha256": "371b303f3928e975cf2b9dab4ae87b648147088ce891ab5755d1b9c2a9e55702",
+      "bytes": 75676
+    },
+    "controls/mobile-main-retorno-dashboard.png": {
+      "sha256": "3b6175f36dd56ac3cb44ff4a3a7723742711f4ea1716f0039a1607f3b8382caa",
+      "bytes": 4902
+    },
+    "controls/mobile-main-revisao-colunas-finais.png": {
+      "sha256": "1ac709400e9a2cb3dda754516fdf0ab2dd9cfed5adb3ebc98ee8f6b7d19d77a2",
+      "bytes": 58280
+    },
+    "controls/mobile-reviewed-banco-divergente.png": {
+      "sha256": "ffb2241825f3809445e8f9ed5b84d3d15a3f9aff549314fa847e896b76f39fa3",
+      "bytes": 47152
+    },
+    "controls/mobile-reviewed-conexao-remover-confirmacao.png": {
+      "sha256": "e80e7588692d1afbcd0355ea2258c7bac89bc37ab5b3d55038a27e3b09099a9c",
+      "bytes": 62624
+    },
+    "controls/mobile-reviewed-conexao-remover-foco.png": {
+      "sha256": "1ba5a4547bcc9b443bd387af7c658839ecb961d2c13623918865c478d2ac972d",
+      "bytes": 119186
+    },
+    "controls/mobile-reviewed-conexao-removida.png": {
+      "sha256": "67c020abc2b1725ba91d3a879f18e2027ebecec22985a5b0ea206f55ca79e46b",
+      "bytes": 112450
+    },
+    "controls/mobile-reviewed-data-nativa-foco.png": {
+      "sha256": "a702f593af26aa977f5d0b9fc304f0559525b34afc8db7101926b18005335142",
+      "bytes": 48321
+    },
+    "controls/mobile-reviewed-detalhes-colunas-finais.png": {
+      "sha256": "ac8288972a4a7fa241fd0f6cc3f2e78821be039a280911a8bacc200cc32e9766",
+      "bytes": 37813
+    },
+    "controls/mobile-reviewed-favorito-foco.png": {
+      "sha256": "51f80b65369b3b3ed9a37badfff64df383b624d264173f3381494ea0d0eaf4f7",
+      "bytes": 50577
+    },
+    "controls/mobile-reviewed-retorno-another.png": {
+      "sha256": "371b303f3928e975cf2b9dab4ae87b648147088ce891ab5755d1b9c2a9e55702",
+      "bytes": 75676
+    },
+    "controls/mobile-reviewed-retorno-dashboard.png": {
+      "sha256": "3b6175f36dd56ac3cb44ff4a3a7723742711f4ea1716f0039a1607f3b8382caa",
+      "bytes": 4902
+    },
+    "controls/mobile-reviewed-revisao-colunas-finais.png": {
+      "sha256": "1ac709400e9a2cb3dda754516fdf0ab2dd9cfed5adb3ebc98ee8f6b7d19d77a2",
+      "bytes": 58280
+    },
+    "controls/validation.json": {
+      "sha256": "d0cb917745fbbaf3dd1b0775baacab6a07987d673829371bb0a120cb762209bb",
+      "bytes": 43268
+    },
+    "extras/desktop-dark-cota-False.png": {
+      "sha256": "acd514b03d42bac0cbeb2db2afe861362dde28c2df1ada800b07e24b2015a84b",
+      "bytes": 60004
+    },
+    "extras/desktop-dark-cota-True.png": {
+      "sha256": "1c185e9f8abb71cf1fa25496f2e7b1c33caf7348f504fc42188c57dcdc8341b3",
+      "bytes": 45265
+    },
+    "extras/desktop-dark-cota-sucesso-limite.png": {
+      "sha256": "488643feadcabd3d96765141860b408b6a53bb7c57e4b602629a8a01d68e1e16",
+      "bytes": 38302
+    },
+    "extras/desktop-dark-excel-confirmacao-xls.png": {
+      "sha256": "e66bb123dc9fefbdd45eda4a94c452a42f8919059c3313f2b7c4aed86ce681bd",
+      "bytes": 76415
+    },
+    "extras/desktop-dark-excel-confirmacao-xlsx.png": {
+      "sha256": "064df0d4fc92669cb26cdc7482c2a5a2e04dd930cdf31fbd97e01521eb935da9",
+      "bytes": 76442
+    },
+    "extras/desktop-dark-excel-sucesso-xls.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "extras/desktop-dark-excel-sucesso-xlsx.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "extras/desktop-dark-flag-desligada.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "extras/desktop-dark-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "be5ccea7de38be40640350134f980d807de7beea2a4f4803a9bbb87aae242845",
+      "bytes": 87719
+    },
+    "extras/desktop-dark-mapeamento-resultado-config-error.png": {
+      "sha256": "2fd68e97486664e4eef72196c4a165858cd38dec38b14a1d5fdac62386f7c199",
+      "bytes": 151383
+    },
+    "extras/desktop-dark-mapeamento-resultado-default.png": {
+      "sha256": "f69535585fbd673380189b3d687b030a2fdb81ae773f8db60b959ceaea2aae61",
+      "bytes": 151176
+    },
+    "extras/desktop-dark-nativa-conta-criada.png": {
+      "sha256": "9e4efea41b340f575c3efd8e32f7b66e5609b854c716bfec6f349c33f8a218e6",
+      "bytes": 77889
+    },
+    "extras/desktop-dark-nativa-criar-conta.png": {
+      "sha256": "2d9fea456490130434c9a3ed28bceb79c7eb9925f521ee70f2b10b59e8976274",
+      "bytes": 84262
+    },
+    "extras/desktop-dark-nativa-sem-conta.png": {
+      "sha256": "cec3b8569b60849bff36fde8ae48e49b3ec818c0cf24a5f182639380295ab8f2",
+      "bytes": 77863
+    },
+    "extras/desktop-dark-ofx-previa.png": {
+      "sha256": "eb4fcc035971a834e256a9a8f8391c8f8f7ec90a0764131b46b5bf9d0b5de2a9",
+      "bytes": 65309
+    },
+    "extras/desktop-dark-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "a422fe68f4b0447288480b4fa06e5c01c5cd8a26abad84a166862e2314650c40",
+      "bytes": 73585
+    },
+    "extras/desktop-dark-previa-muitas-linhas-rodape.png": {
+      "sha256": "3742db6136e9f52deff01996d0e9074817f12bce9338581011b73493d45c2b46",
+      "bytes": 131829
+    },
+    "extras/desktop-dark-previa-muitas-linhas.png": {
+      "sha256": "d8c108465cb53ef3e0d0da7949b616e2c495921391c5479258de62b9cae68012",
+      "bytes": 84174
+    },
+    "extras/desktop-dark-salvar-mapeamento-existente.png": {
+      "sha256": "d4cb94063b7408ae191ec7fd060a6feb451783e89491e96b9a4d903cbf31e67e",
+      "bytes": 146589
+    },
+    "extras/desktop-dark-tutorial-importacao.png": {
+      "sha256": "fefaecbf41b0fbf08ec50602437cd357113d470c3b3a16ad17344cee3c183e6a",
+      "bytes": 39380
+    },
+    "extras/desktop-dark-tutorial-upload.png": {
+      "sha256": "2d58865f737a1215b50369a1a2c9e780be08e1b67f1a7ae92b6b62fea3796309",
+      "bytes": 45129
+    },
+    "extras/desktop-light-cota-False.png": {
+      "sha256": "32620abeef5f915591b9e20683f60e877b6010b01dadd9b70fd9cfa971d18507",
+      "bytes": 60900
+    },
+    "extras/desktop-light-cota-True.png": {
+      "sha256": "01fc0a4cb44decb9cc9808542ae9d982acc687f9df6a882b1cf03468f895064d",
+      "bytes": 46015
+    },
+    "extras/desktop-light-cota-sucesso-limite.png": {
+      "sha256": "54b11058c8b7c394a4dbe55dbfb4b9e64c46a1ef2efb6c78763baf5792d9dd0f",
+      "bytes": 39112
+    },
+    "extras/desktop-light-excel-confirmacao-xls.png": {
+      "sha256": "51a03649374d9a6a64f2c3a214245c4ba4ebbc558781431c19d68df25afca25d",
+      "bytes": 104798
+    },
+    "extras/desktop-light-excel-confirmacao-xlsx.png": {
+      "sha256": "7a2dc3e6ece0103706790992890740d2ae2978b2fbbf75574372f66fc4e5dc26",
+      "bytes": 104809
+    },
+    "extras/desktop-light-excel-sucesso-xls.png": {
+      "sha256": "8b3fc68eb32905c32b8145c53e9ca77ff3503c5320d7896944a83fc06fe709eb",
+      "bytes": 111353
+    },
+    "extras/desktop-light-excel-sucesso-xlsx.png": {
+      "sha256": "8b3fc68eb32905c32b8145c53e9ca77ff3503c5320d7896944a83fc06fe709eb",
+      "bytes": 111353
+    },
+    "extras/desktop-light-flag-desligada.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "extras/desktop-light-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "2800fb14a9f320d8a7715e6b65f62b7d315272e18ca75490cbeaaf794c1d07dc",
+      "bytes": 88723
+    },
+    "extras/desktop-light-mapeamento-resultado-config-error.png": {
+      "sha256": "14871993efce92f754213faadc4b06451bf33b8efe131d8152708aef281f0446",
+      "bytes": 184729
+    },
+    "extras/desktop-light-mapeamento-resultado-default.png": {
+      "sha256": "b10581814411d267ed924e03294835d59c5e5e96bd54614f537d51018f85b7d2",
+      "bytes": 184421
+    },
+    "extras/desktop-light-nativa-conta-criada.png": {
+      "sha256": "912591cb49a303ae642986c2939008850f8fa494519bade134302992778d14ee",
+      "bytes": 87567
+    },
+    "extras/desktop-light-nativa-criar-conta.png": {
+      "sha256": "5271aefab8a22bcff71bbf9f1988fc444b81263de9f628f338a9d6699a43540d",
+      "bytes": 100198
+    },
+    "extras/desktop-light-nativa-sem-conta.png": {
+      "sha256": "b84431cd67456d94ae847dbfe4e9fb14e34cf6d6ec6c84662edcb098243ea263",
+      "bytes": 88635
+    },
+    "extras/desktop-light-ofx-previa.png": {
+      "sha256": "c3e24613cf4eb835675c57415c34e81cae940e10073646ee09895d97b574e646",
+      "bytes": 66454
+    },
+    "extras/desktop-light-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "7d63809a7daf46aabb6ed5994e884f11db8f35e9996ba799dac0fe4c65df6f75",
+      "bytes": 73907
+    },
+    "extras/desktop-light-previa-muitas-linhas-rodape.png": {
+      "sha256": "647cddb8cd22990f604b65e27d25a7ed18d4a096df9a3d43ea88366c10c43a98",
+      "bytes": 134420
+    },
+    "extras/desktop-light-previa-muitas-linhas.png": {
+      "sha256": "32fdad0f695c1b3c26882b134defcf049888891c4e9ac4bb9dce2914e7b12e63",
+      "bytes": 84761
+    },
+    "extras/desktop-light-salvar-mapeamento-existente.png": {
+      "sha256": "52deadab7612e8b92e4cc07bbd1c2077aafb4728e28911a79ada11cf3c81c861",
+      "bytes": 169302
+    },
+    "extras/desktop-light-tutorial-importacao.png": {
+      "sha256": "230f64375c94206437c1b310db9be81bd368fe04674689cadc42aac0580fa2e6",
+      "bytes": 41867
+    },
+    "extras/desktop-light-tutorial-upload.png": {
+      "sha256": "d689536550427f512f1a6559adb9c5d9de667a13a0afaddb57d1882e3a49dfc0",
+      "bytes": 48414
+    },
+    "extras/desktop-main-cota-False.png": {
+      "sha256": "acd514b03d42bac0cbeb2db2afe861362dde28c2df1ada800b07e24b2015a84b",
+      "bytes": 60004
+    },
+    "extras/desktop-main-cota-True.png": {
+      "sha256": "1c185e9f8abb71cf1fa25496f2e7b1c33caf7348f504fc42188c57dcdc8341b3",
+      "bytes": 45265
+    },
+    "extras/desktop-main-cota-sucesso-limite.png": {
+      "sha256": "488643feadcabd3d96765141860b408b6a53bb7c57e4b602629a8a01d68e1e16",
+      "bytes": 38302
+    },
+    "extras/desktop-main-excel-confirmacao-xls.png": {
+      "sha256": "e66bb123dc9fefbdd45eda4a94c452a42f8919059c3313f2b7c4aed86ce681bd",
+      "bytes": 76415
+    },
+    "extras/desktop-main-excel-confirmacao-xlsx.png": {
+      "sha256": "064df0d4fc92669cb26cdc7482c2a5a2e04dd930cdf31fbd97e01521eb935da9",
+      "bytes": 76442
+    },
+    "extras/desktop-main-excel-sucesso-xls.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "extras/desktop-main-excel-sucesso-xlsx.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "extras/desktop-main-flag-desligada.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "extras/desktop-main-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "be5ccea7de38be40640350134f980d807de7beea2a4f4803a9bbb87aae242845",
+      "bytes": 87719
+    },
+    "extras/desktop-main-mapeamento-resultado-config-error.png": {
+      "sha256": "2fd68e97486664e4eef72196c4a165858cd38dec38b14a1d5fdac62386f7c199",
+      "bytes": 151383
+    },
+    "extras/desktop-main-mapeamento-resultado-default.png": {
+      "sha256": "f69535585fbd673380189b3d687b030a2fdb81ae773f8db60b959ceaea2aae61",
+      "bytes": 151176
+    },
+    "extras/desktop-main-nativa-conta-criada.png": {
+      "sha256": "9e4efea41b340f575c3efd8e32f7b66e5609b854c716bfec6f349c33f8a218e6",
+      "bytes": 77889
+    },
+    "extras/desktop-main-nativa-criar-conta.png": {
+      "sha256": "2d9fea456490130434c9a3ed28bceb79c7eb9925f521ee70f2b10b59e8976274",
+      "bytes": 84262
+    },
+    "extras/desktop-main-nativa-sem-conta.png": {
+      "sha256": "cec3b8569b60849bff36fde8ae48e49b3ec818c0cf24a5f182639380295ab8f2",
+      "bytes": 77863
+    },
+    "extras/desktop-main-ofx-previa.png": {
+      "sha256": "eb4fcc035971a834e256a9a8f8391c8f8f7ec90a0764131b46b5bf9d0b5de2a9",
+      "bytes": 65309
+    },
+    "extras/desktop-main-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "a422fe68f4b0447288480b4fa06e5c01c5cd8a26abad84a166862e2314650c40",
+      "bytes": 73585
+    },
+    "extras/desktop-main-previa-muitas-linhas-rodape.png": {
+      "sha256": "3742db6136e9f52deff01996d0e9074817f12bce9338581011b73493d45c2b46",
+      "bytes": 131829
+    },
+    "extras/desktop-main-previa-muitas-linhas.png": {
+      "sha256": "d8c108465cb53ef3e0d0da7949b616e2c495921391c5479258de62b9cae68012",
+      "bytes": 84174
+    },
+    "extras/desktop-main-salvar-mapeamento-existente.png": {
+      "sha256": "d4cb94063b7408ae191ec7fd060a6feb451783e89491e96b9a4d903cbf31e67e",
+      "bytes": 146589
+    },
+    "extras/desktop-main-tutorial-importacao.png": {
+      "sha256": "fefaecbf41b0fbf08ec50602437cd357113d470c3b3a16ad17344cee3c183e6a",
+      "bytes": 39380
+    },
+    "extras/desktop-main-tutorial-upload.png": {
+      "sha256": "2d58865f737a1215b50369a1a2c9e780be08e1b67f1a7ae92b6b62fea3796309",
+      "bytes": 45129
+    },
+    "extras/desktop-reviewed-cota-False.png": {
+      "sha256": "acd514b03d42bac0cbeb2db2afe861362dde28c2df1ada800b07e24b2015a84b",
+      "bytes": 60004
+    },
+    "extras/desktop-reviewed-cota-True.png": {
+      "sha256": "1c185e9f8abb71cf1fa25496f2e7b1c33caf7348f504fc42188c57dcdc8341b3",
+      "bytes": 45265
+    },
+    "extras/desktop-reviewed-cota-sucesso-limite.png": {
+      "sha256": "488643feadcabd3d96765141860b408b6a53bb7c57e4b602629a8a01d68e1e16",
+      "bytes": 38302
+    },
+    "extras/desktop-reviewed-excel-confirmacao-xls.png": {
+      "sha256": "e66bb123dc9fefbdd45eda4a94c452a42f8919059c3313f2b7c4aed86ce681bd",
+      "bytes": 76415
+    },
+    "extras/desktop-reviewed-excel-confirmacao-xlsx.png": {
+      "sha256": "064df0d4fc92669cb26cdc7482c2a5a2e04dd930cdf31fbd97e01521eb935da9",
+      "bytes": 76442
+    },
+    "extras/desktop-reviewed-excel-sucesso-xls.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "extras/desktop-reviewed-excel-sucesso-xlsx.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "extras/desktop-reviewed-flag-desligada.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "extras/desktop-reviewed-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "be5ccea7de38be40640350134f980d807de7beea2a4f4803a9bbb87aae242845",
+      "bytes": 87719
+    },
+    "extras/desktop-reviewed-mapeamento-resultado-config-error.png": {
+      "sha256": "2fd68e97486664e4eef72196c4a165858cd38dec38b14a1d5fdac62386f7c199",
+      "bytes": 151383
+    },
+    "extras/desktop-reviewed-mapeamento-resultado-default.png": {
+      "sha256": "f69535585fbd673380189b3d687b030a2fdb81ae773f8db60b959ceaea2aae61",
+      "bytes": 151176
+    },
+    "extras/desktop-reviewed-nativa-conta-criada.png": {
+      "sha256": "9e4efea41b340f575c3efd8e32f7b66e5609b854c716bfec6f349c33f8a218e6",
+      "bytes": 77889
+    },
+    "extras/desktop-reviewed-nativa-criar-conta.png": {
+      "sha256": "2d9fea456490130434c9a3ed28bceb79c7eb9925f521ee70f2b10b59e8976274",
+      "bytes": 84262
+    },
+    "extras/desktop-reviewed-nativa-sem-conta.png": {
+      "sha256": "cec3b8569b60849bff36fde8ae48e49b3ec818c0cf24a5f182639380295ab8f2",
+      "bytes": 77863
+    },
+    "extras/desktop-reviewed-ofx-previa.png": {
+      "sha256": "eb4fcc035971a834e256a9a8f8391c8f8f7ec90a0764131b46b5bf9d0b5de2a9",
+      "bytes": 65309
+    },
+    "extras/desktop-reviewed-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "a422fe68f4b0447288480b4fa06e5c01c5cd8a26abad84a166862e2314650c40",
+      "bytes": 73585
+    },
+    "extras/desktop-reviewed-previa-muitas-linhas-rodape.png": {
+      "sha256": "3742db6136e9f52deff01996d0e9074817f12bce9338581011b73493d45c2b46",
+      "bytes": 131829
+    },
+    "extras/desktop-reviewed-previa-muitas-linhas.png": {
+      "sha256": "d8c108465cb53ef3e0d0da7949b616e2c495921391c5479258de62b9cae68012",
+      "bytes": 84174
+    },
+    "extras/desktop-reviewed-salvar-mapeamento-existente.png": {
+      "sha256": "d4cb94063b7408ae191ec7fd060a6feb451783e89491e96b9a4d903cbf31e67e",
+      "bytes": 146589
+    },
+    "extras/desktop-reviewed-tutorial-importacao.png": {
+      "sha256": "fefaecbf41b0fbf08ec50602437cd357113d470c3b3a16ad17344cee3c183e6a",
+      "bytes": 39380
+    },
+    "extras/desktop-reviewed-tutorial-upload.png": {
+      "sha256": "2d58865f737a1215b50369a1a2c9e780be08e1b67f1a7ae92b6b62fea3796309",
+      "bytes": 45129
+    },
+    "extras/financial-desktop-dark.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-desktop-light.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-desktop-main.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-desktop-reviewed.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-mobile-dark.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-mobile-light.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-mobile-main.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/financial-mobile-reviewed.json": {
+      "sha256": "e294970e9d163ba2d2a8284c15688f07435b294b69dfa7e74cd8936fe5596ae9",
+      "bytes": 432997
+    },
+    "extras/mobile-dark-cota-False.png": {
+      "sha256": "2acbeeda2fef3b9a65353f352c7589d607636be3d6589d1726588f53a8aff42d",
+      "bytes": 52347
+    },
+    "extras/mobile-dark-cota-True.png": {
+      "sha256": "e27fbf8f255ac6e5aab44a3f35bc2153fbc823603244cf2f64b84d941d9a2b03",
+      "bytes": 37710
+    },
+    "extras/mobile-dark-cota-sucesso-limite.png": {
+      "sha256": "ba54e8e0a04a6c8d31accbda8ad5a7066508ae921ecee46891e124563537d4ee",
+      "bytes": 35243
+    },
+    "extras/mobile-dark-excel-confirmacao-xls.png": {
+      "sha256": "2b4ea5405be61052e58c88ae0310b745627ab9991df11ea4d0d429e8238383db",
+      "bytes": 41666
+    },
+    "extras/mobile-dark-excel-confirmacao-xlsx.png": {
+      "sha256": "fb4123f0735e806313b2948ab4293c7b11b32edb7808af92923208aca7fc71d3",
+      "bytes": 41694
+    },
+    "extras/mobile-dark-excel-sucesso-xls.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "extras/mobile-dark-excel-sucesso-xlsx.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "extras/mobile-dark-flag-desligada.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "extras/mobile-dark-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "34b4fd9f46834e2f6d6b04707cada4d114e037cb05d623f9062049f547948b3c",
+      "bytes": 47569
+    },
+    "extras/mobile-dark-mapeamento-resultado-config-error.png": {
+      "sha256": "f1f72b218392b0674bf896f7785245d8e6bc08d0aceffb05dd8e07d637a31dba",
+      "bytes": 66637
+    },
+    "extras/mobile-dark-mapeamento-resultado-default.png": {
+      "sha256": "85c897f30636ff8184068506a4b441cc23d10917ccb0a8a09e839ea6ebd6fa3b",
+      "bytes": 68970
+    },
+    "extras/mobile-dark-nativa-conta-criada.png": {
+      "sha256": "cd85b7bee8d84e469639ec52b323e9b0440779db0b092d2926bdae0b8769d4eb",
+      "bytes": 40692
+    },
+    "extras/mobile-dark-nativa-criar-conta.png": {
+      "sha256": "6ec55dae41b9b009eb6663d337db5a2d9c2f3bd6db6726c3f7a91ef8e3209d40",
+      "bytes": 42912
+    },
+    "extras/mobile-dark-nativa-sem-conta.png": {
+      "sha256": "3dbb0c155338be5891267ba493091e06849eca741e8079f0f4353f6c8daa5e8d",
+      "bytes": 40615
+    },
+    "extras/mobile-dark-ofx-previa.png": {
+      "sha256": "10ed47ec4e2ac80de3229e900371394a3354b4cba4f4d429ae2c51e80d6ab7f6",
+      "bytes": 47844
+    },
+    "extras/mobile-dark-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "0928fc16ccc12d82a0e950d8a6da41be4481f6019f1776bb220f3278fa9d0179",
+      "bytes": 42993
+    },
+    "extras/mobile-dark-previa-muitas-linhas-rodape.png": {
+      "sha256": "bd3b2cfbca0a90f8fd26852539175c6ab9a824e209c420a7f42c6650087c9161",
+      "bytes": 51250
+    },
+    "extras/mobile-dark-previa-muitas-linhas.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "extras/mobile-dark-salvar-mapeamento-existente.png": {
+      "sha256": "43275392ba2c94ec8e70427fa2a24e676cdd6931fc135e537939ea0d724358b3",
+      "bytes": 58421
+    },
+    "extras/mobile-dark-tutorial-importacao.png": {
+      "sha256": "dd16fa4e84cd1ff974217dc1f7589f1878f7ee2f6e93a106a41719a348fd4e42",
+      "bytes": 32009
+    },
+    "extras/mobile-dark-tutorial-upload.png": {
+      "sha256": "36f03fab071e066fa0c0d87fb5a9ff0af4520033294aef8c4f0c01988be6e39a",
+      "bytes": 36546
+    },
+    "extras/mobile-light-cota-False.png": {
+      "sha256": "9265ae0f7c54d0564997cb320cd18df98b6c3195f75269f687ac30bd0b28cd44",
+      "bytes": 51816
+    },
+    "extras/mobile-light-cota-True.png": {
+      "sha256": "3443a1702a29124ffbcf74c7599271d390f47f5257d7c84c1c01b51a439f84f4",
+      "bytes": 37751
+    },
+    "extras/mobile-light-cota-sucesso-limite.png": {
+      "sha256": "955c5c19cc0fa632d6824a6330f5975f30907a0321393c41d110df0991006782",
+      "bytes": 35695
+    },
+    "extras/mobile-light-excel-confirmacao-xls.png": {
+      "sha256": "44cc85f895150fb5fc900431fc56776bb8d248996a7c4321af32c69c60376331",
+      "bytes": 50664
+    },
+    "extras/mobile-light-excel-confirmacao-xlsx.png": {
+      "sha256": "1e0c3b653c3e3a20a42f83b90f90db03627217dfc123c61e4399b70952ff43ba",
+      "bytes": 50746
+    },
+    "extras/mobile-light-excel-sucesso-xls.png": {
+      "sha256": "75eb10371ba442efbc08ac95c03e5fbdda0996fe4e2876f83be276b943b38099",
+      "bytes": 51241
+    },
+    "extras/mobile-light-excel-sucesso-xlsx.png": {
+      "sha256": "75eb10371ba442efbc08ac95c03e5fbdda0996fe4e2876f83be276b943b38099",
+      "bytes": 51241
+    },
+    "extras/mobile-light-flag-desligada.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "extras/mobile-light-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "683302ea9d0c157ab4c793755f8eac0fa4091a3000ce8454069b91c533d4346b",
+      "bytes": 47285
+    },
+    "extras/mobile-light-mapeamento-resultado-config-error.png": {
+      "sha256": "d826e554337ef02d8ab8d52c75184a78233732f59f8ec2bbc3d4fb12f48b9318",
+      "bytes": 79638
+    },
+    "extras/mobile-light-mapeamento-resultado-default.png": {
+      "sha256": "b6ac231003aef7aff6d3a61c404445e7b030a1c899ccfa33a1eff24b54653f20",
+      "bytes": 82302
+    },
+    "extras/mobile-light-nativa-conta-criada.png": {
+      "sha256": "b062c8c3dcf0d505649d008496d3b89e677a9878fac4a9249215dbc61521c240",
+      "bytes": 43604
+    },
+    "extras/mobile-light-nativa-criar-conta.png": {
+      "sha256": "87f9cf3999ec4623ec6b147c6ecece741cef0a3afd9bb66bf8cde9926110e6af",
+      "bytes": 46066
+    },
+    "extras/mobile-light-nativa-sem-conta.png": {
+      "sha256": "55845afeaeb305328d1ca81a3b83d5fb19a18ac9e493b227f500f5dc3dd53c7f",
+      "bytes": 45084
+    },
+    "extras/mobile-light-ofx-previa.png": {
+      "sha256": "d667aa37764ae168b5c29569b9f98e15313af25a40602abb8dfa3511fad55baf",
+      "bytes": 48264
+    },
+    "extras/mobile-light-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "7189b57058afba76c742884d4af9a44ff5994ef09a1bcbe054af83fc61e70d82",
+      "bytes": 43006
+    },
+    "extras/mobile-light-previa-muitas-linhas-rodape.png": {
+      "sha256": "aaf64b257d294a8cbd133bf2085679cfb23bc104d0a5788ded0075ca156a24fd",
+      "bytes": 51281
+    },
+    "extras/mobile-light-previa-muitas-linhas.png": {
+      "sha256": "9dd01c91bf7accd0f79e24e592a475506c39ed1bab6772868225a0d26c65c1c5",
+      "bytes": 50533
+    },
+    "extras/mobile-light-salvar-mapeamento-existente.png": {
+      "sha256": "b7e530936deb598142aafe7fea690bdfc5c2226dd53ef732e5cab8dddf3500e4",
+      "bytes": 63232
+    },
+    "extras/mobile-light-tutorial-importacao.png": {
+      "sha256": "a10e59148e732983ecbe839f8cc2d359f8ba399133f0ad65e2db44c6ab40c623",
+      "bytes": 33991
+    },
+    "extras/mobile-light-tutorial-upload.png": {
+      "sha256": "a5bfa1626cd2b258af7b0154d68de7d703e81e6e6e94e4c8b8d2fe91edc6b31b",
+      "bytes": 38700
+    },
+    "extras/mobile-main-cota-False.png": {
+      "sha256": "2acbeeda2fef3b9a65353f352c7589d607636be3d6589d1726588f53a8aff42d",
+      "bytes": 52347
+    },
+    "extras/mobile-main-cota-True.png": {
+      "sha256": "e27fbf8f255ac6e5aab44a3f35bc2153fbc823603244cf2f64b84d941d9a2b03",
+      "bytes": 37710
+    },
+    "extras/mobile-main-cota-sucesso-limite.png": {
+      "sha256": "ba54e8e0a04a6c8d31accbda8ad5a7066508ae921ecee46891e124563537d4ee",
+      "bytes": 35243
+    },
+    "extras/mobile-main-excel-confirmacao-xls.png": {
+      "sha256": "2b4ea5405be61052e58c88ae0310b745627ab9991df11ea4d0d429e8238383db",
+      "bytes": 41666
+    },
+    "extras/mobile-main-excel-confirmacao-xlsx.png": {
+      "sha256": "fb4123f0735e806313b2948ab4293c7b11b32edb7808af92923208aca7fc71d3",
+      "bytes": 41694
+    },
+    "extras/mobile-main-excel-sucesso-xls.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "extras/mobile-main-excel-sucesso-xlsx.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "extras/mobile-main-flag-desligada.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "extras/mobile-main-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "34b4fd9f46834e2f6d6b04707cada4d114e037cb05d623f9062049f547948b3c",
+      "bytes": 47569
+    },
+    "extras/mobile-main-mapeamento-resultado-config-error.png": {
+      "sha256": "f1f72b218392b0674bf896f7785245d8e6bc08d0aceffb05dd8e07d637a31dba",
+      "bytes": 66637
+    },
+    "extras/mobile-main-mapeamento-resultado-default.png": {
+      "sha256": "85c897f30636ff8184068506a4b441cc23d10917ccb0a8a09e839ea6ebd6fa3b",
+      "bytes": 68970
+    },
+    "extras/mobile-main-nativa-conta-criada.png": {
+      "sha256": "cd85b7bee8d84e469639ec52b323e9b0440779db0b092d2926bdae0b8769d4eb",
+      "bytes": 40692
+    },
+    "extras/mobile-main-nativa-criar-conta.png": {
+      "sha256": "6ec55dae41b9b009eb6663d337db5a2d9c2f3bd6db6726c3f7a91ef8e3209d40",
+      "bytes": 42912
+    },
+    "extras/mobile-main-nativa-sem-conta.png": {
+      "sha256": "3dbb0c155338be5891267ba493091e06849eca741e8079f0f4353f6c8daa5e8d",
+      "bytes": 40615
+    },
+    "extras/mobile-main-ofx-previa.png": {
+      "sha256": "10ed47ec4e2ac80de3229e900371394a3354b4cba4f4d429ae2c51e80d6ab7f6",
+      "bytes": 47844
+    },
+    "extras/mobile-main-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "0928fc16ccc12d82a0e950d8a6da41be4481f6019f1776bb220f3278fa9d0179",
+      "bytes": 42993
+    },
+    "extras/mobile-main-previa-muitas-linhas-rodape.png": {
+      "sha256": "bd3b2cfbca0a90f8fd26852539175c6ab9a824e209c420a7f42c6650087c9161",
+      "bytes": 51250
+    },
+    "extras/mobile-main-previa-muitas-linhas.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "extras/mobile-main-salvar-mapeamento-existente.png": {
+      "sha256": "43275392ba2c94ec8e70427fa2a24e676cdd6931fc135e537939ea0d724358b3",
+      "bytes": 58421
+    },
+    "extras/mobile-main-tutorial-importacao.png": {
+      "sha256": "dd16fa4e84cd1ff974217dc1f7589f1878f7ee2f6e93a106a41719a348fd4e42",
+      "bytes": 32009
+    },
+    "extras/mobile-main-tutorial-upload.png": {
+      "sha256": "36f03fab071e066fa0c0d87fb5a9ff0af4520033294aef8c4f0c01988be6e39a",
+      "bytes": 36546
+    },
+    "extras/mobile-reviewed-cota-False.png": {
+      "sha256": "2acbeeda2fef3b9a65353f352c7589d607636be3d6589d1726588f53a8aff42d",
+      "bytes": 52347
+    },
+    "extras/mobile-reviewed-cota-True.png": {
+      "sha256": "e27fbf8f255ac6e5aab44a3f35bc2153fbc823603244cf2f64b84d941d9a2b03",
+      "bytes": 37710
+    },
+    "extras/mobile-reviewed-cota-sucesso-limite.png": {
+      "sha256": "ba54e8e0a04a6c8d31accbda8ad5a7066508ae921ecee46891e124563537d4ee",
+      "bytes": 35243
+    },
+    "extras/mobile-reviewed-excel-confirmacao-xls.png": {
+      "sha256": "2b4ea5405be61052e58c88ae0310b745627ab9991df11ea4d0d429e8238383db",
+      "bytes": 41666
+    },
+    "extras/mobile-reviewed-excel-confirmacao-xlsx.png": {
+      "sha256": "fb4123f0735e806313b2948ab4293c7b11b32edb7808af92923208aca7fc71d3",
+      "bytes": 41694
+    },
+    "extras/mobile-reviewed-excel-sucesso-xls.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "extras/mobile-reviewed-excel-sucesso-xlsx.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "extras/mobile-reviewed-flag-desligada.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "extras/mobile-reviewed-mapeamento-incorreto-sem-gravacao.png": {
+      "sha256": "34b4fd9f46834e2f6d6b04707cada4d114e037cb05d623f9062049f547948b3c",
+      "bytes": 47569
+    },
+    "extras/mobile-reviewed-mapeamento-resultado-config-error.png": {
+      "sha256": "f1f72b218392b0674bf896f7785245d8e6bc08d0aceffb05dd8e07d637a31dba",
+      "bytes": 66637
+    },
+    "extras/mobile-reviewed-mapeamento-resultado-default.png": {
+      "sha256": "85c897f30636ff8184068506a4b441cc23d10917ccb0a8a09e839ea6ebd6fa3b",
+      "bytes": 68970
+    },
+    "extras/mobile-reviewed-nativa-conta-criada.png": {
+      "sha256": "cd85b7bee8d84e469639ec52b323e9b0440779db0b092d2926bdae0b8769d4eb",
+      "bytes": 40692
+    },
+    "extras/mobile-reviewed-nativa-criar-conta.png": {
+      "sha256": "6ec55dae41b9b009eb6663d337db5a2d9c2f3bd6db6726c3f7a91ef8e3209d40",
+      "bytes": 42912
+    },
+    "extras/mobile-reviewed-nativa-sem-conta.png": {
+      "sha256": "3dbb0c155338be5891267ba493091e06849eca741e8079f0f4353f6c8daa5e8d",
+      "bytes": 40615
+    },
+    "extras/mobile-reviewed-ofx-previa.png": {
+      "sha256": "10ed47ec4e2ac80de3229e900371394a3354b4cba4f4d429ae2c51e80d6ab7f6",
+      "bytes": 47844
+    },
+    "extras/mobile-reviewed-ofx-resultado-legado-sem-gravacao.png": {
+      "sha256": "0928fc16ccc12d82a0e950d8a6da41be4481f6019f1776bb220f3278fa9d0179",
+      "bytes": 42993
+    },
+    "extras/mobile-reviewed-previa-muitas-linhas-rodape.png": {
+      "sha256": "bd3b2cfbca0a90f8fd26852539175c6ab9a824e209c420a7f42c6650087c9161",
+      "bytes": 51250
+    },
+    "extras/mobile-reviewed-previa-muitas-linhas.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "extras/mobile-reviewed-salvar-mapeamento-existente.png": {
+      "sha256": "43275392ba2c94ec8e70427fa2a24e676cdd6931fc135e537939ea0d724358b3",
+      "bytes": 58421
+    },
+    "extras/mobile-reviewed-tutorial-importacao.png": {
+      "sha256": "dd16fa4e84cd1ff974217dc1f7589f1878f7ee2f6e93a106a41719a348fd4e42",
+      "bytes": 32009
+    },
+    "extras/mobile-reviewed-tutorial-upload.png": {
+      "sha256": "36f03fab071e066fa0c0d87fb5a9ff0af4520033294aef8c4f0c01988be6e39a",
+      "bytes": 36546
+    },
+    "extras/validation.json": {
+      "sha256": "c31e0f5695b26cddd6bf4285a5da6eede0ba9be65523c1e013f51a78358c2584",
+      "bytes": 82112
+    },
+    "files/desktop-dark-arquivo-duplicado.png": {
+      "sha256": "597f7f7146330d523672a1a45d2624783cd69d9f98e280f5dbd16165d6d12997",
+      "bytes": 83194
+    },
+    "files/desktop-dark-arquivo-em-leitura.png": {
+      "sha256": "c6683c2566639a978e5e305ea582047a80932308ad409a034d6c0a8ae0823330",
+      "bytes": 39986
+    },
+    "files/desktop-dark-arquivo-empty.png": {
+      "sha256": "49fb47938f934703a67a2252627d2923cd2e08f4af2306530ed35795080849ad",
+      "bytes": 66824
+    },
+    "files/desktop-dark-arquivo-header.png": {
+      "sha256": "da557a70f81231448a59db6f4e03398b0ddc5db019977907c44760d5ce4cccfe",
+      "bytes": 73276
+    },
+    "files/desktop-dark-arquivo-invalid-excel.png": {
+      "sha256": "d0dd563950fb0795b342906f54c18db43674d1dbf9af1a3e4f4c388e528e231c",
+      "bytes": 42357
+    },
+    "files/desktop-dark-arquivo-invalid.png": {
+      "sha256": "3b3e5d86a0c15f8168399199d9a70cf0828c5f16ac8edd0ada0fd90fe6ee926e",
+      "bytes": 71530
+    },
+    "files/desktop-dark-banco-hover.png": {
+      "sha256": "28c45c5442253de70aa9ba886ece5e55a64c57803a80d0602673d2b3bae4c97f",
+      "bytes": 150870
+    },
+    "files/desktop-dark-bancos.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "files/desktop-dark-cartao-competencia-obrigatoria.png": {
+      "sha256": "9eb264392a28552bdc7284d0112e453b1720b95a1d7e2b08673e1edcd8b91ef0",
+      "bytes": 117955
+    },
+    "files/desktop-dark-cartao-manual-configurado.png": {
+      "sha256": "8d28e6d4c726a3cbb1a35cdcc32b367a8893011a95c907dc1f57677fa4ec197b",
+      "bytes": 84457
+    },
+    "files/desktop-dark-cartao-metadados.png": {
+      "sha256": "cedc792713de6175e753fc9d81622bf075560a53784261936de6d84681b33029",
+      "bytes": 98545
+    },
+    "files/desktop-dark-cartao-vencimento-obrigatorio.png": {
+      "sha256": "5fac6ea573f252e77d8ded7459f92b405697f030e3cd2f0e4e8b2b3088c11eb2",
+      "bytes": 129598
+    },
+    "files/desktop-dark-colunas-ausentes.png": {
+      "sha256": "69da74f899e297f4f65fb0ce12c432fc7ad78c7844719f933fc6e0e0234be471",
+      "bytes": 81709
+    },
+    "files/desktop-dark-competencia-auto-False.png": {
+      "sha256": "591438cbba809f775b128d594bf0fe78289c71f26d8e459ae1426fde7ef3c3a6",
+      "bytes": 97963
+    },
+    "files/desktop-dark-competencia-auto-True.png": {
+      "sha256": "591438cbba809f775b128d594bf0fe78289c71f26d8e459ae1426fde7ef3c3a6",
+      "bytes": 97963
+    },
+    "files/desktop-dark-e864-ambiguous.png": {
+      "sha256": "915060f11445499a1a2e2ee43cef8a79b0b977f9931897f3f38f330603ed614c",
+      "bytes": 113371
+    },
+    "files/desktop-dark-e864-cancel.png": {
+      "sha256": "cd8d05d74a0f3d6289150dc54e74e787b7941084b68a6cbcbf4bafa4ff11f82d",
+      "bytes": 106351
+    },
+    "files/desktop-dark-e864-cancelada-sem-gravacao.png": {
+      "sha256": "1abc413811957ffba3b1223291a78d7be819bc7dab09edbfe1655ef868d34cc7",
+      "bytes": 101262
+    },
+    "files/desktop-dark-e864-manual.png": {
+      "sha256": "52f4de416df99fcd50c23189b9ee1777bf2def94a28c47f757b6740c0e0a0e51",
+      "bytes": 112778
+    },
+    "files/desktop-dark-e864-refusal.png": {
+      "sha256": "feaecf36b0505e0225bdb505e4a2d84e11ca51d40c021d66942af200958227f0",
+      "bytes": 104574
+    },
+    "files/desktop-dark-e864-unique.png": {
+      "sha256": "cd8d05d74a0f3d6289150dc54e74e787b7941084b68a6cbcbf4bafa4ff11f82d",
+      "bytes": 106351
+    },
+    "files/desktop-dark-interrupted-carregando.png": {
+      "sha256": "2cc70882b81f3790a89c239b9526b7ca0abddc3c6d9d3cf8c00226994d1ae45f",
+      "bytes": 73473
+    },
+    "files/desktop-dark-interrupted-erro.png": {
+      "sha256": "0c82e66f6e7411e2be4241a39ba0293964a36691047aee16416f74e6d6775fd2",
+      "bytes": 82151
+    },
+    "files/desktop-dark-interrupted-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-dark-leitura-concluida.png": {
+      "sha256": "c10b2796073c960150ae5e4a2d653e29ed356b1a6a7ec28aa8b3907d764210f0",
+      "bytes": 82291
+    },
+    "files/desktop-dark-manual-previa-configurada.png": {
+      "sha256": "4e6b98a7bcd36877d0c1a80d262d8421a3662812b0e1392e43a5505b663886c1",
+      "bytes": 85540
+    },
+    "files/desktop-dark-manual-upload.png": {
+      "sha256": "bb7dec032ed8897e4c21c60a4e2db277f5cb2535e3b44610dc4d4929efda1985",
+      "bytes": 39705
+    },
+    "files/desktop-dark-mapeamento-invertido.png": {
+      "sha256": "b28b91ae9c0099a388b311887060409834aeb684261dc87969fc5916d38fefcc",
+      "bytes": 87472
+    },
+    "files/desktop-dark-mapeamento-salvo.png": {
+      "sha256": "cedda291f06846a9a8be1f91425e7b9d5732af8626b09332c1c761262da4bde9",
+      "bytes": 151061
+    },
+    "files/desktop-dark-mapeamento-selecao-ignorada.png": {
+      "sha256": "cea47b8aea75dc1d682830738059e0e737fc526afd6787b52a54f771447059ef",
+      "bytes": 87362
+    },
+    "files/desktop-dark-mapeamento-sem-colunas.png": {
+      "sha256": "7561516ac0da25774d6be290e95ff71075b2a422ebfd1fd49b9641252474c8ed",
+      "bytes": 76722
+    },
+    "files/desktop-dark-mesmo-arquivo-outra-conta.png": {
+      "sha256": "4741436e1cddcde594e6fd58e17dc5813e88dc9706e33bde56adcfa652f834cd",
+      "bytes": 100677
+    },
+    "files/desktop-dark-nativa-cancelada.png": {
+      "sha256": "f6e61f348b33e26a30814105358ece937eb30eb176bb693f6c6b58646fee6843",
+      "bytes": 80130
+    },
+    "files/desktop-dark-nativa-confirmacao.png": {
+      "sha256": "449f12c122972302493a85c0776dd0d8ba7996a34b6e91285a6aa69a6bdebb7b",
+      "bytes": 75997
+    },
+    "files/desktop-dark-nativa-conta.png": {
+      "sha256": "a17a41fb0ebf59e72d63aa12181d52ae0587133801c720b061281525d77af216",
+      "bytes": 76910
+    },
+    "files/desktop-dark-nativa-sucesso.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-dark-persist-error-erro.png": {
+      "sha256": "0c82e66f6e7411e2be4241a39ba0293964a36691047aee16416f74e6d6775fd2",
+      "bytes": 82151
+    },
+    "files/desktop-dark-persist-error-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-dark-persist-loading-carregando.png": {
+      "sha256": "2cc70882b81f3790a89c239b9526b7ca0abddc3c6d9d3cf8c00226994d1ae45f",
+      "bytes": 73473
+    },
+    "files/desktop-dark-persist-loading-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-dark-salvar-mapeamento-novo.png": {
+      "sha256": "f101629a7f103f7263449b6f3b7b4c6d07978a6c60a03bf0abfb4586e35834bd",
+      "bytes": 145489
+    },
+    "files/desktop-dark-sucesso-manual.png": {
+      "sha256": "eb5a8bd159eb6528bbdf922383f18341f794e99a40bb7eb913579599f5c39455",
+      "bytes": 158048
+    },
+    "files/desktop-dark-todos-bancos.png": {
+      "sha256": "cabf2f75b3c1259b5c40a26220f8f9e050d5572ee301541a78edf631d350b238",
+      "bytes": 147777
+    },
+    "files/desktop-light-arquivo-duplicado.png": {
+      "sha256": "404f0d1a62cfec9273b78a55f03946d9732c3e25d735f036c9be5f099703deeb",
+      "bytes": 93056
+    },
+    "files/desktop-light-arquivo-em-leitura.png": {
+      "sha256": "0fb4792850ea8ed9d7afde74e64f5f8d046e518508b1f1c9981fa7042704678b",
+      "bytes": 41166
+    },
+    "files/desktop-light-arquivo-empty.png": {
+      "sha256": "9a74879adaa55c1613dfa89e223ea75eb48a713046fcb26cbabf024c84d19dfc",
+      "bytes": 69177
+    },
+    "files/desktop-light-arquivo-header.png": {
+      "sha256": "a0862039536ee61a0370560999ce8f6f273b3a87ddbb0e46a578c3d371472d6b",
+      "bytes": 75417
+    },
+    "files/desktop-light-arquivo-invalid-excel.png": {
+      "sha256": "858e5f7f3c501554df0aee95af05a6939922ffa463bca89ac2d88929b41064eb",
+      "bytes": 43756
+    },
+    "files/desktop-light-arquivo-invalid.png": {
+      "sha256": "6ea140f523e1361463022d880dc4e9f8fbbe3ef154a9c1013b9781b704de1a2f",
+      "bytes": 73922
+    },
+    "files/desktop-light-banco-hover.png": {
+      "sha256": "f275afb2f2a897a06fc6ed5c00749d2a69b2c696d01ac9ff9262abf60473018a",
+      "bytes": 152766
+    },
+    "files/desktop-light-bancos.png": {
+      "sha256": "ce018e92ac0d535868b757278d8805a360e3831650c2a8de7c5cfdb523123559",
+      "bytes": 56688
+    },
+    "files/desktop-light-cartao-competencia-obrigatoria.png": {
+      "sha256": "9001b75f8a8d5203c7aa3734518ba8ac76884ad5cb0d3b8c61de0562d65728a7",
+      "bytes": 134081
+    },
+    "files/desktop-light-cartao-manual-configurado.png": {
+      "sha256": "9f3b7e4414a14c569831e7fd2003fa61ba804f112754a00f19710df827d29e31",
+      "bytes": 85868
+    },
+    "files/desktop-light-cartao-metadados.png": {
+      "sha256": "ab42466407b9c8bf249f019da1c1f575f8e7fc93f982da68b39942e309ca90e6",
+      "bytes": 109663
+    },
+    "files/desktop-light-cartao-vencimento-obrigatorio.png": {
+      "sha256": "95fd4c094cf994ce8447279148cb09e413be191d99bddc448372d2fffa12fb99",
+      "bytes": 144900
+    },
+    "files/desktop-light-colunas-ausentes.png": {
+      "sha256": "4517267513a73b33539c45c759bf1b1be7e2e38baeb1e835eddbc63eb5bbdcd3",
+      "bytes": 82314
+    },
+    "files/desktop-light-competencia-auto-False.png": {
+      "sha256": "52b2f68d8e234c0d480d9089ef1de45b305f57040d012079d0ae4321fb8e2dc0",
+      "bytes": 131275
+    },
+    "files/desktop-light-competencia-auto-True.png": {
+      "sha256": "52b2f68d8e234c0d480d9089ef1de45b305f57040d012079d0ae4321fb8e2dc0",
+      "bytes": 131275
+    },
+    "files/desktop-light-e864-ambiguous.png": {
+      "sha256": "3849fe4eee4eb26659876e9cb18898c86a8e507b92d14e2d2d2d2b7af120806a",
+      "bytes": 133467
+    },
+    "files/desktop-light-e864-cancel.png": {
+      "sha256": "ed72329eea20758bd004f6c9efc1467eab77beee6ec32cb61635e9a265c66172",
+      "bytes": 125701
+    },
+    "files/desktop-light-e864-cancelada-sem-gravacao.png": {
+      "sha256": "b83a2d504d73d53e073266b79d92230d746219ae72db27c5b52b4ffb738e3b9d",
+      "bytes": 112708
+    },
+    "files/desktop-light-e864-manual.png": {
+      "sha256": "c4680c61be35c7f566d528b0dc0beac39d1bbe1177036218df6622158e4d38bc",
+      "bytes": 131214
+    },
+    "files/desktop-light-e864-refusal.png": {
+      "sha256": "97189f4964160c885a862a600fd9eaa574039260db150ad4913082db3320169a",
+      "bytes": 124619
+    },
+    "files/desktop-light-e864-unique.png": {
+      "sha256": "ed72329eea20758bd004f6c9efc1467eab77beee6ec32cb61635e9a265c66172",
+      "bytes": 125701
+    },
+    "files/desktop-light-interrupted-carregando.png": {
+      "sha256": "29d9b3a15121a2a785f44b045dbcd439fb4e5f6c1d1d465bde87e73d266df05b",
+      "bytes": 84558
+    },
+    "files/desktop-light-interrupted-erro.png": {
+      "sha256": "1e41c5eeaf7ad43d063ab3cb913b4a0edbb3057ac9ce6070090ca32f8308199c",
+      "bytes": 91784
+    },
+    "files/desktop-light-interrupted-recuperado.png": {
+      "sha256": "8b3fc68eb32905c32b8145c53e9ca77ff3503c5320d7896944a83fc06fe709eb",
+      "bytes": 111353
+    },
+    "files/desktop-light-leitura-concluida.png": {
+      "sha256": "a8bbdd47840cea4f67584cc673cfcb97c8c9d45c782801cc409aac973b15fe87",
+      "bytes": 83133
+    },
+    "files/desktop-light-manual-previa-configurada.png": {
+      "sha256": "e9c5a496d164fab7d793509f5ae6b0270f2cbaba2684b9e0672370e25eb1614e",
+      "bytes": 86594
+    },
+    "files/desktop-light-manual-upload.png": {
+      "sha256": "87ebbf6e48515f60a0c3e5a717cb21aa0bfef0ed48c278e82121e1a67ccc7e27",
+      "bytes": 40916
+    },
+    "files/desktop-light-mapeamento-invertido.png": {
+      "sha256": "1c1bb8b1522c103d795c2592a80245a03fc392304ebf23f5d558ea894af7ed5d",
+      "bytes": 88121
+    },
+    "files/desktop-light-mapeamento-salvo.png": {
+      "sha256": "05ccdbc332be87059ba00ef6f0926915a0ed35724dcd7c2bd0160a445b9a3b26",
+      "bytes": 184323
+    },
+    "files/desktop-light-mapeamento-selecao-ignorada.png": {
+      "sha256": "fe39f928573ceeecbdf3131c678df51e8293cef661228d6d8dc8e594e01cf3bc",
+      "bytes": 87941
+    },
+    "files/desktop-light-mapeamento-sem-colunas.png": {
+      "sha256": "38d388cc3098e1d116de18f53280d87acde833a922e8497d8d74f6d5a70462c4",
+      "bytes": 77470
+    },
+    "files/desktop-light-mesmo-arquivo-outra-conta.png": {
+      "sha256": "78e24ef17b6345506a19dd80ce42be1780364a5678f76ef06889c480ad6b9604",
+      "bytes": 111484
+    },
+    "files/desktop-light-nativa-cancelada.png": {
+      "sha256": "d7b885d3c6ae4e8eebab5304b5d1071140eb61d2fdccf9f819753667fb885eba",
+      "bytes": 90168
+    },
+    "files/desktop-light-nativa-confirmacao.png": {
+      "sha256": "c0bc07c57005e1314670e1d49dc9b1606545c24ee79476cb9d87a58ecb0fd77c",
+      "bytes": 104394
+    },
+    "files/desktop-light-nativa-conta.png": {
+      "sha256": "754997f0ceee32983e5892d02e35cad2840ceba44a46083c22284548c17cbe22",
+      "bytes": 86591
+    },
+    "files/desktop-light-nativa-sucesso.png": {
+      "sha256": "8b3fc68eb32905c32b8145c53e9ca77ff3503c5320d7896944a83fc06fe709eb",
+      "bytes": 111353
+    },
+    "files/desktop-light-persist-error-erro.png": {
+      "sha256": "1e41c5eeaf7ad43d063ab3cb913b4a0edbb3057ac9ce6070090ca32f8308199c",
+      "bytes": 91784
+    },
+    "files/desktop-light-persist-error-recuperado.png": {
+      "sha256": "8b3fc68eb32905c32b8145c53e9ca77ff3503c5320d7896944a83fc06fe709eb",
+      "bytes": 111353
+    },
+    "files/desktop-light-persist-loading-carregando.png": {
+      "sha256": "29d9b3a15121a2a785f44b045dbcd439fb4e5f6c1d1d465bde87e73d266df05b",
+      "bytes": 84558
+    },
+    "files/desktop-light-persist-loading-recuperado.png": {
+      "sha256": "8b3fc68eb32905c32b8145c53e9ca77ff3503c5320d7896944a83fc06fe709eb",
+      "bytes": 111353
+    },
+    "files/desktop-light-salvar-mapeamento-novo.png": {
+      "sha256": "0f4e321b05c855cf41bdff7f855a787f976d5a18036049451337dc82dff6e077",
+      "bytes": 167854
+    },
+    "files/desktop-light-sucesso-manual.png": {
+      "sha256": "6f3a88ec27a822025a83934738e39796a86c9d3749503bf50a171013398686d5",
+      "bytes": 161033
+    },
+    "files/desktop-light-todos-bancos.png": {
+      "sha256": "c6cd132db53d65122c3606b48a36c81eb6c2d12c1491fa0d8c73b4be9b94f4fa",
+      "bytes": 150310
+    },
+    "files/desktop-main-arquivo-duplicado.png": {
+      "sha256": "597f7f7146330d523672a1a45d2624783cd69d9f98e280f5dbd16165d6d12997",
+      "bytes": 83194
+    },
+    "files/desktop-main-arquivo-em-leitura.png": {
+      "sha256": "c6683c2566639a978e5e305ea582047a80932308ad409a034d6c0a8ae0823330",
+      "bytes": 39986
+    },
+    "files/desktop-main-arquivo-empty.png": {
+      "sha256": "49fb47938f934703a67a2252627d2923cd2e08f4af2306530ed35795080849ad",
+      "bytes": 66824
+    },
+    "files/desktop-main-arquivo-header.png": {
+      "sha256": "da557a70f81231448a59db6f4e03398b0ddc5db019977907c44760d5ce4cccfe",
+      "bytes": 73276
+    },
+    "files/desktop-main-arquivo-invalid-excel.png": {
+      "sha256": "8284c5cf8fd157834829fe0d521b66fed7102308810bdd2401fe1c8fd533353a",
+      "bytes": 39956
+    },
+    "files/desktop-main-arquivo-invalid.png": {
+      "sha256": "3b3e5d86a0c15f8168399199d9a70cf0828c5f16ac8edd0ada0fd90fe6ee926e",
+      "bytes": 71530
+    },
+    "files/desktop-main-banco-hover.png": {
+      "sha256": "28c45c5442253de70aa9ba886ece5e55a64c57803a80d0602673d2b3bae4c97f",
+      "bytes": 150870
+    },
+    "files/desktop-main-bancos.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "files/desktop-main-cartao-competencia-obrigatoria.png": {
+      "sha256": "9eb264392a28552bdc7284d0112e453b1720b95a1d7e2b08673e1edcd8b91ef0",
+      "bytes": 117955
+    },
+    "files/desktop-main-cartao-manual-configurado.png": {
+      "sha256": "8d28e6d4c726a3cbb1a35cdcc32b367a8893011a95c907dc1f57677fa4ec197b",
+      "bytes": 84457
+    },
+    "files/desktop-main-cartao-metadados.png": {
+      "sha256": "cedc792713de6175e753fc9d81622bf075560a53784261936de6d84681b33029",
+      "bytes": 98545
+    },
+    "files/desktop-main-cartao-vencimento-obrigatorio.png": {
+      "sha256": "5fac6ea573f252e77d8ded7459f92b405697f030e3cd2f0e4e8b2b3088c11eb2",
+      "bytes": 129598
+    },
+    "files/desktop-main-colunas-ausentes.png": {
+      "sha256": "69da74f899e297f4f65fb0ce12c432fc7ad78c7844719f933fc6e0e0234be471",
+      "bytes": 81709
+    },
+    "files/desktop-main-competencia-auto-False.png": {
+      "sha256": "591438cbba809f775b128d594bf0fe78289c71f26d8e459ae1426fde7ef3c3a6",
+      "bytes": 97963
+    },
+    "files/desktop-main-competencia-auto-True.png": {
+      "sha256": "591438cbba809f775b128d594bf0fe78289c71f26d8e459ae1426fde7ef3c3a6",
+      "bytes": 97963
+    },
+    "files/desktop-main-e864-ambiguous.png": {
+      "sha256": "915060f11445499a1a2e2ee43cef8a79b0b977f9931897f3f38f330603ed614c",
+      "bytes": 113371
+    },
+    "files/desktop-main-e864-cancel.png": {
+      "sha256": "cd8d05d74a0f3d6289150dc54e74e787b7941084b68a6cbcbf4bafa4ff11f82d",
+      "bytes": 106351
+    },
+    "files/desktop-main-e864-cancelada-sem-gravacao.png": {
+      "sha256": "1abc413811957ffba3b1223291a78d7be819bc7dab09edbfe1655ef868d34cc7",
+      "bytes": 101262
+    },
+    "files/desktop-main-e864-manual.png": {
+      "sha256": "52f4de416df99fcd50c23189b9ee1777bf2def94a28c47f757b6740c0e0a0e51",
+      "bytes": 112778
+    },
+    "files/desktop-main-e864-refusal.png": {
+      "sha256": "feaecf36b0505e0225bdb505e4a2d84e11ca51d40c021d66942af200958227f0",
+      "bytes": 104574
+    },
+    "files/desktop-main-e864-unique.png": {
+      "sha256": "cd8d05d74a0f3d6289150dc54e74e787b7941084b68a6cbcbf4bafa4ff11f82d",
+      "bytes": 106351
+    },
+    "files/desktop-main-interrupted-carregando.png": {
+      "sha256": "2cc70882b81f3790a89c239b9526b7ca0abddc3c6d9d3cf8c00226994d1ae45f",
+      "bytes": 73473
+    },
+    "files/desktop-main-interrupted-erro.png": {
+      "sha256": "0c82e66f6e7411e2be4241a39ba0293964a36691047aee16416f74e6d6775fd2",
+      "bytes": 82151
+    },
+    "files/desktop-main-interrupted-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-main-leitura-concluida.png": {
+      "sha256": "c10b2796073c960150ae5e4a2d653e29ed356b1a6a7ec28aa8b3907d764210f0",
+      "bytes": 82291
+    },
+    "files/desktop-main-manual-previa-configurada.png": {
+      "sha256": "4e6b98a7bcd36877d0c1a80d262d8421a3662812b0e1392e43a5505b663886c1",
+      "bytes": 85540
+    },
+    "files/desktop-main-manual-upload.png": {
+      "sha256": "bb7dec032ed8897e4c21c60a4e2db277f5cb2535e3b44610dc4d4929efda1985",
+      "bytes": 39705
+    },
+    "files/desktop-main-mapeamento-invertido.png": {
+      "sha256": "b28b91ae9c0099a388b311887060409834aeb684261dc87969fc5916d38fefcc",
+      "bytes": 87472
+    },
+    "files/desktop-main-mapeamento-salvo.png": {
+      "sha256": "cedda291f06846a9a8be1f91425e7b9d5732af8626b09332c1c761262da4bde9",
+      "bytes": 151061
+    },
+    "files/desktop-main-mapeamento-selecao-ignorada.png": {
+      "sha256": "cea47b8aea75dc1d682830738059e0e737fc526afd6787b52a54f771447059ef",
+      "bytes": 87362
+    },
+    "files/desktop-main-mapeamento-sem-colunas.png": {
+      "sha256": "7561516ac0da25774d6be290e95ff71075b2a422ebfd1fd49b9641252474c8ed",
+      "bytes": 76722
+    },
+    "files/desktop-main-mesmo-arquivo-outra-conta.png": {
+      "sha256": "4741436e1cddcde594e6fd58e17dc5813e88dc9706e33bde56adcfa652f834cd",
+      "bytes": 100677
+    },
+    "files/desktop-main-nativa-cancelada.png": {
+      "sha256": "f6e61f348b33e26a30814105358ece937eb30eb176bb693f6c6b58646fee6843",
+      "bytes": 80130
+    },
+    "files/desktop-main-nativa-confirmacao.png": {
+      "sha256": "449f12c122972302493a85c0776dd0d8ba7996a34b6e91285a6aa69a6bdebb7b",
+      "bytes": 75997
+    },
+    "files/desktop-main-nativa-conta.png": {
+      "sha256": "a17a41fb0ebf59e72d63aa12181d52ae0587133801c720b061281525d77af216",
+      "bytes": 76910
+    },
+    "files/desktop-main-nativa-sucesso.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-main-persist-error-erro.png": {
+      "sha256": "0c82e66f6e7411e2be4241a39ba0293964a36691047aee16416f74e6d6775fd2",
+      "bytes": 82151
+    },
+    "files/desktop-main-persist-error-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-main-persist-loading-carregando.png": {
+      "sha256": "2cc70882b81f3790a89c239b9526b7ca0abddc3c6d9d3cf8c00226994d1ae45f",
+      "bytes": 73473
+    },
+    "files/desktop-main-persist-loading-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-main-salvar-mapeamento-novo.png": {
+      "sha256": "f101629a7f103f7263449b6f3b7b4c6d07978a6c60a03bf0abfb4586e35834bd",
+      "bytes": 145489
+    },
+    "files/desktop-main-sucesso-manual.png": {
+      "sha256": "eb5a8bd159eb6528bbdf922383f18341f794e99a40bb7eb913579599f5c39455",
+      "bytes": 158048
+    },
+    "files/desktop-main-todos-bancos.png": {
+      "sha256": "cabf2f75b3c1259b5c40a26220f8f9e050d5572ee301541a78edf631d350b238",
+      "bytes": 147777
+    },
+    "files/desktop-reviewed-arquivo-duplicado.png": {
+      "sha256": "597f7f7146330d523672a1a45d2624783cd69d9f98e280f5dbd16165d6d12997",
+      "bytes": 83194
+    },
+    "files/desktop-reviewed-arquivo-em-leitura.png": {
+      "sha256": "c6683c2566639a978e5e305ea582047a80932308ad409a034d6c0a8ae0823330",
+      "bytes": 39986
+    },
+    "files/desktop-reviewed-arquivo-empty.png": {
+      "sha256": "49fb47938f934703a67a2252627d2923cd2e08f4af2306530ed35795080849ad",
+      "bytes": 66824
+    },
+    "files/desktop-reviewed-arquivo-header.png": {
+      "sha256": "da557a70f81231448a59db6f4e03398b0ddc5db019977907c44760d5ce4cccfe",
+      "bytes": 73276
+    },
+    "files/desktop-reviewed-arquivo-invalid-excel.png": {
+      "sha256": "8284c5cf8fd157834829fe0d521b66fed7102308810bdd2401fe1c8fd533353a",
+      "bytes": 39956
+    },
+    "files/desktop-reviewed-arquivo-invalid.png": {
+      "sha256": "3b3e5d86a0c15f8168399199d9a70cf0828c5f16ac8edd0ada0fd90fe6ee926e",
+      "bytes": 71530
+    },
+    "files/desktop-reviewed-banco-hover.png": {
+      "sha256": "28c45c5442253de70aa9ba886ece5e55a64c57803a80d0602673d2b3bae4c97f",
+      "bytes": 150870
+    },
+    "files/desktop-reviewed-bancos.png": {
+      "sha256": "77d6bdec813b677363025887f305059d12bf25f12198f8cdd6ccc9b34688edbc",
+      "bytes": 55841
+    },
+    "files/desktop-reviewed-cartao-competencia-obrigatoria.png": {
+      "sha256": "9eb264392a28552bdc7284d0112e453b1720b95a1d7e2b08673e1edcd8b91ef0",
+      "bytes": 117955
+    },
+    "files/desktop-reviewed-cartao-manual-configurado.png": {
+      "sha256": "8d28e6d4c726a3cbb1a35cdcc32b367a8893011a95c907dc1f57677fa4ec197b",
+      "bytes": 84457
+    },
+    "files/desktop-reviewed-cartao-metadados.png": {
+      "sha256": "cedc792713de6175e753fc9d81622bf075560a53784261936de6d84681b33029",
+      "bytes": 98545
+    },
+    "files/desktop-reviewed-cartao-vencimento-obrigatorio.png": {
+      "sha256": "5fac6ea573f252e77d8ded7459f92b405697f030e3cd2f0e4e8b2b3088c11eb2",
+      "bytes": 129598
+    },
+    "files/desktop-reviewed-colunas-ausentes.png": {
+      "sha256": "69da74f899e297f4f65fb0ce12c432fc7ad78c7844719f933fc6e0e0234be471",
+      "bytes": 81709
+    },
+    "files/desktop-reviewed-competencia-auto-False.png": {
+      "sha256": "591438cbba809f775b128d594bf0fe78289c71f26d8e459ae1426fde7ef3c3a6",
+      "bytes": 97963
+    },
+    "files/desktop-reviewed-competencia-auto-True.png": {
+      "sha256": "591438cbba809f775b128d594bf0fe78289c71f26d8e459ae1426fde7ef3c3a6",
+      "bytes": 97963
+    },
+    "files/desktop-reviewed-e864-ambiguous.png": {
+      "sha256": "915060f11445499a1a2e2ee43cef8a79b0b977f9931897f3f38f330603ed614c",
+      "bytes": 113371
+    },
+    "files/desktop-reviewed-e864-cancel.png": {
+      "sha256": "cd8d05d74a0f3d6289150dc54e74e787b7941084b68a6cbcbf4bafa4ff11f82d",
+      "bytes": 106351
+    },
+    "files/desktop-reviewed-e864-cancelada-sem-gravacao.png": {
+      "sha256": "1abc413811957ffba3b1223291a78d7be819bc7dab09edbfe1655ef868d34cc7",
+      "bytes": 101262
+    },
+    "files/desktop-reviewed-e864-manual.png": {
+      "sha256": "52f4de416df99fcd50c23189b9ee1777bf2def94a28c47f757b6740c0e0a0e51",
+      "bytes": 112778
+    },
+    "files/desktop-reviewed-e864-refusal.png": {
+      "sha256": "feaecf36b0505e0225bdb505e4a2d84e11ca51d40c021d66942af200958227f0",
+      "bytes": 104574
+    },
+    "files/desktop-reviewed-e864-unique.png": {
+      "sha256": "cd8d05d74a0f3d6289150dc54e74e787b7941084b68a6cbcbf4bafa4ff11f82d",
+      "bytes": 106351
+    },
+    "files/desktop-reviewed-interrupted-carregando.png": {
+      "sha256": "2cc70882b81f3790a89c239b9526b7ca0abddc3c6d9d3cf8c00226994d1ae45f",
+      "bytes": 73473
+    },
+    "files/desktop-reviewed-interrupted-erro.png": {
+      "sha256": "0c82e66f6e7411e2be4241a39ba0293964a36691047aee16416f74e6d6775fd2",
+      "bytes": 82151
+    },
+    "files/desktop-reviewed-interrupted-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-reviewed-leitura-concluida.png": {
+      "sha256": "c10b2796073c960150ae5e4a2d653e29ed356b1a6a7ec28aa8b3907d764210f0",
+      "bytes": 82291
+    },
+    "files/desktop-reviewed-manual-previa-configurada.png": {
+      "sha256": "4e6b98a7bcd36877d0c1a80d262d8421a3662812b0e1392e43a5505b663886c1",
+      "bytes": 85540
+    },
+    "files/desktop-reviewed-manual-upload.png": {
+      "sha256": "bb7dec032ed8897e4c21c60a4e2db277f5cb2535e3b44610dc4d4929efda1985",
+      "bytes": 39705
+    },
+    "files/desktop-reviewed-mapeamento-invertido.png": {
+      "sha256": "b28b91ae9c0099a388b311887060409834aeb684261dc87969fc5916d38fefcc",
+      "bytes": 87472
+    },
+    "files/desktop-reviewed-mapeamento-salvo.png": {
+      "sha256": "cedda291f06846a9a8be1f91425e7b9d5732af8626b09332c1c761262da4bde9",
+      "bytes": 151061
+    },
+    "files/desktop-reviewed-mapeamento-selecao-ignorada.png": {
+      "sha256": "cea47b8aea75dc1d682830738059e0e737fc526afd6787b52a54f771447059ef",
+      "bytes": 87362
+    },
+    "files/desktop-reviewed-mapeamento-sem-colunas.png": {
+      "sha256": "7561516ac0da25774d6be290e95ff71075b2a422ebfd1fd49b9641252474c8ed",
+      "bytes": 76722
+    },
+    "files/desktop-reviewed-mesmo-arquivo-outra-conta.png": {
+      "sha256": "4741436e1cddcde594e6fd58e17dc5813e88dc9706e33bde56adcfa652f834cd",
+      "bytes": 100677
+    },
+    "files/desktop-reviewed-nativa-cancelada.png": {
+      "sha256": "f6e61f348b33e26a30814105358ece937eb30eb176bb693f6c6b58646fee6843",
+      "bytes": 80130
+    },
+    "files/desktop-reviewed-nativa-confirmacao.png": {
+      "sha256": "449f12c122972302493a85c0776dd0d8ba7996a34b6e91285a6aa69a6bdebb7b",
+      "bytes": 75997
+    },
+    "files/desktop-reviewed-nativa-conta.png": {
+      "sha256": "a17a41fb0ebf59e72d63aa12181d52ae0587133801c720b061281525d77af216",
+      "bytes": 76910
+    },
+    "files/desktop-reviewed-nativa-sucesso.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-reviewed-persist-error-erro.png": {
+      "sha256": "0c82e66f6e7411e2be4241a39ba0293964a36691047aee16416f74e6d6775fd2",
+      "bytes": 82151
+    },
+    "files/desktop-reviewed-persist-error-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-reviewed-persist-loading-carregando.png": {
+      "sha256": "2cc70882b81f3790a89c239b9526b7ca0abddc3c6d9d3cf8c00226994d1ae45f",
+      "bytes": 73473
+    },
+    "files/desktop-reviewed-persist-loading-recuperado.png": {
+      "sha256": "90cf417087318ea01212311592d85ec00609b8c918e4bb160e00f3b723ba581c",
+      "bytes": 100560
+    },
+    "files/desktop-reviewed-salvar-mapeamento-novo.png": {
+      "sha256": "f101629a7f103f7263449b6f3b7b4c6d07978a6c60a03bf0abfb4586e35834bd",
+      "bytes": 145489
+    },
+    "files/desktop-reviewed-sucesso-manual.png": {
+      "sha256": "eb5a8bd159eb6528bbdf922383f18341f794e99a40bb7eb913579599f5c39455",
+      "bytes": 158048
+    },
+    "files/desktop-reviewed-todos-bancos.png": {
+      "sha256": "cabf2f75b3c1259b5c40a26220f8f9e050d5572ee301541a78edf631d350b238",
+      "bytes": 147777
+    },
+    "files/financial-desktop-dark.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-desktop-light.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-desktop-main.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-desktop-reviewed.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-mobile-dark.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-mobile-light.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-mobile-main.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/financial-mobile-reviewed.json": {
+      "sha256": "b43c189634d2b114b2652122c249871f58caf665faa92e048de9c855ac3fd56a",
+      "bytes": 955029
+    },
+    "files/mobile-dark-arquivo-duplicado.png": {
+      "sha256": "300bc93330eee74bfa892a4708e2659c8778dfa080d6c2018da138e54e561e40",
+      "bytes": 43127
+    },
+    "files/mobile-dark-arquivo-em-leitura.png": {
+      "sha256": "133d235edea77bfe91d8fd7b26a9e7aec2aa8c612203c34d987e3b41e6113f98",
+      "bytes": 32941
+    },
+    "files/mobile-dark-arquivo-empty.png": {
+      "sha256": "b2a42f2e0bc90d5f16b77dc1a385aeecb4f5b98a6ccfce7a2052a63dee049eb7",
+      "bytes": 44850
+    },
+    "files/mobile-dark-arquivo-header.png": {
+      "sha256": "84838f8f57bb82ead96e31485ab76c5c01f3c05662dd5b4e7a6403bc979f34a7",
+      "bytes": 46748
+    },
+    "files/mobile-dark-arquivo-invalid-excel.png": {
+      "sha256": "6cf3c36f48f6dd9c95791498fcdb96e7bf6bbb8abc92e697da06c2314db35f2c",
+      "bytes": 35025
+    },
+    "files/mobile-dark-arquivo-invalid.png": {
+      "sha256": "717bdd7a27a08e2dec2d7b97cde3b7a79d0eb3d4b7d016430058fdc94bfa5504",
+      "bytes": 47169
+    },
+    "files/mobile-dark-banco-hover.png": {
+      "sha256": "f44ea35e8d6ccf7d98b2647b4e38912c295dda9bab9e240c4a98457cc791a908",
+      "bytes": 78338
+    },
+    "files/mobile-dark-bancos.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "files/mobile-dark-cartao-competencia-obrigatoria.png": {
+      "sha256": "db3cbf9db9c631f78acf23dc8c4abeae8f9fa4c4b2b6fd70faf1355e4508cbb3",
+      "bytes": 57993
+    },
+    "files/mobile-dark-cartao-manual-configurado.png": {
+      "sha256": "1ee7629150a3114b55168c4c5d5d9e39e35e81288efb63d8ce4fbdd1be37b9d7",
+      "bytes": 52935
+    },
+    "files/mobile-dark-cartao-metadados.png": {
+      "sha256": "ad01475a3dc0ffd6eb2c5d4ed0a9bf62930c9f6c57f0fb5b0d1d94be389ad65f",
+      "bytes": 49280
+    },
+    "files/mobile-dark-cartao-vencimento-obrigatorio.png": {
+      "sha256": "6353fe259423879397c7f56814d2d5d081f41a9d1724b1f017ca89f01ffbebee",
+      "bytes": 59257
+    },
+    "files/mobile-dark-colunas-ausentes.png": {
+      "sha256": "85f5a76e77c9fefeba9778788dc50e6b490e2dd7c6d474ae4c38934bd6e7d8e1",
+      "bytes": 47400
+    },
+    "files/mobile-dark-competencia-auto-False.png": {
+      "sha256": "45be60c85acd65cb4d5de5f7f31e2a3e09023f50c49b79cc85c92db9a786bdaf",
+      "bytes": 52013
+    },
+    "files/mobile-dark-competencia-auto-True.png": {
+      "sha256": "45be60c85acd65cb4d5de5f7f31e2a3e09023f50c49b79cc85c92db9a786bdaf",
+      "bytes": 52013
+    },
+    "files/mobile-dark-e864-ambiguous.png": {
+      "sha256": "ac4c8f9595e67ec974b00480765cdf98b4b141592d90db1a123f4dce63f8988f",
+      "bytes": 51999
+    },
+    "files/mobile-dark-e864-cancel.png": {
+      "sha256": "5ae40a93c767824f34ba320f58934ca79ddfd1807d447a29f2a10aa77c5bf732",
+      "bytes": 48517
+    },
+    "files/mobile-dark-e864-cancelada-sem-gravacao.png": {
+      "sha256": "ad01475a3dc0ffd6eb2c5d4ed0a9bf62930c9f6c57f0fb5b0d1d94be389ad65f",
+      "bytes": 49280
+    },
+    "files/mobile-dark-e864-manual.png": {
+      "sha256": "e0ddbeff0abbd6e6337a6c9faf03de213069e6316761dabbf0438b25188d191f",
+      "bytes": 52452
+    },
+    "files/mobile-dark-e864-refusal.png": {
+      "sha256": "e2b7d0e0ea3d05fc56fbc8f2d7b608acd35bfd6a51e71191021dcc2469a469ae",
+      "bytes": 48866
+    },
+    "files/mobile-dark-e864-unique.png": {
+      "sha256": "5ae40a93c767824f34ba320f58934ca79ddfd1807d447a29f2a10aa77c5bf732",
+      "bytes": 48517
+    },
+    "files/mobile-dark-interrupted-carregando.png": {
+      "sha256": "29109434ebaa8e9e4003145bb247c96e06bedeef41fcab3160a16f4c1b2ecfa3",
+      "bytes": 39863
+    },
+    "files/mobile-dark-interrupted-erro.png": {
+      "sha256": "e9712d924da6b2b8bd3676d4ebfcc62f1a38c85fb6ca9641741c7c46e1cae169",
+      "bytes": 43219
+    },
+    "files/mobile-dark-interrupted-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-dark-leitura-concluida.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "files/mobile-dark-manual-previa-configurada.png": {
+      "sha256": "57d4d0f7684260b91e59e8042237be5f4e559b39a92a4ac67618f96add07fb48",
+      "bytes": 48611
+    },
+    "files/mobile-dark-manual-upload.png": {
+      "sha256": "f0e9edcaf6728433b4a681d55e87c4286426aa0ee220e43ea7377ba617707360",
+      "bytes": 32607
+    },
+    "files/mobile-dark-mapeamento-invertido.png": {
+      "sha256": "ecb236e8f38a527d3165bb19e3834aeb881b77de64b73a942c1914761f1b96c9",
+      "bytes": 50327
+    },
+    "files/mobile-dark-mapeamento-salvo.png": {
+      "sha256": "718d9c51707f1468cf2f8bf1633db5509475289d19c4b98583c532525bfca9ff",
+      "bytes": 66514
+    },
+    "files/mobile-dark-mapeamento-selecao-ignorada.png": {
+      "sha256": "07ee875e3ecd1237060a84452c1c5a3921400bd3b07914dc184a891b035a8471",
+      "bytes": 48087
+    },
+    "files/mobile-dark-mapeamento-sem-colunas.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "files/mobile-dark-mesmo-arquivo-outra-conta.png": {
+      "sha256": "9164c3cb5cd20ca3be893ceddc6399594e7eb88cea993056fc2118ac5b2947ee",
+      "bytes": 49617
+    },
+    "files/mobile-dark-nativa-cancelada.png": {
+      "sha256": "861b9616619bdaffedab1a2dfba8757b21f5cf7365f20dcd8ee143f73df859d0",
+      "bytes": 42388
+    },
+    "files/mobile-dark-nativa-confirmacao.png": {
+      "sha256": "e3c05ba9982c10fd022747b30d0c6fc388d8e3eb3b17bec150a720bbe203a483",
+      "bytes": 41350
+    },
+    "files/mobile-dark-nativa-conta.png": {
+      "sha256": "8c0164bc2f84307ee6aba6a132273b8aa4ac86200433ee3d3ae6551ff971aaff",
+      "bytes": 39798
+    },
+    "files/mobile-dark-nativa-sucesso.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-dark-persist-error-erro.png": {
+      "sha256": "e9712d924da6b2b8bd3676d4ebfcc62f1a38c85fb6ca9641741c7c46e1cae169",
+      "bytes": 43219
+    },
+    "files/mobile-dark-persist-error-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-dark-persist-loading-carregando.png": {
+      "sha256": "29109434ebaa8e9e4003145bb247c96e06bedeef41fcab3160a16f4c1b2ecfa3",
+      "bytes": 39863
+    },
+    "files/mobile-dark-persist-loading-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-dark-salvar-mapeamento-novo.png": {
+      "sha256": "a70e6cb788fc124c0076391ee04a8644880a9089aea06f99cb050fd4f7cea692",
+      "bytes": 60042
+    },
+    "files/mobile-dark-sucesso-manual.png": {
+      "sha256": "fd5517de47a7b9c85207a6cee9f58c583e64a49f79078b199a7d225dd0519e91",
+      "bytes": 73808
+    },
+    "files/mobile-dark-todos-bancos.png": {
+      "sha256": "145c77b994f4f33d7b35f5426620e5234798532f6f7788daadd3776ae8e6fea8",
+      "bytes": 75409
+    },
+    "files/mobile-light-arquivo-duplicado.png": {
+      "sha256": "79d4bfc38bdeb828c079c4e52ca3295c81b0f933414e8f10c35bcb499f54c90c",
+      "bytes": 45661
+    },
+    "files/mobile-light-arquivo-em-leitura.png": {
+      "sha256": "78d076ad6810b15918941161ad75b8f8384eec4ae5107ceea39549a9f0ca12e0",
+      "bytes": 33426
+    },
+    "files/mobile-light-arquivo-empty.png": {
+      "sha256": "cd666fb329b0097fd4f4eb687d3313b9cf1b21ebb72bcefca21df8ab4d03a23e",
+      "bytes": 45406
+    },
+    "files/mobile-light-arquivo-header.png": {
+      "sha256": "b54b21d632c16ab7e3a2de8d28309f6c4dd92e46947cf9a3820e2dc603eb3190",
+      "bytes": 47104
+    },
+    "files/mobile-light-arquivo-invalid-excel.png": {
+      "sha256": "fbbb5f91a0a6d1706ef532d271dbbb4a6542dc4bbddffff056d954239c341e4f",
+      "bytes": 35450
+    },
+    "files/mobile-light-arquivo-invalid.png": {
+      "sha256": "601a06c7d6458985717c5214a548be0076905057b38c5e10cf631a4fdc3091ab",
+      "bytes": 47693
+    },
+    "files/mobile-light-banco-hover.png": {
+      "sha256": "62cd059c8595230b9eabacb8e1d3cdc57f8bac09a76dceba8d5031c09897497d",
+      "bytes": 79994
+    },
+    "files/mobile-light-bancos.png": {
+      "sha256": "e81d6c9da105016ed97055e57f72cb06f4012bd047a100fb385e1e54ebe988e7",
+      "bytes": 48037
+    },
+    "files/mobile-light-cartao-competencia-obrigatoria.png": {
+      "sha256": "3ad56876c8f9e3578dce6f759574bb0cb14298fb6b9b4509109ef1e6e1c04cd9",
+      "bytes": 63632
+    },
+    "files/mobile-light-cartao-manual-configurado.png": {
+      "sha256": "0c12658273a03d5226caec6a96fafe56cc8b41ffb134d9cb42bf7bebd4b722ae",
+      "bytes": 53515
+    },
+    "files/mobile-light-cartao-metadados.png": {
+      "sha256": "fef6a9e70d7d0f3a0097ccaf755afb7cd0284f25c0506e7610588ace7993f244",
+      "bytes": 52301
+    },
+    "files/mobile-light-cartao-vencimento-obrigatorio.png": {
+      "sha256": "ca758c642723383b75cb6713ad0b21ae83b00d34228b2b9feaa99b83ffed4d78",
+      "bytes": 64542
+    },
+    "files/mobile-light-colunas-ausentes.png": {
+      "sha256": "f83409580a113bd4838ff7f8d522f99fe6a1b2273daabbfc05ae661c66998f45",
+      "bytes": 47084
+    },
+    "files/mobile-light-competencia-auto-False.png": {
+      "sha256": "82940c8634c082408f9ded2bc36bf6ea5242fef68050066d608bfff5a3432219",
+      "bytes": 59063
+    },
+    "files/mobile-light-competencia-auto-True.png": {
+      "sha256": "82940c8634c082408f9ded2bc36bf6ea5242fef68050066d608bfff5a3432219",
+      "bytes": 59063
+    },
+    "files/mobile-light-e864-ambiguous.png": {
+      "sha256": "df89db086de601a455f23b86f3bfe00464c3d1e4d72aa861e1520e3de8b0e68b",
+      "bytes": 54699
+    },
+    "files/mobile-light-e864-cancel.png": {
+      "sha256": "e4eb8de99345d77eeab78d25ee705be704e0a47f604ae97cfc596484a1f07d8c",
+      "bytes": 51532
+    },
+    "files/mobile-light-e864-cancelada-sem-gravacao.png": {
+      "sha256": "fef6a9e70d7d0f3a0097ccaf755afb7cd0284f25c0506e7610588ace7993f244",
+      "bytes": 52301
+    },
+    "files/mobile-light-e864-manual.png": {
+      "sha256": "5199ed03e14c80543bece9288d73030840f5024541a769e0d8f82c20e6913808",
+      "bytes": 55280
+    },
+    "files/mobile-light-e864-refusal.png": {
+      "sha256": "4aa188b60673b579bae389c010f6dbdbbc14321e979b84a84bb95a050d0d3265",
+      "bytes": 52523
+    },
+    "files/mobile-light-e864-unique.png": {
+      "sha256": "e4eb8de99345d77eeab78d25ee705be704e0a47f604ae97cfc596484a1f07d8c",
+      "bytes": 51532
+    },
+    "files/mobile-light-interrupted-carregando.png": {
+      "sha256": "947ae0a6b1572ddd335297d3955f29d23835b962e7f69c80ba6fe6c705f67b02",
+      "bytes": 43585
+    },
+    "files/mobile-light-interrupted-erro.png": {
+      "sha256": "1c0e276f75bbe0c6f2160c4ebf82e8f5e6381581ecf42991f08c24264cf17c7d",
+      "bytes": 45756
+    },
+    "files/mobile-light-interrupted-recuperado.png": {
+      "sha256": "75eb10371ba442efbc08ac95c03e5fbdda0996fe4e2876f83be276b943b38099",
+      "bytes": 51241
+    },
+    "files/mobile-light-leitura-concluida.png": {
+      "sha256": "2ca20dfb9eed32cd63911aa3e5edb5a35d77a8b7544a694e4961030ba61290bd",
+      "bytes": 50533
+    },
+    "files/mobile-light-manual-previa-configurada.png": {
+      "sha256": "7aee3b879a64454d3f76130faa64334ef8c0570be505e4bb3e81e59b8b4b7904",
+      "bytes": 48656
+    },
+    "files/mobile-light-manual-upload.png": {
+      "sha256": "5cf42962232f7d198ec57cd2ee6eebe19bca3c20260e03ee856af0fc896a24b6",
+      "bytes": 33044
+    },
+    "files/mobile-light-mapeamento-invertido.png": {
+      "sha256": "1ee752b18d65b0588d77180e855767f6a7b1d732cfc518a6b118ae3ac43f4342",
+      "bytes": 50670
+    },
+    "files/mobile-light-mapeamento-salvo.png": {
+      "sha256": "c2a4e068d6ffe9a3dbb1becddccc79b4ef68b16642b1491da68ec1792796636e",
+      "bytes": 79405
+    },
+    "files/mobile-light-mapeamento-selecao-ignorada.png": {
+      "sha256": "011a92ae272d033ecb7135089d384313999a3649b633b537d01c57dcc667156c",
+      "bytes": 47832
+    },
+    "files/mobile-light-mapeamento-sem-colunas.png": {
+      "sha256": "2ca20dfb9eed32cd63911aa3e5edb5a35d77a8b7544a694e4961030ba61290bd",
+      "bytes": 50533
+    },
+    "files/mobile-light-mesmo-arquivo-outra-conta.png": {
+      "sha256": "457379f0a6073041824aad259db390e0ea9c1c6f5c8acb74bea73e3ebfc64cd8",
+      "bytes": 51346
+    },
+    "files/mobile-light-nativa-cancelada.png": {
+      "sha256": "a7e4160b2b8c73be1e0e406995d9c321d1f8211dd6f16f19af62dd76fae3a713",
+      "bytes": 44893
+    },
+    "files/mobile-light-nativa-confirmacao.png": {
+      "sha256": "fec2ceb37d3b323d5d873aa948a43927eb04b6cca620c3912a071e5cf2858d88",
+      "bytes": 50395
+    },
+    "files/mobile-light-nativa-conta.png": {
+      "sha256": "889596f14d263aa33d2c5eb19f8df448108358832f285228f72e5fc737e8e471",
+      "bytes": 42620
+    },
+    "files/mobile-light-nativa-sucesso.png": {
+      "sha256": "75eb10371ba442efbc08ac95c03e5fbdda0996fe4e2876f83be276b943b38099",
+      "bytes": 51241
+    },
+    "files/mobile-light-persist-error-erro.png": {
+      "sha256": "1c0e276f75bbe0c6f2160c4ebf82e8f5e6381581ecf42991f08c24264cf17c7d",
+      "bytes": 45756
+    },
+    "files/mobile-light-persist-error-recuperado.png": {
+      "sha256": "75eb10371ba442efbc08ac95c03e5fbdda0996fe4e2876f83be276b943b38099",
+      "bytes": 51241
+    },
+    "files/mobile-light-persist-loading-carregando.png": {
+      "sha256": "947ae0a6b1572ddd335297d3955f29d23835b962e7f69c80ba6fe6c705f67b02",
+      "bytes": 43585
+    },
+    "files/mobile-light-persist-loading-recuperado.png": {
+      "sha256": "75eb10371ba442efbc08ac95c03e5fbdda0996fe4e2876f83be276b943b38099",
+      "bytes": 51241
+    },
+    "files/mobile-light-salvar-mapeamento-novo.png": {
+      "sha256": "56f5f03f5039a807de632a305aab204b672035c8f8773a51ecdc958c3ba9463c",
+      "bytes": 65066
+    },
+    "files/mobile-light-sucesso-manual.png": {
+      "sha256": "ffc2b970970fafeb40c342aca3987814c8917a3e2bfed4da93ba1bd4dc30390d",
+      "bytes": 73835
+    },
+    "files/mobile-light-todos-bancos.png": {
+      "sha256": "502047dd3e98b51b5799ccbf67bb5047dedc85cc154a5d24167f154eb02dc092",
+      "bytes": 75510
+    },
+    "files/mobile-main-arquivo-duplicado.png": {
+      "sha256": "300bc93330eee74bfa892a4708e2659c8778dfa080d6c2018da138e54e561e40",
+      "bytes": 43127
+    },
+    "files/mobile-main-arquivo-em-leitura.png": {
+      "sha256": "133d235edea77bfe91d8fd7b26a9e7aec2aa8c612203c34d987e3b41e6113f98",
+      "bytes": 32941
+    },
+    "files/mobile-main-arquivo-empty.png": {
+      "sha256": "b2a42f2e0bc90d5f16b77dc1a385aeecb4f5b98a6ccfce7a2052a63dee049eb7",
+      "bytes": 44850
+    },
+    "files/mobile-main-arquivo-header.png": {
+      "sha256": "84838f8f57bb82ead96e31485ab76c5c01f3c05662dd5b4e7a6403bc979f34a7",
+      "bytes": 46748
+    },
+    "files/mobile-main-arquivo-invalid-excel.png": {
+      "sha256": "9063565dfaec7bfad2c18bb66821b5250c9fbd0d57ad696c7deebaf6573f0461",
+      "bytes": 32919
+    },
+    "files/mobile-main-arquivo-invalid.png": {
+      "sha256": "717bdd7a27a08e2dec2d7b97cde3b7a79d0eb3d4b7d016430058fdc94bfa5504",
+      "bytes": 47169
+    },
+    "files/mobile-main-banco-hover.png": {
+      "sha256": "f44ea35e8d6ccf7d98b2647b4e38912c295dda9bab9e240c4a98457cc791a908",
+      "bytes": 78338
+    },
+    "files/mobile-main-bancos.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "files/mobile-main-cartao-competencia-obrigatoria.png": {
+      "sha256": "db3cbf9db9c631f78acf23dc8c4abeae8f9fa4c4b2b6fd70faf1355e4508cbb3",
+      "bytes": 57993
+    },
+    "files/mobile-main-cartao-manual-configurado.png": {
+      "sha256": "1ee7629150a3114b55168c4c5d5d9e39e35e81288efb63d8ce4fbdd1be37b9d7",
+      "bytes": 52935
+    },
+    "files/mobile-main-cartao-metadados.png": {
+      "sha256": "ad01475a3dc0ffd6eb2c5d4ed0a9bf62930c9f6c57f0fb5b0d1d94be389ad65f",
+      "bytes": 49280
+    },
+    "files/mobile-main-cartao-vencimento-obrigatorio.png": {
+      "sha256": "6353fe259423879397c7f56814d2d5d081f41a9d1724b1f017ca89f01ffbebee",
+      "bytes": 59257
+    },
+    "files/mobile-main-colunas-ausentes.png": {
+      "sha256": "85f5a76e77c9fefeba9778788dc50e6b490e2dd7c6d474ae4c38934bd6e7d8e1",
+      "bytes": 47400
+    },
+    "files/mobile-main-competencia-auto-False.png": {
+      "sha256": "45be60c85acd65cb4d5de5f7f31e2a3e09023f50c49b79cc85c92db9a786bdaf",
+      "bytes": 52013
+    },
+    "files/mobile-main-competencia-auto-True.png": {
+      "sha256": "45be60c85acd65cb4d5de5f7f31e2a3e09023f50c49b79cc85c92db9a786bdaf",
+      "bytes": 52013
+    },
+    "files/mobile-main-e864-ambiguous.png": {
+      "sha256": "ac4c8f9595e67ec974b00480765cdf98b4b141592d90db1a123f4dce63f8988f",
+      "bytes": 51999
+    },
+    "files/mobile-main-e864-cancel.png": {
+      "sha256": "5ae40a93c767824f34ba320f58934ca79ddfd1807d447a29f2a10aa77c5bf732",
+      "bytes": 48517
+    },
+    "files/mobile-main-e864-cancelada-sem-gravacao.png": {
+      "sha256": "ad01475a3dc0ffd6eb2c5d4ed0a9bf62930c9f6c57f0fb5b0d1d94be389ad65f",
+      "bytes": 49280
+    },
+    "files/mobile-main-e864-manual.png": {
+      "sha256": "e0ddbeff0abbd6e6337a6c9faf03de213069e6316761dabbf0438b25188d191f",
+      "bytes": 52452
+    },
+    "files/mobile-main-e864-refusal.png": {
+      "sha256": "e2b7d0e0ea3d05fc56fbc8f2d7b608acd35bfd6a51e71191021dcc2469a469ae",
+      "bytes": 48866
+    },
+    "files/mobile-main-e864-unique.png": {
+      "sha256": "5ae40a93c767824f34ba320f58934ca79ddfd1807d447a29f2a10aa77c5bf732",
+      "bytes": 48517
+    },
+    "files/mobile-main-interrupted-carregando.png": {
+      "sha256": "29109434ebaa8e9e4003145bb247c96e06bedeef41fcab3160a16f4c1b2ecfa3",
+      "bytes": 39863
+    },
+    "files/mobile-main-interrupted-erro.png": {
+      "sha256": "e9712d924da6b2b8bd3676d4ebfcc62f1a38c85fb6ca9641741c7c46e1cae169",
+      "bytes": 43219
+    },
+    "files/mobile-main-interrupted-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-main-leitura-concluida.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "files/mobile-main-manual-previa-configurada.png": {
+      "sha256": "57d4d0f7684260b91e59e8042237be5f4e559b39a92a4ac67618f96add07fb48",
+      "bytes": 48611
+    },
+    "files/mobile-main-manual-upload.png": {
+      "sha256": "f0e9edcaf6728433b4a681d55e87c4286426aa0ee220e43ea7377ba617707360",
+      "bytes": 32607
+    },
+    "files/mobile-main-mapeamento-invertido.png": {
+      "sha256": "ecb236e8f38a527d3165bb19e3834aeb881b77de64b73a942c1914761f1b96c9",
+      "bytes": 50327
+    },
+    "files/mobile-main-mapeamento-salvo.png": {
+      "sha256": "718d9c51707f1468cf2f8bf1633db5509475289d19c4b98583c532525bfca9ff",
+      "bytes": 66514
+    },
+    "files/mobile-main-mapeamento-selecao-ignorada.png": {
+      "sha256": "07ee875e3ecd1237060a84452c1c5a3921400bd3b07914dc184a891b035a8471",
+      "bytes": 48087
+    },
+    "files/mobile-main-mapeamento-sem-colunas.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "files/mobile-main-mesmo-arquivo-outra-conta.png": {
+      "sha256": "9164c3cb5cd20ca3be893ceddc6399594e7eb88cea993056fc2118ac5b2947ee",
+      "bytes": 49617
+    },
+    "files/mobile-main-nativa-cancelada.png": {
+      "sha256": "861b9616619bdaffedab1a2dfba8757b21f5cf7365f20dcd8ee143f73df859d0",
+      "bytes": 42388
+    },
+    "files/mobile-main-nativa-confirmacao.png": {
+      "sha256": "e3c05ba9982c10fd022747b30d0c6fc388d8e3eb3b17bec150a720bbe203a483",
+      "bytes": 41350
+    },
+    "files/mobile-main-nativa-conta.png": {
+      "sha256": "8c0164bc2f84307ee6aba6a132273b8aa4ac86200433ee3d3ae6551ff971aaff",
+      "bytes": 39798
+    },
+    "files/mobile-main-nativa-sucesso.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-main-persist-error-erro.png": {
+      "sha256": "e9712d924da6b2b8bd3676d4ebfcc62f1a38c85fb6ca9641741c7c46e1cae169",
+      "bytes": 43219
+    },
+    "files/mobile-main-persist-error-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-main-persist-loading-carregando.png": {
+      "sha256": "29109434ebaa8e9e4003145bb247c96e06bedeef41fcab3160a16f4c1b2ecfa3",
+      "bytes": 39863
+    },
+    "files/mobile-main-persist-loading-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-main-salvar-mapeamento-novo.png": {
+      "sha256": "a70e6cb788fc124c0076391ee04a8644880a9089aea06f99cb050fd4f7cea692",
+      "bytes": 60042
+    },
+    "files/mobile-main-sucesso-manual.png": {
+      "sha256": "fd5517de47a7b9c85207a6cee9f58c583e64a49f79078b199a7d225dd0519e91",
+      "bytes": 73808
+    },
+    "files/mobile-main-todos-bancos.png": {
+      "sha256": "145c77b994f4f33d7b35f5426620e5234798532f6f7788daadd3776ae8e6fea8",
+      "bytes": 75409
+    },
+    "files/mobile-reviewed-arquivo-duplicado.png": {
+      "sha256": "300bc93330eee74bfa892a4708e2659c8778dfa080d6c2018da138e54e561e40",
+      "bytes": 43127
+    },
+    "files/mobile-reviewed-arquivo-em-leitura.png": {
+      "sha256": "133d235edea77bfe91d8fd7b26a9e7aec2aa8c612203c34d987e3b41e6113f98",
+      "bytes": 32941
+    },
+    "files/mobile-reviewed-arquivo-empty.png": {
+      "sha256": "b2a42f2e0bc90d5f16b77dc1a385aeecb4f5b98a6ccfce7a2052a63dee049eb7",
+      "bytes": 44850
+    },
+    "files/mobile-reviewed-arquivo-header.png": {
+      "sha256": "84838f8f57bb82ead96e31485ab76c5c01f3c05662dd5b4e7a6403bc979f34a7",
+      "bytes": 46748
+    },
+    "files/mobile-reviewed-arquivo-invalid-excel.png": {
+      "sha256": "9063565dfaec7bfad2c18bb66821b5250c9fbd0d57ad696c7deebaf6573f0461",
+      "bytes": 32919
+    },
+    "files/mobile-reviewed-arquivo-invalid.png": {
+      "sha256": "717bdd7a27a08e2dec2d7b97cde3b7a79d0eb3d4b7d016430058fdc94bfa5504",
+      "bytes": 47169
+    },
+    "files/mobile-reviewed-banco-hover.png": {
+      "sha256": "f44ea35e8d6ccf7d98b2647b4e38912c295dda9bab9e240c4a98457cc791a908",
+      "bytes": 78338
+    },
+    "files/mobile-reviewed-bancos.png": {
+      "sha256": "29d34fd5bb093bb28a803ce49b6c6623c757f2cb4f1bf57894b46af285aa3867",
+      "bytes": 48537
+    },
+    "files/mobile-reviewed-cartao-competencia-obrigatoria.png": {
+      "sha256": "db3cbf9db9c631f78acf23dc8c4abeae8f9fa4c4b2b6fd70faf1355e4508cbb3",
+      "bytes": 57993
+    },
+    "files/mobile-reviewed-cartao-manual-configurado.png": {
+      "sha256": "1ee7629150a3114b55168c4c5d5d9e39e35e81288efb63d8ce4fbdd1be37b9d7",
+      "bytes": 52935
+    },
+    "files/mobile-reviewed-cartao-metadados.png": {
+      "sha256": "ad01475a3dc0ffd6eb2c5d4ed0a9bf62930c9f6c57f0fb5b0d1d94be389ad65f",
+      "bytes": 49280
+    },
+    "files/mobile-reviewed-cartao-vencimento-obrigatorio.png": {
+      "sha256": "6353fe259423879397c7f56814d2d5d081f41a9d1724b1f017ca89f01ffbebee",
+      "bytes": 59257
+    },
+    "files/mobile-reviewed-colunas-ausentes.png": {
+      "sha256": "85f5a76e77c9fefeba9778788dc50e6b490e2dd7c6d474ae4c38934bd6e7d8e1",
+      "bytes": 47400
+    },
+    "files/mobile-reviewed-competencia-auto-False.png": {
+      "sha256": "45be60c85acd65cb4d5de5f7f31e2a3e09023f50c49b79cc85c92db9a786bdaf",
+      "bytes": 52013
+    },
+    "files/mobile-reviewed-competencia-auto-True.png": {
+      "sha256": "45be60c85acd65cb4d5de5f7f31e2a3e09023f50c49b79cc85c92db9a786bdaf",
+      "bytes": 52013
+    },
+    "files/mobile-reviewed-e864-ambiguous.png": {
+      "sha256": "ac4c8f9595e67ec974b00480765cdf98b4b141592d90db1a123f4dce63f8988f",
+      "bytes": 51999
+    },
+    "files/mobile-reviewed-e864-cancel.png": {
+      "sha256": "5ae40a93c767824f34ba320f58934ca79ddfd1807d447a29f2a10aa77c5bf732",
+      "bytes": 48517
+    },
+    "files/mobile-reviewed-e864-cancelada-sem-gravacao.png": {
+      "sha256": "ad01475a3dc0ffd6eb2c5d4ed0a9bf62930c9f6c57f0fb5b0d1d94be389ad65f",
+      "bytes": 49280
+    },
+    "files/mobile-reviewed-e864-manual.png": {
+      "sha256": "e0ddbeff0abbd6e6337a6c9faf03de213069e6316761dabbf0438b25188d191f",
+      "bytes": 52452
+    },
+    "files/mobile-reviewed-e864-refusal.png": {
+      "sha256": "e2b7d0e0ea3d05fc56fbc8f2d7b608acd35bfd6a51e71191021dcc2469a469ae",
+      "bytes": 48866
+    },
+    "files/mobile-reviewed-e864-unique.png": {
+      "sha256": "5ae40a93c767824f34ba320f58934ca79ddfd1807d447a29f2a10aa77c5bf732",
+      "bytes": 48517
+    },
+    "files/mobile-reviewed-interrupted-carregando.png": {
+      "sha256": "29109434ebaa8e9e4003145bb247c96e06bedeef41fcab3160a16f4c1b2ecfa3",
+      "bytes": 39863
+    },
+    "files/mobile-reviewed-interrupted-erro.png": {
+      "sha256": "e9712d924da6b2b8bd3676d4ebfcc62f1a38c85fb6ca9641741c7c46e1cae169",
+      "bytes": 43219
+    },
+    "files/mobile-reviewed-interrupted-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-reviewed-leitura-concluida.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "files/mobile-reviewed-manual-previa-configurada.png": {
+      "sha256": "57d4d0f7684260b91e59e8042237be5f4e559b39a92a4ac67618f96add07fb48",
+      "bytes": 48611
+    },
+    "files/mobile-reviewed-manual-upload.png": {
+      "sha256": "f0e9edcaf6728433b4a681d55e87c4286426aa0ee220e43ea7377ba617707360",
+      "bytes": 32607
+    },
+    "files/mobile-reviewed-mapeamento-invertido.png": {
+      "sha256": "ecb236e8f38a527d3165bb19e3834aeb881b77de64b73a942c1914761f1b96c9",
+      "bytes": 50327
+    },
+    "files/mobile-reviewed-mapeamento-salvo.png": {
+      "sha256": "718d9c51707f1468cf2f8bf1633db5509475289d19c4b98583c532525bfca9ff",
+      "bytes": 66514
+    },
+    "files/mobile-reviewed-mapeamento-selecao-ignorada.png": {
+      "sha256": "07ee875e3ecd1237060a84452c1c5a3921400bd3b07914dc184a891b035a8471",
+      "bytes": 48087
+    },
+    "files/mobile-reviewed-mapeamento-sem-colunas.png": {
+      "sha256": "613912163eaa5246a3f0ea0b074ad8ea63145ba3eb7f67f958933f46f1eb7f20",
+      "bytes": 50219
+    },
+    "files/mobile-reviewed-mesmo-arquivo-outra-conta.png": {
+      "sha256": "9164c3cb5cd20ca3be893ceddc6399594e7eb88cea993056fc2118ac5b2947ee",
+      "bytes": 49617
+    },
+    "files/mobile-reviewed-nativa-cancelada.png": {
+      "sha256": "861b9616619bdaffedab1a2dfba8757b21f5cf7365f20dcd8ee143f73df859d0",
+      "bytes": 42388
+    },
+    "files/mobile-reviewed-nativa-confirmacao.png": {
+      "sha256": "e3c05ba9982c10fd022747b30d0c6fc388d8e3eb3b17bec150a720bbe203a483",
+      "bytes": 41350
+    },
+    "files/mobile-reviewed-nativa-conta.png": {
+      "sha256": "8c0164bc2f84307ee6aba6a132273b8aa4ac86200433ee3d3ae6551ff971aaff",
+      "bytes": 39798
+    },
+    "files/mobile-reviewed-nativa-sucesso.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-reviewed-persist-error-erro.png": {
+      "sha256": "e9712d924da6b2b8bd3676d4ebfcc62f1a38c85fb6ca9641741c7c46e1cae169",
+      "bytes": 43219
+    },
+    "files/mobile-reviewed-persist-error-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-reviewed-persist-loading-carregando.png": {
+      "sha256": "29109434ebaa8e9e4003145bb247c96e06bedeef41fcab3160a16f4c1b2ecfa3",
+      "bytes": 39863
+    },
+    "files/mobile-reviewed-persist-loading-recuperado.png": {
+      "sha256": "05a34cbd21c14fc487d0ca0148e1ffa0ee404cd9d63637be197a06df002eb2ee",
+      "bytes": 49519
+    },
+    "files/mobile-reviewed-salvar-mapeamento-novo.png": {
+      "sha256": "a70e6cb788fc124c0076391ee04a8644880a9089aea06f99cb050fd4f7cea692",
+      "bytes": 60042
+    },
+    "files/mobile-reviewed-sucesso-manual.png": {
+      "sha256": "fd5517de47a7b9c85207a6cee9f58c583e64a49f79078b199a7d225dd0519e91",
+      "bytes": 73808
+    },
+    "files/mobile-reviewed-todos-bancos.png": {
+      "sha256": "145c77b994f4f33d7b35f5426620e5234798532f6f7788daadd3776ae8e6fea8",
+      "bytes": 75409
+    },
+    "files/validation.json": {
+      "sha256": "1a30fe54178208624938cf6057c5ca67d4a489957e9669e699e732e1f61f51b8",
+      "bytes": 163323
+    },
+    "history/desktop-dark-configuracao-editar.png": {
+      "sha256": "0a8a875072dc6d604ebaf75d1d9bcde23330925a852b1d5e7e98df6e78d74c45",
+      "bytes": 79113
+    },
+    "history/desktop-dark-configuracao-excluir-confirmacao.png": {
+      "sha256": "7ada7eb76d2203e75426f503f2f30d0e1115474e313b45fcf2ffdc07050ccfbf",
+      "bytes": 63588
+    },
+    "history/desktop-dark-configuracao-nova.png": {
+      "sha256": "571f8814206d39077f0511cb89c6d60872e57649eb3fb65c5f06471b3676f52b",
+      "bytes": 74991
+    },
+    "history/desktop-dark-configuracoes.png": {
+      "sha256": "72f7cd2fb8460487a8bb8a005fe38e9e62b99bd358215fd472ce9f227940682f",
+      "bytes": 42323
+    },
+    "history/desktop-dark-corrigir-conta-confirmacao.png": {
+      "sha256": "7316df3eeb8314b104660371ec9be965a03b56eac350e85cae1b0ef9ad209789",
+      "bytes": 61826
+    },
+    "history/desktop-dark-corrigir-conta-validacao.png": {
+      "sha256": "0523d564dc5980ab10a4967955c89ed398aea92ce9eb4ac9ca9c2830c3a17231",
+      "bytes": 59031
+    },
+    "history/desktop-dark-corrigir-conta.png": {
+      "sha256": "69ed3ff300413a8efcf65111e12d937e2f055cefcbefe4d61cdeb48aa9d26648",
+      "bytes": 62451
+    },
+    "history/desktop-dark-detalhes-ignoradas.png": {
+      "sha256": "3db08811cc3911db18fae4ebb2d96ab6b66a1917fa3c3ebdd7e16f75a7c9576b",
+      "bytes": 61520
+    },
+    "history/desktop-dark-detalhes-importadas.png": {
+      "sha256": "5b2076fe8b840b8139ef603aa050f90f75d95e05f9cf1d3a4673d944d811862b",
+      "bytes": 86536
+    },
+    "history/desktop-dark-historico-busca.png": {
+      "sha256": "6a1eed8e58a6403b6fa128136b3d82e4ac557d086b849dc6af8be5a221cf9a0e",
+      "bytes": 46405
+    },
+    "history/desktop-dark-historico-exclusao-confirmacao.png": {
+      "sha256": "a271e9146e567de47b515eb5e6272c157a87fe87744d74db22f820d38654fb7e",
+      "bytes": 69243
+    },
+    "history/desktop-dark-historico-muitas-linhas.png": {
+      "sha256": "10332bf23131b5b1ebb80cd48b6145a15f9f43ca3d162cc73c3afd5144747c00",
+      "bytes": 131077
+    },
+    "history/desktop-dark-historico-reidratar-confirmacao.png": {
+      "sha256": "13c58cca6668bc22ea6aa15cdd913b70a3e0206c6c492b7b22bc377a3257d8c1",
+      "bytes": 149169
+    },
+    "history/desktop-dark-historico-reidratar-resultado.png": {
+      "sha256": "7c5220f51baa19081a182edc2e6ee760375e54caca555e26a76fda7e02e2be35",
+      "bytes": 139345
+    },
+    "history/desktop-dark-historico-rodape.png": {
+      "sha256": "104cb499f34c981830755749eab81730d1657d13b50843b171da4fa1be36c3b5",
+      "bytes": 130806
+    },
+    "history/desktop-dark-historico-sincronizar-confirmacao.png": {
+      "sha256": "7d38e1eb9f120a16476cb8d96df4665a1086e42a384b762a26f55706f6491b7f",
+      "bytes": 146825
+    },
+    "history/desktop-dark-historico-vazio.png": {
+      "sha256": "fb718eb7870e8463b49fa56d9aa58e611a2574aaf84a6c33fa280ceca38b2d45",
+      "bytes": 39972
+    },
+    "history/desktop-dark-historico.png": {
+      "sha256": "4835d6305d95c73183416eeb7f3dba710522fcb787cf63d1e3fc42504be68c7f",
+      "bytes": 115354
+    },
+    "history/desktop-dark-reaplicar-regras-confirmacao.png": {
+      "sha256": "2da4816222284612bd48a90d7c641c8c7b44855536cc50651779465f9b413ca3",
+      "bytes": 77385
+    },
+    "history/desktop-dark-regra-editar.png": {
+      "sha256": "f4f73d8a945638fd44a2115dae129a226186e556e114e8987ae8d9e815a0954c",
+      "bytes": 74396
+    },
+    "history/desktop-dark-regra-excluir-confirmacao.png": {
+      "sha256": "27fe5435c99f37bab2ce55235781df17658a78dc7776ea3579a6dcd8daabea3d",
+      "bytes": 69206
+    },
+    "history/desktop-dark-regra-nova.png": {
+      "sha256": "c5e1c0c8590290a0b6c5e3fa91557b2f552d8d77b69a53327e0c2f88efdb282f",
+      "bytes": 70254
+    },
+    "history/desktop-dark-regras.png": {
+      "sha256": "19fe234d356659134f9f6fb46dcb55894a88a15cc80a370807e58a60e5e29d4f",
+      "bytes": 45886
+    },
+    "history/desktop-light-configuracao-editar.png": {
+      "sha256": "944cad4e3ff2eb6f3cb0f4a02928b448b9583868dc84441edc23a7fdafb31234",
+      "bytes": 89015
+    },
+    "history/desktop-light-configuracao-excluir-confirmacao.png": {
+      "sha256": "76b9de1505381da880427bf469520c4d5a0fd2c040ddee143594fa0ed994f0a3",
+      "bytes": 79866
+    },
+    "history/desktop-light-configuracao-nova.png": {
+      "sha256": "660bdf2fffe60a0faaf3f332773b5f3f5780e805317a6aa8fa7f5caf5bafc7d6",
+      "bytes": 84955
+    },
+    "history/desktop-light-configuracoes.png": {
+      "sha256": "2730784bc3b24e1ea87fe7dfab5f056999428fd5530e2780a3c83ef7ec0d4fe2",
+      "bytes": 44376
+    },
+    "history/desktop-light-corrigir-conta-confirmacao.png": {
+      "sha256": "f19fdd73d16c77386aa57703ac95af9e27d76bb612976e1448138e8fbcd557b4",
+      "bytes": 85907
+    },
+    "history/desktop-light-corrigir-conta-validacao.png": {
+      "sha256": "7653b67856e9e54941ec8e1afa606b866cf0c45036fab121aaf1758864551512",
+      "bytes": 86023
+    },
+    "history/desktop-light-corrigir-conta.png": {
+      "sha256": "9d2b2e7d3f90ef76a2cf6760276baffb866e533fb8d782902ab9fc188c77abfb",
+      "bytes": 70363
+    },
+    "history/desktop-light-detalhes-ignoradas.png": {
+      "sha256": "219bf6570ab90b5656707e3e16959ca68cc99bc6e01ba583f7b37c146058c92c",
+      "bytes": 68285
+    },
+    "history/desktop-light-detalhes-importadas.png": {
+      "sha256": "681541636347a66e74d7ec48aaf52b020dc154434a841eba1731f4097309dab2",
+      "bytes": 93399
+    },
+    "history/desktop-light-historico-busca.png": {
+      "sha256": "500c9c734f8f27cca6d821ff46479778742eb9c37a992e1d4da216cae656c4f2",
+      "bytes": 47578
+    },
+    "history/desktop-light-historico-exclusao-confirmacao.png": {
+      "sha256": "9a1fd2195f1a1c764e4f97d5c256c81b5182718732a6db93de20c513115c0c22",
+      "bytes": 85404
+    },
+    "history/desktop-light-historico-muitas-linhas.png": {
+      "sha256": "9f13254b7f1bee7d4829d04f90a913b169d280311a4459c3e65460fd7b9cb213",
+      "bytes": 130621
+    },
+    "history/desktop-light-historico-reidratar-confirmacao.png": {
+      "sha256": "4696ce57b42a9cf49111a7a095150277441e858fb890d6af461851f81d44a156",
+      "bytes": 185207
+    },
+    "history/desktop-light-historico-reidratar-resultado.png": {
+      "sha256": "0c02ed780d2816ddd25ebdc19425ecd7560defee329b14d279f25ffe589c288b",
+      "bytes": 176757
+    },
+    "history/desktop-light-historico-rodape.png": {
+      "sha256": "5a60b81f21488ac4f31f17a548fae44434d81f268119bc6b4161273b8c3b2dca",
+      "bytes": 129724
+    },
+    "history/desktop-light-historico-sincronizar-confirmacao.png": {
+      "sha256": "ed986cf50105043b8edf690f44516d1b304df4f032014a56d3e030ea54a7d423",
+      "bytes": 182926
+    },
+    "history/desktop-light-historico-vazio.png": {
+      "sha256": "713b7e2cf3ffa60c901e2239ac976a208d0b44b71fd76eeb6955f74ceeda513d",
+      "bytes": 40671
+    },
+    "history/desktop-light-historico.png": {
+      "sha256": "1f11007ce508765f3e443c7640156941a999dc9e4e7e24605eb5824c17c480ba",
+      "bytes": 115310
+    },
+    "history/desktop-light-reaplicar-regras-confirmacao.png": {
+      "sha256": "778690b6de4ee89dcbf231950945a17b1589aa152136581b5e5500eec726a457",
+      "bytes": 95534
+    },
+    "history/desktop-light-regra-editar.png": {
+      "sha256": "8c2a78e88045d8329b38d6a74d4af08039c46fc816d5a719517ab02f31a52f0c",
+      "bytes": 84684
+    },
+    "history/desktop-light-regra-excluir-confirmacao.png": {
+      "sha256": "242b38c6d28c48fcc9330fbbd74055bd026460eb8e3baf5241a73698aa8c3d6b",
+      "bytes": 87480
+    },
+    "history/desktop-light-regra-nova.png": {
+      "sha256": "18a98448933f3750d64ab65de43cec671afc20417cb828f5782050cfc9de75d2",
+      "bytes": 80766
+    },
+    "history/desktop-light-regras.png": {
+      "sha256": "68c96e78ff5c80c9eae16fc92efd007c200c3a95e349cb878b60897444d9a971",
+      "bytes": 48673
+    },
+    "history/desktop-main-configuracao-editar.png": {
+      "sha256": "0a8a875072dc6d604ebaf75d1d9bcde23330925a852b1d5e7e98df6e78d74c45",
+      "bytes": 79113
+    },
+    "history/desktop-main-configuracao-excluir-confirmacao.png": {
+      "sha256": "7ada7eb76d2203e75426f503f2f30d0e1115474e313b45fcf2ffdc07050ccfbf",
+      "bytes": 63588
+    },
+    "history/desktop-main-configuracao-nova.png": {
+      "sha256": "571f8814206d39077f0511cb89c6d60872e57649eb3fb65c5f06471b3676f52b",
+      "bytes": 74991
+    },
+    "history/desktop-main-configuracoes.png": {
+      "sha256": "72f7cd2fb8460487a8bb8a005fe38e9e62b99bd358215fd472ce9f227940682f",
+      "bytes": 42323
+    },
+    "history/desktop-main-corrigir-conta-confirmacao.png": {
+      "sha256": "7316df3eeb8314b104660371ec9be965a03b56eac350e85cae1b0ef9ad209789",
+      "bytes": 61826
+    },
+    "history/desktop-main-corrigir-conta-validacao.png": {
+      "sha256": "0523d564dc5980ab10a4967955c89ed398aea92ce9eb4ac9ca9c2830c3a17231",
+      "bytes": 59031
+    },
+    "history/desktop-main-corrigir-conta.png": {
+      "sha256": "69ed3ff300413a8efcf65111e12d937e2f055cefcbefe4d61cdeb48aa9d26648",
+      "bytes": 62451
+    },
+    "history/desktop-main-detalhes-ignoradas.png": {
+      "sha256": "3db08811cc3911db18fae4ebb2d96ab6b66a1917fa3c3ebdd7e16f75a7c9576b",
+      "bytes": 61520
+    },
+    "history/desktop-main-detalhes-importadas.png": {
+      "sha256": "5b2076fe8b840b8139ef603aa050f90f75d95e05f9cf1d3a4673d944d811862b",
+      "bytes": 86536
+    },
+    "history/desktop-main-historico-busca.png": {
+      "sha256": "6a1eed8e58a6403b6fa128136b3d82e4ac557d086b849dc6af8be5a221cf9a0e",
+      "bytes": 46405
+    },
+    "history/desktop-main-historico-exclusao-confirmacao.png": {
+      "sha256": "a271e9146e567de47b515eb5e6272c157a87fe87744d74db22f820d38654fb7e",
+      "bytes": 69243
+    },
+    "history/desktop-main-historico-muitas-linhas.png": {
+      "sha256": "10332bf23131b5b1ebb80cd48b6145a15f9f43ca3d162cc73c3afd5144747c00",
+      "bytes": 131077
+    },
+    "history/desktop-main-historico-reidratar-confirmacao.png": {
+      "sha256": "13c58cca6668bc22ea6aa15cdd913b70a3e0206c6c492b7b22bc377a3257d8c1",
+      "bytes": 149169
+    },
+    "history/desktop-main-historico-reidratar-resultado.png": {
+      "sha256": "7c5220f51baa19081a182edc2e6ee760375e54caca555e26a76fda7e02e2be35",
+      "bytes": 139345
+    },
+    "history/desktop-main-historico-rodape.png": {
+      "sha256": "104cb499f34c981830755749eab81730d1657d13b50843b171da4fa1be36c3b5",
+      "bytes": 130806
+    },
+    "history/desktop-main-historico-sincronizar-confirmacao.png": {
+      "sha256": "7d38e1eb9f120a16476cb8d96df4665a1086e42a384b762a26f55706f6491b7f",
+      "bytes": 146825
+    },
+    "history/desktop-main-historico-vazio.png": {
+      "sha256": "fb718eb7870e8463b49fa56d9aa58e611a2574aaf84a6c33fa280ceca38b2d45",
+      "bytes": 39972
+    },
+    "history/desktop-main-historico.png": {
+      "sha256": "4835d6305d95c73183416eeb7f3dba710522fcb787cf63d1e3fc42504be68c7f",
+      "bytes": 115354
+    },
+    "history/desktop-main-reaplicar-regras-confirmacao.png": {
+      "sha256": "2da4816222284612bd48a90d7c641c8c7b44855536cc50651779465f9b413ca3",
+      "bytes": 77385
+    },
+    "history/desktop-main-regra-editar.png": {
+      "sha256": "f4f73d8a945638fd44a2115dae129a226186e556e114e8987ae8d9e815a0954c",
+      "bytes": 74396
+    },
+    "history/desktop-main-regra-excluir-confirmacao.png": {
+      "sha256": "27fe5435c99f37bab2ce55235781df17658a78dc7776ea3579a6dcd8daabea3d",
+      "bytes": 69206
+    },
+    "history/desktop-main-regra-nova.png": {
+      "sha256": "c5e1c0c8590290a0b6c5e3fa91557b2f552d8d77b69a53327e0c2f88efdb282f",
+      "bytes": 70254
+    },
+    "history/desktop-main-regras.png": {
+      "sha256": "19fe234d356659134f9f6fb46dcb55894a88a15cc80a370807e58a60e5e29d4f",
+      "bytes": 45886
+    },
+    "history/desktop-reviewed-configuracao-editar.png": {
+      "sha256": "0a8a875072dc6d604ebaf75d1d9bcde23330925a852b1d5e7e98df6e78d74c45",
+      "bytes": 79113
+    },
+    "history/desktop-reviewed-configuracao-excluir-confirmacao.png": {
+      "sha256": "7ada7eb76d2203e75426f503f2f30d0e1115474e313b45fcf2ffdc07050ccfbf",
+      "bytes": 63588
+    },
+    "history/desktop-reviewed-configuracao-nova.png": {
+      "sha256": "571f8814206d39077f0511cb89c6d60872e57649eb3fb65c5f06471b3676f52b",
+      "bytes": 74991
+    },
+    "history/desktop-reviewed-configuracoes.png": {
+      "sha256": "72f7cd2fb8460487a8bb8a005fe38e9e62b99bd358215fd472ce9f227940682f",
+      "bytes": 42323
+    },
+    "history/desktop-reviewed-corrigir-conta-confirmacao.png": {
+      "sha256": "7316df3eeb8314b104660371ec9be965a03b56eac350e85cae1b0ef9ad209789",
+      "bytes": 61826
+    },
+    "history/desktop-reviewed-corrigir-conta-validacao.png": {
+      "sha256": "0523d564dc5980ab10a4967955c89ed398aea92ce9eb4ac9ca9c2830c3a17231",
+      "bytes": 59031
+    },
+    "history/desktop-reviewed-corrigir-conta.png": {
+      "sha256": "69ed3ff300413a8efcf65111e12d937e2f055cefcbefe4d61cdeb48aa9d26648",
+      "bytes": 62451
+    },
+    "history/desktop-reviewed-detalhes-ignoradas.png": {
+      "sha256": "3db08811cc3911db18fae4ebb2d96ab6b66a1917fa3c3ebdd7e16f75a7c9576b",
+      "bytes": 61520
+    },
+    "history/desktop-reviewed-detalhes-importadas.png": {
+      "sha256": "5b2076fe8b840b8139ef603aa050f90f75d95e05f9cf1d3a4673d944d811862b",
+      "bytes": 86536
+    },
+    "history/desktop-reviewed-historico-busca.png": {
+      "sha256": "6a1eed8e58a6403b6fa128136b3d82e4ac557d086b849dc6af8be5a221cf9a0e",
+      "bytes": 46405
+    },
+    "history/desktop-reviewed-historico-exclusao-confirmacao.png": {
+      "sha256": "a271e9146e567de47b515eb5e6272c157a87fe87744d74db22f820d38654fb7e",
+      "bytes": 69243
+    },
+    "history/desktop-reviewed-historico-muitas-linhas.png": {
+      "sha256": "10332bf23131b5b1ebb80cd48b6145a15f9f43ca3d162cc73c3afd5144747c00",
+      "bytes": 131077
+    },
+    "history/desktop-reviewed-historico-reidratar-confirmacao.png": {
+      "sha256": "13c58cca6668bc22ea6aa15cdd913b70a3e0206c6c492b7b22bc377a3257d8c1",
+      "bytes": 149169
+    },
+    "history/desktop-reviewed-historico-reidratar-resultado.png": {
+      "sha256": "7c5220f51baa19081a182edc2e6ee760375e54caca555e26a76fda7e02e2be35",
+      "bytes": 139345
+    },
+    "history/desktop-reviewed-historico-rodape.png": {
+      "sha256": "104cb499f34c981830755749eab81730d1657d13b50843b171da4fa1be36c3b5",
+      "bytes": 130806
+    },
+    "history/desktop-reviewed-historico-sincronizar-confirmacao.png": {
+      "sha256": "7d38e1eb9f120a16476cb8d96df4665a1086e42a384b762a26f55706f6491b7f",
+      "bytes": 146825
+    },
+    "history/desktop-reviewed-historico-vazio.png": {
+      "sha256": "fb718eb7870e8463b49fa56d9aa58e611a2574aaf84a6c33fa280ceca38b2d45",
+      "bytes": 39972
+    },
+    "history/desktop-reviewed-historico.png": {
+      "sha256": "4835d6305d95c73183416eeb7f3dba710522fcb787cf63d1e3fc42504be68c7f",
+      "bytes": 115354
+    },
+    "history/desktop-reviewed-reaplicar-regras-confirmacao.png": {
+      "sha256": "2da4816222284612bd48a90d7c641c8c7b44855536cc50651779465f9b413ca3",
+      "bytes": 77385
+    },
+    "history/desktop-reviewed-regra-editar.png": {
+      "sha256": "f4f73d8a945638fd44a2115dae129a226186e556e114e8987ae8d9e815a0954c",
+      "bytes": 74396
+    },
+    "history/desktop-reviewed-regra-excluir-confirmacao.png": {
+      "sha256": "27fe5435c99f37bab2ce55235781df17658a78dc7776ea3579a6dcd8daabea3d",
+      "bytes": 69206
+    },
+    "history/desktop-reviewed-regra-nova.png": {
+      "sha256": "c5e1c0c8590290a0b6c5e3fa91557b2f552d8d77b69a53327e0c2f88efdb282f",
+      "bytes": 70254
+    },
+    "history/desktop-reviewed-regras.png": {
+      "sha256": "19fe234d356659134f9f6fb46dcb55894a88a15cc80a370807e58a60e5e29d4f",
+      "bytes": 45886
+    },
+    "history/financial-desktop-dark.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-desktop-light.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-desktop-main.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-desktop-reviewed.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-mobile-dark.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-mobile-light.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-mobile-main.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/financial-mobile-reviewed.json": {
+      "sha256": "d2ca045f26b55660dfd8d858daaef44fbd089594c3cde4c53891925c91d61d49",
+      "bytes": 201156
+    },
+    "history/mobile-dark-configuracao-editar.png": {
+      "sha256": "ca466881d0b8f184ad67ab47a0c0840a7274423f70d921214fbaa06705c30df9",
+      "bytes": 53725
+    },
+    "history/mobile-dark-configuracao-excluir-confirmacao.png": {
+      "sha256": "043762580e7ccabe9a46e93d046fe08cfef651a51cd125e475e8c77ece7c8b54",
+      "bytes": 51566
+    },
+    "history/mobile-dark-configuracao-nova.png": {
+      "sha256": "ee67993e7342d951a5b8e7e8168b40a11ba08c9f4a7abe0abd143b3f00f6fe5d",
+      "bytes": 48953
+    },
+    "history/mobile-dark-configuracoes.png": {
+      "sha256": "8825aa0fdc81ed40ff82ed5517e73fb55b24780a8cf3bf6ed90d199ae4410101",
+      "bytes": 39312
+    },
+    "history/mobile-dark-corrigir-conta-confirmacao.png": {
+      "sha256": "f58a5660136709e94218c0253dea4c01a453a6d6cb938a87f533d145ccb7c480",
+      "bytes": 43838
+    },
+    "history/mobile-dark-corrigir-conta-validacao.png": {
+      "sha256": "614bcb74b5d772323f366fc173323472f997870e2e608896a98bf1e067efb45d",
+      "bytes": 43959
+    },
+    "history/mobile-dark-corrigir-conta.png": {
+      "sha256": "db4761ef20b0101d25743a7aafaf411114378a5bc759bdb2b47a3599e785f566",
+      "bytes": 48482
+    },
+    "history/mobile-dark-detalhes-ignoradas.png": {
+      "sha256": "9a474b933f2a72000fb1d82640ae3b4515a6dfd722861ebb73d4374bd6908f59",
+      "bytes": 43613
+    },
+    "history/mobile-dark-detalhes-importadas.png": {
+      "sha256": "10c726df1b21b679f92bd0b02c86ef17198b938d66e105e2f61aa764c5810218",
+      "bytes": 48348
+    },
+    "history/mobile-dark-historico-busca.png": {
+      "sha256": "4f06eb936288a25efc707e461ec0101f8c955661eab0e103b330e68003853278",
+      "bytes": 45931
+    },
+    "history/mobile-dark-historico-exclusao-confirmacao.png": {
+      "sha256": "33816d0e8cd8543d437907d29de02788252265e693f181ccc5505f7c2f5b580b",
+      "bytes": 53997
+    },
+    "history/mobile-dark-historico-muitas-linhas.png": {
+      "sha256": "74c32b8e90d7cc7696e96473e67472906a5e7bdf43aa63b70ec619bff8c5c08a",
+      "bytes": 48197
+    },
+    "history/mobile-dark-historico-reidratar-confirmacao.png": {
+      "sha256": "a06f6996dce7101dff36f34b2fed386e474348aa35d193fadcdbac3a0c77ce48",
+      "bytes": 55440
+    },
+    "history/mobile-dark-historico-reidratar-resultado.png": {
+      "sha256": "9b885bd942c8e03eb9d64f70beaf8677fb85e90b72b6387b79832f980ebd7e8c",
+      "bytes": 48658
+    },
+    "history/mobile-dark-historico-rodape.png": {
+      "sha256": "1895043f65c8c36438f2fac2fbafa535aea7235c78a9f738d6a32f8ca8c657ec",
+      "bytes": 45040
+    },
+    "history/mobile-dark-historico-sincronizar-confirmacao.png": {
+      "sha256": "60a9f0821de5b4ec0b984351bafb79c282c11397463764f8f363a9416160f9bf",
+      "bytes": 52747
+    },
+    "history/mobile-dark-historico-vazio.png": {
+      "sha256": "0fbb14e61f859d2631f8fa92d2fe5e9c8751b84700a376cd150a1ac3b8db9ba1",
+      "bytes": 32344
+    },
+    "history/mobile-dark-historico.png": {
+      "sha256": "5afe42e8e8bea11d1a0e96e48bfcef492cb8ea07498f7807a8a3e3b2c12a3402",
+      "bytes": 48136
+    },
+    "history/mobile-dark-reaplicar-regras-confirmacao.png": {
+      "sha256": "cee371a86c47c379aba39b26c8b023fdca911928a4e73cc2e0c046cdba310e8b",
+      "bytes": 58610
+    },
+    "history/mobile-dark-regra-editar.png": {
+      "sha256": "a823d47c84542cbbc9bdf49d43cf74781761a086d6a6e4bad45a569083f9f274",
+      "bytes": 47897
+    },
+    "history/mobile-dark-regra-excluir-confirmacao.png": {
+      "sha256": "37dd614fa80d463d530eda1958498e0f565c1e6f4e614a2ad26ebf51799818e6",
+      "bytes": 52684
+    },
+    "history/mobile-dark-regra-nova.png": {
+      "sha256": "f1b56851356e594b16635930f3954bb81a040e66fc8c4b0ea59e5a114e8d3368",
+      "bytes": 42789
+    },
+    "history/mobile-dark-regras.png": {
+      "sha256": "5ada60c5a11e88050b0560446aa1768d1bf1ca343716f9a2b4e98a432c185037",
+      "bytes": 43605
+    },
+    "history/mobile-light-configuracao-editar.png": {
+      "sha256": "0b9e1c86b5114e853b856b074a13de4c2d3895ad641e24e352e0c8079f88ce21",
+      "bytes": 58839
+    },
+    "history/mobile-light-configuracao-excluir-confirmacao.png": {
+      "sha256": "826040d70b6daa479cef72d44ff6d65271c273aa60c75340fbd7ee61d9f43508",
+      "bytes": 61860
+    },
+    "history/mobile-light-configuracao-nova.png": {
+      "sha256": "6c5be954d658588edd860bc670df70c710256e97e49f25400dac40e3ba028a21",
+      "bytes": 52894
+    },
+    "history/mobile-light-configuracoes.png": {
+      "sha256": "d5d753ce29b0fd7874bb923e53ed79ef2c2253e3ccd511012845b41b848b0b67",
+      "bytes": 40917
+    },
+    "history/mobile-light-corrigir-conta-confirmacao.png": {
+      "sha256": "7566ee76784740c369ad735ba5c25dae390c7dd35b2957075cecee42793e871f",
+      "bytes": 58267
+    },
+    "history/mobile-light-corrigir-conta-validacao.png": {
+      "sha256": "a65d2f0c9bf4eea7dce50d0afc870f17aa884ce46a40b6b0286dedde386234a6",
+      "bytes": 62975
+    },
+    "history/mobile-light-corrigir-conta.png": {
+      "sha256": "a2a4be953797073f44a4ebc087eddca0f42d5216baedf6229b224f147476ca0f",
+      "bytes": 53703
+    },
+    "history/mobile-light-detalhes-ignoradas.png": {
+      "sha256": "4cd4f0bb3f905a820d19ff79aff162c2ebf0cfe21fbffdb23376d66a20283a05",
+      "bytes": 47496
+    },
+    "history/mobile-light-detalhes-importadas.png": {
+      "sha256": "07deff1c8f7bddaa19cce7e715df8809658f46678ab23b1128c1c6bb50311c81",
+      "bytes": 50578
+    },
+    "history/mobile-light-historico-busca.png": {
+      "sha256": "4438791389257f4aa678db15c2eb8868a63fc14e8b80d3ffa19326e333b6dcd0",
+      "bytes": 46345
+    },
+    "history/mobile-light-historico-exclusao-confirmacao.png": {
+      "sha256": "50ccd270fe2bd6d7b38b86ade8f72b39df76d6769ba4564dc0a03f4c5567a024",
+      "bytes": 66173
+    },
+    "history/mobile-light-historico-muitas-linhas.png": {
+      "sha256": "7607b969e7c3c500d49f391dac88b390a96fb381c2b67d7aa72a9cb07bd89af1",
+      "bytes": 50036
+    },
+    "history/mobile-light-historico-reidratar-confirmacao.png": {
+      "sha256": "992c5b06ede94923a6cb3f8ae620c9e105f3a2f48030ba53dec111297631f369",
+      "bytes": 67100
+    },
+    "history/mobile-light-historico-reidratar-resultado.png": {
+      "sha256": "118f5ece47b73d040277c74b24f2848ef44d60f265058b51fc9472add44ade97",
+      "bytes": 63962
+    },
+    "history/mobile-light-historico-rodape.png": {
+      "sha256": "28025b549a44ddebbb786362bf7dc7b76c79b4eb112f8091e556a692b6739aa0",
+      "bytes": 46013
+    },
+    "history/mobile-light-historico-sincronizar-confirmacao.png": {
+      "sha256": "8e15b02f8f5d780348bb7b031e8bad7de41ff4e8fae9db7643b5c57c980354f1",
+      "bytes": 65236
+    },
+    "history/mobile-light-historico-vazio.png": {
+      "sha256": "e8ba3815ee897c1355dec05980325105aec8f2b40dd2bbbd82746690774ac90e",
+      "bytes": 32283
+    },
+    "history/mobile-light-historico.png": {
+      "sha256": "420f39c33d9de52825413acce74a61daf7b384853b4024b1a83974433a82e8a5",
+      "bytes": 49621
+    },
+    "history/mobile-light-reaplicar-regras-confirmacao.png": {
+      "sha256": "74fae1182d4131a07eb73007aff359ccce9d05307207085ce0f8216f47c88a37",
+      "bytes": 72017
+    },
+    "history/mobile-light-regra-editar.png": {
+      "sha256": "c552e99b061965b71d81d4e233b84c3d9289bc62c756c963719b1a8b479405a8",
+      "bytes": 53620
+    },
+    "history/mobile-light-regra-excluir-confirmacao.png": {
+      "sha256": "8b94a99fd7c5d0122427db489f783617b64c73b957a8c3745f5aba0a931196bd",
+      "bytes": 65815
+    },
+    "history/mobile-light-regra-nova.png": {
+      "sha256": "55e700ebadf70835c9e66fdefb3dbd69d2c76633c5787eb65d783e33899fbaed",
+      "bytes": 47745
+    },
+    "history/mobile-light-regras.png": {
+      "sha256": "8a12a314a03414f8cdc986a556829583032d941c72d46956d4c06c38db92a621",
+      "bytes": 45949
+    },
+    "history/mobile-main-configuracao-editar.png": {
+      "sha256": "ca466881d0b8f184ad67ab47a0c0840a7274423f70d921214fbaa06705c30df9",
+      "bytes": 53725
+    },
+    "history/mobile-main-configuracao-excluir-confirmacao.png": {
+      "sha256": "043762580e7ccabe9a46e93d046fe08cfef651a51cd125e475e8c77ece7c8b54",
+      "bytes": 51566
+    },
+    "history/mobile-main-configuracao-nova.png": {
+      "sha256": "ee67993e7342d951a5b8e7e8168b40a11ba08c9f4a7abe0abd143b3f00f6fe5d",
+      "bytes": 48953
+    },
+    "history/mobile-main-configuracoes.png": {
+      "sha256": "8825aa0fdc81ed40ff82ed5517e73fb55b24780a8cf3bf6ed90d199ae4410101",
+      "bytes": 39312
+    },
+    "history/mobile-main-corrigir-conta-confirmacao.png": {
+      "sha256": "f58a5660136709e94218c0253dea4c01a453a6d6cb938a87f533d145ccb7c480",
+      "bytes": 43838
+    },
+    "history/mobile-main-corrigir-conta-validacao.png": {
+      "sha256": "614bcb74b5d772323f366fc173323472f997870e2e608896a98bf1e067efb45d",
+      "bytes": 43959
+    },
+    "history/mobile-main-corrigir-conta.png": {
+      "sha256": "db4761ef20b0101d25743a7aafaf411114378a5bc759bdb2b47a3599e785f566",
+      "bytes": 48482
+    },
+    "history/mobile-main-detalhes-ignoradas.png": {
+      "sha256": "9a474b933f2a72000fb1d82640ae3b4515a6dfd722861ebb73d4374bd6908f59",
+      "bytes": 43613
+    },
+    "history/mobile-main-detalhes-importadas.png": {
+      "sha256": "10c726df1b21b679f92bd0b02c86ef17198b938d66e105e2f61aa764c5810218",
+      "bytes": 48348
+    },
+    "history/mobile-main-historico-busca.png": {
+      "sha256": "4f06eb936288a25efc707e461ec0101f8c955661eab0e103b330e68003853278",
+      "bytes": 45931
+    },
+    "history/mobile-main-historico-exclusao-confirmacao.png": {
+      "sha256": "33816d0e8cd8543d437907d29de02788252265e693f181ccc5505f7c2f5b580b",
+      "bytes": 53997
+    },
+    "history/mobile-main-historico-muitas-linhas.png": {
+      "sha256": "74c32b8e90d7cc7696e96473e67472906a5e7bdf43aa63b70ec619bff8c5c08a",
+      "bytes": 48197
+    },
+    "history/mobile-main-historico-reidratar-confirmacao.png": {
+      "sha256": "a06f6996dce7101dff36f34b2fed386e474348aa35d193fadcdbac3a0c77ce48",
+      "bytes": 55440
+    },
+    "history/mobile-main-historico-reidratar-resultado.png": {
+      "sha256": "9b885bd942c8e03eb9d64f70beaf8677fb85e90b72b6387b79832f980ebd7e8c",
+      "bytes": 48658
+    },
+    "history/mobile-main-historico-rodape.png": {
+      "sha256": "1895043f65c8c36438f2fac2fbafa535aea7235c78a9f738d6a32f8ca8c657ec",
+      "bytes": 45040
+    },
+    "history/mobile-main-historico-sincronizar-confirmacao.png": {
+      "sha256": "60a9f0821de5b4ec0b984351bafb79c282c11397463764f8f363a9416160f9bf",
+      "bytes": 52747
+    },
+    "history/mobile-main-historico-vazio.png": {
+      "sha256": "0fbb14e61f859d2631f8fa92d2fe5e9c8751b84700a376cd150a1ac3b8db9ba1",
+      "bytes": 32344
+    },
+    "history/mobile-main-historico.png": {
+      "sha256": "5afe42e8e8bea11d1a0e96e48bfcef492cb8ea07498f7807a8a3e3b2c12a3402",
+      "bytes": 48136
+    },
+    "history/mobile-main-reaplicar-regras-confirmacao.png": {
+      "sha256": "cee371a86c47c379aba39b26c8b023fdca911928a4e73cc2e0c046cdba310e8b",
+      "bytes": 58610
+    },
+    "history/mobile-main-regra-editar.png": {
+      "sha256": "a823d47c84542cbbc9bdf49d43cf74781761a086d6a6e4bad45a569083f9f274",
+      "bytes": 47897
+    },
+    "history/mobile-main-regra-excluir-confirmacao.png": {
+      "sha256": "37dd614fa80d463d530eda1958498e0f565c1e6f4e614a2ad26ebf51799818e6",
+      "bytes": 52684
+    },
+    "history/mobile-main-regra-nova.png": {
+      "sha256": "f1b56851356e594b16635930f3954bb81a040e66fc8c4b0ea59e5a114e8d3368",
+      "bytes": 42789
+    },
+    "history/mobile-main-regras.png": {
+      "sha256": "5ada60c5a11e88050b0560446aa1768d1bf1ca343716f9a2b4e98a432c185037",
+      "bytes": 43605
+    },
+    "history/mobile-reviewed-configuracao-editar.png": {
+      "sha256": "ca466881d0b8f184ad67ab47a0c0840a7274423f70d921214fbaa06705c30df9",
+      "bytes": 53725
+    },
+    "history/mobile-reviewed-configuracao-excluir-confirmacao.png": {
+      "sha256": "043762580e7ccabe9a46e93d046fe08cfef651a51cd125e475e8c77ece7c8b54",
+      "bytes": 51566
+    },
+    "history/mobile-reviewed-configuracao-nova.png": {
+      "sha256": "ee67993e7342d951a5b8e7e8168b40a11ba08c9f4a7abe0abd143b3f00f6fe5d",
+      "bytes": 48953
+    },
+    "history/mobile-reviewed-configuracoes.png": {
+      "sha256": "8825aa0fdc81ed40ff82ed5517e73fb55b24780a8cf3bf6ed90d199ae4410101",
+      "bytes": 39312
+    },
+    "history/mobile-reviewed-corrigir-conta-confirmacao.png": {
+      "sha256": "f58a5660136709e94218c0253dea4c01a453a6d6cb938a87f533d145ccb7c480",
+      "bytes": 43838
+    },
+    "history/mobile-reviewed-corrigir-conta-validacao.png": {
+      "sha256": "614bcb74b5d772323f366fc173323472f997870e2e608896a98bf1e067efb45d",
+      "bytes": 43959
+    },
+    "history/mobile-reviewed-corrigir-conta.png": {
+      "sha256": "db4761ef20b0101d25743a7aafaf411114378a5bc759bdb2b47a3599e785f566",
+      "bytes": 48482
+    },
+    "history/mobile-reviewed-detalhes-ignoradas.png": {
+      "sha256": "9a474b933f2a72000fb1d82640ae3b4515a6dfd722861ebb73d4374bd6908f59",
+      "bytes": 43613
+    },
+    "history/mobile-reviewed-detalhes-importadas.png": {
+      "sha256": "10c726df1b21b679f92bd0b02c86ef17198b938d66e105e2f61aa764c5810218",
+      "bytes": 48348
+    },
+    "history/mobile-reviewed-historico-busca.png": {
+      "sha256": "4f06eb936288a25efc707e461ec0101f8c955661eab0e103b330e68003853278",
+      "bytes": 45931
+    },
+    "history/mobile-reviewed-historico-exclusao-confirmacao.png": {
+      "sha256": "33816d0e8cd8543d437907d29de02788252265e693f181ccc5505f7c2f5b580b",
+      "bytes": 53997
+    },
+    "history/mobile-reviewed-historico-muitas-linhas.png": {
+      "sha256": "74c32b8e90d7cc7696e96473e67472906a5e7bdf43aa63b70ec619bff8c5c08a",
+      "bytes": 48197
+    },
+    "history/mobile-reviewed-historico-reidratar-confirmacao.png": {
+      "sha256": "a06f6996dce7101dff36f34b2fed386e474348aa35d193fadcdbac3a0c77ce48",
+      "bytes": 55440
+    },
+    "history/mobile-reviewed-historico-reidratar-resultado.png": {
+      "sha256": "9b885bd942c8e03eb9d64f70beaf8677fb85e90b72b6387b79832f980ebd7e8c",
+      "bytes": 48658
+    },
+    "history/mobile-reviewed-historico-rodape.png": {
+      "sha256": "1895043f65c8c36438f2fac2fbafa535aea7235c78a9f738d6a32f8ca8c657ec",
+      "bytes": 45040
+    },
+    "history/mobile-reviewed-historico-sincronizar-confirmacao.png": {
+      "sha256": "60a9f0821de5b4ec0b984351bafb79c282c11397463764f8f363a9416160f9bf",
+      "bytes": 52747
+    },
+    "history/mobile-reviewed-historico-vazio.png": {
+      "sha256": "0fbb14e61f859d2631f8fa92d2fe5e9c8751b84700a376cd150a1ac3b8db9ba1",
+      "bytes": 32344
+    },
+    "history/mobile-reviewed-historico.png": {
+      "sha256": "5afe42e8e8bea11d1a0e96e48bfcef492cb8ea07498f7807a8a3e3b2c12a3402",
+      "bytes": 48136
+    },
+    "history/mobile-reviewed-reaplicar-regras-confirmacao.png": {
+      "sha256": "cee371a86c47c379aba39b26c8b023fdca911928a4e73cc2e0c046cdba310e8b",
+      "bytes": 58610
+    },
+    "history/mobile-reviewed-regra-editar.png": {
+      "sha256": "a823d47c84542cbbc9bdf49d43cf74781761a086d6a6e4bad45a569083f9f274",
+      "bytes": 47897
+    },
+    "history/mobile-reviewed-regra-excluir-confirmacao.png": {
+      "sha256": "37dd614fa80d463d530eda1958498e0f565c1e6f4e614a2ad26ebf51799818e6",
+      "bytes": 52684
+    },
+    "history/mobile-reviewed-regra-nova.png": {
+      "sha256": "f1b56851356e594b16635930f3954bb81a040e66fc8c4b0ea59e5a114e8d3368",
+      "bytes": 42789
+    },
+    "history/mobile-reviewed-regras.png": {
+      "sha256": "5ada60c5a11e88050b0560446aa1768d1bf1ca343716f9a2b4e98a432c185037",
+      "bytes": 43605
+    },
+    "history/validation.json": {
+      "sha256": "cc30c7795e5c3a18cf230a9a01cadac2b243af2da415ae56e8cb65dcbb92b072",
+      "bytes": 89675
+    },
+    "integration/desktop-dark-conexoes-carregadas.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "integration/desktop-dark-conexoes-carregando.png": {
+      "sha256": "8094755d756f700c2511db36c22e1e6a9cbbf22ebd6aadd57c3e7de49beb9366",
+      "bytes": 169871
+    },
+    "integration/desktop-dark-consentimento-carregando.png": {
+      "sha256": "402ca9f31f8c03cb669dd2e6ee7f7ae058c7fe77f868bf1526e8133e7260b5d2",
+      "bytes": 118287
+    },
+    "integration/desktop-dark-consentimento-cpf-invalido.png": {
+      "sha256": "557ecac9fa8eaa97ab93a5a3c393a1a1f9a6b7811db01bc7db5542e7a24fa066",
+      "bytes": 123749
+    },
+    "integration/desktop-dark-consentimento-erro.png": {
+      "sha256": "fd5ae93a10b23faeda8db658225f958c9fbc1e44e7b5920000f135ac3c856047",
+      "bytes": 134788
+    },
+    "integration/desktop-dark-consentimento-preenchido.png": {
+      "sha256": "73d2625dd436e77f454db90864f58b32641578ff03e550392666ba415d6935e0",
+      "bytes": 122319
+    },
+    "integration/desktop-dark-consentimento-vazio-desabilitado.png": {
+      "sha256": "ec5b18262498229f566a8334a10191f5ca86d762de4a0d2e5219e7057b362ce6",
+      "bytes": 120304
+    },
+    "integration/desktop-dark-integracao-buscando.png": {
+      "sha256": "2d5f7bc97810e9798c5a71654b9983160f447efa78425e849f7989394b8a15c6",
+      "bytes": 49954
+    },
+    "integration/desktop-dark-integracao-concluida-default.png": {
+      "sha256": "8aed36574ea5fb4071faef8a23c1d809a85f3dbd2db6238e4bbf4f4d7ae65205",
+      "bytes": 42439
+    },
+    "integration/desktop-dark-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "0d8a824041121607e934b37f4364eccde6ab508d4d804e26baa90887ecc539c6",
+      "bytes": 41892
+    },
+    "integration/desktop-dark-integracao-detalhes-cartao.png": {
+      "sha256": "db9ce385986e9950073f133e9eef82baae27786e1a72274abf1bf7567d87e0fe",
+      "bytes": 55292
+    },
+    "integration/desktop-dark-integracao-erro-e-suporte.png": {
+      "sha256": "5d0296cd4483b2ede0e3eba1d882be15c635d33b090a1960a09c23054f81f60d",
+      "bytes": 233883
+    },
+    "integration/desktop-dark-integracao-erro-gravacao.png": {
+      "sha256": "b1501f260ab7467ad4da27a8af9c2cdd07b984527495a1b1192dc1da9ffce32b",
+      "bytes": 65806
+    },
+    "integration/desktop-dark-integracao-fetch-error.png": {
+      "sha256": "d697db681cc51c8b4e7bbd115a4416a20205a3dd5db65acde80594d12bda82c0",
+      "bytes": 57470
+    },
+    "integration/desktop-dark-integracao-janela-simulada.png": {
+      "sha256": "c4e65ff8fc64533d3adfd2768ea79debc74959b4c7a86ae762359b87af033d4e",
+      "bytes": 178047
+    },
+    "integration/desktop-dark-integracao-legacy-connection.png": {
+      "sha256": "e92b8af33701dd9b57166ee8e7a03e172681f374918b53279dc8acc3ab7a7f07",
+      "bytes": 60843
+    },
+    "integration/desktop-dark-integracao-limite-basic.png": {
+      "sha256": "c3e7312c76c0b5db39ddba4dff92d704db746816955b5ce8c9c36b9ba401e488",
+      "bytes": 148839
+    },
+    "integration/desktop-dark-integracao-limite-extra.png": {
+      "sha256": "8ad86b07ba913139d9ed265091c7d6d972c65a8db1f16e08535bfcf8cb9bf9d2",
+      "bytes": 147133
+    },
+    "integration/desktop-dark-integracao-muitas-linhas.png": {
+      "sha256": "c9b17bfedb8a1493eddc055223d033f64508815e8d404e2902e39642b07282d7",
+      "bytes": 112716
+    },
+    "integration/desktop-dark-integracao-periodo-personalizado.png": {
+      "sha256": "3e04f76e004f3c1d88c9c6e8342d1b85ea5205063a4069b39cf5adf61100413d",
+      "bytes": 121379
+    },
+    "integration/desktop-dark-integracao-periodo.png": {
+      "sha256": "541d9535e87a3dc3cdfbf9c1caf3ad9b749ca26d1df907513f94a185b114fae6",
+      "bytes": 122184
+    },
+    "integration/desktop-dark-integracao-retorno.png": {
+      "sha256": "9e59874d5612c8d13a95d56a677bb157d382816e4c0c2f019ef795a2ea8dbe75",
+      "bytes": 209313
+    },
+    "integration/desktop-dark-integracao-revisao-ajustada.png": {
+      "sha256": "495da5c72e9f384e8c96d60d5d889b26af7138d0135ab13fd2b22dbbc3beed97",
+      "bytes": 135461
+    },
+    "integration/desktop-dark-integracao-revisao.png": {
+      "sha256": "3f006489765cd0eb7769f4c473c3e35be32f4a257ba9d1f2149b52345c52594f",
+      "bytes": 136656
+    },
+    "integration/desktop-dark-integracao-salvando.png": {
+      "sha256": "8ded64316c549d6be82d95215f0e56c3d63d4e7c5e0931cee5214ce2b51142f4",
+      "bytes": 56071
+    },
+    "integration/desktop-dark-integracao-selecao-vazia.png": {
+      "sha256": "b7527573bd6f327b7da391523855c5e2150545037ba6a498068d41c6fe3e8e09",
+      "bytes": 100347
+    },
+    "integration/desktop-dark-integracao-sem-novos.png": {
+      "sha256": "8dfe4c0be4860cf0d76da934d3aaa66c322becedba3342f553b37396ab6aeecd",
+      "bytes": 30522
+    },
+    "integration/desktop-light-conexoes-carregadas.png": {
+      "sha256": "4a05e53e0ae4e42502ade59c33fbda1a4b94f1662db4a3526e3bfd9191b2da0e",
+      "bytes": 84604
+    },
+    "integration/desktop-light-conexoes-carregando.png": {
+      "sha256": "a4d9bf5f210e9cab238c7126c6447677178bc80f8631882a936d346021b7035f",
+      "bytes": 74449
+    },
+    "integration/desktop-light-consentimento-carregando.png": {
+      "sha256": "22adc05b7489410ab28ff1462bb7deda468721aeb5aaa354eb9ec0a4fb541be7",
+      "bytes": 146126
+    },
+    "integration/desktop-light-consentimento-cpf-invalido.png": {
+      "sha256": "0f75be95771dd9c33ec8fbd739b6f43933c04a97d69a1aae89c93bc3d51f6b14",
+      "bytes": 152201
+    },
+    "integration/desktop-light-consentimento-erro.png": {
+      "sha256": "467c198684d07adb0c63af7cb89905e5658e3a6d374034510ff0ce7a726a916b",
+      "bytes": 163609
+    },
+    "integration/desktop-light-consentimento-preenchido.png": {
+      "sha256": "9265acaee99446f2da22ab2ba20c879886a4e73ff49192ec982819f8e2337f49",
+      "bytes": 149733
+    },
+    "integration/desktop-light-consentimento-vazio-desabilitado.png": {
+      "sha256": "86308449831848d20ed8d8154376ad114c8ac84a8f1cef64b6f2f4b59da5627b",
+      "bytes": 149270
+    },
+    "integration/desktop-light-integracao-buscando.png": {
+      "sha256": "68721f5e5d5609f4420b62484d9b117746595a4b969897a675bc24900d48fea0",
+      "bytes": 49041
+    },
+    "integration/desktop-light-integracao-concluida-default.png": {
+      "sha256": "25715a6901088c55bd79e9bb63348f4de27473e43d050ed7491adbb00ea597f5",
+      "bytes": 36969
+    },
+    "integration/desktop-light-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "34b803cdf5cc300222d88b696d8026bd94aa614d26863751ed8ab5ee054a0d4b",
+      "bytes": 36401
+    },
+    "integration/desktop-light-integracao-detalhes-cartao.png": {
+      "sha256": "20e0ddc5f046b0ac6951bc421eba097f5241a5ac638acb917125f928a2f85336",
+      "bytes": 49489
+    },
+    "integration/desktop-light-integracao-erro-e-suporte.png": {
+      "sha256": "459e3d49ee7468dc78b2733a06808ac75f9a64c0d438da2c87d45f02d2f73074",
+      "bytes": 82499
+    },
+    "integration/desktop-light-integracao-erro-gravacao.png": {
+      "sha256": "8ebdddf5e001ebe6a8ee807f94310d2dfe4b11171e5517df91fad3ac1c088481",
+      "bytes": 58276
+    },
+    "integration/desktop-light-integracao-fetch-error.png": {
+      "sha256": "c7f457952120bc52fbfe9939d80496ed60ba077cc9800c4a32bbd240003b8137",
+      "bytes": 51982
+    },
+    "integration/desktop-light-integracao-janela-simulada.png": {
+      "sha256": "6c9bfca9e2535d4320d5721f1d8e3c336e38cd7171a0d77bc3c8d969ca1e3391",
+      "bytes": 79303
+    },
+    "integration/desktop-light-integracao-legacy-connection.png": {
+      "sha256": "881a872f0fc1b605ff56419e246a64f47cc5ecce1cda6327f386e0b3ef9472d8",
+      "bytes": 55281
+    },
+    "integration/desktop-light-integracao-limite-basic.png": {
+      "sha256": "7dd0019ffc0635dce91cc584eef5fa91615effaeeb859ee6610119c68a31cbae",
+      "bytes": 111829
+    },
+    "integration/desktop-light-integracao-limite-extra.png": {
+      "sha256": "3060e3ea700902c41436cfba40078dcc55dac9ff3bf71419c754d7357e9f21fa",
+      "bytes": 111523
+    },
+    "integration/desktop-light-integracao-muitas-linhas.png": {
+      "sha256": "4231ae8f5efe94ec705ab5de99d63033359ba4759a56fc5509b4fc297464401b",
+      "bytes": 104652
+    },
+    "integration/desktop-light-integracao-periodo-personalizado.png": {
+      "sha256": "1f2004c39d4fd49c708054347a7ba297c1e6fbccb0b5bd87e5eaa46add0dc3f5",
+      "bytes": 109734
+    },
+    "integration/desktop-light-integracao-periodo.png": {
+      "sha256": "9fa56dcadd909e3f1c83b65d6a4c9b7868898a17276b12d0bae8fb34ea87fc73",
+      "bytes": 109778
+    },
+    "integration/desktop-light-integracao-retorno.png": {
+      "sha256": "4f80115108bc2749686c3ce0d7631d976e48d4682cc3da6c1ce0e895eaa0ccf8",
+      "bytes": 87694
+    },
+    "integration/desktop-light-integracao-revisao-ajustada.png": {
+      "sha256": "a45d8513c7f07c166435c15c4eba81eae9b6cf441f79105a94a003dce5161978",
+      "bytes": 123492
+    },
+    "integration/desktop-light-integracao-revisao.png": {
+      "sha256": "f3bb64b6637d9e92bdfed0e985012f6777306a25262b620704922f7901dcbfb5",
+      "bytes": 124079
+    },
+    "integration/desktop-light-integracao-salvando.png": {
+      "sha256": "7f97874aad5baa0f23a33cb57399f3289d002869b418f9dbd5481647145075ef",
+      "bytes": 54480
+    },
+    "integration/desktop-light-integracao-selecao-vazia.png": {
+      "sha256": "77efdbf5bc40fcfcd9dc4508e7370bb719af367f8c3f5c2c52a5858a5a95ae4c",
+      "bytes": 103169
+    },
+    "integration/desktop-light-integracao-sem-novos.png": {
+      "sha256": "982ab05797fb7aedb60364cda30b2f59ad2285fdf09e0c4740d7c507ef045477",
+      "bytes": 31220
+    },
+    "integration/desktop-main-conexoes-carregadas.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "integration/desktop-main-conexoes-carregando.png": {
+      "sha256": "8094755d756f700c2511db36c22e1e6a9cbbf22ebd6aadd57c3e7de49beb9366",
+      "bytes": 169871
+    },
+    "integration/desktop-main-consentimento-carregando.png": {
+      "sha256": "402ca9f31f8c03cb669dd2e6ee7f7ae058c7fe77f868bf1526e8133e7260b5d2",
+      "bytes": 118287
+    },
+    "integration/desktop-main-consentimento-cpf-invalido.png": {
+      "sha256": "6e11364bd72624c208c1822b5d603ebbf000f5d04fd9bc7339d7e4a297d2f677",
+      "bytes": 121300
+    },
+    "integration/desktop-main-consentimento-erro.png": {
+      "sha256": "9b29cdb426c988fd21b84e186a8c9f91304727c46115b0812c83c9986375ac70",
+      "bytes": 132909
+    },
+    "integration/desktop-main-consentimento-preenchido.png": {
+      "sha256": "73d2625dd436e77f454db90864f58b32641578ff03e550392666ba415d6935e0",
+      "bytes": 122319
+    },
+    "integration/desktop-main-consentimento-vazio-desabilitado.png": {
+      "sha256": "ec5b18262498229f566a8334a10191f5ca86d762de4a0d2e5219e7057b362ce6",
+      "bytes": 120304
+    },
+    "integration/desktop-main-integracao-buscando.png": {
+      "sha256": "2d5f7bc97810e9798c5a71654b9983160f447efa78425e849f7989394b8a15c6",
+      "bytes": 49954
+    },
+    "integration/desktop-main-integracao-concluida-default.png": {
+      "sha256": "8aed36574ea5fb4071faef8a23c1d809a85f3dbd2db6238e4bbf4f4d7ae65205",
+      "bytes": 42439
+    },
+    "integration/desktop-main-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "0d8a824041121607e934b37f4364eccde6ab508d4d804e26baa90887ecc539c6",
+      "bytes": 41892
+    },
+    "integration/desktop-main-integracao-detalhes-cartao.png": {
+      "sha256": "db9ce385986e9950073f133e9eef82baae27786e1a72274abf1bf7567d87e0fe",
+      "bytes": 55292
+    },
+    "integration/desktop-main-integracao-erro-e-suporte.png": {
+      "sha256": "3c94f2609fef15db1bb0505d973c94c59391a662daa6bf7bda5c71b6df4736d0",
+      "bytes": 230634
+    },
+    "integration/desktop-main-integracao-erro-gravacao.png": {
+      "sha256": "b1501f260ab7467ad4da27a8af9c2cdd07b984527495a1b1192dc1da9ffce32b",
+      "bytes": 65806
+    },
+    "integration/desktop-main-integracao-fetch-error.png": {
+      "sha256": "d697db681cc51c8b4e7bbd115a4416a20205a3dd5db65acde80594d12bda82c0",
+      "bytes": 57470
+    },
+    "integration/desktop-main-integracao-janela-simulada.png": {
+      "sha256": "172bbd568e3fbcfc8fcf275fc3a0adfa324bc7277490b9ce9b3800c3e656a7cf",
+      "bytes": 174460
+    },
+    "integration/desktop-main-integracao-legacy-connection.png": {
+      "sha256": "e92b8af33701dd9b57166ee8e7a03e172681f374918b53279dc8acc3ab7a7f07",
+      "bytes": 60843
+    },
+    "integration/desktop-main-integracao-limite-basic.png": {
+      "sha256": "c3e7312c76c0b5db39ddba4dff92d704db746816955b5ce8c9c36b9ba401e488",
+      "bytes": 148839
+    },
+    "integration/desktop-main-integracao-limite-extra.png": {
+      "sha256": "8ad86b07ba913139d9ed265091c7d6d972c65a8db1f16e08535bfcf8cb9bf9d2",
+      "bytes": 147133
+    },
+    "integration/desktop-main-integracao-muitas-linhas.png": {
+      "sha256": "c9b17bfedb8a1493eddc055223d033f64508815e8d404e2902e39642b07282d7",
+      "bytes": 112716
+    },
+    "integration/desktop-main-integracao-periodo-personalizado.png": {
+      "sha256": "3e04f76e004f3c1d88c9c6e8342d1b85ea5205063a4069b39cf5adf61100413d",
+      "bytes": 121379
+    },
+    "integration/desktop-main-integracao-periodo.png": {
+      "sha256": "541d9535e87a3dc3cdfbf9c1caf3ad9b749ca26d1df907513f94a185b114fae6",
+      "bytes": 122184
+    },
+    "integration/desktop-main-integracao-retorno.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "integration/desktop-main-integracao-revisao-ajustada.png": {
+      "sha256": "495da5c72e9f384e8c96d60d5d889b26af7138d0135ab13fd2b22dbbc3beed97",
+      "bytes": 135461
+    },
+    "integration/desktop-main-integracao-revisao.png": {
+      "sha256": "3f006489765cd0eb7769f4c473c3e35be32f4a257ba9d1f2149b52345c52594f",
+      "bytes": 136656
+    },
+    "integration/desktop-main-integracao-salvando.png": {
+      "sha256": "8ded64316c549d6be82d95215f0e56c3d63d4e7c5e0931cee5214ce2b51142f4",
+      "bytes": 56071
+    },
+    "integration/desktop-main-integracao-selecao-vazia.png": {
+      "sha256": "b7527573bd6f327b7da391523855c5e2150545037ba6a498068d41c6fe3e8e09",
+      "bytes": 100347
+    },
+    "integration/desktop-main-integracao-sem-novos.png": {
+      "sha256": "8dfe4c0be4860cf0d76da934d3aaa66c322becedba3342f553b37396ab6aeecd",
+      "bytes": 30522
+    },
+    "integration/desktop-reviewed-conexoes-carregadas.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "integration/desktop-reviewed-conexoes-carregando.png": {
+      "sha256": "8094755d756f700c2511db36c22e1e6a9cbbf22ebd6aadd57c3e7de49beb9366",
+      "bytes": 169871
+    },
+    "integration/desktop-reviewed-consentimento-carregando.png": {
+      "sha256": "402ca9f31f8c03cb669dd2e6ee7f7ae058c7fe77f868bf1526e8133e7260b5d2",
+      "bytes": 118287
+    },
+    "integration/desktop-reviewed-consentimento-cpf-invalido.png": {
+      "sha256": "6e11364bd72624c208c1822b5d603ebbf000f5d04fd9bc7339d7e4a297d2f677",
+      "bytes": 121300
+    },
+    "integration/desktop-reviewed-consentimento-erro.png": {
+      "sha256": "9b29cdb426c988fd21b84e186a8c9f91304727c46115b0812c83c9986375ac70",
+      "bytes": 132909
+    },
+    "integration/desktop-reviewed-consentimento-preenchido.png": {
+      "sha256": "73d2625dd436e77f454db90864f58b32641578ff03e550392666ba415d6935e0",
+      "bytes": 122319
+    },
+    "integration/desktop-reviewed-consentimento-vazio-desabilitado.png": {
+      "sha256": "ec5b18262498229f566a8334a10191f5ca86d762de4a0d2e5219e7057b362ce6",
+      "bytes": 120304
+    },
+    "integration/desktop-reviewed-integracao-buscando.png": {
+      "sha256": "2d5f7bc97810e9798c5a71654b9983160f447efa78425e849f7989394b8a15c6",
+      "bytes": 49954
+    },
+    "integration/desktop-reviewed-integracao-concluida-default.png": {
+      "sha256": "8aed36574ea5fb4071faef8a23c1d809a85f3dbd2db6238e4bbf4f4d7ae65205",
+      "bytes": 42439
+    },
+    "integration/desktop-reviewed-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "0d8a824041121607e934b37f4364eccde6ab508d4d804e26baa90887ecc539c6",
+      "bytes": 41892
+    },
+    "integration/desktop-reviewed-integracao-detalhes-cartao.png": {
+      "sha256": "db9ce385986e9950073f133e9eef82baae27786e1a72274abf1bf7567d87e0fe",
+      "bytes": 55292
+    },
+    "integration/desktop-reviewed-integracao-erro-e-suporte.png": {
+      "sha256": "3c94f2609fef15db1bb0505d973c94c59391a662daa6bf7bda5c71b6df4736d0",
+      "bytes": 230634
+    },
+    "integration/desktop-reviewed-integracao-erro-gravacao.png": {
+      "sha256": "b1501f260ab7467ad4da27a8af9c2cdd07b984527495a1b1192dc1da9ffce32b",
+      "bytes": 65806
+    },
+    "integration/desktop-reviewed-integracao-fetch-error.png": {
+      "sha256": "d697db681cc51c8b4e7bbd115a4416a20205a3dd5db65acde80594d12bda82c0",
+      "bytes": 57470
+    },
+    "integration/desktop-reviewed-integracao-janela-simulada.png": {
+      "sha256": "172bbd568e3fbcfc8fcf275fc3a0adfa324bc7277490b9ce9b3800c3e656a7cf",
+      "bytes": 174460
+    },
+    "integration/desktop-reviewed-integracao-legacy-connection.png": {
+      "sha256": "e92b8af33701dd9b57166ee8e7a03e172681f374918b53279dc8acc3ab7a7f07",
+      "bytes": 60843
+    },
+    "integration/desktop-reviewed-integracao-limite-basic.png": {
+      "sha256": "c3e7312c76c0b5db39ddba4dff92d704db746816955b5ce8c9c36b9ba401e488",
+      "bytes": 148839
+    },
+    "integration/desktop-reviewed-integracao-limite-extra.png": {
+      "sha256": "8ad86b07ba913139d9ed265091c7d6d972c65a8db1f16e08535bfcf8cb9bf9d2",
+      "bytes": 147133
+    },
+    "integration/desktop-reviewed-integracao-muitas-linhas.png": {
+      "sha256": "c9b17bfedb8a1493eddc055223d033f64508815e8d404e2902e39642b07282d7",
+      "bytes": 112716
+    },
+    "integration/desktop-reviewed-integracao-periodo-personalizado.png": {
+      "sha256": "3e04f76e004f3c1d88c9c6e8342d1b85ea5205063a4069b39cf5adf61100413d",
+      "bytes": 121379
+    },
+    "integration/desktop-reviewed-integracao-periodo.png": {
+      "sha256": "541d9535e87a3dc3cdfbf9c1caf3ad9b749ca26d1df907513f94a185b114fae6",
+      "bytes": 122184
+    },
+    "integration/desktop-reviewed-integracao-retorno.png": {
+      "sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "bytes": 204734
+    },
+    "integration/desktop-reviewed-integracao-revisao-ajustada.png": {
+      "sha256": "495da5c72e9f384e8c96d60d5d889b26af7138d0135ab13fd2b22dbbc3beed97",
+      "bytes": 135461
+    },
+    "integration/desktop-reviewed-integracao-revisao.png": {
+      "sha256": "3f006489765cd0eb7769f4c473c3e35be32f4a257ba9d1f2149b52345c52594f",
+      "bytes": 136656
+    },
+    "integration/desktop-reviewed-integracao-salvando.png": {
+      "sha256": "8ded64316c549d6be82d95215f0e56c3d63d4e7c5e0931cee5214ce2b51142f4",
+      "bytes": 56071
+    },
+    "integration/desktop-reviewed-integracao-selecao-vazia.png": {
+      "sha256": "b7527573bd6f327b7da391523855c5e2150545037ba6a498068d41c6fe3e8e09",
+      "bytes": 100347
+    },
+    "integration/desktop-reviewed-integracao-sem-novos.png": {
+      "sha256": "8dfe4c0be4860cf0d76da934d3aaa66c322becedba3342f553b37396ab6aeecd",
+      "bytes": 30522
+    },
+    "integration/financial-desktop-dark.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-desktop-light.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-desktop-main.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-desktop-reviewed.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-mobile-dark.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-mobile-light.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-mobile-main.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/financial-mobile-reviewed.json": {
+      "sha256": "d0f3f17ecd22aaa9f31f345783a9b0f59b69a220a312e16f1bc1a4f45b071dfe",
+      "bytes": 550272
+    },
+    "integration/mobile-dark-conexoes-carregadas.png": {
+      "sha256": "c260ad8375041f663bcb9ecec3c8ab7ddf2ad5b175f5b1ca6e7f0b0a088f7592",
+      "bytes": 120009
+    },
+    "integration/mobile-dark-conexoes-carregando.png": {
+      "sha256": "9ea5476b2b04a13c5e8cd6779919f11e38bc0846f35747f3e4048be85db40e2e",
+      "bytes": 109561
+    },
+    "integration/mobile-dark-consentimento-carregando.png": {
+      "sha256": "df1be2f045629e93c75efb020e1db23cfa8909f8e347fd96eab1524ee30daba9",
+      "bytes": 59673
+    },
+    "integration/mobile-dark-consentimento-cpf-invalido.png": {
+      "sha256": "f51806128d7e8a83e80b70340f3efdb68629329b5e0c864ca49e69277a900b45",
+      "bytes": 54580
+    },
+    "integration/mobile-dark-consentimento-erro.png": {
+      "sha256": "b274c68b4bcd1cc6b7220a2442a52088237e27b3d7505039c8d18fc271923053",
+      "bytes": 56167
+    },
+    "integration/mobile-dark-consentimento-preenchido.png": {
+      "sha256": "9e981bc0f6668d2012fc973ee47dcd9085d874fa4cec0bd841a3a9b9acb95855",
+      "bytes": 61343
+    },
+    "integration/mobile-dark-consentimento-vazio-desabilitado.png": {
+      "sha256": "c4b569bb81d23c587df3cc2cc6ad0cb642857adaf85138249247103da4993207",
+      "bytes": 59273
+    },
+    "integration/mobile-dark-integracao-buscando.png": {
+      "sha256": "ed932bc00d53c425e983765f80a9dd2e10a41e1697d47805f05afcfb7b0c2b47",
+      "bytes": 45247
+    },
+    "integration/mobile-dark-integracao-concluida-default.png": {
+      "sha256": "09b778d0e9cde446b759117cbf3439844a32611a9838cbcc5130100e28227864",
+      "bytes": 34339
+    },
+    "integration/mobile-dark-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "36f1dc2672277f53b5793cc0c2b3fedf66b6e899a12fd2ee407feaf649de04db",
+      "bytes": 33878
+    },
+    "integration/mobile-dark-integracao-detalhes-cartao.png": {
+      "sha256": "dfd884de15a44845a8c0891143e61d5f6861086e5b351293f101a5c62c67888c",
+      "bytes": 45096
+    },
+    "integration/mobile-dark-integracao-erro-e-suporte.png": {
+      "sha256": "778fa4a7642cdfae3dc2b34587eb537165b157fc53e57830955665a0186af487",
+      "bytes": 108815
+    },
+    "integration/mobile-dark-integracao-erro-gravacao.png": {
+      "sha256": "465a24b9a16c85246e4542f55be5aa25e6c1993912ffd444cbadee05c7369a17",
+      "bytes": 41657
+    },
+    "integration/mobile-dark-integracao-fetch-error.png": {
+      "sha256": "ee20862f1ec7576c66eff37a0e8bac3f98251d98791a215d0e76d619d6366b5e",
+      "bytes": 43798
+    },
+    "integration/mobile-dark-integracao-janela-simulada.png": {
+      "sha256": "5ed5d0dfd71b5da7338c85ef02d118fa181f0bdc2b8562c63150177c0561124d",
+      "bytes": 111086
+    },
+    "integration/mobile-dark-integracao-legacy-connection.png": {
+      "sha256": "fa97e7ae44ea208db4bc26a5dd03a9b8bca956c83ce27e9d57d5362c6c4be7d0",
+      "bytes": 44211
+    },
+    "integration/mobile-dark-integracao-limite-basic.png": {
+      "sha256": "0f03c804d1ff30f89beaaef265e1b3aa119d95e73ec07886cd75bb010ed69213",
+      "bytes": 60051
+    },
+    "integration/mobile-dark-integracao-limite-extra.png": {
+      "sha256": "367d2973a13615aeb15cf0de82cba12c8b5eafbb492bd3273f55aa3b4ee5bf78",
+      "bytes": 58003
+    },
+    "integration/mobile-dark-integracao-muitas-linhas.png": {
+      "sha256": "304933c94429320958bcfe90924fec984c469bf3fc40c6583995191d4a06f4c3",
+      "bytes": 56178
+    },
+    "integration/mobile-dark-integracao-periodo-personalizado.png": {
+      "sha256": "890df3ab0bb294a5a3676b3025b0b8911b3289c48030b9abb9e1fdd900004ea5",
+      "bytes": 62344
+    },
+    "integration/mobile-dark-integracao-periodo.png": {
+      "sha256": "e5c370dfff49a61ef185771170969991074b000e98bb40ac612f6ef87aaf2327",
+      "bytes": 62716
+    },
+    "integration/mobile-dark-integracao-retorno.png": {
+      "sha256": "7fa0f0fee8f244e037404f959853674180cec205b8097550c1e6df477bb5141e",
+      "bytes": 107151
+    },
+    "integration/mobile-dark-integracao-revisao-ajustada.png": {
+      "sha256": "87dc9916b1e722a4a6e7bc3dffcf14d1228c31fc0beeea170680a71d5e7faa8c",
+      "bytes": 66290
+    },
+    "integration/mobile-dark-integracao-revisao.png": {
+      "sha256": "49b97f0505b59d111a891a04f0e312ccc7d08ac6df4b231b5d56fd1b5c417444",
+      "bytes": 66662
+    },
+    "integration/mobile-dark-integracao-salvando.png": {
+      "sha256": "cf5c2a1499d461960b582215464639b1dd9a85b2861e6bec4f1770cb5b3cc549",
+      "bytes": 34568
+    },
+    "integration/mobile-dark-integracao-selecao-vazia.png": {
+      "sha256": "1df8ee2ddd49cb95f51540ac634051c566a94b1d0aa60b903d39dc33a1e54ae9",
+      "bytes": 50159
+    },
+    "integration/mobile-dark-integracao-sem-novos.png": {
+      "sha256": "5312c17b9d10a731c068baeb3a94f01df771c44c2f0e8978672dd00785965c59",
+      "bytes": 25382
+    },
+    "integration/mobile-light-conexoes-carregadas.png": {
+      "sha256": "b176ac02e513894a173e67667d72063946830d2ad62b915836393de0c8765f59",
+      "bytes": 64888
+    },
+    "integration/mobile-light-conexoes-carregando.png": {
+      "sha256": "dbcbaed04a24f5489844e4a90d919aa0d806b5fc0fa46454f24d8d893bc6b51e",
+      "bytes": 61197
+    },
+    "integration/mobile-light-consentimento-carregando.png": {
+      "sha256": "15c4cdb8a295f71a8a87ec6fde423d3ff623c7a88b7955c86c3bcc395500802d",
+      "bytes": 69595
+    },
+    "integration/mobile-light-consentimento-cpf-invalido.png": {
+      "sha256": "69ee5c2bac78b59e7f178b25bd4dfb1d18607f1f192dabc10998d2619aad65b1",
+      "bytes": 60200
+    },
+    "integration/mobile-light-consentimento-erro.png": {
+      "sha256": "e794a627238a3117acff4cd5c34386727baec2eb0003cedf117e77c1035f0254",
+      "bytes": 61146
+    },
+    "integration/mobile-light-consentimento-preenchido.png": {
+      "sha256": "f9518b0bd8393c4532770511da30d6b8238ca57b4630dec07a9fbde993d35080",
+      "bytes": 69761
+    },
+    "integration/mobile-light-consentimento-vazio-desabilitado.png": {
+      "sha256": "37cf5c92f1d76e6427204ee321f66e7b415684847a535e0973d1ab286b6bd85f",
+      "bytes": 69244
+    },
+    "integration/mobile-light-integracao-buscando.png": {
+      "sha256": "7917b3605330d87b2df41f487a46bc7b09d55bb96cc4eaa50fee722c4c735357",
+      "bytes": 45344
+    },
+    "integration/mobile-light-integracao-concluida-default.png": {
+      "sha256": "e30aa4522d8cb5e1afbc6cf3828bd195158419312f86d9e23639794adb6a5456",
+      "bytes": 31136
+    },
+    "integration/mobile-light-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "29870fb6382382e58f9d9cd6a8d0ea950f35733d977c3dfba5762bfb5cebab30",
+      "bytes": 30605
+    },
+    "integration/mobile-light-integracao-detalhes-cartao.png": {
+      "sha256": "0d0b32567c45a1217962f7def918b2b36f92511c69b5e1c00315686f29abd25a",
+      "bytes": 42893
+    },
+    "integration/mobile-light-integracao-erro-e-suporte.png": {
+      "sha256": "cc78900d077ad39aa69ed0c92f58e1781edfa2596a153ed5eeebd9c43661550d",
+      "bytes": 59211
+    },
+    "integration/mobile-light-integracao-erro-gravacao.png": {
+      "sha256": "52c9480c2f2da94407d2ac848f620112893a976243c90edac9c4f66ed130076c",
+      "bytes": 37887
+    },
+    "integration/mobile-light-integracao-fetch-error.png": {
+      "sha256": "d783ac62aa78886c675bfab766020577c8f25801d671d6837e63747acbd27857",
+      "bytes": 42836
+    },
+    "integration/mobile-light-integracao-janela-simulada.png": {
+      "sha256": "b950ee60099aa1029f8bbdf4452dcc8158d7010cb1f884d38e0dcb8797afbe49",
+      "bytes": 60294
+    },
+    "integration/mobile-light-integracao-legacy-connection.png": {
+      "sha256": "d40953d223c6dc0a522cab7a47766913ec0d6aab0e8688c6f2fb8707deef699a",
+      "bytes": 44978
+    },
+    "integration/mobile-light-integracao-limite-basic.png": {
+      "sha256": "cb148a26896f466b9f7b2f2f5890ecc160256ef9d557f493c1be326dbb95f034",
+      "bytes": 56357
+    },
+    "integration/mobile-light-integracao-limite-extra.png": {
+      "sha256": "b848e60dc657e5fd30f9ab684ce3e811f512fb0c6320fc49ca21a21cf83353d3",
+      "bytes": 50344
+    },
+    "integration/mobile-light-integracao-muitas-linhas.png": {
+      "sha256": "8033fcb81ce4523b062893042141fc22651afe353b29d909bfa367f0b5ebf460",
+      "bytes": 50480
+    },
+    "integration/mobile-light-integracao-periodo-personalizado.png": {
+      "sha256": "fef1ba0af5d17be4bd5d7e60010b267fba18e08b8777e26fd94e6e7087395f01",
+      "bytes": 55261
+    },
+    "integration/mobile-light-integracao-periodo.png": {
+      "sha256": "fbb963dfde00814dcff7ddbfb98b38d07d13f5a862f20a151c884a7f563d25ea",
+      "bytes": 55896
+    },
+    "integration/mobile-light-integracao-retorno.png": {
+      "sha256": "f390ebb5bb768270ccb95c060f0b86a05a5edae19312f6dc8640877b87e6b258",
+      "bytes": 59777
+    },
+    "integration/mobile-light-integracao-revisao-ajustada.png": {
+      "sha256": "580ea876c06553b466bd0a91219dceaace9abf5ce3f39bfe4906c3fdac33882c",
+      "bytes": 58409
+    },
+    "integration/mobile-light-integracao-revisao.png": {
+      "sha256": "9dd83f83c2f5c8a243a9190086bffdcf0809155d0d3909d4a282dbde90317cce",
+      "bytes": 58691
+    },
+    "integration/mobile-light-integracao-salvando.png": {
+      "sha256": "84c36e7b85d9a14359b2b0da95fa35e3956f65fda6239914b4328c73ab6e45a9",
+      "bytes": 34256
+    },
+    "integration/mobile-light-integracao-selecao-vazia.png": {
+      "sha256": "24cd8a3ef13828674a59ceb6fcae620a43ee9d1933bf94086c4da9d9e707db71",
+      "bytes": 48659
+    },
+    "integration/mobile-light-integracao-sem-novos.png": {
+      "sha256": "2c3c2cde942d137c43f01345a34ab65d0c2eed2ea6cecd1c1fa7c19d67031792",
+      "bytes": 26011
+    },
+    "integration/mobile-main-conexoes-carregadas.png": {
+      "sha256": "c260ad8375041f663bcb9ecec3c8ab7ddf2ad5b175f5b1ca6e7f0b0a088f7592",
+      "bytes": 120009
+    },
+    "integration/mobile-main-conexoes-carregando.png": {
+      "sha256": "9ea5476b2b04a13c5e8cd6779919f11e38bc0846f35747f3e4048be85db40e2e",
+      "bytes": 109561
+    },
+    "integration/mobile-main-consentimento-carregando.png": {
+      "sha256": "df1be2f045629e93c75efb020e1db23cfa8909f8e347fd96eab1524ee30daba9",
+      "bytes": 59673
+    },
+    "integration/mobile-main-consentimento-cpf-invalido.png": {
+      "sha256": "124820007b972fa8c7ca7a2179c8789ab541e41f8cd348318d45af3d31c7f95f",
+      "bytes": 60334
+    },
+    "integration/mobile-main-consentimento-erro.png": {
+      "sha256": "9feeef49981e9bc88782397918352f3303a0ffe63679ecf7457745e246c0b669",
+      "bytes": 62117
+    },
+    "integration/mobile-main-consentimento-preenchido.png": {
+      "sha256": "9e981bc0f6668d2012fc973ee47dcd9085d874fa4cec0bd841a3a9b9acb95855",
+      "bytes": 61343
+    },
+    "integration/mobile-main-consentimento-vazio-desabilitado.png": {
+      "sha256": "c4b569bb81d23c587df3cc2cc6ad0cb642857adaf85138249247103da4993207",
+      "bytes": 59273
+    },
+    "integration/mobile-main-integracao-buscando.png": {
+      "sha256": "ed932bc00d53c425e983765f80a9dd2e10a41e1697d47805f05afcfb7b0c2b47",
+      "bytes": 45247
+    },
+    "integration/mobile-main-integracao-concluida-default.png": {
+      "sha256": "09b778d0e9cde446b759117cbf3439844a32611a9838cbcc5130100e28227864",
+      "bytes": 34339
+    },
+    "integration/mobile-main-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "36f1dc2672277f53b5793cc0c2b3fedf66b6e899a12fd2ee407feaf649de04db",
+      "bytes": 33878
+    },
+    "integration/mobile-main-integracao-detalhes-cartao.png": {
+      "sha256": "dfd884de15a44845a8c0891143e61d5f6861086e5b351293f101a5c62c67888c",
+      "bytes": 45096
+    },
+    "integration/mobile-main-integracao-erro-e-suporte.png": {
+      "sha256": "47e48569b32eb2e38a602a2ed6f427a11f8c80c27a328a9ee4c53ccc86810778",
+      "bytes": 119341
+    },
+    "integration/mobile-main-integracao-erro-gravacao.png": {
+      "sha256": "465a24b9a16c85246e4542f55be5aa25e6c1993912ffd444cbadee05c7369a17",
+      "bytes": 41657
+    },
+    "integration/mobile-main-integracao-fetch-error.png": {
+      "sha256": "ee20862f1ec7576c66eff37a0e8bac3f98251d98791a215d0e76d619d6366b5e",
+      "bytes": 43798
+    },
+    "integration/mobile-main-integracao-janela-simulada.png": {
+      "sha256": "b47f68ee070388fb260788abab48643319ba9bb128492a170c11fe65abf04322",
+      "bytes": 114411
+    },
+    "integration/mobile-main-integracao-legacy-connection.png": {
+      "sha256": "fa97e7ae44ea208db4bc26a5dd03a9b8bca956c83ce27e9d57d5362c6c4be7d0",
+      "bytes": 44211
+    },
+    "integration/mobile-main-integracao-limite-basic.png": {
+      "sha256": "0f03c804d1ff30f89beaaef265e1b3aa119d95e73ec07886cd75bb010ed69213",
+      "bytes": 60051
+    },
+    "integration/mobile-main-integracao-limite-extra.png": {
+      "sha256": "367d2973a13615aeb15cf0de82cba12c8b5eafbb492bd3273f55aa3b4ee5bf78",
+      "bytes": 58003
+    },
+    "integration/mobile-main-integracao-muitas-linhas.png": {
+      "sha256": "304933c94429320958bcfe90924fec984c469bf3fc40c6583995191d4a06f4c3",
+      "bytes": 56178
+    },
+    "integration/mobile-main-integracao-periodo-personalizado.png": {
+      "sha256": "890df3ab0bb294a5a3676b3025b0b8911b3289c48030b9abb9e1fdd900004ea5",
+      "bytes": 62344
+    },
+    "integration/mobile-main-integracao-periodo.png": {
+      "sha256": "e5c370dfff49a61ef185771170969991074b000e98bb40ac612f6ef87aaf2327",
+      "bytes": 62716
+    },
+    "integration/mobile-main-integracao-retorno.png": {
+      "sha256": "c260ad8375041f663bcb9ecec3c8ab7ddf2ad5b175f5b1ca6e7f0b0a088f7592",
+      "bytes": 120009
+    },
+    "integration/mobile-main-integracao-revisao-ajustada.png": {
+      "sha256": "87dc9916b1e722a4a6e7bc3dffcf14d1228c31fc0beeea170680a71d5e7faa8c",
+      "bytes": 66290
+    },
+    "integration/mobile-main-integracao-revisao.png": {
+      "sha256": "49b97f0505b59d111a891a04f0e312ccc7d08ac6df4b231b5d56fd1b5c417444",
+      "bytes": 66662
+    },
+    "integration/mobile-main-integracao-salvando.png": {
+      "sha256": "cf5c2a1499d461960b582215464639b1dd9a85b2861e6bec4f1770cb5b3cc549",
+      "bytes": 34568
+    },
+    "integration/mobile-main-integracao-selecao-vazia.png": {
+      "sha256": "1df8ee2ddd49cb95f51540ac634051c566a94b1d0aa60b903d39dc33a1e54ae9",
+      "bytes": 50159
+    },
+    "integration/mobile-main-integracao-sem-novos.png": {
+      "sha256": "5312c17b9d10a731c068baeb3a94f01df771c44c2f0e8978672dd00785965c59",
+      "bytes": 25382
+    },
+    "integration/mobile-reviewed-conexoes-carregadas.png": {
+      "sha256": "c260ad8375041f663bcb9ecec3c8ab7ddf2ad5b175f5b1ca6e7f0b0a088f7592",
+      "bytes": 120009
+    },
+    "integration/mobile-reviewed-conexoes-carregando.png": {
+      "sha256": "9ea5476b2b04a13c5e8cd6779919f11e38bc0846f35747f3e4048be85db40e2e",
+      "bytes": 109561
+    },
+    "integration/mobile-reviewed-consentimento-carregando.png": {
+      "sha256": "df1be2f045629e93c75efb020e1db23cfa8909f8e347fd96eab1524ee30daba9",
+      "bytes": 59673
+    },
+    "integration/mobile-reviewed-consentimento-cpf-invalido.png": {
+      "sha256": "124820007b972fa8c7ca7a2179c8789ab541e41f8cd348318d45af3d31c7f95f",
+      "bytes": 60334
+    },
+    "integration/mobile-reviewed-consentimento-erro.png": {
+      "sha256": "9feeef49981e9bc88782397918352f3303a0ffe63679ecf7457745e246c0b669",
+      "bytes": 62117
+    },
+    "integration/mobile-reviewed-consentimento-preenchido.png": {
+      "sha256": "9e981bc0f6668d2012fc973ee47dcd9085d874fa4cec0bd841a3a9b9acb95855",
+      "bytes": 61343
+    },
+    "integration/mobile-reviewed-consentimento-vazio-desabilitado.png": {
+      "sha256": "c4b569bb81d23c587df3cc2cc6ad0cb642857adaf85138249247103da4993207",
+      "bytes": 59273
+    },
+    "integration/mobile-reviewed-integracao-buscando.png": {
+      "sha256": "ed932bc00d53c425e983765f80a9dd2e10a41e1697d47805f05afcfb7b0c2b47",
+      "bytes": 45247
+    },
+    "integration/mobile-reviewed-integracao-concluida-default.png": {
+      "sha256": "09b778d0e9cde446b759117cbf3439844a32611a9838cbcc5130100e28227864",
+      "bytes": 34339
+    },
+    "integration/mobile-reviewed-integracao-concluida-integration-persist-loading.png": {
+      "sha256": "36f1dc2672277f53b5793cc0c2b3fedf66b6e899a12fd2ee407feaf649de04db",
+      "bytes": 33878
+    },
+    "integration/mobile-reviewed-integracao-detalhes-cartao.png": {
+      "sha256": "dfd884de15a44845a8c0891143e61d5f6861086e5b351293f101a5c62c67888c",
+      "bytes": 45096
+    },
+    "integration/mobile-reviewed-integracao-erro-e-suporte.png": {
+      "sha256": "47e48569b32eb2e38a602a2ed6f427a11f8c80c27a328a9ee4c53ccc86810778",
+      "bytes": 119341
+    },
+    "integration/mobile-reviewed-integracao-erro-gravacao.png": {
+      "sha256": "465a24b9a16c85246e4542f55be5aa25e6c1993912ffd444cbadee05c7369a17",
+      "bytes": 41657
+    },
+    "integration/mobile-reviewed-integracao-fetch-error.png": {
+      "sha256": "ee20862f1ec7576c66eff37a0e8bac3f98251d98791a215d0e76d619d6366b5e",
+      "bytes": 43798
+    },
+    "integration/mobile-reviewed-integracao-janela-simulada.png": {
+      "sha256": "b47f68ee070388fb260788abab48643319ba9bb128492a170c11fe65abf04322",
+      "bytes": 114411
+    },
+    "integration/mobile-reviewed-integracao-legacy-connection.png": {
+      "sha256": "fa97e7ae44ea208db4bc26a5dd03a9b8bca956c83ce27e9d57d5362c6c4be7d0",
+      "bytes": 44211
+    },
+    "integration/mobile-reviewed-integracao-limite-basic.png": {
+      "sha256": "0f03c804d1ff30f89beaaef265e1b3aa119d95e73ec07886cd75bb010ed69213",
+      "bytes": 60051
+    },
+    "integration/mobile-reviewed-integracao-limite-extra.png": {
+      "sha256": "367d2973a13615aeb15cf0de82cba12c8b5eafbb492bd3273f55aa3b4ee5bf78",
+      "bytes": 58003
+    },
+    "integration/mobile-reviewed-integracao-muitas-linhas.png": {
+      "sha256": "304933c94429320958bcfe90924fec984c469bf3fc40c6583995191d4a06f4c3",
+      "bytes": 56178
+    },
+    "integration/mobile-reviewed-integracao-periodo-personalizado.png": {
+      "sha256": "890df3ab0bb294a5a3676b3025b0b8911b3289c48030b9abb9e1fdd900004ea5",
+      "bytes": 62344
+    },
+    "integration/mobile-reviewed-integracao-periodo.png": {
+      "sha256": "e5c370dfff49a61ef185771170969991074b000e98bb40ac612f6ef87aaf2327",
+      "bytes": 62716
+    },
+    "integration/mobile-reviewed-integracao-retorno.png": {
+      "sha256": "c260ad8375041f663bcb9ecec3c8ab7ddf2ad5b175f5b1ca6e7f0b0a088f7592",
+      "bytes": 120009
+    },
+    "integration/mobile-reviewed-integracao-revisao-ajustada.png": {
+      "sha256": "87dc9916b1e722a4a6e7bc3dffcf14d1228c31fc0beeea170680a71d5e7faa8c",
+      "bytes": 66290
+    },
+    "integration/mobile-reviewed-integracao-revisao.png": {
+      "sha256": "49b97f0505b59d111a891a04f0e312ccc7d08ac6df4b231b5d56fd1b5c417444",
+      "bytes": 66662
+    },
+    "integration/mobile-reviewed-integracao-salvando.png": {
+      "sha256": "cf5c2a1499d461960b582215464639b1dd9a85b2861e6bec4f1770cb5b3cc549",
+      "bytes": 34568
+    },
+    "integration/mobile-reviewed-integracao-selecao-vazia.png": {
+      "sha256": "1df8ee2ddd49cb95f51540ac634051c566a94b1d0aa60b903d39dc33a1e54ae9",
+      "bytes": 50159
+    },
+    "integration/mobile-reviewed-integracao-sem-novos.png": {
+      "sha256": "5312c17b9d10a731c068baeb3a94f01df771c44c2f0e8978672dd00785965c59",
+      "bytes": 25382
+    },
+    "integration/validation.json": {
+      "sha256": "01b61dcc309f7db6dfcf3ea6af166c5e244ac8a42c193c92c00fb4dfca1b3342",
+      "bytes": 115253
+    },
+    "print/import-hidden-error-dark.pdf": {
+      "sha256": "1dda3cc17afc564b2a7c76f9432e5e8b88bd904fca24abb6ef1824006d21ce67",
+      "bytes": 252828
+    },
+    "print/import-hidden-error-light-page-1.png": {
+      "sha256": "75892346de618582ac7fd58690c659ac629622683621cb459e2304c0c169f378",
+      "bytes": 6234
+    },
+    "print/import-hidden-error-light-page-2.png": {
+      "sha256": "cf8ddc075c607e834013985fa429812692d1c34497fcd7ffa4a94310fd83f502",
+      "bytes": 20958
+    },
+    "print/import-hidden-error-light.pdf": {
+      "sha256": "a1df9faf77481dc996ded3585ccb68fbc4ca1cc05f511a15ee8b2181c708b139",
+      "bytes": 252828
+    },
+    "print/import-hidden-error-main-page-1.png": {
+      "sha256": "75892346de618582ac7fd58690c659ac629622683621cb459e2304c0c169f378",
+      "bytes": 6234
+    },
+    "print/import-hidden-error-main-page-2.png": {
+      "sha256": "cf8ddc075c607e834013985fa429812692d1c34497fcd7ffa4a94310fd83f502",
+      "bytes": 20958
+    },
+    "print/import-hidden-error-main.pdf": {
+      "sha256": "49002db33a7dda5861aeaf268486597179ff178e52dffc93bfee884b875b330c",
+      "bytes": 252828
+    },
+    "print/import-hidden-error-reviewed.pdf": {
+      "sha256": "96e53492951dc4d7121e810731c5c89bb8c56435899e595ecde11966d157e3d2",
+      "bytes": 252828
+    },
+    "print/import-history-dark.pdf": {
+      "sha256": "a231b0391daa62230b3b2b837f7029b3394462599d5bbf366d5b4ecfaec555b2",
+      "bytes": 2611032
+    },
+    "print/import-history-light-page-1.png": {
+      "sha256": "e450e6cdc9705084188b99ed3e01af608a998c665a827a17c3eb2daba16c74aa",
+      "bytes": 38197
+    },
+    "print/import-history-light-page-10.png": {
+      "sha256": "ea076098450439f76a591ecee5638396dfe178cedf651068b7c0b93843bc559b",
+      "bytes": 26150
+    },
+    "print/import-history-light-page-11.png": {
+      "sha256": "7bee64bc6f9b29421a7bb170ce717b307973f5018bddf6ae5f4d486c47c9cf8a",
+      "bytes": 27631
+    },
+    "print/import-history-light-page-12.png": {
+      "sha256": "8fc26665b311392895535fc7c0c76c3696924ffded823f2d64abd8caaf7e7645",
+      "bytes": 4226
+    },
+    "print/import-history-light-page-2.png": {
+      "sha256": "e628ff5eaf85777420e236e49b7ad34fe8ba2e0305f3dfa55a7a62d528e40a8c",
+      "bytes": 42740
+    },
+    "print/import-history-light-page-3.png": {
+      "sha256": "0af2258df3e17603d6d8c9f183f27d59ac6c04f27488ea0e0e95af4b29d411b2",
+      "bytes": 42710
+    },
+    "print/import-history-light-page-4.png": {
+      "sha256": "6c3fccdd4f45ee1a7d383b63491dad8ad89a40abff3fb21fd6b2987ecfca51aa",
+      "bytes": 42156
+    },
+    "print/import-history-light-page-5.png": {
+      "sha256": "112213ac18604511c9cde07d032cfe82373afc070c424ca06feb30f091fc6caf",
+      "bytes": 42307
+    },
+    "print/import-history-light-page-6.png": {
+      "sha256": "f784d73979aedaf32313ce9874996405b4df7d72053bd68ed4f9c1a44ec81bd1",
+      "bytes": 42772
+    },
+    "print/import-history-light-page-7.png": {
+      "sha256": "fdb246daf25f9b588b8ae1eb2bb49039ae97aea3ae2053f70f652bb4b7968c71",
+      "bytes": 35239
+    },
+    "print/import-history-light-page-8.png": {
+      "sha256": "3a649b7da02afe0934b334a53f58d8a560845881aff0686a6fe14cb890612c78",
+      "bytes": 29734
+    },
+    "print/import-history-light-page-9.png": {
+      "sha256": "1b8ec3ce4dfe25f6858bd624c037f45101f762e16ed968e18c1af2a5b5fa55ca",
+      "bytes": 29274
+    },
+    "print/import-history-light.pdf": {
+      "sha256": "7d15e858d1dd4a2c073bd841ea0bc04fa2ff8499754ff70eab834c20a2bb256a",
+      "bytes": 2611032
+    },
+    "print/import-history-main-page-1.png": {
+      "sha256": "e450e6cdc9705084188b99ed3e01af608a998c665a827a17c3eb2daba16c74aa",
+      "bytes": 38197
+    },
+    "print/import-history-main-page-10.png": {
+      "sha256": "ea076098450439f76a591ecee5638396dfe178cedf651068b7c0b93843bc559b",
+      "bytes": 26150
+    },
+    "print/import-history-main-page-11.png": {
+      "sha256": "7bee64bc6f9b29421a7bb170ce717b307973f5018bddf6ae5f4d486c47c9cf8a",
+      "bytes": 27631
+    },
+    "print/import-history-main-page-12.png": {
+      "sha256": "8fc26665b311392895535fc7c0c76c3696924ffded823f2d64abd8caaf7e7645",
+      "bytes": 4226
+    },
+    "print/import-history-main-page-2.png": {
+      "sha256": "e628ff5eaf85777420e236e49b7ad34fe8ba2e0305f3dfa55a7a62d528e40a8c",
+      "bytes": 42740
+    },
+    "print/import-history-main-page-3.png": {
+      "sha256": "0af2258df3e17603d6d8c9f183f27d59ac6c04f27488ea0e0e95af4b29d411b2",
+      "bytes": 42710
+    },
+    "print/import-history-main-page-4.png": {
+      "sha256": "6c3fccdd4f45ee1a7d383b63491dad8ad89a40abff3fb21fd6b2987ecfca51aa",
+      "bytes": 42156
+    },
+    "print/import-history-main-page-5.png": {
+      "sha256": "112213ac18604511c9cde07d032cfe82373afc070c424ca06feb30f091fc6caf",
+      "bytes": 42307
+    },
+    "print/import-history-main-page-6.png": {
+      "sha256": "f784d73979aedaf32313ce9874996405b4df7d72053bd68ed4f9c1a44ec81bd1",
+      "bytes": 42772
+    },
+    "print/import-history-main-page-7.png": {
+      "sha256": "fdb246daf25f9b588b8ae1eb2bb49039ae97aea3ae2053f70f652bb4b7968c71",
+      "bytes": 35239
+    },
+    "print/import-history-main-page-8.png": {
+      "sha256": "3a649b7da02afe0934b334a53f58d8a560845881aff0686a6fe14cb890612c78",
+      "bytes": 29734
+    },
+    "print/import-history-main-page-9.png": {
+      "sha256": "1b8ec3ce4dfe25f6858bd624c037f45101f762e16ed968e18c1af2a5b5fa55ca",
+      "bytes": 29274
+    },
+    "print/import-history-main.pdf": {
+      "sha256": "192001166630b916dcda714b664db598ee6637789d2284abaf129da8acf22c27",
+      "bytes": 2611032
+    },
+    "print/import-history-reviewed.pdf": {
+      "sha256": "a340985e2a9bc44546b903367ecc64072d3231a4abd683343505448aa17fb395",
+      "bytes": 2611032
+    },
+    "print/import-mapping-dark.pdf": {
+      "sha256": "eec3f86c9361a643d0fc3082cf78983d9e5daf6ccc06ed992d5d147673b2f008",
+      "bytes": 475249
+    },
+    "print/import-mapping-light-page-1.png": {
+      "sha256": "75892346de618582ac7fd58690c659ac629622683621cb459e2304c0c169f378",
+      "bytes": 6234
+    },
+    "print/import-mapping-light-page-2.png": {
+      "sha256": "c08684b0cc805e89db4c753f8c855f04337f7b00a11cc912eb9a0575afe84d6b",
+      "bytes": 33741
+    },
+    "print/import-mapping-light-page-3.png": {
+      "sha256": "6893b974327fc4f1b1349ca82c39ade082299b6bd9118e6a374b62a5b22a43a2",
+      "bytes": 15249
+    },
+    "print/import-mapping-light.pdf": {
+      "sha256": "ca716360697749a21d7c5ab060aba6e6c3a29727f7345682e2a32d15919db734",
+      "bytes": 475249
+    },
+    "print/import-mapping-main-page-1.png": {
+      "sha256": "75892346de618582ac7fd58690c659ac629622683621cb459e2304c0c169f378",
+      "bytes": 6234
+    },
+    "print/import-mapping-main-page-2.png": {
+      "sha256": "c08684b0cc805e89db4c753f8c855f04337f7b00a11cc912eb9a0575afe84d6b",
+      "bytes": 33741
+    },
+    "print/import-mapping-main-page-3.png": {
+      "sha256": "6893b974327fc4f1b1349ca82c39ade082299b6bd9118e6a374b62a5b22a43a2",
+      "bytes": 15249
+    },
+    "print/import-mapping-main.pdf": {
+      "sha256": "14436206b6308a07b2dcce0e31495f39294ca5487a258f2aff3e8ca7c4b9bdf1",
+      "bytes": 475249
+    },
+    "print/import-mapping-reviewed.pdf": {
+      "sha256": "bff30d7fbfa2ec09206e3362c436ef3a8ce63a49bdbe57ebb9a5366d13fbcb63",
+      "bytes": 475249
+    },
+    "print/validation.json": {
+      "sha256": "160838994b18923e2f9bc408572c5cae76bacddf4ad468d3b869040c42f77f02",
+      "bytes": 15964
+    },
+    "sources/scripts/diagnostics/import-preview-runtime.tsx": {
+      "sha256": "2f0ad6d987a1cc04be961f4a390fdb39fa1dd97f382b5d8cb7930c2f063d453e",
+      "bytes": 17105
+    },
+    "sources/scripts/diagnostics/import-preview.html": {
+      "sha256": "9e247408057fd7e17955ba25391284fbb1da8fca80eeefcf1dd459485e992d51",
+      "bytes": 626
+    },
+    "sources/scripts/diagnostics/import-preview.tsx": {
+      "sha256": "b6e7823f79df98d53886f3b5b34530f8713d582f51c2498f89322c242530d418",
+      "bytes": 1835
+    },
+    "sources/scripts/diagnostics/import_visual_checks.py": {
+      "sha256": "d412ff3c0344b16b51c71d8be951a027cab77a8257a0a7b4a17b3aec66f02aa4",
+      "bytes": 5786
+    },
+    "sources/scripts/diagnostics/prepare-financial-baseline.py": {
+      "sha256": "0588f5116d5bbf81cd40bd4a49681db7ad4cd73e1280f00da94ace4a3f087afc",
+      "bytes": 2404
+    },
+    "sources/scripts/diagnostics/serve-import-preview.ps1": {
+      "sha256": "bc1c698a17a82cf2195f95b9f8e63e6d2f0f9b4997ca2f0c35715afa173956e9",
+      "bytes": 1132
+    },
+    "sources/scripts/diagnostics/validate-import-print.py": {
+      "sha256": "e5a6fb3fa9a66e392f321e8ecdb1e1608cdd32c4316b0d17b5a2521ff4fae2b8",
+      "bytes": 4619
+    },
+    "sources/scripts/diagnostics/validate-import-themes.py": {
+      "sha256": "b473ee5b7577e7c80d678433a1474e5a78a2fe21eaa9a59060f96c3707328136",
+      "bytes": 53967
+    },
+    "sources/src/components/appearance/financial.css": {
+      "sha256": "dd044c50a0294e16ee0baee33b1a305f3cbc06926e59f41ba76d6958c71daf14",
+      "bytes": 10149
+    },
+    "sources/src/components/imports/ImportFeedback.tsx": {
+      "sha256": "c38bc8eae38691e4b870c7cd68779d1681b6fbfaa0ae8a15943c8f0f4426b312",
+      "bytes": 1037
+    },
+    "sources/src/components/modals/ImportDetailsModal.tsx": {
+      "sha256": "2eb1cff34bd10ec533d90f2ed4b0b9ad0311264b88011fecd46bafdf4eedeb96",
+      "bytes": 15440
+    },
+    "sources/src/components/modals/OpenFinanceReviewModal.tsx": {
+      "sha256": "64f6afdb4edaa83b164d0bc3abd0c9f4cde516f74dee566aab84911f404f0b91",
+      "bytes": 28895
+    },
+    "sources/src/components/modals/SaveConfigModal.tsx": {
+      "sha256": "0cd25094c0c282d50198ad7b78b7c90bd56be098e4bf26e132b731b8f0edc295",
+      "bytes": 4313
+    },
+    "sources/src/components/onboarding/ImportSuccessPanel.tsx": {
+      "sha256": "2651e4bc042a22f9344ae4c9d678608bb85fc40888533deb956995aa46d63f0a",
+      "bytes": 2580
+    },
+    "sources/src/components/views/ImportView.tsx": {
+      "sha256": "87f0d799142edf60137aa3810bdc8f547c585222dd3991f21e986ab0db1adc48",
+      "bytes": 114196
+    },
+    "sources/src/components/views/SettingsView.tsx": {
+      "sha256": "f74a2a6c7c6b5ec5e1a0f1c037a282897346ce3c3d484fe8ab51534fed2067fd",
+      "bytes": 113996
+    },
+    "sources/src/services/tourService.ts": {
+      "sha256": "d57915e8728cf5169f96cdf1b118ea5b3a47444d8e079d0e2ea3782efe2ccecb",
+      "bytes": 10485
+    },
+    "sources/tests/appearance/financialPresentationFingerprint.ts": {
+      "sha256": "8dadbe0c7e32e2acd7bb3ec38ad6aec0ca2e862b88e581320580e30fa558a716",
+      "bytes": 1588
+    },
+    "sources/tests/appearance/import-files.json": {
+      "sha256": "efd4c2601d3e7ce114d2aade5dee02cdc6ec608dabe05110d23ee328196a638b",
+      "bytes": 1223
+    },
+    "sources/tests/appearance/import-presentation-baseline.json": {
+      "sha256": "5bb6d44769cc138dbad653f40749ba88a5de6ac366416b5f2f39c1b215c1a195",
+      "bytes": 2281
+    },
+    "sources/tests/appearance/importFeedback.spec.ts": {
+      "sha256": "e7ea7b9c02a5483574aa39ef30fbd9843a58e82a636c2436b561d73880dc3c13",
+      "bytes": 2117
+    },
+    "sources/tests/appearance/importPresentation.spec.ts": {
+      "sha256": "c9517b3738dccd42bbf05dccb9f61d73a768d5c0812fc894a2a0b291a8eeedc4",
+      "bytes": 993
+    },
+    "summary.json": {
+      "sha256": "f8ebbc548ae529b081f3844e5fdbb713d5e7e922fe9cb51d0af6514a79da1132",
+      "bytes": 2090
+    }
+  }
+}

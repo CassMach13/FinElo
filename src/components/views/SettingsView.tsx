@@ -1,5 +1,6 @@
 ﻿
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import '../appearance/financial.css';
 import Card from '../ui/Card';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
@@ -592,8 +593,8 @@ const SettingsView: React.FC = () => {
                         data={importConfigs} headers={['Fonte', 'Tipo']}
                         renderRow={(item: ImportConfig) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
                             </>
                         )}
                         onAdd={openNewImportConfigModal}
@@ -682,21 +683,21 @@ const SettingsView: React.FC = () => {
                             const alerts = buildImportLogAlerts(item, importAlertContext);
                             return (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-300 font-medium">
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-xs text-gray-300 font-medium">
                                     {importLogAccountLabelMap.get(item.id) || 'Não associada'}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
+                                <td data-finance="positive" className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
+                                <td data-finance="negative" className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
                                 <td className="px-4 py-3 align-top text-center">
                                     {alerts.badges.length === 0 ? (
-                                        <span className="text-sm text-slate-500" title="Nenhum alerta detectado por heurística">—</span>
+                                        <span data-finance="muted" className="text-sm text-slate-500" title="Nenhum alerta detectado por heurística">—</span>
                                     ) : (
                                         <div className="flex flex-wrap gap-1 justify-center max-w-[240px] mx-auto">
                                             {alerts.badges.map((b, i) => (
-                                                <span
+                                                <span data-finance={alerts.level === "error" ? "danger-chip" : "warning-chip"}
                                                     key={`${item.id}-${i}`}
                                                     title={b}
                                                     className={
@@ -756,7 +757,7 @@ const SettingsView: React.FC = () => {
                             }
                         }}
                         renderExtraActions={(item) => (
-                            <button
+                            <button data-finance="warning"
                                 className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
                                 onClick={() => openReassignModal(item)}
                                 title="Corrigir conta desta importação"
@@ -770,11 +771,11 @@ const SettingsView: React.FC = () => {
                         hideEditButton={false}
                         editLabel="Exibir"
                         footer={
-                            <div className="mt-4 border-t border-slate-700 pt-4 space-y-3">
-                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <div data-finance="divider" className="mt-4 border-t border-slate-700 pt-4 space-y-3">
+                                <p data-finance="muted" className="text-[11px] text-slate-500 leading-relaxed">
                                     O histórico de faturas do cartão é calculado pelas transações importadas. Use as ações abaixo
                                     só para corrigir metadados do histórico ou recuperar importações antigas — competências e
-                                    saldos residuais são ajustados em <span className="text-slate-400">Transações</span>.
+                                    saldos residuais são ajustados em <span data-finance="muted" className="text-slate-400">Transações</span>.
                                 </p>
                                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                                 <Button
@@ -989,9 +990,9 @@ const SettingsView: React.FC = () => {
                         data={mappingRules} headers={['Texto na Descrição', 'Nome Sugerido', 'Categoria Sugerida']}
                         renderRow={(item: MappingRule) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Texto_Contido_Descricao}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">{item.Nome_Fantasia_Sugerido}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-highlight font-semibold">{item.Categoria_Sugerida}</td>
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Texto_Contido_Descricao}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">{item.Nome_Fantasia_Sugerido}</td>
+                                <td data-finance="info" className="px-4 py-4 whitespace-nowrap text-sm text-highlight font-semibold">{item.Categoria_Sugerida}</td>
                             </>
                         )}
                         onAdd={openNewMappingRuleModal}
@@ -1000,7 +1001,7 @@ const SettingsView: React.FC = () => {
                         searchKeys={['Texto_Contido_Descricao', 'Nome_Fantasia_Sugerido', 'Categoria_Sugerida']}
                         searchPlaceholder="Buscar por texto, nome ou categoria..."
                         footer={
-                            <div className="mt-4 border-t border-slate-700 pt-4 flex gap-4">
+                            <div data-finance="divider" className="mt-4 border-t border-slate-700 pt-4 flex gap-4">
                                 <Button
                                     variant="secondary"
                                     onClick={async () => {
@@ -1341,7 +1342,7 @@ const SettingsView: React.FC = () => {
             )}
 
             {isReassignModalOpen && reassignTargetLog && (
-                <Modal
+                <Modal manageFocus
                     isOpen={isReassignModalOpen}
                     onClose={() => {
                         setIsReassignModalOpen(false);
@@ -1365,8 +1366,8 @@ const SettingsView: React.FC = () => {
                     }
                 >
                     <div className="space-y-4">
-                        <p className="text-sm text-gray-300">
-                            Arquivo: <span className="font-semibold text-white">{reassignTargetLog.file_name}</span>
+                        <p data-finance="muted" className="text-sm text-gray-300">
+                            Arquivo: <span data-finance="content" className="font-semibold text-white">{reassignTargetLog.file_name}</span>
                         </p>
                         <Select
                             label="Mover transações para a conta"
@@ -1380,7 +1381,7 @@ const SettingsView: React.FC = () => {
                                 </option>
                             ))}
                         </Select>
-                        <p className="text-xs text-gray-500">
+                        <p data-finance="muted" className="text-xs text-gray-500">
                             Esta ação atualiza em lote todas as transações com origem igual ao nome deste arquivo.
                         </p>
                     </div>
@@ -1589,7 +1590,7 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
     return (
         <Card className="flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-light">{title}</h2>
+                <h2 data-finance="content" className="text-xl font-bold text-light">{title}</h2>
                 {!hideAddButton && (
                     <Button onClick={onAdd}>Adicionar Novo</Button>
                 )}
@@ -1597,7 +1598,7 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
             {extraHeader && <div className="mb-4">{extraHeader}</div>}
             {searchKeys.length > 0 && (
                 <div className="mb-4">
-                    <Input
+                    <Input aria-label={searchPlaceholder}
                         type="text"
                         placeholder={searchPlaceholder}
                         value={searchTerm}
@@ -1615,57 +1616,57 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                             {paginatedData.map(item => {
                                 const rowEls = getRowChildren(renderRow(item));
                                 return (
-                                    <div key={item.id} className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-2 relative">
+                                    <div data-finance="inset divider" key={item.id} className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-2 relative">
                                         {headers.map((header, idx) => (
-                                            <div key={header} className="flex justify-between items-center text-sm border-b border-slate-700/30 pb-1 last:border-0 last:pb-0">
-                                                <span className="text-gray-500 font-medium text-xs">{header}</span>
-                                                <span className="text-white font-semibold text-right max-w-[60%] truncate">
+                                            <div data-finance="divider" key={header} className="flex justify-between items-center text-sm border-b border-slate-700/30 pb-1 last:border-0 last:pb-0">
+                                                <span data-finance="muted" className="text-gray-500 font-medium text-xs">{header}</span>
+                                                <span data-finance="content" className="text-white font-semibold text-right max-w-[60%] truncate">
                                                     {/* For mobile layout we extract the inner text of the td */}
                                                     {(rowEls[idx] as any)?.props?.children || String(Object.values(item)[idx + 1] || '-')}
                                                 </span>
                                             </div>
                                         ))}
-                                        <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
+                                        <div data-finance="divider" className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
                                             {renderExtraActions && renderExtraActions(item)}
                                             {!hideEditButton && (
-                                                <button className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
+                                                <button data-finance="info link" className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
                                                     {editLabel}
                                                 </button>
                                             )}
-                                            <button className="text-danger hover:text-red-400 font-semibold p-1" onClick={() => onDelete(item.id)}>
+                                            <button data-finance="negative" className="text-danger hover:text-red-400 font-semibold p-1" onClick={() => onDelete(item.id)}>
                                                 Excluir
                                             </button>
                                         </div>
                                     </div>
                                 );
                             })}
-                            {paginatedData.length === 0 && <p className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
+                            {paginatedData.length === 0 && <p data-finance="muted" className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
                         </div>
 
-                        <div className="hidden lg:block bg-primary/30 rounded-xl shadow-2xl border border-white/5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                            <table className="min-w-full divide-y divide-slate-800/50">
-                                <thead className="bg-slate-800/80 backdrop-blur-md">
+                        <div data-finance="inset divider" className="hidden lg:block bg-primary/30 rounded-xl shadow-2xl border border-white/5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                            <table data-finance="divided" className="min-w-full divide-y divide-slate-800/50">
+                                <thead data-finance="head" className="bg-slate-800/80 backdrop-blur-md">
                                     <tr>
-                                        {headers.map(header => <th key={header} scope="col" className="px-4 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">{header}</th>)}
-                                        <th scope="col" className="px-4 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ações</th>
+                                        {headers.map(header => <th data-finance="muted" key={header} scope="col" className="px-4 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">{header}</th>)}
+                                        <th data-finance="muted" scope="col" className="px-4 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800/50">
+                                <tbody data-finance="divided" className="divide-y divide-slate-800/50">
                                     {paginatedData.map(item => (
-                                        <tr key={item.id} className="hover:bg-white/5 transition-colors group">
+                                        <tr data-finance="hover" key={item.id} className="hover:bg-white/5 transition-colors group">
                                             {renderRow(item)}
                                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <div data-finance="readonly-row" className="flex justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
                                                     {renderExtraActions && renderExtraActions(item)}
                                                     {!hideEditButton && (
-                                                        <button 
+                                                        <button data-finance="info link"
                                                             className="text-highlight hover:text-white transition-colors" 
                                                             onClick={() => onEdit(item)}
                                                         >
                                                             {editLabel}
                                                         </button>
                                                     )}
-                                                    <button 
+                                                    <button data-finance="negative"
                                                         className="text-danger hover:text-white transition-colors" 
                                                         onClick={() => onDelete(item.id)}
                                                     >
@@ -1677,13 +1678,13 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                                     ))}
                                 </tbody>
                             </table>
-                            {paginatedData.length === 0 && <p className="text-center text-gray-400 py-12">Nenhum item encontrado.</p>}
+                            {paginatedData.length === 0 && <p data-finance="muted" className="text-center text-gray-400 py-12">Nenhum item encontrado.</p>}
                         </div>
                     </div>
-                    <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-400 gap-4">
+                    <div data-finance="muted" className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-400 gap-4">
                         <div className="flex flex-wrap items-center justify-center gap-2">
                             <span>Mostrar</span>
-                            <select
+                            <select data-finance="control native-select" aria-label="Itens por página"
                                 value={itemsPerPage}
                                 onChange={handleItemsPerPageChange as any}
                                 className="bg-primary/50 border border-slate-700 rounded text-white px-2 py-1 outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none pr-8 cursor-pointer"
@@ -1863,7 +1864,7 @@ const ImportConfigModal: React.FC<ImportConfigModalProps> = ({ config, onClose, 
     };
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={true}
             onClose={onClose}
             title={config ? 'Editar Configuração' : 'Nova Configuração'}
@@ -1876,8 +1877,8 @@ const ImportConfigModal: React.FC<ImportConfigModalProps> = ({ config, onClose, 
             }
         >
             <form id="import-config-form" onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-md">
-                    <p className="text-sm text-blue-200">
+                <div data-finance="info-panel divider" className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-md">
+                    <p data-finance="info" className="text-sm text-blue-200">
                         ℹ️ <strong>Dica:</strong> Para alterar o mapeamento das colunas (quais campos representam Data, Valor, etc.), faça uma nova importação na aba <strong>Importar Extrato</strong> e escolha "Atualizar Existente" ao final.
                     </p>
                 </div>
