@@ -120,7 +120,9 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
     currentBalance < 0 ? 'text-danger' : currentBalance > 0 ? 'text-accent' : 'text-light';
 
   return (
-    <div
+    <div data-finance="surface content account-card"
+      role="button" tabIndex={0}
+      onKeyDown={event => { if(event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(); } }}
       className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] active:scale-[0.99] rounded-2xl shadow-xl border-l-4 flex flex-col ${
         isCreditCard
           ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-indigo-500 shadow-indigo-500/10 p-3.5 sm:p-4 w-max max-w-full self-start'
@@ -136,8 +138,8 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
       />
 
       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-        <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-lg">
-          <svg
+        <div data-finance="inset divider" className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-lg">
+          <svg data-finance="content"
             xmlns="http://www.w3.org/2000/svg"
             className="h-4 w-4 text-white"
             fill="none"
@@ -158,7 +160,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
         {/* Cabeçalho com logo maior */}
         <div className="flex items-center gap-3 pr-8 min-w-0">
           {bankConfig?.logoUrl ? (
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-white/10 p-1.5 flex items-center justify-center border border-white/10 shadow-inner">
+            <div data-finance="inset divider" className="w-11 h-11 shrink-0 rounded-xl bg-white/10 p-1.5 flex items-center justify-center border border-white/10 shadow-inner">
               <img
                 src={bankConfig.logoUrl}
                 alt={bankConfig.name}
@@ -166,7 +168,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
               />
             </div>
           ) : account.Tipo_Conta === 'Dinheiro em Espécie' ? (
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-emerald-500/15 p-1.5 flex items-center justify-center border border-emerald-500/25 shadow-inner">
+            <div data-finance="inset divider" className="w-11 h-11 shrink-0 rounded-xl bg-emerald-500/15 p-1.5 flex items-center justify-center border border-emerald-500/25 shadow-inner">
               <img
                 src="/bank-logos/cash.svg"
                 alt="Dinheiro em espécie"
@@ -174,22 +176,22 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
               />
             </div>
           ) : (
-            <div className="w-11 h-11 shrink-0 rounded-xl bg-white/8 flex items-center justify-center text-lg border border-white/10">
+            <div data-finance="inset divider" className="w-11 h-11 shrink-0 rounded-xl bg-white/8 flex items-center justify-center text-lg border border-white/10">
               {isCreditCard ? '💳' : '🏦'}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h3
+            <h3 data-finance="content"
               className="text-white text-sm font-bold uppercase tracking-wide truncate leading-tight"
               title={account.Nome_Conta}
             >
               {account.Nome_Conta}
             </h3>
-            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block truncate">
+            <span data-finance="muted" className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block truncate">
               {account.Tipo_Conta}
             </span>
             {ownerLabel ? (
-              <span
+              <span data-finance="muted"
                 className="text-[10px] text-slate-400 font-semibold normal-case tracking-normal block truncate mt-0.5"
                 title={`Conta de ${ownerLabel}`}
               >
@@ -205,20 +207,20 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
               <>
                 {awaitingMotorSnapshotUi ? (
                   <div className="space-y-2 w-full" aria-busy="true" aria-live="polite">
-                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
-                      <div className="h-full w-[32%] rounded-full bg-slate-600/40 animate-pulse" />
+                    <div data-finance="line" className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                      <div data-finance="line" className="h-full w-[32%] rounded-full bg-slate-600/40 animate-pulse" />
                     </div>
-                    <div className="h-8 rounded-lg bg-white/5 animate-pulse" />
-                    <p className="text-[9px] text-slate-500 text-center">Carregando limite e fatura…</p>
+                    <div data-finance="line" className="h-8 rounded-lg bg-white/5 animate-pulse" />
+                    <p data-finance="muted" className="text-[9px] text-slate-500 text-center">Carregando limite e fatura…</p>
                   </div>
                 ) : (
                   <>
                     <div className="w-full min-w-0">
                       <div className="flex justify-between items-center gap-2 mb-1">
-                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide shrink-0">
+                        <span data-finance="muted" className="text-[10px] text-gray-400 uppercase font-bold tracking-wide shrink-0">
                           Uso do limite
                         </span>
-                        <span
+                        <span data-finance={limiteUsadoPct > 90 ? "negative" : "info"}
                           className={`text-[10px] font-black tabular-nums shrink-0 ${
                             limiteUsadoPct > 90 ? 'text-red-400' : 'text-indigo-300'
                           }`}
@@ -230,8 +232,9 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                           %
                         </span>
                       </div>
-                      <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                      <div data-finance="line" className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
                         <div
+                          data-finance={limiteUsadoPct > 90 ? "negative-line" : limiteUsadoPct > 70 ? "warning-line" : "positive-line"}
                           className={`h-full max-w-full rounded-full transition-all duration-700 ${barColor}`}
                           style={{ width: `${limiteUsadoPct}%` }}
                         />
@@ -241,31 +244,31 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     {/* Valores e ações numa faixa que quebra linha sozinha. Antes era uma
                         linha só, sem quebra: com vários selos o conteúdo passava da largura
                         do card e era cortado, junto com «Histórico» e «Pagar». */}
-                    <div className="rounded-lg bg-white/[0.06] border border-white/8 px-2 py-1 w-fit max-w-full">
+                    <div data-finance="inset divider" className="rounded-lg bg-white/[0.06] border border-white/8 px-2 py-1 w-fit max-w-full">
                       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
                         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                           <div className="flex flex-col gap-px shrink-0">
-                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap">
+                            <p data-finance="muted" className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap">
                               Disponível
                             </p>
-                            <p className="text-sm sm:text-[15px] font-black text-emerald-400 tabular-nums leading-none whitespace-nowrap">
+                            <p data-finance="positive" className="text-sm sm:text-[15px] font-black text-emerald-400 tabular-nums leading-none whitespace-nowrap">
                               {formatCurrency(limiteDisponivel)}
                             </p>
                           </div>
-                          <div className="w-px h-8 bg-white/10 shrink-0" aria-hidden />
+                          <div data-finance="line" className="w-px h-8 bg-white/10 shrink-0" aria-hidden />
                           <div className="flex flex-col gap-px shrink-0">
-                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
+                            <p data-finance="muted" className="text-[10px] text-slate-400 uppercase font-bold tracking-wide leading-none whitespace-nowrap flex items-center gap-1">
                               {faturaTitulo}
                               {/* O selo de vencida vem primeiro: e o estado principal. O de
                                   conciliacao vem depois, na area de status, como informacao
                                   secundaria. Sao dimensoes diferentes, e uma nao substitui a outra. */}
                               {faturaVencida && (
-                                <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                                <span data-finance="danger-chip" className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
                                   VENCIDA
                                 </span>
                               )}
                             </p>
-                            <p className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
+                            <p data-finance="negative" className="text-sm sm:text-[15px] font-black text-rose-400 tabular-nums leading-none whitespace-nowrap">
                               {formatCurrency(faturaAtual)}
                             </p>
                           </div>
@@ -273,7 +276,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         {(onOpenHistory || (faturaAtual > 0 && onPayInvoice)) && (
                           <div className="flex items-center gap-1 shrink-0">
                             {onOpenHistory && (
-                              <button
+                              <button data-finance="info-chip hover"
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -285,7 +288,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                               </button>
                             )}
                             {faturaAtual > 0 && onPayInvoice && (
-                              <button
+                              <button data-finance="success-chip hover"
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -305,7 +308,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       /* Fatura vencida: mostra o vencimento real dela, sem contagem
                          regressiva do ciclo seguinte, que descreveria outra fatura. */
                       <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                        <span
+                        <span data-finance="danger-chip"
                           className="text-rose-300 font-bold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-400/30 whitespace-nowrap"
                           title={`Venceu em ${isoParaDiaMes(faturaDueDateIso)}`}
                         >
@@ -316,12 +319,12 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                       (diaFecha > 0 || diaVence > 0) && (
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           {diaFecha > 0 && (
-                            <span className="text-amber-400/90 font-medium whitespace-nowrap">
+                            <span data-finance="warning" className="text-amber-400/90 font-medium whitespace-nowrap">
                               Fecha {diasParaFechar}d · dia {diaFecha}
                             </span>
                           )}
                           {diaVence > 0 && (
-                            <span
+                            <span data-finance="info-chip hover"
                               className="text-cyan-300/95 font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-400/20 whitespace-nowrap"
                               title={
                                 faturaDueDateIso
@@ -340,7 +343,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         linha quando precisa e some quando não há nada a mostrar. */}
                     <div className="flex flex-wrap items-center gap-1 empty:hidden">
                       {reconciliacaoPendente && (
-                        <span
+                        <span data-finance="warning-chip"
                           title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
                           className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal whitespace-nowrap"
                         >
@@ -348,7 +351,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         </span>
                       )}
                       {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
-                        <button
+                        <button data-finance="warning-chip hover"
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -360,7 +363,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                         </button>
                       )}
                       {diagnostico && onOpenDiagnostics && (
-                        <button
+                        <button data-finance={diagnostico.total === 0 ? "muted hover" : diagnostico.precisaAtencao ? "warning-chip hover" : "inset divider content hover"}
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -388,21 +391,21 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
               </>
             ) : (
               <div className="flex flex-col items-end gap-2">
-                <span className="text-xl font-black text-rose-400 tabular-nums">
+                <span data-finance="negative" className="text-xl font-black text-rose-400 tabular-nums">
                   {formatCurrency(faturaAtual)}
                 </span>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex flex-wrap items-center justify-end gap-1.5">
+                <p data-finance="muted" className="text-[10px] text-gray-500 uppercase tracking-widest font-bold flex flex-wrap items-center justify-end gap-1.5">
                   {faturaTitulo}
                   {/* O selo de vencida vem primeiro: e o estado principal. O de
                       conciliacao vem depois, como informacao secundaria. Sao dimensoes
                       diferentes, e uma nao substitui a outra. */}
                   {faturaVencida && (
-                    <span className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
+                    <span data-finance="danger-chip" className="text-[9px] font-black px-1 py-px rounded bg-rose-500/20 text-rose-300 border border-rose-400/40 tracking-normal">
                       VENCIDA
                     </span>
                   )}
                   {reconciliacaoPendente && (
-                    <span
+                    <span data-finance="warning-chip"
                       title="Há diferença entre o extrato e os pagamentos ainda não conciliada. Não é dívida nem crédito."
                       className="text-[9px] font-semibold px-1 py-px rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 tracking-normal"
                     >
@@ -410,7 +413,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     </span>
                   )}
                   {(reconciliacaoPendente || reconciliacaoResolvida) && reconciliacaoReferenceMonth && onOpenReconciliation && (
-                    <button
+                    <button data-finance="warning-chip hover"
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -423,7 +426,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                   )}
                 </p>
                 {diagnostico && onOpenDiagnostics && (
-                  <button
+                  <button data-finance={diagnostico.total === 0 ? "muted hover" : diagnostico.precisaAtencao ? "warning-chip hover" : "inset divider content hover"}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -446,7 +449,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                   </button>
                 )}
                 <div className="flex flex-wrap gap-2 w-full mt-1 justify-end">
-                  <button
+                  <button data-finance="info-chip hover"
                     type="button"
                     className="py-1.5 px-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg text-[10px] font-black uppercase transition-colors"
                     onClick={(e) => {
@@ -457,7 +460,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     Configurar limite
                   </button>
                   {onOpenHistory && (
-                    <button
+                    <button data-finance="info-chip hover"
                       type="button"
                       className="py-1.5 px-3 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 rounded-lg text-[10px] font-black uppercase transition-colors"
                       onClick={(e) => {
@@ -469,7 +472,7 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
                     </button>
                   )}
                   {faturaAtual > 0 && onPayInvoice && (
-                    <button
+                    <button data-finance="success-chip hover"
                       type="button"
                       className="py-1.5 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-black uppercase transition-colors"
                       onClick={(e) => {
@@ -486,10 +489,10 @@ const AccountBalanceCard: React.FC<AccountBalanceCardProps> = ({
           </div>
         ) : (
           <div className="mt-auto flex flex-col items-end pt-1">
-            <span className={`text-xl sm:text-2xl font-black tracking-tight tabular-nums ${balanceColor}`}>
+            <span data-finance={currentBalance < 0 ? "negative" : currentBalance > 0 ? "positive" : "content"} className={`text-xl sm:text-2xl font-black tracking-tight tabular-nums ${balanceColor}`}>
               {formatCurrency(currentBalance)}
             </span>
-            <p className="text-[10px] text-gray-500 uppercase tracking-[0.15em] font-bold mt-0.5">
+            <p data-finance="muted" className="text-[10px] text-gray-500 uppercase tracking-[0.15em] font-bold mt-0.5">
               Saldo líquido
             </p>
           </div>

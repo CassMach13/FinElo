@@ -1,0 +1,168 @@
+{
+  "base": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+  "viewports": {
+    "desktop": {
+      "parity": true,
+      "states": [
+        "hover-acao",
+        "foco-acao",
+        "hover-linha",
+        "data-nativa-foco",
+        "sem-tema"
+      ],
+      "raster_parity": {
+        "hover-acao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "foco-acao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "hover-linha": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "data-nativa-foco": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "sem-tema": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        }
+      },
+      "dark_sha256": {
+        "hover-acao": "3a7a55b5e5843b3fa8b94b6aab9b890dceb8114f50c935da6e83917832f950f4",
+        "foco-acao": "959a185e67b2c13c79ac01aeb165fab0ffcab31b72700d08312a2033862a0c5d",
+        "hover-linha": "5e8de8a7f5dbec8b198b11ae90096f6874a8b7436d6d3a1653824739bc4e25d4",
+        "data-nativa-foco": "0e2575315685093a0a0fa9be54c910945a1b8873643ea42c389e2a6239401076",
+        "sem-tema": "f9d0c28ba84b22d1205e3dd41a53a3f18610b83eaa65765829614b3b78669f71"
+      }
+    },
+    "mobile": {
+      "parity": true,
+      "states": [
+        "hover-acao",
+        "foco-acao",
+        "data-nativa-foco",
+        "sem-tema"
+      ],
+      "raster_parity": {
+        "hover-acao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "foco-acao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "data-nativa-foco": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "sem-tema": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        }
+      },
+      "dark_sha256": {
+        "hover-acao": "19a966f248e9b924e2459020f17b570912c320b277826499ae2933805e928a66",
+        "foco-acao": "accf606550fb46817075486fa3a36146e38f225342f732ebd83d09b9ed889d25",
+        "data-nativa-foco": "3d4e5a0185087fa2759a41f91b00b9cb5509bc78b35fcdf511be005ef240dff4",
+        "sem-tema": "1c2c983106deea137dd8aaa327ad8a4f572ea5051fe5f164dbda48374a45894e"
+      }
+    }
+  },
+  "contrast": {
+    "desktop-hover-acao": {
+      "samples": 615,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-foco-acao": {
+      "samples": 616,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-hover-linha": {
+      "samples": 616,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-data-nativa-foco": {
+      "samples": 32,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-hover-acao": {
+      "samples": 562,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-foco-acao": {
+      "samples": 563,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-data-nativa-foco": {
+      "samples": 32,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    }
+  },
+  "financial": {
+    "desktop": {
+      "identical_to_main": true,
+      "initial_rows": 62,
+      "created_rows": 0,
+      "payload_sha256": "74b656b93113507c71e55b44cba243ebc280d55c2841772d5e28782183d52c51"
+    },
+    "mobile": {
+      "identical_to_main": true,
+      "initial_rows": 62,
+      "created_rows": 0,
+      "payload_sha256": "74b656b93113507c71e55b44cba243ebc280d55c2841772d5e28782183d52c51"
+    }
+  },
+  "remote_requests": 0,
+  "source_sha256": {
+    "src/components/views/TransactionsView.tsx": "47b0714753632aea00888f8820506d35717c7c8d51dd777aa8589285b4d6a34b",
+    "src/components/transactions/SmartTransactionFiltersPanel.tsx": "4b1245126c5981386b266720d34d372ea9566bf1db44954f954d275a31b40631",
+    "src/components/transactions/RecurrencesPanel.tsx": "b94c1e612fc7aa5249c163c571abcde813f90a17c4322849a96c2c322bdda913",
+    "src/components/modals/NewTransactionModal.tsx": "1d272458fda9772ebbba4e5db4f7c8e6cc1b9cff3fdf00b96cb9537504d3e373",
+    "src/components/views/AccountModal.tsx": "85b199aa537e52a0210e6a17b665683c004f61c7abfbfca380f22cc7bbba5d2a",
+    "src/components/modals/CategoryModal.tsx": "65adadb842cead01f81a3b053f8e19a7204dea4f2c251616a34b23919f762e38",
+    "src/components/modals/MappingRuleModal.tsx": "b145f577613de5757fa3d9eeae847d6d898483c178a7a273bdb65cdcfb4427f0",
+    "src/components/transactions/AccountBalanceCard.tsx": "055da14853d810b6b9a3bc254f4f0ee534c1d87add302a335e16ed26c025b6d2",
+    "src/components/transactions/EconomicIdentityControls.tsx": "d48a44d01e2f3f37d8c4a9aba2016b8d74928a4a5fc5848d90fe19bd0259fd4d",
+    "src/components/ui/FamilyOwnerAuditPanel.tsx": "f373f3095fa7486a3870261e05e5ecfe4179b4c22d90c775b0fa4a157635dd5a",
+    "src/components/ui/FamilyOwnerBadge.tsx": "ebae87dedd5be5fb0d159dc106431922687dccb75df5befb4483d94c09da3d10",
+    "src/components/ui/TransactionOwnerGroupHeader.tsx": "038879b0808e5eb628812dcce262f6ec7537e9deaaf74037ebe0798c62b891bb",
+    "src/components/ui/SwipeableItem.tsx": "dc18da093cd2c5e1ccaad2a438b2667cd915600688659affbab9551ddb9df6d5",
+    "src/components/TourButton.tsx": "bbd2524458821cd255f559c6441ba02110a25407c13caf27788a363246a083f8",
+    "src/components/modals/InstallmentSuggestionModal.tsx": "5a2e55b0777b0834ae45d2c4ae7e4c1e33af1e4c150e8a50abe546d81f6728a7",
+    "src/components/ui/Input.tsx": "6b73ff5df77728c468080798b4f01ed924387283bd6c6f6909ed79dc77af1650",
+    "src/components/ui/Select.tsx": "093d2e2b191151cde2648811f6f0781d905660cdb12f0737b59dc3c0d5bae5d3",
+    "src/components/ui/Modal.tsx": "618af4974dab9948aa4a012cb72a4ad9214e591800b34832c7da7a8639767ac4",
+    "src/components/appearance/financial.css": "89a4c00251838b4cb4a3985686efe24aa3b838e1d369910ac9cbfdd6345d7996",
+    "scripts/diagnostics/financial-preview-runtime.tsx": "2b6ad23fe51bba8644cb816fe1286be8010370e026cc55aaf6f04d49b3f10d99",
+    "scripts/diagnostics/financial-preview.tsx": "726c58e57d20209f23ca9c6b36049da5e878333ea140f46e82001f50b94feaba"
+  }
+}

@@ -1,4 +1,5 @@
 import { DEFAULT_CARD_PAYMENT_KEYWORDS, DEFAULT_CARD_CREDIT_KEYWORDS } from '../../services/accountCardEconomics';
+import '../appearance/financial.css';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore, BACKGROUND_SYNC_MIN_INTERVAL_MS } from '../../hooks/useAppStore';
@@ -3291,12 +3292,12 @@ const TransactionsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold text-light">Transações</h1>
+          <h1 data-finance="content" className="text-3xl font-bold text-light">Transações</h1>
           <TourButton currentView="transactions" />
         </div>
         <div id="transactions-actions" className="flex flex-wrap gap-2 w-full sm:w-auto">
           <div className="w-40">
-            <Select value="" onChange={handleExportChange}>
+            <Select aria-label="Formato de exportação" value="" onChange={handleExportChange}>
               <option value="" disabled>Exportar...</option>
               <option value="csv">CSV</option>
               <option value="excel">Excel</option>
@@ -3309,19 +3310,19 @@ const TransactionsView: React.FC = () => {
       </div>
 
       {accountsWithMissingBank.length > 0 && (
-        <div className="bg-gradient-to-r from-highlight/20 to-accent/10 border border-highlight/30 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in mb-6">
+        <div data-finance="info-panel" className="bg-gradient-to-r from-highlight/20 to-accent/10 border border-highlight/30 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in mb-6">
           <div className="flex items-center gap-3">
-            <div className="bg-highlight/20 p-2 rounded-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-highlight" viewBox="0 0 20 20" fill="currentColor">
+            <div data-finance="info-chip" className="bg-highlight/20 p-2 rounded-lg">
+              <svg data-finance="info" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-highlight" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Identifique seus bancos</p>
-              <p className="text-xs text-gray-400">Personalize seus cards com os logos oficiais para uma visualização mais rápida.</p>
+              <p data-finance="content" className="text-sm font-semibold text-white">Identifique seus bancos</p>
+              <p data-finance="muted" className="text-xs text-gray-400">Personalize seus cards com os logos oficiais para uma visualização mais rápida.</p>
             </div>
           </div>
-          <button 
+          <button data-finance="action"
             onClick={() => {
               const firstAccount = accountsWithMissingBank[0];
               setEditingTransaction(null);
@@ -3352,7 +3353,7 @@ const TransactionsView: React.FC = () => {
           />
         ) : (
           <Card className="!overflow-visible z-40 relative !p-4 sm:!p-5">
-          <button
+          <button data-finance="hover"
             type="button"
             className="w-full flex items-center justify-between gap-3 text-left rounded-xl hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors -mx-1 px-1 py-0.5"
             onClick={toggleFiltersPanel}
@@ -3360,16 +3361,16 @@ const TransactionsView: React.FC = () => {
             aria-controls="transactions-filters-body"
           >
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white tracking-tight">Filtros</h2>
+              <h2 data-finance="content" className="text-lg font-bold text-white tracking-tight">Filtros</h2>
               {!filtersPanelExpanded ? (
-                <p className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">
+                <p data-finance="muted" className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">
                   {filtersCollapsedSummary}
                 </p>
               ) : (
-                <p className="text-[10px] text-slate-500 mt-0.5 lg:hidden">Toque para recolher</p>
+                <p data-finance="muted" className="text-[10px] text-slate-500 mt-0.5 lg:hidden">Toque para recolher</p>
               )}
             </div>
-            <span className="shrink-0 flex flex-col items-center gap-0.5 text-slate-400">
+            <span data-finance="muted" className="shrink-0 flex flex-col items-center gap-0.5 text-slate-400">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className={`h-5 w-5 transition-transform duration-200 ${filtersPanelExpanded ? 'rotate-180' : ''}`}
@@ -3392,10 +3393,10 @@ const TransactionsView: React.FC = () => {
             className={`space-y-4 ${filtersPanelExpanded ? 'mt-4 block' : 'hidden'}`}
           >
             <div className="flex flex-col gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Visualização</p>
+              <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Visualização</p>
               <div className="flex flex-wrap gap-2">
                 {(['operation', 'commitments', 'all'] as const).map((scope) => (
-                  <button
+                  <button data-finance={transactionFilters.viewScope === scope ? "secondary selected" : "secondary"}
                     key={scope}
                     type="button"
                     onClick={() => handleViewScope(scope)}
@@ -3409,18 +3410,18 @@ const TransactionsView: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p data-finance="muted" className="text-xs text-slate-300 leading-relaxed">
                 {VIEW_SCOPE_HINTS[transactionFilters.viewScope]}
               </p>
             </div>
 
             {familyOwnerContext.showAttribution ? (
               <div className="flex flex-col gap-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                   Responsável
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <button data-finance={transactionFilters.ownerUserId === "" ? "secondary selected" : "secondary"}
                     type="button"
                     onClick={() => handleOwnerFilter('')}
                     className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors border ${
@@ -3432,7 +3433,7 @@ const TransactionsView: React.FC = () => {
                     Todos
                   </button>
                   {familyOwnerContext.owners.map((owner) => (
-                    <button
+                    <button data-finance={transactionFilters.ownerUserId === owner.userId ? "secondary selected" : "secondary"}
                       key={owner.userId}
                       type="button"
                       onClick={() => handleOwnerFilter(owner.userId)}
@@ -3451,8 +3452,8 @@ const TransactionsView: React.FC = () => {
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Período</p>
-                <span className="text-xs text-slate-400 tabular-nums">{periodSummary}</span>
+                <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Período</p>
+                <span data-finance="muted" className="text-xs text-slate-400 tabular-nums">{periodSummary}</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {(
@@ -3463,7 +3464,7 @@ const TransactionsView: React.FC = () => {
                     ['all', 'Tudo'],
                   ] as const
                 ).map(([preset, label]) => (
-                  <button
+                  <button data-finance={((preset === "all" && historyViewActive) || (transactionFilters.periodPreset === preset && !historyViewActive)) ? "secondary selected" : "secondary"}
                     key={preset}
                     type="button"
                     disabled={historyViewActive && preset !== 'all'}
@@ -3493,14 +3494,14 @@ const TransactionsView: React.FC = () => {
                   <option value="Pagamento">Pagamento</option>
                 </Select>
               </div>
-              <p className="text-xs text-slate-500 pb-1 sm:pb-2">
+              <p data-finance="muted" className="text-xs text-slate-500 pb-1 sm:pb-2">
                 {transactionFilters.dateField === 'Data'
                   ? 'Padrão para acompanhar gastos do mês (ex.: cartão no ciclo aberto).'
                   : 'Útil para conferir o que saiu da conta no período.'}
               </p>
             </div>
 
-            <button
+            <button data-finance="link"
               type="button"
               className="lg:hidden text-xs font-semibold text-accent hover:text-accent/80"
               onClick={() => setShowAdvancedFilters((v) => !v)}
@@ -3587,7 +3588,7 @@ const TransactionsView: React.FC = () => {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
+        <button data-finance={recurrencesOpen ? "secondary selected" : "secondary"}
           type="button"
           id="transactions-recurrences-toggle"
           aria-expanded={recurrencesOpen}
@@ -3617,15 +3618,15 @@ const TransactionsView: React.FC = () => {
       )}
 
       {unassignedTransactionCount > 0 && (
-        <div
+        <div data-finance="warning-panel"
           className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3"
           role="status"
         >
           <div>
-            <p className="text-sm font-bold text-amber-200">
+            <p data-finance="warning" className="text-sm font-bold text-amber-200">
               {unassignedTransactionCount} lançamento{unassignedTransactionCount === 1 ? '' : 's'} sem conta
             </p>
-            <p className="text-xs text-amber-100/70 mt-0.5">
+            <p data-finance="warning" className="text-xs text-amber-100/70 mt-0.5">
               Os dados continuam no histórico, mas não entram em saldos filtrados por conta.
             </p>
           </div>
@@ -3639,14 +3640,14 @@ const TransactionsView: React.FC = () => {
         {regularBalanceAccounts.length > 0 && (
           <section aria-labelledby="accounts-regular-heading">
             <div className="flex items-center gap-3 mb-4">
-              <h2
+              <h2 data-finance="muted"
                 id="accounts-regular-heading"
                 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 shrink-0"
               >
                 Contas e cartões benefício
               </h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
-              <span className="text-[10px] text-slate-600 font-bold tabular-nums">{regularBalanceAccounts.length}</span>
+              <div data-finance="line" className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+              <span data-finance="muted" className="text-[10px] text-slate-600 font-bold tabular-nums">{regularBalanceAccounts.length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {regularBalanceAccounts.map(renderBalanceAccountCard)}
@@ -3656,14 +3657,14 @@ const TransactionsView: React.FC = () => {
         {creditBalanceAccounts.length > 0 && (
           <section aria-labelledby="accounts-credit-heading">
             <div className="flex items-center gap-3 mb-4">
-              <h2
+              <h2 data-finance="info"
                 id="accounts-credit-heading"
                 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-300/80 shrink-0"
               >
                 Cartões de crédito
               </h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/20 to-transparent" />
-              <span className="text-[10px] text-slate-600 font-bold tabular-nums">{creditBalanceAccounts.length}</span>
+              <div data-finance="line" className="flex-1 h-px bg-gradient-to-r from-indigo-500/20 to-transparent" />
+              <span data-finance="muted" className="text-[10px] text-slate-600 font-bold tabular-nums">{creditBalanceAccounts.length}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-start">
               {creditBalanceAccounts.map(renderBalanceAccountCard)}
@@ -3696,9 +3697,9 @@ const TransactionsView: React.FC = () => {
       />
 
       <div id="transactions-cards" className="block lg:hidden space-y-3 mb-6">
-        <div className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-secondary/80 px-3 py-2.5">
+        <div data-finance="surface divider content" className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-secondary/80 px-3 py-2.5">
           {!selectionMode ? (
-            <button
+            <button data-finance="link"
               type="button"
               onClick={() => setSelectionMode(true)}
               className="self-end text-xs font-semibold text-accent hover:text-sky-300"
@@ -3708,11 +3709,11 @@ const TransactionsView: React.FC = () => {
           ) : (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-slate-300">
-                  <span className="font-semibold text-white">{selectedManualCount}</span> selecionado
+                <span data-finance="muted" className="text-xs text-slate-300">
+                  <span data-finance="content" className="font-semibold text-white">{selectedManualCount}</span> selecionado
                   {selectedManualCount !== 1 ? 's' : ''}
                 </span>
-                <button
+                <button data-finance="muted hover"
                   type="button"
                   onClick={exitSelectionMode}
                   className="text-xs font-semibold text-slate-400 hover:text-white"
@@ -3721,7 +3722,7 @@ const TransactionsView: React.FC = () => {
                 </button>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <button
+                <button data-finance="link"
                   type="button"
                   onClick={selectManualOnPage}
                   disabled={manualPaginatedTransactions.length === 0 || allManualPageSelected}
@@ -3730,7 +3731,7 @@ const TransactionsView: React.FC = () => {
                   Página
                 </button>
                 {manualFilteredTransactions.length > manualPaginatedTransactions.length ? (
-                  <button
+                  <button data-finance="link"
                     type="button"
                     onClick={selectAllManualFiltered}
                     disabled={allManualFilteredSelected}
@@ -3739,7 +3740,7 @@ const TransactionsView: React.FC = () => {
                     Todos ({manualFilteredTransactions.length})
                   </button>
                 ) : null}
-                <button
+                <button data-finance="muted hover"
                   type="button"
                   onClick={clearManualSelection}
                   disabled={selectedManualCount === 0}
@@ -3747,7 +3748,7 @@ const TransactionsView: React.FC = () => {
                 >
                   Limpar
                 </button>
-                <button
+                <button data-finance="negative hover"
                   type="button"
                   disabled={selectedManualCount === 0}
                   onClick={() => void handleBulkDeleteManual()}
@@ -3761,10 +3762,10 @@ const TransactionsView: React.FC = () => {
         </div>
 
         {/* Mobile Sort Controls */}
-        <div className="flex justify-between items-center bg-secondary p-3 rounded-lg border border-slate-700/50 mb-4 gap-2">
-          <span className="text-sm text-slate-200 font-medium whitespace-nowrap">Ordenar por:</span>
+        <div data-finance="surface divider content" className="flex justify-between items-center bg-secondary p-3 rounded-lg border border-slate-700/50 mb-4 gap-2">
+          <span data-finance="content" className="text-sm text-slate-200 font-medium whitespace-nowrap">Ordenar por:</span>
           <div className="flex items-center gap-2 w-full justify-end">
-            <select
+            <select data-finance="control" aria-label="Itens por página"
               value={sortConfig.key}
               onChange={(e) => requestSort(e.target.value as keyof Transaction)}
               className="bg-primary/50 border border-slate-700 rounded text-white text-sm px-3 py-1.5 outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none pr-8 cursor-pointer max-w-[170px]"
@@ -3776,7 +3777,7 @@ const TransactionsView: React.FC = () => {
               <option value="Nome_Fantasia">Nome/Estabelec.</option>
               <option value="Categoria">Categoria</option>
             </select>
-            <button
+            <button data-finance="secondary"
               onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}
               className="p-1.5 bg-primary/50 border border-slate-700 rounded text-slate-200 hover:text-white"
             >
@@ -3805,16 +3806,16 @@ const TransactionsView: React.FC = () => {
           const identity = identityFor(t);
 
           const mobileCardBody = (
-            <div
+            <div data-finance={`surface content ${staleRetainedIds.has(t.ID_Transacao) ? "retained" : ""}`}
               className={`bg-secondary p-4 flex flex-col gap-3 relative overflow-hidden h-full ${
                 selectionMode && manual && isSelected ? 'ring-2 ring-accent ring-inset' : ''
               } ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}
             >
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
+              <div data-finance={t.Tipo === "Renda" ? "positive-line" : t.Tipo === "Despesa" ? "negative-line" : "info-line"} className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
 
               <div className="flex justify-between items-start pl-2 pr-2 gap-3">
                 {selectionMode && manual ? (
-                  <input
+                  <input data-finance="choice"
                     type="checkbox"
                     checked={isSelected}
                     disabled={!selectable}
@@ -3827,10 +3828,10 @@ const TransactionsView: React.FC = () => {
 
                 <div className="flex flex-1 justify-between items-start min-w-0">
                   <div className="flex flex-col gap-1 overflow-hidden pr-2 min-w-0">
-                    <span className="font-semibold text-white truncate text-base leading-tight">
+                    <span data-finance="content" className="font-semibold text-white truncate text-base leading-tight">
                       {t.Nome_Fantasia || t.Descricao || 'Sem Nome'}
                     </span>
-                    <span className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
+                    <span data-finance="muted" className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
                       {t.Categoria}
                       {familyOwnerContext.showAttribution ? (() => {
@@ -3842,7 +3843,7 @@ const TransactionsView: React.FC = () => {
                         ) : null;
                       })() : null}
                     </span>
-                    <span className="text-xs text-slate-200 truncate flex items-center gap-1">
+                    <span data-finance="muted" className="text-xs text-slate-200 truncate flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                       {t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta Desconhecida' : 'Sem conta'}
                     </span>
@@ -3850,19 +3851,19 @@ const TransactionsView: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col items-end z-10 shrink-0">
-                    <span className={`font-bold text-lg leading-none ${getValueColor(t.Valor)}`}>
+                    <span data-finance={`value ${t.Valor < 0 ? "negative" : t.Valor > 0 ? "positive" : "content"}`} className={`font-bold text-lg leading-none ${getValueColor(t.Valor)}`}>
                       {formatCurrency(t.Valor)}
                     </span>
                     <div className="flex flex-col items-end gap-0.5 mt-1">
-                      <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
+                      <span data-finance="muted" className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
                         Compra: {t.Data ? t.Data.split('T')[0].split('-').reverse().join('/') : '-'}
                       </span>
-                      <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
+                      <span data-finance="muted" className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
                         Pgto: {t.Data_Pagamento ? t.Data_Pagamento.split('T')[0].split('-').reverse().join('/') : '-'}
                       </span>
                     </div>
                     {t.Total_Parcelas && t.Total_Parcelas > 1 && (
-                      <span className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
+                      <span data-finance="info-chip" className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
                         {t.Parcela_Atual || 1}/{t.Total_Parcelas}
                       </span>
                     )}
@@ -3879,7 +3880,7 @@ const TransactionsView: React.FC = () => {
 
           if (selectionMode) {
             return (
-              <div
+              <div data-finance={`surface divider ${selectable ? "" : "readonly-row"}`}
                 key={t.ID_Transacao}
                 className={`rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b] ${
                   selectable ? 'cursor-pointer active:scale-[0.99]' : 'opacity-75'
@@ -3944,24 +3945,24 @@ const TransactionsView: React.FC = () => {
           </div>
         )}
         {!showBlockingLoader && paginatedDisplayTransactions.length === 0 && (
-          <div className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
-            <p className="text-slate-300">Nenhuma transação encontrada.</p>
+          <div data-finance="surface divider content" className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
+            <p data-finance="muted" className="text-slate-300">Nenhuma transação encontrada.</p>
           </div>
         )}
       </div>
 
-      <div id="transactions-table" className="hidden lg:block bg-secondary rounded-lg shadow-lg overflow-hidden">
+      <div data-finance="surface divider content" id="transactions-table" className="hidden lg:block bg-secondary rounded-lg shadow-lg overflow-hidden">
         {selectionMode ? (
-          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-700/80 bg-slate-800/50 px-3 py-2 text-xs">
-            <span className="text-slate-300 mr-auto">
-              <span className="font-semibold text-white">{selectedManualCount}</span> selecionado
+          <div data-finance="inset divider muted" className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-700/80 bg-slate-800/50 px-3 py-2 text-xs">
+            <span data-finance="muted" className="text-slate-300 mr-auto">
+              <span data-finance="content" className="font-semibold text-white">{selectedManualCount}</span> selecionado
               {selectedManualCount !== 1 ? 's' : ''}
               {manualFilteredTransactions.length > 0 ? (
-                <span className="text-slate-500"> · {manualFilteredTransactions.length} manual
+                <span data-finance="muted" className="text-slate-500"> · {manualFilteredTransactions.length} manual
                   {manualFilteredTransactions.length !== 1 ? 'is' : ''} nos filtros</span>
               ) : null}
             </span>
-            <button
+            <button data-finance="link"
               type="button"
               onClick={selectManualOnPage}
               disabled={manualPaginatedTransactions.length === 0 || allManualPageSelected}
@@ -3970,7 +3971,7 @@ const TransactionsView: React.FC = () => {
               Página atual
             </button>
             {manualFilteredTransactions.length > manualPaginatedTransactions.length ? (
-              <button
+              <button data-finance="link"
                 type="button"
                 onClick={selectAllManualFiltered}
                 disabled={allManualFilteredSelected}
@@ -3979,7 +3980,7 @@ const TransactionsView: React.FC = () => {
                 Todos filtrados ({manualFilteredTransactions.length})
               </button>
             ) : null}
-            <button
+            <button data-finance="muted hover"
               type="button"
               onClick={clearManualSelection}
               disabled={selectedManualCount === 0}
@@ -3987,7 +3988,7 @@ const TransactionsView: React.FC = () => {
             >
               Limpar
             </button>
-            <button
+            <button data-finance="negative hover"
               type="button"
               disabled={selectedManualCount === 0}
               onClick={() => void handleBulkDeleteManual()}
@@ -3995,7 +3996,7 @@ const TransactionsView: React.FC = () => {
             >
               Excluir selecionados
             </button>
-            <button
+            <button data-finance="muted hover"
               type="button"
               onClick={exitSelectionMode}
               className="font-semibold text-slate-400 hover:text-white"
@@ -4005,8 +4006,8 @@ const TransactionsView: React.FC = () => {
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="min-w-[800px] sm:min-w-full divide-y divide-primary table-fixed">
-            <thead className="bg-slate-700">
+          <table data-finance="divided" className="min-w-[800px] sm:min-w-full divide-y divide-primary table-fixed">
+            <thead data-finance="head" className="bg-slate-700">
               <tr>{[
                 { key: 'Data', label: 'Data', width: 'w-24' },
                 { key: 'Data_Pagamento', label: 'Pagamento', width: 'w-24' },
@@ -4023,7 +4024,7 @@ const TransactionsView: React.FC = () => {
                   ? [{
                       key: 'select',
                       label: (
-                        <input
+                        <input data-finance="choice"
                           type="checkbox"
                           checked={allManualPageSelected}
                           onChange={(e) => (e.target.checked ? selectManualOnPage() : deselectManualOnPage())}
@@ -4039,11 +4040,11 @@ const TransactionsView: React.FC = () => {
                 {
                   key: 'Acoes',
                   label: selectionMode ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Seleção</span>
+                    <span data-finance="info" className="text-[10px] font-bold uppercase tracking-wider text-accent">Seleção</span>
                   ) : (
                     <div className="flex flex-col items-end gap-1 leading-tight">
                       <span>Ações</span>
-                      <button
+                      <button data-finance="link"
                         type="button"
                         onClick={() => setSelectionMode(true)}
                         className="text-[10px] font-semibold normal-case tracking-normal text-accent hover:text-sky-300 whitespace-nowrap"
@@ -4056,7 +4057,7 @@ const TransactionsView: React.FC = () => {
                   width: selectionMode ? 'w-16' : 'w-28',
                 },
               ].map(({ key, label, align, width }) => (
-                <th key={key} scope="col" className={`px-2 py-3 text-${align || 'left'} text-xs font-medium text-gray-300 uppercase tracking-wider ${width}`}>
+                <th data-finance="muted" key={key} scope="col" className={`px-2 py-3 text-${align || 'left'} text-xs font-medium text-gray-300 uppercase tracking-wider ${width}`}>
                   {key !== 'Acoes' && key !== 'Parcelas' && key !== 'ID_Conta' && key !== 'owner' && key !== 'select' ? <button className={`w-full h-full flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'}`} onClick={() => requestSort(key as keyof Transaction)}>
                     {label}{getSortIndicator(key)}
                   </button> : <span className={`flex ${align === 'right' ? 'justify-end' : (align === 'center' ? 'justify-center' : 'justify-start')}`}>{label}</span>}
@@ -4064,11 +4065,11 @@ const TransactionsView: React.FC = () => {
               ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-primary relative">
+            <tbody data-finance="divided" className="divide-y divide-primary relative">
               {transactionListItems.map((item, itemIndex) => {
                 if (item.type === 'header') {
                   return (
-                    <tr key={`group-desktop-${item.profile.userId}-${itemIndex}`} className="bg-slate-800/70">
+                    <tr data-finance="head" key={`group-desktop-${item.profile.userId}-${itemIndex}`} className="bg-slate-800/70">
                       <td colSpan={desktopTableColumnCount} className="px-3 py-2">
                         <TransactionOwnerGroupHeader
                           profile={item.profile}
@@ -4087,7 +4088,7 @@ const TransactionsView: React.FC = () => {
                 const identity = identityFor(t);
                 const paymentLocked = isInvoicePaymentLeg(t, paymentAccountLookup) ? INVOICE_PAYMENT_LOCKED_FIELDS : undefined;
                 return (
-                <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''} ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}>
+                <tr data-finance={`row ${selectionMode && manual && isSelected ? "selected" : ""} ${staleRetainedIds.has(t.ID_Transacao) ? "retained" : ""}`} key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''} ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}>
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} lockedFields={paymentLocked} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} lockedFields={paymentLocked} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} lockedFields={paymentLocked} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
@@ -4129,7 +4130,7 @@ const TransactionsView: React.FC = () => {
                   {selectionMode ? (
                     <td className="px-2 py-4 w-10 text-center align-middle">
                       {manual ? (
-                        <input
+                        <input data-finance="choice"
                           type="checkbox"
                           checked={isSelected}
                           disabled={!selectable}
@@ -4148,7 +4149,7 @@ const TransactionsView: React.FC = () => {
                       ) : null}
                       {manual && (
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button data-finance="link"
                             onClick={() => {
                               setEditingTransaction(t);
                               setNewTransactionModalOpen(true);
@@ -4160,7 +4161,7 @@ const TransactionsView: React.FC = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
                           </button>
-                          <button 
+                          <button data-finance="negative hover"
                             onClick={async () => { if (await confirmManualDeletion(t)) deleteTransaction(t.ID_Transacao) }} 
                             className="text-danger hover:text-red-400"
                             title="Excluir Transação"
@@ -4172,7 +4173,7 @@ const TransactionsView: React.FC = () => {
                         </div>
                       )}
                       {!manual && (
-                        <button
+                        <button data-finance="negative hover"
                           onClick={() => {
                             prepareImportedBatchDeletion(t);
                           }}
@@ -4193,42 +4194,42 @@ const TransactionsView: React.FC = () => {
             </tbody>
           </table>
           {showBlockingLoader && (
-            <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div data-finance="loading-overlay" className="absolute inset-0 bg-primary/80 backdrop-blur-sm flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-slate-700 border-t-highlight rounded-full animate-spin"></div>
-                <p className="text-sm text-highlight font-medium tracking-widest uppercase">Carregando...</p>
+                <div data-finance="spinner" className="w-12 h-12 border-4 border-slate-700 border-t-highlight rounded-full animate-spin"></div>
+                <p data-finance="info" className="text-sm text-highlight font-medium tracking-widest uppercase">Carregando...</p>
               </div>
             </div>
           )}
           {!showBlockingLoader && paginatedDisplayTransactions.length === 0 && (
-            <p className="text-center text-gray-400 py-8">Nenhuma transação encontrada.</p>
+            <p data-finance="muted" className="text-center text-gray-400 py-8">Nenhuma transação encontrada.</p>
           )}
         </div>
       </div>
 
-      <div className="bg-slate-800 p-4 rounded-lg shadow-inner mb-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm border border-slate-700">
+      <div data-finance="surface divider content" className="bg-slate-800 p-4 rounded-lg shadow-inner mb-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm border border-slate-700">
         <div className="flex items-center gap-2">
-          <span className="text-slate-200 uppercase tracking-wider font-semibold text-xs">Calculadora da Página</span>
-          <span className="text-slate-500">|</span>
-          <span className="text-slate-300 text-xs">Somando {paginatedTransactions.length} itens visíveis</span>
+          <span data-finance="content" className="text-slate-200 uppercase tracking-wider font-semibold text-xs">Calculadora da Página</span>
+          <span data-finance="muted" className="text-slate-500">|</span>
+          <span data-finance="muted" className="text-slate-300 text-xs">Somando {paginatedTransactions.length} itens visíveis</span>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className="text-[10px] text-slate-300 uppercase">Entradas</p>
-            <p className="text-accent font-bold">
+            <p data-finance="muted" className="text-[10px] text-slate-300 uppercase">Entradas</p>
+            <p data-finance="positive" className="text-accent font-bold">
               {formatCurrency(paginatedTransactions.reduce((acc, t) => acc + (t.Valor > 0 ? t.Valor : 0), 0))}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-300 uppercase">Saídas</p>
-            <p className="text-danger font-bold">
+            <p data-finance="muted" className="text-[10px] text-slate-300 uppercase">Saídas</p>
+            <p data-finance="negative" className="text-danger font-bold">
               {formatCurrency(Math.abs(paginatedTransactions.reduce((acc, t) => acc + (t.Valor < 0 ? t.Valor : 0), 0)))}
             </p>
           </div>
-          <div className="h-8 w-px bg-slate-600 mx-2"></div>
+          <div data-finance="line" className="h-8 w-px bg-slate-600 mx-2"></div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-300 uppercase">Líquido (Sobra)</p>
-            <p className={`font-bold text-lg ${getValueColor(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}`}>
+            <p data-finance="muted" className="text-[10px] text-slate-300 uppercase">Líquido (Sobra)</p>
+            <p data-finance={paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0) < 0 ? "negative" : paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0) > 0 ? "positive" : "content"} className={`font-bold text-lg ${getValueColor(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}`}>
               {formatCurrency(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}
             </p>
           </div>
@@ -4236,14 +4237,14 @@ const TransactionsView: React.FC = () => {
       </div>
 
       {staleRetainedIds.size > 0 ? (
-        <div
+        <div data-finance="surface divider content"
           role="status"
           className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-slate-600 bg-slate-800/95 px-4 py-2 text-xs text-slate-200 shadow-lg"
         >
           <span>
             {staleRetainedIds.size} categorizada{staleRetainedIds.size !== 1 ? 's' : ''} fora do filtro
           </span>
-          <button
+          <button data-finance="link"
             type="button"
             onClick={releaseRetainedRows}
             className="font-semibold text-accent hover:text-sky-300"
@@ -4952,9 +4953,9 @@ const TransactionsView: React.FC = () => {
           className="max-w-lg"
         >
           <div className="space-y-4">
-            <p className="text-gray-300">Você está tentando excluir uma transação que faz parte de um lote importado. O que você gostaria de fazer?</p>
+            <p data-finance="muted" className="text-gray-300">Você está tentando excluir uma transação que faz parte de um lote importado. O que você gostaria de fazer?</p>
             {atomicImportEnabled && !deleteConfirmation.exactTraceability && (
-              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+              <p data-finance="warning-panel" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
                 Este histórico não possui IDs suficientes para identificar o lote com segurança. A exclusão do lote inteiro está bloqueada; a linha isolada ainda pode ser excluída e permanecerá visível como excluída na auditoria.
               </p>
             )}
@@ -5037,7 +5038,7 @@ const TransactionsView: React.FC = () => {
       )}
 
       {/* Mobile Floating Action Button (FAB) relative to the screen */}
-      <button
+      <button data-finance="action"
         onClick={() => {
           setEditingTransaction(null);
           setPredefinedTransaction(null);
@@ -5160,14 +5161,14 @@ const EditableCell: React.FC<EditableCellProps> = ({
     const align = isValueColumn ? 'text-right' : 'text-left';
     // Usa break-word para quebrar entre palavras, não no meio delas.
     const whitespaceClass = (field === 'Nome_Fantasia' || field === 'Categoria') ? 'whitespace-normal break-word' : 'whitespace-nowrap';
-    return <td className={`px-2 py-3 text-sm font-semibold border-r border-slate-800 last:border-r-0 ${valueColor} ${align} ${whitespaceClass} ${className}`}>{cellContent()}</td>;
+    return <td data-finance={`divider ${field === "Valor" ? transaction.Valor < 0 ? "negative" : transaction.Valor > 0 ? "positive" : "content" : field === "Parcela_Atual" ? "content" : "muted"}`} className={`px-2 py-3 text-sm font-semibold border-r border-slate-800 last:border-r-0 ${valueColor} ${align} ${whitespaceClass} ${className}`}>{cellContent()}</td>;
   }
 
   if (isEditing) {
     if (type === 'select') {
       return (
-        <td className="p-0 border-r border-slate-800 last:border-r-0">
-          <Select 
+        <td data-finance="divider" className="p-0 border-r border-slate-800 last:border-r-0">
+          <Select aria-label={`Editar ${field}`}
             value={value as string} 
             onChange={e => {
               if (e.target.value === 'ADD_NEW_CATEGORY') {
@@ -5188,7 +5189,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
               .map(opt => <option key={opt} value={opt}>{displayMap ? displayMap.get(opt) : opt}</option>)
             }
             {field === 'Categoria' && (
-              <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">+ Adicionar Categoria</option>
+              <option data-finance="info" value="ADD_NEW_CATEGORY" className="text-highlight font-bold">+ Adicionar Categoria</option>
             )}
           </Select>
         </td>
@@ -5199,7 +5200,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       : type === 'installments' ? `${transaction.Parcela_Atual || ''}/${transaction.Total_Parcelas || ''}`
         : value as string;
 
-    return <td className="p-0 border-r border-slate-800 last:border-r-0"><Input type={type === 'date' ? 'date' : 'text'} value={inputValue} onChange={e => setValue(e.target.value)} onBlur={handleSave} onKeyDown={handleKeyDown} autoFocus className="w-full h-full bg-slate-800 border-highlight !rounded-none text-center" /></td>;
+    return <td data-finance="divider" className="p-0 border-r border-slate-800 last:border-r-0"><Input aria-label={`Editar ${field}`} type={type === 'date' ? 'date' : 'text'} value={inputValue} onChange={e => setValue(e.target.value)} onBlur={handleSave} onKeyDown={handleKeyDown} autoFocus className="w-full h-full bg-slate-800 border-highlight !rounded-none text-center" /></td>;
   }
 
   const categoryColor = field === 'Categoria' && categoryTypeMap.has(value as string) ? categoryTypeColorMap[categoryTypeMap.get(value as string)!] : '';
@@ -5207,11 +5208,14 @@ const EditableCell: React.FC<EditableCellProps> = ({
   const align = field === 'Valor' ? 'text-right' : (field === 'Parcela_Atual' ? 'text-center' : 'text-left');
 
   return (
-    <td
+    <td data-finance="divider"
+      tabIndex={0}
+      aria-label={`${cellContent()}. Editar ${field} de ${transaction.Nome_Fantasia || 'lançamento'}`}
+      onKeyDown={event => { if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setIsEditing(true); } }}
       className="p-0 cursor-pointer border-r border-slate-800 last:border-r-0"
       onClick={() => setIsEditing(true)}
     >
-      <div
+      <div data-finance={`editable ${field === "Valor" ? (value as number) < 0 ? "negative" : (value as number) > 0 ? "positive" : "content" : field === "Categoria" && categoryTypeMap.has(value as string) ? categoryTypeMap.get(value as string) === "Renda" ? "positive" : categoryTypeMap.get(value as string) === "Despesa" ? "negative" : "info" : "content"}`}
         className={`relative group px-2 py-3 text-sm font-semibold border-b border-dotted ${isEditable ? 'border-slate-600 hover:border-highlight' : 'border-transparent'} ${align} ${categoryColor} ${valueColor} ${className} ${(field === 'Nome_Fantasia' || field === 'Categoria') ? 'whitespace-normal break-word' : 'whitespace-nowrap'}`}
         title={
           field === 'Nome_Fantasia' &&
@@ -5224,7 +5228,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
         <span>{cellContent()}</span>
         {badge ? <span className="ml-2 inline-flex align-middle">{badge}</span> : null}
         {field === 'Nome_Fantasia' && transaction.Origem !== 'manual' && onRuleCreation && (
-          <button
+          <button data-finance="secondary rule-action"
             onClick={(e) => { e.stopPropagation(); onRuleCreation(transaction); }}
             className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-700 text-slate-400 hover:bg-highlight hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
             title="Criar regra de mapeamento"
@@ -5260,10 +5264,10 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   totalRecords,
 }) => {
   return (
-    <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-slate-200 px-4 py-3 bg-secondary rounded-lg gap-4">
+    <div data-finance="surface divider content" className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-slate-200 px-4 py-3 bg-secondary rounded-lg gap-4">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <span>Mostrar</span>
-        <select
+        <select data-finance="control" aria-label="Itens por página"
           value={itemsPerPage}
           onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(p => 1); }}
           className="bg-primary/50 border border-slate-700 rounded text-white px-2 py-1 outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none pr-8 cursor-pointer"

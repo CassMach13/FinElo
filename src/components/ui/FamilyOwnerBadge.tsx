@@ -12,13 +12,13 @@ const FamilyOwnerBadge: React.FC<FamilyOwnerBadgeProps> = ({
   className = '',
   compact = false,
 }) => (
-  <span
+  <span data-finance="owner" data-finance-owner={profile.dotClass.includes('violet') ? 'violet' : profile.dotClass.includes('amber') ? 'amber' : profile.dotClass.includes('sky') ? 'sky' : profile.dotClass.includes('rose') ? 'rose' : 'self'}
     className={`inline-flex items-center gap-1 rounded-full border font-bold uppercase tracking-wide whitespace-nowrap ${profile.chipClass} ${
       compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5'
     } ${className}`}
     title={profile.email}
   >
-    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${profile.dotClass}`} aria-hidden />
+    <span data-finance="owner-dot" className={`w-1.5 h-1.5 rounded-full shrink-0 ${profile.dotClass}`} aria-hidden />
     {profile.label}
   </span>
 );

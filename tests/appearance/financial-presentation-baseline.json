@@ -1,0 +1,20 @@
+{
+  "base": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+  "files": {
+    "src/components/views/TransactionsView.tsx": "be7d0d1ab498ef8d685d7d71801e88e75cf67fc1e4f97b6c24d6159a850d74dc",
+    "src/components/transactions/SmartTransactionFiltersPanel.tsx": "a167b160b5a02a507e973b31ca21cd1ce5e65c35ab6a4bc86769bb54dbc3b2ec",
+    "src/components/transactions/RecurrencesPanel.tsx": "1da89afdcc6c4fed9c86314b1ae87fc282fa87647b163dc9b2029b445a4aca75",
+    "src/components/modals/NewTransactionModal.tsx": "c9c27dfd70e8eb14a08920f7e54fd8a7d5ddac9416b5481561a611be5e718251",
+    "src/components/views/AccountModal.tsx": "f8ffb45339a5b0d4284032d1d1f0e83f9402456e4de8ca498258d839d85ba16b",
+    "src/components/modals/CategoryModal.tsx": "8bbe8cf33147c22464ac2e650a85a0c3b1f07f8d49b0bd1a6aa2c43d92de8f28",
+    "src/components/modals/MappingRuleModal.tsx": "af2a4c9a90f2e994951ee6a49f0e8cc3481dbfb1739bbe270b66fab193c88c7a",
+    "src/components/transactions/AccountBalanceCard.tsx": "902ed640564de8e5f506e306dbd46d8fc75b17405856c5820209cbdf97be2196",
+    "src/components/transactions/EconomicIdentityControls.tsx": "46f1eb64b279f08e92d619e93c1a72200c5ec35befde9c24bbf54ec4d582172b",
+    "src/components/ui/FamilyOwnerAuditPanel.tsx": "63b42dcaa79802e6bff0fb62dd4c60406c9ec7c81817595b519c9c8e025a321f",
+    "src/components/ui/FamilyOwnerBadge.tsx": "c8d95f571bbba253e43dc7f45ea4bf89e1a4c8e9864d1ed4566d13fed3ee1d8d",
+    "src/components/ui/TransactionOwnerGroupHeader.tsx": "116edcbb98fe96aceeeab97cf5e0cc74c032d2c35c426d88399705f20b84af2f",
+    "src/components/ui/SwipeableItem.tsx": "96df83d8a1416320e476f7131ddfd6510a0a13f29ee16fe52ce90f793d02640f",
+    "src/components/TourButton.tsx": "b2fd094763332665ef5709000cc575350b53efe14b187387c60a62828084ed2e",
+    "src/components/modals/InstallmentSuggestionModal.tsx": "08a90c585eff2fe4616ddb8ca7dae8fe1c09f066d6cb27c7b8d59517917f7e6e"
+  }
+}

@@ -108,13 +108,13 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
     const transitionClass = isSwiping ? '' : 'transition-transform duration-300 ease-out';
 
     return (
-        <div className={`relative overflow-hidden w-full ${className}`} ref={containerRef}>
+        <div data-finance="surface divider" className={`relative overflow-hidden w-full ${className}`} ref={containerRef}>
             {/* Background Actions Layer */}
             <div className="absolute inset-0 flex justify-between select-none z-0">
                 {/* Left Actions (revealed when swiping right) */}
                 <div className="flex h-full">
                     {leftActions.map((action, i) => (
-                        <button
+                        <button data-finance="action" onFocus={() => { setIsOpen("left"); setCurrentX(maxLeftSwipe); }}
                             key={i}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -134,7 +134,7 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 {/* Right Actions (revealed when swiping left) */}
                 <div className="flex h-full">
                     {rightActions.map((action, i) => (
-                        <button
+                        <button data-finance="danger-action" onFocus={() => { setIsOpen("right"); setCurrentX(-maxRightSwipe); }}
                             key={i}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -164,7 +164,7 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 {/* Left Action Hint Placeholder (if needed later) */}
                 {leftActions.length > 0 && currentX === 0 && (
                     <div className="absolute top-1/2 -translate-y-1/2 left-2 opacity-30 pointer-events-none z-20 animate-[pulse_2s_ease-in-out_infinite]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg data-finance="muted" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
                         </svg>
                     </div>
@@ -173,7 +173,7 @@ export const SwipeableItem: React.FC<SwipeableItemProps> = ({
                 {/* Right Action Hint (Pull Left) */}
                 {rightActions.length > 0 && currentX === 0 && (
                     <div className="absolute top-1/2 -translate-y-1/2 right-2 opacity-30 pointer-events-none z-20 animate-[pulse_2s_ease-in-out_infinite]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg data-finance="muted" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
                         </svg>
                     </div>

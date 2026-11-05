@@ -19,6 +19,9 @@ dist
 dist-ssr
 *.local
 .vercel
+
+# Snapshot imutável e reproduzível da main para comparação visual local
+scripts/diagnostics/theme-financial-baseline/
 .vscode
 
 # Assets / Media (Large Files)

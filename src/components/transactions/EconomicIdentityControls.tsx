@@ -12,7 +12,7 @@ const SwapIcon: React.FC<{ className?: string }> = ({ className = 'h-3 w-3' }) =
 
 /** Selo discreto de identidade econômica (informativo; não é alerta nem erro). */
 export const EconomicIdentityBadge: React.FC<{ label: string; className?: string }> = ({ label, className = '' }) => (
-  <span
+  <span data-finance="info-chip"
     data-economic-badge=""
     className={`inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-teal-300/20 bg-teal-300/10 px-2 py-0.5 text-[10px] font-medium leading-none text-teal-100 ${className}`}
   >
@@ -36,7 +36,7 @@ export const InternalMovementActionButton: React.FC<{
   const label = internalMovementActionLabel(mode);
   if (variant === 'icon') {
     return (
-      <button
+      <button data-finance="info hover"
         type="button"
         data-internal-movement-action={mode}
         onClick={(e) => {
@@ -53,7 +53,7 @@ export const InternalMovementActionButton: React.FC<{
     );
   }
   return (
-    <button
+    <button data-finance="info-chip hover"
       type="button"
       data-internal-movement-action={mode}
       onClick={(e) => {

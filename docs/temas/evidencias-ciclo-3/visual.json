@@ -1,0 +1,693 @@
+{
+  "base": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+  "viewports": {
+    "desktop": {
+      "parity": true,
+      "states": [
+        "lista",
+        "filtros",
+        "busca",
+        "vazio-filtrado",
+        "conta",
+        "categoria",
+        "regra",
+        "recorrencias",
+        "inclusao",
+        "invalido",
+        "parcelamento-manual",
+        "erro-gravacao",
+        "edicao",
+        "categoria-retida",
+        "importada-bloqueada",
+        "selecao",
+        "exclusao-confirmacao",
+        "carregando",
+        "filtros-smart-familia",
+        "parcelas-unique",
+        "parcelas-refusal",
+        "parcelas-ambiguous",
+        "parcelas-manual",
+        "parcelas-cancel"
+      ],
+      "raster_parity": {
+        "lista": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "filtros": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "busca": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "vazio-filtrado": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "conta": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "categoria": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "regra": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "recorrencias": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "inclusao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "invalido": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelamento-manual": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "erro-gravacao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "edicao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "categoria-retida": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "importada-bloqueada": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "selecao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "exclusao-confirmacao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "carregando": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "filtros-smart-familia": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-unique": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-refusal": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-ambiguous": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-manual": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-cancel": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        }
+      },
+      "dark_sha256": {
+        "lista": "f9d0c28ba84b22d1205e3dd41a53a3f18610b83eaa65765829614b3b78669f71",
+        "filtros": "a04b3d34641d76c912e03512bed9b5bd304f07a96305d5181381060c03a5de5d",
+        "busca": "d2ef8b4a6c0b358d6f64e37234046eb130673fad95bb1078141785c0be1837c6",
+        "vazio-filtrado": "48ded4def040fc995d19f76a91d1b1887fbe0132210092143bda658b366bace7",
+        "conta": "d8e55ca71d13a5fbfd3b3080f261fd2b81e86e1de9905fabdd5a7ec8f0ae2887",
+        "categoria": "5b600a45d6ddeb4a2d1ace6b1fae43797c8bbafe7392bbd9bda13bfa4400f064",
+        "regra": "c1b28e8f35a6ae9a8fd5426358c492814924538b83176f2a33408a84477051a7",
+        "recorrencias": "1848458f3a1a057ed8d924d680fdad9e371f555d8a6fe80de1159ec82438c4c6",
+        "inclusao": "0e2575315685093a0a0fa9be54c910945a1b8873643ea42c389e2a6239401076",
+        "invalido": "f11be94a41b4da2cb188fbc732e830f509e7d8e422d273acd38863b26271b1c3",
+        "parcelamento-manual": "24a6c453f83e6fbf18bb7f29e616d7026342317b42c5d1c9474da67e3b914331",
+        "erro-gravacao": "b2bbb75bf40bd43081c0142eead30843fc45bbdba5c2aec2ce7f91c787e1be13",
+        "edicao": "5d56e5c5691bb416f17d1502cbb7e51823899f333c727c71223d05d2a1218623",
+        "categoria-retida": "defdb80d1007056c880d056efd6924abbc6c45665ba6494491772a7729470784",
+        "importada-bloqueada": "f9d0c28ba84b22d1205e3dd41a53a3f18610b83eaa65765829614b3b78669f71",
+        "selecao": "9afc4d019d0f6436c876db2b9d08b8576440ebb2986006e228f43439b93c3882",
+        "exclusao-confirmacao": "94c710661abaf2c1c189434587568a99cc86de003ca7ffd23976c18a2db456d9",
+        "carregando": "994bbf8c5b6f935cc168355a955fba5a1e6c9e3a7d3b65ccc2acb8fe9043cc27",
+        "filtros-smart-familia": "4d0f23ceb1dfabd030ab0504d14dba5f82c6e803268eea52bcd244e6bf6dbd3f",
+        "parcelas-unique": "d5ecf19aef6b810937db72b5f6114737337b8c755ed04ed2b36fdb82f4db21fd",
+        "parcelas-refusal": "4bc264ab4550c04440b000fe5536632ad90d2af47e97a630edd77e6805b306d9",
+        "parcelas-ambiguous": "a219a6cf4b692eb58c6711720421003843c9763c266d2fc6af48f0bc8a8240a6",
+        "parcelas-manual": "bccac104e6f8df245a0a3b60a6638fb04bd474669c2a803172e5c123e43ec39b",
+        "parcelas-cancel": "d5ecf19aef6b810937db72b5f6114737337b8c755ed04ed2b36fdb82f4db21fd"
+      }
+    },
+    "mobile": {
+      "parity": true,
+      "states": [
+        "lista",
+        "filtros",
+        "busca",
+        "vazio-filtrado",
+        "conta",
+        "categoria",
+        "regra",
+        "recorrencias",
+        "inclusao",
+        "invalido",
+        "parcelamento-manual",
+        "erro-gravacao",
+        "edicao",
+        "importada-bloqueada",
+        "selecao",
+        "exclusao-confirmacao",
+        "carregando",
+        "filtros-smart-familia",
+        "parcelas-unique",
+        "parcelas-refusal",
+        "parcelas-ambiguous",
+        "parcelas-manual",
+        "parcelas-cancel"
+      ],
+      "raster_parity": {
+        "lista": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "filtros": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "busca": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "vazio-filtrado": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "conta": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "categoria": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "regra": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "recorrencias": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "inclusao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "invalido": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelamento-manual": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "erro-gravacao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "edicao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "importada-bloqueada": {
+          "exact": false,
+          "different_pixels": 9,
+          "maximum_channel_delta": 2,
+          "pixel_limit": 32,
+          "classification": "bounded rasterization noise; retained for review"
+        },
+        "selecao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "exclusao-confirmacao": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "carregando": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "filtros-smart-familia": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-unique": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-refusal": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-ambiguous": {
+          "exact": false,
+          "different_pixels": 11,
+          "maximum_channel_delta": 1,
+          "pixel_limit": 32,
+          "classification": "bounded rasterization noise; retained for review"
+        },
+        "parcelas-manual": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        },
+        "parcelas-cancel": {
+          "exact": true,
+          "different_pixels": 0,
+          "maximum_channel_delta": 0
+        }
+      },
+      "dark_sha256": {
+        "lista": "1c2c983106deea137dd8aaa327ad8a4f572ea5051fe5f164dbda48374a45894e",
+        "filtros": "95a78db4a0d14ea4d7530a11149f5b82eef8cbd00f2cd660a4d019235799948c",
+        "busca": "ce38de4e70c080a2b8316bc20d6e4573aabbef68ab78558b63f4ff03a1d8734d",
+        "vazio-filtrado": "a1d885b52e57c73727fbfd7c7a1004e97e86e899b50354e9936fda92ba200ba7",
+        "conta": "e6b358f09f2054910af175aeb50a69e9e0d75d6738ba39e1076565d5cc81755a",
+        "categoria": "6821b4e86d1c8de581331985030cc40dfa3c05dfb59552a8415beddad39d3ff6",
+        "regra": "32c16c03759203794a39142fea5a43d8ad4657691ab89854874fbe66b72f3212",
+        "recorrencias": "6051cafd77e323af2cfbbb0b8d1be8e25f12c220dad005ead995048d1f0647ec",
+        "inclusao": "3d4e5a0185087fa2759a41f91b00b9cb5509bc78b35fcdf511be005ef240dff4",
+        "invalido": "16ad334813ecd340963950f02de1e3473108c23e2b8e0b617d6d5527b8bb754a",
+        "parcelamento-manual": "4fdf7d4375e49d09c64f5663ed8c071d2d5f16031a04a42924d4faf51b83a777",
+        "erro-gravacao": "d4515137dcdd7e06649f2a88b83c8ae01560f985b5de0f3d8292c76cd5eaaff6",
+        "edicao": "aad8c36fee361f6b02f6957e157dd6453de6b6efd842f185d02d2a10fbf0c209",
+        "importada-bloqueada": "1488f96d457c0e7f18dd5ab055f8f5015d257224c429f9c537c5e3fbcbe8f737",
+        "selecao": "8f191d6eb757d7cd558a83051dfd1931826650998c6efef4d47cffd5bad8c3c0",
+        "exclusao-confirmacao": "4196e8f4ef91d6ded421efbc48a682e2bfc595e5d0e6791171537f893a69c1f0",
+        "carregando": "3481d51c5836f6760dc09c4f2ca1a47ecab35d195242fd0993bea94d4c419c37",
+        "filtros-smart-familia": "e73586dfd95573ebf1e63c190a2a780358b006db08846104da28fb4e851589d1",
+        "parcelas-unique": "7b390be1d84b6d6103efa0bd640971ab3e26103751a40e45a9595b3717c2d8c8",
+        "parcelas-refusal": "1508fb08efb2327ce286142e74d2b2208a75d7ad13918c2b7b142852ed2a70fd",
+        "parcelas-ambiguous": "cd69f080f8b53a541e702f1796d92a53303a5b2209400589e4665b00abf48356",
+        "parcelas-manual": "7d5fb87d2db22ddcdf77a8337c8e83fcd080a710e95695a6fa884d9411ca23f8",
+        "parcelas-cancel": "7b390be1d84b6d6103efa0bd640971ab3e26103751a40e45a9595b3717c2d8c8"
+      }
+    }
+  },
+  "contrast": {
+    "desktop-lista": {
+      "samples": 615,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-filtros": {
+      "samples": 649,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "desktop-busca": {
+      "samples": 122,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "desktop-vazio-filtrado": {
+      "samples": 101,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "desktop-conta": {
+      "samples": 27,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-categoria": {
+      "samples": 21,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-regra": {
+      "samples": 19,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-recorrencias": {
+      "samples": 631,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-inclusao": {
+      "samples": 32,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-invalido": {
+      "samples": 36,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-parcelamento-manual": {
+      "samples": 43,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-erro-gravacao": {
+      "samples": 4,
+      "minimum_text": 5.358,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "desktop-edicao": {
+      "samples": 33,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-categoria-retida": {
+      "samples": 170,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "desktop-importada-bloqueada": {
+      "samples": 615,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-selecao": {
+      "samples": 481,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-exclusao-confirmacao": {
+      "samples": 5,
+      "minimum_text": 5.809,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "desktop-carregando": {
+      "samples": 67,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-filtros-smart-familia": {
+      "samples": 752,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "desktop-parcelas-unique": {
+      "samples": 25,
+      "minimum_text": 5.176,
+      "minimum_essential": 5.493,
+      "failures": []
+    },
+    "desktop-parcelas-refusal": {
+      "samples": 23,
+      "minimum_text": 5.176,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "desktop-parcelas-ambiguous": {
+      "samples": 29,
+      "minimum_text": 5.176,
+      "minimum_essential": 5.95,
+      "failures": []
+    },
+    "desktop-parcelas-manual": {
+      "samples": 29,
+      "minimum_text": 5.176,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "desktop-parcelas-cancel": {
+      "samples": 25,
+      "minimum_text": 5.176,
+      "minimum_essential": 5.493,
+      "failures": []
+    },
+    "mobile-lista": {
+      "samples": 562,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-filtros": {
+      "samples": 578,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-busca": {
+      "samples": 117,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "mobile-vazio-filtrado": {
+      "samples": 98,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "mobile-conta": {
+      "samples": 27,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-categoria": {
+      "samples": 21,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-regra": {
+      "samples": 19,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-recorrencias": {
+      "samples": 578,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-inclusao": {
+      "samples": 32,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-invalido": {
+      "samples": 36,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-parcelamento-manual": {
+      "samples": 43,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-erro-gravacao": {
+      "samples": 4,
+      "minimum_text": 5.358,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "mobile-edicao": {
+      "samples": 33,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-importada-bloqueada": {
+      "samples": 34,
+      "minimum_text": 5.122,
+      "minimum_essential": 3.567,
+      "failures": []
+    },
+    "mobile-selecao": {
+      "samples": 474,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-exclusao-confirmacao": {
+      "samples": 5,
+      "minimum_text": 5.809,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "mobile-carregando": {
+      "samples": 61,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-filtros-smart-familia": {
+      "samples": 693,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": []
+    },
+    "mobile-parcelas-unique": {
+      "samples": 25,
+      "minimum_text": 5.176,
+      "minimum_essential": 5.493,
+      "failures": []
+    },
+    "mobile-parcelas-refusal": {
+      "samples": 23,
+      "minimum_text": 5.176,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "mobile-parcelas-ambiguous": {
+      "samples": 29,
+      "minimum_text": 5.176,
+      "minimum_essential": 5.95,
+      "failures": []
+    },
+    "mobile-parcelas-manual": {
+      "samples": 29,
+      "minimum_text": 5.176,
+      "minimum_essential": null,
+      "failures": []
+    },
+    "mobile-parcelas-cancel": {
+      "samples": 25,
+      "minimum_text": 5.176,
+      "minimum_essential": 5.493,
+      "failures": []
+    }
+  },
+  "financial": {
+    "desktop": {
+      "identical_to_main": true,
+      "initial_rows": 62,
+      "created_rows": 3,
+      "payload_sha256": "de15316d77003816358a4f15d9f0fd600c40f6105ffcb4bea0d7ce531e9a54a8"
+    },
+    "mobile": {
+      "identical_to_main": true,
+      "initial_rows": 62,
+      "created_rows": 3,
+      "payload_sha256": "dfade5b8fc1c2dab349c2e2e966f9221e197ffd7876ce1ec188394da3cfd0783"
+    }
+  },
+  "pdf": {
+    "identical_rasters": true,
+    "pages": 9,
+    "page_sha256": [
+      "7b37f455a7be5d15ab72dbe198eaa25ea307f16ed25ae0cf8aace0953ce50832",
+      "4443448abe2b14e8d9b170b333b0ac16038c1e877079c151c6736184b17a6da4",
+      "49ac89f862b0a3b6986a0e68fbdcce4018e4d42b83dea8ad0489f882e22d3be9",
+      "17969a2b2e526f0e586970ad644a37b45d7af3ded2414b77e11159ee083b8818",
+      "037cc651e00f39fe5616818caf75f8545548eb5c7528e9639c17b79438ff3424",
+      "9410c37cba92caffe8a4a64379a90985009fa9b492e95f5314252b81c0cfafd0",
+      "482a2a57fc6d6c810831f8afca12a064d96da1a7fd5bb9f218beffedc6df8a06",
+      "8836a3a5848954817093a5e952ef26163691c156dd46b8603a3f70e11ecfc8fa",
+      "6763637a201b625de7ee7650d6255788b9e979a74fc404d886a883c7b1c6edcf"
+    ]
+  },
+  "remote_requests": 0,
+  "source_sha256": {
+    "src/components/views/TransactionsView.tsx": "47b0714753632aea00888f8820506d35717c7c8d51dd777aa8589285b4d6a34b",
+    "src/components/transactions/SmartTransactionFiltersPanel.tsx": "4b1245126c5981386b266720d34d372ea9566bf1db44954f954d275a31b40631",
+    "src/components/transactions/RecurrencesPanel.tsx": "b94c1e612fc7aa5249c163c571abcde813f90a17c4322849a96c2c322bdda913",
+    "src/components/modals/NewTransactionModal.tsx": "1d272458fda9772ebbba4e5db4f7c8e6cc1b9cff3fdf00b96cb9537504d3e373",
+    "src/components/views/AccountModal.tsx": "85b199aa537e52a0210e6a17b665683c004f61c7abfbfca380f22cc7bbba5d2a",
+    "src/components/modals/CategoryModal.tsx": "65adadb842cead01f81a3b053f8e19a7204dea4f2c251616a34b23919f762e38",
+    "src/components/modals/MappingRuleModal.tsx": "b145f577613de5757fa3d9eeae847d6d898483c178a7a273bdb65cdcfb4427f0",
+    "src/components/transactions/AccountBalanceCard.tsx": "055da14853d810b6b9a3bc254f4f0ee534c1d87add302a335e16ed26c025b6d2",
+    "src/components/transactions/EconomicIdentityControls.tsx": "d48a44d01e2f3f37d8c4a9aba2016b8d74928a4a5fc5848d90fe19bd0259fd4d",
+    "src/components/ui/FamilyOwnerAuditPanel.tsx": "f373f3095fa7486a3870261e05e5ecfe4179b4c22d90c775b0fa4a157635dd5a",
+    "src/components/ui/FamilyOwnerBadge.tsx": "ebae87dedd5be5fb0d159dc106431922687dccb75df5befb4483d94c09da3d10",
+    "src/components/ui/TransactionOwnerGroupHeader.tsx": "038879b0808e5eb628812dcce262f6ec7537e9deaaf74037ebe0798c62b891bb",
+    "src/components/ui/SwipeableItem.tsx": "dc18da093cd2c5e1ccaad2a438b2667cd915600688659affbab9551ddb9df6d5",
+    "src/components/TourButton.tsx": "bbd2524458821cd255f559c6441ba02110a25407c13caf27788a363246a083f8",
+    "src/components/modals/InstallmentSuggestionModal.tsx": "5a2e55b0777b0834ae45d2c4ae7e4c1e33af1e4c150e8a50abe546d81f6728a7",
+    "src/components/ui/Input.tsx": "6b73ff5df77728c468080798b4f01ed924387283bd6c6f6909ed79dc77af1650",
+    "src/components/ui/Select.tsx": "093d2e2b191151cde2648811f6f0781d905660cdb12f0737b59dc3c0d5bae5d3",
+    "src/components/ui/Modal.tsx": "618af4974dab9948aa4a012cb72a4ad9214e591800b34832c7da7a8639767ac4",
+    "src/components/appearance/financial.css": "89a4c00251838b4cb4a3985686efe24aa3b838e1d369910ac9cbfdd6345d7996",
+    "scripts/diagnostics/financial-preview-runtime.tsx": "2b6ad23fe51bba8644cb816fe1286be8010370e026cc55aaf6f04d49b3f10d99",
+    "scripts/diagnostics/financial-preview.tsx": "726c58e57d20209f23ca9c6b36049da5e878333ea140f46e82001f50b94feaba"
+  }
+}
