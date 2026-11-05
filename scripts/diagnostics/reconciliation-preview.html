@@ -1,0 +1,10 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinElo · Conciliação sintética isolada</title></head><body><div id="root"></div>
+<script>
+window.__reconciliationModule=source=>{
+ const url=new URL(source,location.origin);
+ url.pathname=url.pathname.replace(/theme-card-(main|reviewed)-baseline/, 'theme-reconciliation-$1-baseline');
+ if(url.origin!==location.origin||!/^\/(src|scripts\/diagnostics\/theme-reconciliation-(main|reviewed)-baseline\/src)\//.test(url.pathname))throw Error('Módulo fora da referência');
+ return import(url.href);
+};
+window.__cardNativeModule=window.__reconciliationModule;
+</script><script type="module" src="/scripts/diagnostics/reconciliation-preview.tsx"></script></body></html>

@@ -1,0 +1,98 @@
+{
+  "status": "PASS",
+  "suites": {
+    "states": {
+      "status": "PASS",
+      "captures": 144,
+      "parity": 72,
+      "exact": 72,
+      "contrast_samples": 552,
+      "minimum_text": 5.607,
+      "minimum_essential": 4.397,
+      "contrast_failures": 0,
+      "theme_switch_checks": 48,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "operations": {
+      "status": "PASS",
+      "captures": 136,
+      "parity": 68,
+      "exact": 68,
+      "contrast_samples": 334,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "contrast_failures": 0,
+      "theme_switch_checks": 16,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "isolation": {
+      "status": "PASS",
+      "captures": 24,
+      "parity": 12,
+      "exact": 12,
+      "contrast_samples": 104,
+      "minimum_text": 5.358,
+      "minimum_essential": 4.397,
+      "contrast_failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    },
+    "entry": {
+      "status": "PASS",
+      "captures": 16,
+      "parity": 8,
+      "exact": 8,
+      "contrast_samples": 76,
+      "minimum_text": 5.607,
+      "minimum_essential": 4.397,
+      "contrast_failures": 0,
+      "theme_switch_checks": 0,
+      "remote_requests": 0,
+      "javascript_errors": []
+    }
+  },
+  "tests": {
+    "full": 3303,
+    "files": 205,
+    "focal": 1138,
+    "focal_files": 83,
+    "appearance": 91,
+    "typescript_known": 14,
+    "typescript_new": 0,
+    "build_precache": 49
+  },
+  "print": {
+    "documents": 16,
+    "pages": 32,
+    "raster_text_dimensions_identical": true,
+    "remote_requests": 0
+  },
+  "totals": {
+    "captures": 320,
+    "parity": 160,
+    "exact": 160,
+    "contrast_samples": 1066,
+    "contrast_failures": 0,
+    "theme_switch_checks": 64,
+    "remote_requests": 0
+  },
+  "minimum_text": 5.122,
+  "minimum_essential": 4.397,
+  "legacy_limits": {
+    "official_row_mobile_internal_scroll": true,
+    "reverse_refusal_notice_hidden_before_conversion": true,
+    "double_timeout_notice_hidden_after_zero_reload_before_conversion": true,
+    "new_dark_content_exceptions": 0
+  },
+  "package": {
+    "file": "finelo-ciclo-3d-evidencias.zip",
+    "bytes": 15758290,
+    "sha256": "3acc716fbc83fe9939e2d8dbb37a11b416ce63ad3f658c7640afba414d726445",
+    "indexed_files": 1171,
+    "index_sha256": "4650709af545f917b25a55a746a908d18b2ca6beedc432a309491bc2bea97899",
+    "crc_all_hashes_verified": true
+  }
+}

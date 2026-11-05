@@ -339,3 +339,89 @@ Execução proposta, ainda sem implementação/autorização de publicação:
 2. Converter apenas apresentação dos estados calculando/pronto/erro/concluído e das opções/valores/fontes autoritativas. Preservar os dois passos: selecionar uma resolução não grava; a confirmação final mantém a mesma intenção/chave de idempotência.
 3. Exercitar delta negativo/zero/positivo, cancelamento nos dois passos, resolução ativa, reversão, ausência de permissão, timeout depois de gravar, retry com a mesma chave, concorrência, troca de competência e estado ocupado. Uma mudança de tema não deve recalcular a conciliação ou recriar a intenção; medir as chamadas e a identidade da chave.
 4. Exigir paridade Escura nas quatro variantes, contraste Claro/teclado/scroll desktop-mobile, igualdade em centavos dos dois livros e de payloads/resoluções, impressão existente, suítes financeiras/TypeScript/build e pacote verificável. Revisar o 3D antes de qualquer piloto mais amplo; Dashboard, investimentos, plataformas físicas/PWA e demais consumidores continuam em lotes próprios.
+
+## Lote 3D — Conciliação
+
+Base revisada: `04414c742aab9a665afad0aa5f05a16cfe313f14`. A branch remota, main e ancestral comum foram revalidados; main/ancestral continuam `6fa1188b1864e85da587e61c7e46009a5e82adb4`. As comparações usam main, revisado, Escuro e Claro atuais, com relógio/fuso/escala fixos, em 1440×1000 e 390×844. Nenhuma alteração de elegibilidade, autenticação, banco ou produção.
+
+### Inventário, baseline e conversão
+
+| Superfície/contrato | Tratamento 3D |
+| --- | --- |
+| `ReconciliationFlow` | Tokens para cálculo em andamento, erro/retry, conclusão, lista de resoluções e botões de reversão/ocupado |
+| `ReconciliationResolutionModal` | Seleção de alternativas, resumo/sinal da diferença, competência, classificação, consequências, valor oficial/procedência, confirmação, aviso, voltar/cancelar e desabilitados |
+| `TransactionsView` | Ponto de entrada real e wrapper existentes, preservados; a chave `${accountId}-${referenceMonth}` remonta o fluxo ao trocar o alvo |
+| `AccountBalanceCard` e `CardDiagnosticsModal` | Entradas reais “Ver diferença”/“Conciliação” e diagnóstico reutilizadas do 3C, sem alteração |
+| Modal/GlobalDialog, tokens/adaptadores | Reutilizados; foco, teclado, scrim e rolagem existentes, sem nova biblioteca ou geometria |
+| `cardReconciliationService`, intenção, opções/resoluções e dois livros | Nenhuma edição; serviço original invocado contra transporte sintético |
+
+Somente os dois primeiros componentes de produto foram editados: atributos `data-finance` e importação do adaptador CSS existente. Classes, strings, dimensões, fórmulas, efeitos e callbacks permanecem iguais. Cinco fingerprints de consumidores, incluindo entradas/chave de montagem, e 156 hashes financeiros foram registrados antes de editar. Os dois livros são expostos pelas superfícies existentes de cartão, diferença e efeitos da classificação; a homologação conserva essas superfícies e compara suas projeções completas, sem acrescentar um painel financeiro novo.
+
+Baseline focal antes da conversão: **1.132 testes/82 arquivos PASS**, TypeScript com **14 diagnósticos conhecidos/zero novos**. A suíte completa inicial teve 3.296 testes aprovados e um timeout de 5 segundos em `productEventsPostgres`, antes das alterações de produto. O arquivo passou isoladamente com seus **18 testes**, sem mudar timeout, teste ou migration. A ocorrência e o reteste estão no pacote. Foram preservadas quatro capturas Escuras anteriores (seleção/confirmação, desktop/mobile), além dos snapshots imutáveis das fontes.
+
+### Segurança das fixtures e invariantes
+
+O cálculo real do servidor é uma fronteira externa: a fixture modela as respostas de `card-reconciliation` e a tabela de resoluções em memória. O frontend usa **ReconciliationFlow, serviço Supabase, classificação de erros, retry e intenção originais**. Os saldos/projeções são calculados pelos módulos originais de dois livros, com fatos sintéticos declarados em centavos. Resolução e reversão são registros distintos; não se apagam fatos ou resoluções originais. O transporte modela a unicidade por chave, inclusive uma gravação antes de devolver timeout. Isso homologa os contratos do frontend; não certifica Edge Function, RLS ou concorrência de banco reais.
+
+A barreira é instalada antes dos imports: URL/chaves fictícias, nenhum login real, storage em memória, BroadcastChannel desativado, rede externa bloqueada e sentinela do storage original conferido. A entrada de diagnóstico exige DEV/staging; não é entrada do build público. Não há alteração de variáveis persistentes do ambiente. IDs/chaves de intenção são determinísticos somente na fixture para comparar payloads, sem registrar tokens/cabeçalhos.
+
+Somente o motor novo habilita a conciliação no produto. Legado e V2 são exercitados nos pontos de entrada reais como controles negativos: sem botão de conciliação e sem chamada de cálculo. Não se força o fluxo nesses motores nem se amplia uma coorte. As fixtures incluem duas contas, competência aberta/fechada, livros com fatos distintos, zero/excedente, resoluções ativas, lista longa, falhas, sessão encerrada, respostas atrasadas e troca de alvo. O delta negativo é uma resposta histórica inconsistente de defesa: o domínio atual não o produz como diferença acionável; a UI o apresenta sem corrigir/reclassificar os fatos.
+
+Asserções automatizadas comparam payloads, chaves, quantidade de registros, projeções em centavos, competências e datas entre as quatro variantes. Selecionar uma opção não gera chave nem gravação; os cancelamentos anteriores à confirmação final conservam os saldos. Uma operação já enviada continua sujeita à resposta do serviço se o usuário fechar a janela: fechar a apresentação não equivale a cancelar uma gravação no servidor. A troca CSS é medida com Profiler/contadores em etapas de seleção, confirmação e processamento, sem recálculo, requisição ou nova intenção.
+
+### Resultado final e matrizes 3D
+
+**Conversão visual concluída para revisão, com limitações anteriores de feedback registradas abaixo.** Preservadas **320 capturas**, **160 comparações Escuras, todas exatas**, e **1.066 verificações de contraste Claro aprovadas**. Sem tolerância raster, nova exceção de conteúdo Escuro, overflow horizontal do documento, erro JavaScript não tratado ou requisição externa. O scroll interno anterior foi preservado.
+
+| Bateria | Capturas | Paridades / exatas | Contrastes Claro | Pintura/financeiro |
+| --- | ---: | ---: | ---: | --- |
+| Estados, validações, nativos e listas | 144 | 72 / 72 | 552 | PASS |
+| Classificar, confirmar, retry e reverter | 136 | 68 / 68 | 334 | PASS |
+| Alvo, latência, sessão e foco | 24 | 12 / 12 | 104 | PASS |
+| Entradas reais e gates dos motores | 16 | 8 / 8 | 76 | PASS |
+
+Mínimos computados: **5,122:1 texto/campos** e **4,397:1 elementos essenciais/foco**. Verificados hover, foco, seleção, desabilitado, campos monetários/procedência, carregamento, erros, aviso, confirmação, resultado, listas longas e modais encadeados. A diferença continua identificada por texto e sinal; excedente não recebe significado econômico apenas por sua cor. Loop Tab/Shift+Tab, Escape e restituição de foco usam o Modal existente.
+
+| Invariante financeira/segurança | Resultado | Evidência automatizada |
+| --- | --- | --- |
+| 1. Competência explícita | PASS | Payload preserva conta/mês; zero edição do serviço/props |
+| 2. Selecionar não grava | PASS | Primeiro passo sem POST de resolução nem criação de chave |
+| 3. Confirmação mantém intenção | PASS | Payload usa a chave única criada ao confirmar |
+| 4. Retry sem duplicar | PASS | Recusa antes de gravar e retry com a mesma chave; uma linha |
+| 5. Timeout após gravar | PASS | Uma resolução após retry automático; dois timeouts também mantêm uma linha |
+| 6. Cancelar sem efeito financeiro | PASS | Cancelar na seleção ou fechar antes da confirmação conserva estado/ledger |
+| 7. Desfazer preserva contrato | PASS | Nova reversão, resolução original mantida; recusa não grava |
+| 8. Tema sem operações extras | PASS | 64 trocas CSS com zero render React, chamadas, eventos e intenções adicionais |
+| 9. Novo alvo sem estado antigo | PASS | Troca conta/mês remonta; resposta velha não substitui alvo novo; chave nova |
+| 10. Autorização preservada | PASS | Falha no cálculo e sessão encerrada não geram resolução; legado/V2 sem acesso |
+
+Os cenários cobrem diferença positiva/negativa/zero, livros distintos, competência com vencimento futuro ou anterior, resolução disponível/sem diferença, confirmação intermediária/final, valor oficial válido/inválido e procedência, cancelamento nos dois passos, recusa antes de gravar, timeout após gravar, retry automático com mesma chave, dois timeouts e recálculo, clique repetido durante envio, reversão permitida/recusada, resposta antiga após trocar alvo, troca durante gravação, dados legados inconsistentes, autorização negada e sessão encerrada. Payloads e resultados completos são iguais entre variantes; somente o motor novo tem o fluxo habilitado, com os dois gates negativos testados na aplicação real.
+
+**A matriz de feedback tem ressalvas próprias:** a mensagem de reversão recusada e a de incerteza após dois timeouts/recálculo são **FAIL de feedback preexistente**, nas quatro variantes; o bloqueio, a chave e a ausência de duplicação são PASS financeiros. A linha de valor/procedência em mobile é **limitação de layout anterior**, com acesso por foco/scroll preservado. Não se atribui PASS a feedback inexistente nem se altera o Escuro para ocultar a diferença.
+
+**Testes finais:** **3.303 testes/205 arquivos PASS** na suíte local completa, incluindo E864/regressões financeiras; **1.138/83 PASS** na focal de cartões/conciliação/aparência; **91/7 PASS** de aparência após a conversão. TypeScript: **14 diagnósticos conhecidos, zero novos**. Build/PWA: **PASS**, 49 entradas de precache. Os cinco fingerprints e 156 selos financeiros passam. O CI do commit enviado será registrado na PR com sua contagem própria; fixtures privadas locais não são publicadas para igualar números.
+
+**Impressão: 16 PDFs/32 páginas PASS**, pelos pontos de entrada reais em pendente, confirmação, resolvido e revertido. Contagem, dimensões, texto, valores e raster idênticos entre main/revisado/Escuro/Claro por estado, sem alterar regras de impressão. O contrato anterior exclui modais fixos; o PDF conserva a aplicação financeira existente atrás deles, e não passa a criar um relatório de resoluções. A impressão não muda projeções, linhas ou chamadas.
+
+**Reprodução:** preparar `theme-reconciliation-main-baseline` e `theme-reconciliation-reviewed-baseline` com `prepare-financial-baseline.py --base <SHA> --target-name <nome>` usando os SHAs acima; iniciar `serve-card-preview.ps1 -Port 5204`. Com Edge, Python/Playwright e PyMuPDF, executar `validate-reconciliation-themes.py --port 5204 --themes all --suite <states|operations|isolation|entry> --out-dir <pasta>` e `validate-reconciliation-print.py --port 5204 --out-dir <pasta>`. Não usar uma sessão real ou um endpoint de produção. O README de evidências registra a evolução independente do runner.
+
+**Evidências:** [seis PNGs e manifestos compactos](evidencias-ciclo-3d/README.md). Pacote externo `finelo-ciclo-3d-evidencias.zip`, **15.758.290 bytes**, **1.171 arquivos indexados**; ZIP reaberto com CRC e todos os hashes conferidos. SHA-256: `3acc716fbc83fe9939e2d8dbb37a11b416ce63ad3f658c7640afba414d726445`. SHA-256 do índice: `4650709af545f917b25a55a746a908d18b2ca6beedc432a309491bc2bea97899`. O conjunto prioriza estados distintos, evitando repetir as 2.200 capturas do 3C; os dados completos de cada operação permanecem disponíveis no ZIP.
+
+### Limitações anteriores preservadas
+
+| Limitação | Evidência e decisão |
+| --- | --- |
+| Linha valor oficial/procedência em 390 px | O input e select excedem a largura interna; requer rolagem horizontal do corpo, sem overflow do documento. O foco/scroll permite alcançar ambos. Geometria preexistente preservada e capturada nos dois temas |
+| Aviso de reversão recusada | A reversão é bloqueada e não grava; o aviso do serviço fica no estado da intenção, mas a etapa de seleção/zero não o desenha. Falha anterior de feedback, preservada para deliberação posterior |
+| Dois timeouts após gravação | O retry usa a mesma chave e existe só uma resolução. O recálculo mostra o estado real; quando a diferença zera, a etapa zero não exibe o aviso de incerteza. Falha anterior de feedback, preservada, sem criar exceção de conteúdo Escuro |
+
+Essas limitações não são tratadas como tolerância de raster ou como novos comportamentos aprovados. A paridade e os efeitos financeiros são comparados separadamente da completude do feedback; os JSONs conservam os indicadores correspondentes em cada variante. A correção do feedback/geometria exigirá deliberação específica. Não foi iniciada investigação funcional paralela de `Nome_Fantasia`/apelido, OFX, consentimento secundário Open Finance ou competências históricas; esses riscos permanecem na lista anterior, sem alteração.
+
+### Próximo ciclo e homologação transversal
+
+1. **Dashboard:** inventariar cards, filtros, tooltips, eixos, legendas, séries positivas/negativas/zero, vazios/erros, seleção de titular e exportações. Selar cálculos e fontes; converter pintura com tokens/cores funcionais distinguíveis por texto ou símbolo; exigir quatro variantes, contraste, desktop/mobile e PDF.
+2. **Investimentos e patrimônio:** inventariar carteiras, ativos, detalhes/edição/classificação, importação específica, titular/família e estados longos. Preservar preços, rentabilidade, agrupamento, impostos, parsers, arredondamentos e permissões; usar fixtures sintéticas com payloads e resultados selados.
+3. **Demais superfícies:** mapear Settings remanescente, páginas auxiliares, administrativo, mensagens e rotas menos frequentes. O Claro global continua bloqueado enquanto houver consumidores sem homologação; proteger o Escuro por paridade e flag desligada.
+4. **Transversal:** Safari/iOS/Android físicos, PWA instalada/offline/reconexão, leitor de tela, zoom, alto contraste, controles/popups nativos e impressão longa. Os viewports Edge desta bateria não substituem essas plataformas. Resolver as limitações de feedback acima em tarefa delimitada, antes de deliberar sobre piloto mais amplo/publicação.
+
+Não há merge, deploy ou autorização de liberação geral decorrentes deste lote. Rollback da pintura não exige desfazer resoluções ou pagamentos: nenhum formato, serviço, banco ou preferência financeira foi modificado.
