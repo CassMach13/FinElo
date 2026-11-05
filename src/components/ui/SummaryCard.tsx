@@ -47,22 +47,22 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
     };
 
     return (
-        <Card className={`flex flex-col justify-between h-full min-h-[140px] group !overflow-visible hover:bg-secondary/40 transition-all duration-300 ${className}`}>
+        <Card data-appearance-component="summary" data-appearance-tone={variant} className={`flex flex-col justify-between h-full min-h-[140px] group !overflow-visible hover:bg-secondary/40 transition-all duration-300 ${className}`}>
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                    <h3 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">{title}</h3>
+                    <h3 data-appearance-part="summary-label" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">{title}</h3>
                     {tooltip && (
-                        <div className="group/tooltip relative">
+                        <div data-appearance-part="tooltip-trigger" className="group/tooltip relative">
                             <InformationCircleIcon className="h-3.5 w-3.5 text-gray-600 hover:text-gray-300 cursor-help transition-colors" />
-                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden w-48 p-3 bg-slate-950/98 backdrop-blur-2xl text-[10px] leading-relaxed text-gray-300 rounded-xl shadow-2xl border border-white/10 group-hover/tooltip:block z-[9999] pointer-events-none">
+                            <div data-appearance-part="tooltip" className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden w-48 p-3 bg-slate-950/98 backdrop-blur-2xl text-[10px] leading-relaxed text-gray-300 rounded-xl shadow-2xl border border-white/10 group-hover/tooltip:block z-[9999] pointer-events-none">
                                 {tooltip}
-                                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/10"></div>
+                                <div data-appearance-part="tooltip-arrow" className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/10"></div>
                             </div>
                         </div>
                     )}
                 </div>
                 {icon && (
-                    <div className={`
+                    <div data-appearance-part="summary-icon" className={`
                         p-2.5 rounded-xl 
                         bg-gradient-to-br from-white/5 to-white/10 
                         border border-white/5 
@@ -76,7 +76,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
             </div>
 
             <div className="mt-auto pt-4">
-                <div className={`
+                <div data-appearance-part="summary-value" className={`
                     font-bold tracking-tight 
                     group-hover:scale-[1.02] 
                     origin-left transition-transform duration-300 
@@ -88,7 +88,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
                 </div>
                 <div className="min-h-[1.25rem] h-auto flex items-center pb-1">
                     {subValue ? (
-                        <div className="text-[10px] font-medium text-gray-500 mt-1 whitespace-normal">
+                        <div data-appearance-part="muted" className="text-[10px] font-medium text-gray-500 mt-1 whitespace-normal">
                             {subValue}
                         </div>
                     ) : (
@@ -96,12 +96,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
                     )}
                 </div>
                 {compare && (
-                    <div className="mt-2 pt-2 border-t border-white/10 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[10px]">
-                        <span className="text-gray-500">
-                            vs <span className="font-semibold text-gray-400">{compare.periodLabel}</span>:{' '}
-                            <span className="text-gray-300">{compare.value}</span>
+                    <div data-appearance-part="divider" className="mt-2 pt-2 border-t border-white/10 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[10px]">
+                        <span data-appearance-part="muted" className="text-gray-500">
+                            vs <span data-appearance-part="muted" className="font-semibold text-gray-400">{compare.periodLabel}</span>:{' '}
+                            <span data-appearance-part="title" className="text-gray-300">{compare.value}</span>
                         </span>
-                        <span className={`font-semibold ${getDeltaToneColor()}`}>
+                        <span data-appearance-part="delta" data-appearance-tone={compare.deltaTone || 'neutral'} className={`font-semibold ${getDeltaToneColor()}`}>
                             {compare.deltaLabel}
                         </span>
                     </div>

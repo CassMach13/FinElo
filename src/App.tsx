@@ -21,6 +21,7 @@ import { AppLock } from './components/auth/AppLock';
 import { AuthLoadingScreen, ProtectedRoute } from './components/auth/ProtectedRoute';
 import ReloadPrompt from './components/pwa/ReloadPrompt';
 import { GlobalDialog } from './components/ui/GlobalDialog';
+import AppearanceSessionSync from './components/appearance/AppearanceSessionSync';
 
 const AppContent: React.FC = () => {
   const acquisitionLocation = useLocation();
@@ -212,6 +213,7 @@ const App: React.FC = () => (
     <AppLock>
       <AppContent />
     </AppLock>
+    <AppearanceSessionSync />
     <GlobalDialog />
     <ReloadPrompt />
     <Analytics />

@@ -1,0 +1,17 @@
+{
+  "baseline": "6fa1188",
+  "flag_off_authenticated": {
+    "desktop-dashboard": true,
+    "desktop-settings": true,
+    "mobile-dashboard": true,
+    "mobile-settings": true
+  },
+  "dashboard_pdf_identical": true,
+  "dashboard_pdf_pages": 4,
+  "sha256": {
+    "desktop-dashboard": "b02574aacfd52cd6c2e084f8264e612e9dc3a0083827bca74971936b7ce3748a",
+    "desktop-settings": "726bc43ff4a792daf163691906fc26831ebe65fb00e99d88d6db84d2c6bd6ed6",
+    "mobile-dashboard": "a25423ac6d7238faaeb016d7d5756b03a6b6321bda249e549b0ea4ffd5f42353",
+    "mobile-settings": "045e13cc9f62d5cef432fdd3b9dea6cad15ccff20638b7bb9395f2b99180819f"
+  }
+}

@@ -60,23 +60,23 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
     return (
         <div ref={widgetRef} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
             {/* Área clicável do usuário */}
-            <button onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
+            <button data-appearance-part="menu-item" aria-expanded={isOpen} aria-label="Menu da conta" onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
                 <Avatar user={user} className={position === 'top' ? 'h-8 w-8' : 'h-10 w-10'} />
                 <div className={`hidden lg:block flex-1 overflow-hidden`}>
-                    <p className="text-sm font-semibold text-light truncate">{displayName}</p>
-                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                    <p data-appearance-part="title" className="text-sm font-semibold text-light truncate">{displayName}</p>
+                    <p data-appearance-part="muted" className="text-xs text-gray-400 truncate">{user.email}</p>
                 </div>
             </button>
 
             {/* Menu Dropdown */}
             {isOpen && (
-                <div className={`absolute ${position === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 lg:right-auto w-56 bg-secondary rounded-lg shadow-2xl border border-primary z-50`}>
-                    <div className="p-3 border-b border-primary">
-                        <p className="text-sm font-semibold text-light truncate">{displayName}</p>
-                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                <div data-appearance-part="menu" className={`absolute ${position === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 lg:right-auto w-56 bg-secondary rounded-lg shadow-2xl border border-primary z-50`}>
+                    <div data-appearance-part="divider" className="p-3 border-b border-primary">
+                        <p data-appearance-part="title" className="text-sm font-semibold text-light truncate">{displayName}</p>
+                        <p data-appearance-part="muted" className="text-xs text-gray-400 truncate">{user.email}</p>
                     </div>
                     <nav className="p-1 space-y-1">
-                        <button
+                        <button data-appearance-part="menu-item"
                             onClick={() => { onNavigate?.('help'); setIsOpen(false); }}
                             className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:bg-primary rounded-md transition-colors"
                         >
@@ -85,14 +85,14 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
                                 <span>Central de Ajuda</span>
                             </div>
                             {userBadgeCount > 0 && (
-                                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                <span data-appearance-part="badge" className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                                     {userBadgeCount}
                                 </span>
                             )}
                         </button>
 
                         {isAdmin && (
-                            <button
+                            <button data-appearance-part="menu-item"
                                 onClick={() => { onNavigate?.('admin'); setIsOpen(false); }}
                                 className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:bg-primary rounded-md transition-colors"
                             >
@@ -101,14 +101,14 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
                                     <span>Chamados (Admin)</span>
                                 </div>
                                 {adminBadgeCount > 0 && (
-                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                    <span data-appearance-part="badge" className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                                         {adminBadgeCount}
                                     </span>
                                 )}
                             </button>
                         )}
 
-                        <button
+                        <button data-appearance-part="menu-item"
                             onClick={() => { onNavigate?.('pricing'); setIsOpen(false); }}
                             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-primary rounded-md transition-colors"
                         >
@@ -116,9 +116,9 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
                             <span>Gerenciar Conta</span>
                         </button>
 
-                        <div className="border-t border-primary my-1"></div>
+                        <div data-appearance-part="divider" className="border-t border-primary my-1"></div>
 
-                        <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-primary rounded-md transition-colors">
+                        <button data-appearance-part="menu-danger" onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-primary rounded-md transition-colors">
                             <LogoutIcon className="h-5 w-5" />
                             <span>Sair da Conta</span>
                         </button>

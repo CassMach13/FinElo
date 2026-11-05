@@ -6,6 +6,7 @@ import { computeAccountBalanceAsOf } from '../../src/utils/dashboardNetWorth';
 
 const api = vi.hoisted(() => ({
   getSession: vi.fn(),
+  getUser: vi.fn(),
   signOut: vi.fn(),
   updateUser: vi.fn(),
   persistAppearanceTheme: vi.fn(),
@@ -62,6 +63,7 @@ describe('preferência confirmada no store', () => {
 
   afterEach(() => {
     store().setUser(null);
+    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
 
@@ -112,5 +114,103 @@ describe('preferência confirmada no store', () => {
     vi.stubEnv('VITE_APPEARANCE_PILOT', 'false');
     await expect(store().updateUserPreferences({ appearance_theme: 'light' })).rejects.toThrow('indisponível');
     expect(api.persistAppearanceTheme).not.toHaveBeenCalled();
+  });
+
+  it.each(['TOKEN_REFRESHED', 'USER_UPDATED', 'SIGNED_IN'])('não regride Claro com snapshot antigo de %s', async () => {
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    store().setUser({ ...a, user_metadata: { nome: 'QA atualizado', appearance_theme: 'dark' } });
+    expect(store().user?.user_metadata).toEqual({ nome: 'QA atualizado', appearance_theme: 'light' });
+  });
+
+  it('reconcilia outra aba pelo servidor sem carregar transações nem trocar metadados locais', async () => {
+    const transactions = [] as Transaction[];
+    useAppStore.setState({ transactions });
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    api.getUser.mockResolvedValue({ data: { user: user('a', { appearance_theme: 'system' }) }, error: null });
+    await store().syncAppearancePreferences();
+    expect(api.getUser).toHaveBeenCalledWith('token-a');
+    expect(store().user?.user_metadata).toEqual({ nome: 'QA', appearance_theme: 'system' });
+    store().setUser(a);
+    expect(store().user?.user_metadata.appearance_theme).toBe('system');
+    expect(store().transactions).toBe(transactions);
+    expect(api.from).not.toHaveBeenCalled();
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('preserva confirmação offline e reconcilia após retorno de conexão', async () => {
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    api.getUser.mockRejectedValueOnce(new Error('offline'));
+    await store().syncAppearancePreferences();
+    store().setUser(a);
+    expect(store().user?.user_metadata.appearance_theme).toBe('light');
+    api.getUser.mockResolvedValue({ data: { user: user('a', { appearance_theme: 'light' }) }, error: null });
+    await store().syncAppearancePreferences();
+    expect(store().user?.user_metadata.appearance_theme).toBe('light');
+  });
+
+  it('invalida leitura iniciada antes de uma gravação confirmada', async () => {
+    let finish!: (value: unknown) => void;
+    api.getUser.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const reading = store().syncAppearancePreferences();
+    await vi.waitFor(() => expect(api.getUser).toHaveBeenCalled());
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    finish({ data: { user: user('a', { appearance_theme: 'dark' }) }, error: null });
+    await reading;
+    expect(store().user?.user_metadata.appearance_theme).toBe('light');
+  });
+
+  it('descarta leitura após A → B → A e aceita apenas o novo login', async () => {
+    let finish!: (value: unknown) => void;
+    api.getUser.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const reading = store().syncAppearancePreferences();
+    await vi.waitFor(() => expect(api.getUser).toHaveBeenCalled());
+    store().setUser(null);
+    store().setUser(b);
+    store().setUser(a);
+    finish({ data: { user: user('a', { appearance_theme: 'light' }) }, error: null });
+    await reading;
+    expect(store().user?.user_metadata.appearance_theme).toBeUndefined();
+    api.getUser.mockResolvedValue({ data: { user: user('a', { appearance_theme: 'system' }) }, error: null });
+    await store().syncAppearancePreferences();
+    expect(store().user?.user_metadata.appearance_theme).toBe('system');
+  });
+
+  it('não consulta aparência de outra conta ou de conta não elegível', async () => {
+    api.getSession.mockResolvedValue(session(b));
+    await store().syncAppearancePreferences();
+    store().setUser({ ...a, app_metadata: {} });
+    await store().syncAppearancePreferences();
+    expect(api.getUser).not.toHaveBeenCalled();
+  });
+
+  it('restaura confirmação offline por conta e deixa o servidor resolver uma alteração externa', async () => {
+    const cache = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (key: string) => cache.get(key), setItem: (key: string, value: string) => cache.set(key, value) });
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    store().setUser(null);
+    store().setUser(b);
+    expect(store().user?.user_metadata.appearance_theme).toBeUndefined();
+    store().setUser(a);
+    expect(store().user?.user_metadata.appearance_theme).toBe('light');
+    api.getUser.mockResolvedValue({ data: { user: user('a', { appearance_theme: 'system' }) }, error: null });
+    await store().syncAppearancePreferences();
+    expect(store().user?.user_metadata.appearance_theme).toBe('system');
+    expect([...cache.values()]).toEqual(['system']);
+  });
+
+  it('continua salvando quando o armazenamento opcional está bloqueado', async () => {
+    vi.stubGlobal('localStorage', { getItem: () => { throw Error('storage denied'); }, setItem: () => { throw Error('storage denied'); } });
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    expect(store().user?.user_metadata.appearance_theme).toBe('light');
+  });
+
+  it('descarta resposta getUser de outra conta e considera ausência válida como Escuro', async () => {
+    await store().updateUserPreferences({ appearance_theme: 'light' });
+    api.getUser.mockResolvedValueOnce({ data: { user: b }, error: null });
+    await store().syncAppearancePreferences();
+    expect(store().user?.user_metadata.appearance_theme).toBe('light');
+    api.getUser.mockResolvedValueOnce({ data: { user: a }, error: null });
+    await store().syncAppearancePreferences();
+    expect(store().user?.user_metadata.appearance_theme).toBe('dark');
   });
 });

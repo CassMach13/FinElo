@@ -19,7 +19,7 @@ interface DialogState {
   closeDialog: (result: boolean) => void;
 }
 
-export const useDialogStore = create<DialogState>((set, get) => ({
+export const createDialogStore = () => create<DialogState>((set, get) => ({
   isOpen: false,
   options: null,
   resolvePromise: null,
@@ -50,6 +50,8 @@ export const useDialogStore = create<DialogState>((set, get) => ({
     // setTimeout(() => set({ options: null }), 300); // Limpa as opções depois da animação (opcional)
   }
 }));
+
+export const useDialogStore = createDialogStore();
 
 /**
  * Utilitário global para substituir o `window.confirm`

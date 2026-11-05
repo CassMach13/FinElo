@@ -38,7 +38,7 @@ const Modal: React.FC<ModalProps> = ({
         <div data-appearance-part="divider" className="flex justify-between items-center p-4 border-b border-slate-600">
           <h3 data-appearance-part="title" className="text-xl font-bold text-light">{title}</h3>
           {!hideCloseButton && (
-            <button data-appearance-part="muted" onClick={onClose} className="text-gray-400 hover:text-white transition-colors">&times;</button>
+            <button data-appearance-part="icon-button" aria-label="Fechar modal" onClick={onClose} className="text-gray-400 hover:text-white transition-colors">&times;</button>
           )}
         </div>
 

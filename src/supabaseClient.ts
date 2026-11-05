@@ -19,6 +19,9 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     },
 });
 
+/** A captured bearer binds the write to its initiating account. The global SDK's updateUser
+ * selects its session after awaiting its lock. AppearanceSessionSync refreshes the SDK and
+ * validates the server preference separately, without restoring a captured session. */
 export async function persistAppearanceTheme(accessToken: string, theme: AppearanceTheme): Promise<void> {
     const response = await fetch(new URL('auth/v1/user', supabaseUrl.replace(/\/?$/, '/')), {
         method: 'PUT',

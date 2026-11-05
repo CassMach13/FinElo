@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { appAlert } from './useDialogStore';
 import { persistAppearanceTheme, supabase } from '../supabaseClient';
 import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
+import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
 import {
   Transaction,
   Category,
@@ -303,6 +304,7 @@ interface AppState {
   setUser: (user: User | null) => void;
   refreshAtomicImportEligibility: () => Promise<boolean>;
   updateUserPreferences: (preferences: Partial<User['user_metadata']>) => Promise<void>;
+  syncAppearancePreferences: () => Promise<void>;
   signOut: () => Promise<void>;
 
   // Novas ações para buscar dados do Supabase
@@ -563,6 +565,8 @@ let transactionsFetchGeneration = 0;
 let assetSessionGeneration = 0;
 let assetsFetchGeneration = 0;
 const appearanceSaves = new Set<string>();
+let appearanceRevision = 0;
+let confirmedAppearance: { id: string; theme: 'dark' | 'light' | 'system' } | undefined;
 const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
   const userId = get().user?.id;
   const generation = assetSessionGeneration;
@@ -704,7 +708,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Filtros de Transação
   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
   setUser: (user) => {
-    if (get().user?.id !== user?.id) assetSessionGeneration += 1;
+    if (get().user?.id !== user?.id) {
+      assetSessionGeneration += 1;
+      appearanceRevision += 1;
+      confirmedAppearance = undefined;
+      if (user && isAppearancePilotEnabled(user)) {
+        const theme = readConfirmedAppearance(user.id);
+        if (theme) confirmedAppearance = { id: user.id, theme };
+      }
+    }
+    // SDK events may carry metadata cached before the last successful PUT.
+    // Only a fresh, account-bound getUser response may replace a confirmed theme.
+    if (user && isAppearancePilotEnabled(user) && confirmedAppearance?.id === user.id) {
+      user = { ...user, user_metadata: { ...user.user_metadata, [APPEARANCE_THEME_KEY]: confirmedAppearance.theme } };
+    }
     const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
     set((state) => ({
       user,
@@ -735,6 +752,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     return enabled;
   },
   
+  syncAppearancePreferences: async () => {
+    const user = get().user;
+    if (!user || !isAppearancePilotEnabled(user) || appearanceSaves.has(user.id)) return;
+    const isCurrentSession = captureAssetSession(get);
+    const revision = ++appearanceRevision;
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || session?.user.id !== user.id || !isCurrentSession()) return;
+      // Explicit JWT binds the read too, without replacing the SDK's current session.
+      const result = await supabase.auth.getUser(session.access_token);
+      if (result.error || result.data.user?.id !== user.id || !isCurrentSession() || revision !== appearanceRevision) return;
+      const value = result.data.user.user_metadata[APPEARANCE_THEME_KEY];
+      const theme = isAppearanceTheme(value) ? value : 'dark';
+      confirmedAppearance = { id: user.id, theme };
+      cacheConfirmedAppearance(user.id, theme);
+      const currentUser = get().user!;
+      set({ user: { ...currentUser, user_metadata: { ...currentUser.user_metadata, [APPEARANCE_THEME_KEY]: theme } } });
+    } catch { /* Offline: keep the last confirmed preference; retry on online/focus/Auth. */ }
+  },
+
   updateUserPreferences: async (preferences) => {
     const { user } = get();
     if (Object.hasOwn(preferences, APPEARANCE_THEME_KEY)) {
@@ -744,6 +781,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       if (appearanceSaves.has(user.id)) throw new Error('A aparência já está sendo salva.');
       appearanceSaves.add(user.id);
+      appearanceRevision += 1;
       const isCurrentSession = captureAssetSession(get);
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -753,9 +791,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         // Vincula a escrita a esta conta mesmo se o SDK trocar de sessão durante a requisição.
         await persistAppearanceTheme(session.access_token, theme);
         if (isCurrentSession()) {
+          appearanceRevision += 1;
+          confirmedAppearance = { id: user.id, theme };
+          cacheConfirmedAppearance(user.id, theme);
           const currentUser = get().user!;
           set({ user: { ...currentUser, user_metadata: { ...currentUser.user_metadata, [APPEARANCE_THEME_KEY]: theme } } });
         }
+        signalAppearanceChange(isCurrentSession());
       } finally {
         appearanceSaves.delete(user.id);
       }

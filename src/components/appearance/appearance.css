@@ -1,4 +1,5 @@
-/* Semântica disponível para os próximos ciclos. O piloto aplica Claro só na amostra. */
+/* Semantic adapters preserve legacy dark classes and print contracts.
+   Light is scoped to the isolated pilot; no application-wide theme is applied. */
 :root {
   --appearance-canvas: 26 32 44;
   --appearance-surface: 45 55 72;
@@ -37,6 +38,7 @@
   --appearance-scrim: 0 0 0;
 }
 
+@media screen {
 [data-finelo-theme="light"] {
   --appearance-canvas: 245 247 250;
   --appearance-surface: 255 255 255;
@@ -75,7 +77,6 @@
   --appearance-scrim: 15 23 42;
 }
 
-@media screen {
   [data-finelo-theme="light"] {
     color-scheme: light;
   }
@@ -141,6 +142,8 @@
 
   [data-finelo-theme="light"] [data-appearance-part="button"]:not(:disabled):hover {
     background-color: rgb(var(--appearance-hover));
+    color: rgb(var(--appearance-content));
+    border-color: rgb(var(--appearance-control-border));
   }
 
   [data-finelo-theme="light"] [data-appearance-variant="primary"] {
@@ -149,6 +152,7 @@
   }
 
   [data-finelo-theme="light"] [data-appearance-variant="primary"]:not(:disabled):hover {
+    color: rgb(var(--appearance-on-action));
     background-image: linear-gradient(to right, rgb(var(--appearance-action-hover)), rgb(var(--appearance-action-hover-end)));
   }
 
@@ -167,5 +171,161 @@
   [data-finelo-theme="light"] ::selection {
     background-color: rgb(var(--appearance-selected));
     color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="shell"] {
+    background-color: rgb(var(--appearance-canvas));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="shell-header"], [data-appearance-part="shell-nav"], [data-appearance-part="brand-frame"], [data-appearance-part="menu"], [data-appearance-part="dialog"], [data-appearance-part="tooltip"]) {
+    background-color: rgb(var(--appearance-raised));
+    border-color: rgb(var(--appearance-divider));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="tooltip-arrow"] {
+    border-top-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="tooltip-trigger"] > svg {
+    color: rgb(var(--appearance-muted));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="nav-item"], [data-appearance-part="menu-item"], [data-appearance-part="icon-button"]) {
+    color: rgb(var(--appearance-muted));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="nav-item"], [data-appearance-part="menu-item"], [data-appearance-part="menu-danger"], [data-appearance-part="icon-button"]):hover {
+    background-color: rgb(var(--appearance-hover));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="nav-item"][data-appearance-active="true"] {
+    background-color: rgb(var(--appearance-action));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="menu-danger"] {
+    color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="badge"] {
+    background-color: rgb(var(--appearance-danger));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="summary-label"] {
+    color: rgb(var(--appearance-muted));
+    opacity: 1;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-component="summary"] {
+    --appearance-tone: var(--appearance-content);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="accent"],
+  [data-finelo-theme="light"] [data-appearance-tone="success"] {
+    --appearance-tone: var(--appearance-success);
+    --appearance-tone-surface: var(--appearance-success-surface);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="danger"] {
+    --appearance-tone: var(--appearance-danger);
+    --appearance-tone-surface: var(--appearance-danger-surface);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="warning"] {
+    --appearance-tone: var(--appearance-warning);
+    --appearance-tone-surface: var(--appearance-warning-surface);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="info"] {
+    --appearance-tone: var(--appearance-info);
+    --appearance-tone-surface: var(--appearance-info-surface);
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="summary-value"], [data-appearance-part="summary-icon"]) {
+    color: rgb(var(--appearance-tone));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="summary-icon"] {
+    background-image: none;
+    background-color: rgb(var(--appearance-hover));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="delta"] { color: rgb(var(--appearance-muted)); }
+  [data-finelo-theme="light"] [data-appearance-part="delta"][data-appearance-tone="positive"] { color: rgb(var(--appearance-positive)); }
+  [data-finelo-theme="light"] [data-appearance-part="delta"][data-appearance-tone="negative"] { color: rgb(var(--appearance-negative)); }
+  [data-finelo-theme="light"] [data-appearance-part="skeleton"] { background-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-appearance-part="progress-track"] { background-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-appearance-part="progress-fill"][data-appearance-tone] { background-color: rgb(var(--appearance-tone)); }
+
+  [data-finelo-theme="light"] [data-appearance-part="dialog-header"] {
+    color: rgb(var(--appearance-tone));
+    background-color: rgb(var(--appearance-tone-surface));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="state-icon"] > svg { color: inherit; }
+  [data-finelo-theme="light"] [data-appearance-part="dialog-footer"] {
+    background-color: rgb(var(--appearance-hover));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="ghost"],
+  [data-finelo-theme="light"] [data-appearance-variant="outline"] { background-color: transparent; }
+
+  [data-finelo-theme="light"] [data-appearance-variant="accent"] {
+    background-color: rgb(var(--appearance-success));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="danger"] {
+    background-color: rgb(var(--appearance-danger));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="accent"]:not(:disabled):hover {
+    background-color: rgb(var(--appearance-success-surface));
+    color: rgb(var(--appearance-success));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="danger"]:not(:disabled):hover {
+    background-color: rgb(var(--appearance-danger-surface));
+    color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] :is(button, input, select, a, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--appearance-focus));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  [data-finelo-theme="light"] :is(input[type="checkbox"], input[type="radio"]) {
+    accent-color: rgb(var(--appearance-action));
+    color-scheme: light;
+  }
+
+  /* Explicit states outrank legacy Tailwind hover/focus utilities regardless of stylesheet order. */
+  [data-finelo-theme="light"] [data-appearance-part="control"]:not(:disabled):is(:hover, :focus) {
+    background-color: rgb(var(--appearance-control));
+    border-color: rgb(var(--appearance-control-border));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"][data-appearance-invalid="true"]:not(:disabled):is(:hover, :focus) {
+    border-color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="card"]:hover {
+    background-color: rgb(var(--appearance-surface));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  /* Fading foreground information would reduce its contrast halfway through a pulse. */
+  [data-finelo-theme="light"] :is([data-appearance-part="error"], [data-appearance-part="badge"]) {
+    animation: none;
   }
 }

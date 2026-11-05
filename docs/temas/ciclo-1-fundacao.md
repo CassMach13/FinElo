@@ -1,5 +1,7 @@
 # FinElo · Ciclo 1 de aparência
 
+Atualização: a limitação de sincronização da sessão descrita neste registro foi tratada no [Ciclo 2](ciclo-2-compartilhados.md), que também amplia os componentes, as capturas e as verificações de impressão. Este documento conserva os resultados históricos do primeiro ciclo.
+
 A fundação oferece Escuro, Claro e Automático em uma amostra autenticada de Configurações. A referência reúne Card, Modal, Button, Input e Select, inclusive data nativa e botão desabilitado. A amostra tem dados fictícios. O restante do aplicativo conserva a apresentação escura enquanto as telas são convertidas nos ciclos seguintes.
 
 ## Arquitetura e disponibilidade
