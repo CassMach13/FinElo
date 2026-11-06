@@ -7,6 +7,7 @@ from remaining_visual_checks import AUDIT_JS,compare_rasters,digest
 
 OUT=Path('node_modules/.finelo-cycle4c-tools/evidence');OUT.mkdir(exist_ok=True)
 VARIANTS=['main','reviewed','dark','light']
+RENDER_ARGS=['--disable-gpu','--force-color-profile=srgb','--disable-skia-runtime-opts','--disable-lcd-text','--disable-font-subpixel-positioning','--font-render-hinting=none','--run-all-compositor-stages-before-draw']
 RESULTS=[]
 def settle(p):
  p.evaluate("async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.complete?null:new Promise(r=>{i.onload=r;i.onerror=r})));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}")
@@ -27,14 +28,14 @@ def cap(p,v,width,name,scope=None):
  settle(p);p.mouse.move(0,0)
  # Match focus across immutable versions; keyboard focus has separate explicit snapshots.
  if not name.endswith('-keyboard'):p.evaluate('document.activeElement?.blur()')
- p.evaluate("async()=>{const o=document.body.style.opacity;document.body.style.opacity='0';await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));document.body.style.opacity=o;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}")
+ p.evaluate("async(keepFocus)=>{const nodes=[...document.querySelectorAll('*')].filter(e=>e.scrollTop||e.scrollLeft).map(e=>[e,e.scrollTop,e.scrollLeft]),active=keepFocus?document.activeElement:null,old=document.body.style.display;document.body.style.display='none';await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));document.body.style.display=old;nodes.forEach(([e,t,l])=>{e.scrollTop=t;e.scrollLeft=l});active?.focus({preventScroll:true});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}",name.endswith('-keyboard'))
  audit=AUDIT_JS
  if scope:audit=audit.replace("const root=tour||",f"const root=tour||").replace("document.querySelector('[data-finelo-theme]')",f"document.querySelector({json.dumps(scope)})||document.querySelector('[data-finelo-theme]')")
  data=p.evaluate(audit);snap=p.evaluate('window.__remainingPreview.snapshot()');profile=p.evaluate('window.__remainingPreview.profile()')
+ file=f'{name}-{width}-{v}';p.screenshot(path=str(OUT/(file+'.png')))
  before=profile;p.evaluate("()=>{const e=document.querySelector('[data-finelo-theme]');e.dataset.fineloTheme=e.dataset.fineloTheme==='light'?'dark':'light';e.dataset.fineloTheme=e.dataset.fineloTheme==='light'?'dark':'light'}")
  after=p.evaluate('window.__remainingPreview.profile()');assert before==after,('Appearance caused work',name,before,after)
- file=f'{name}-{width}-{v}';p.screenshot(path=str(OUT/(file+'.png')))
- entry={'state':name,'variant':v,'width':width,'audit':data,'snapshot':snap,'cssZeroWork':True,'image':file+'.png'}
+ entry={'state':name,'variant':v,'width':width,'audit':data,'snapshot':snap,'cssZeroWork':True,'image':file+'.png','renderer':RENDER_ARGS}
  (OUT/(file+'.json')).write_text(json.dumps(entry,ensure_ascii=False),encoding='utf8');RESULTS.append(entry)
  print(json.dumps({'state':name,'variant':v,'width':width,'AAfail':len([r for r in data['rows']if not r['pass']])}),flush=True)
 def goals(p,v,w):
@@ -116,7 +117,7 @@ def compare(stage):
  return report
 def run(stage):
  with sync_playwright()as pw:
-  b=pw.chromium.launch(channel='msedge',headless=True,args=['--disable-gpu','--force-color-profile=srgb','--disable-skia-runtime-opts'])
+  b=pw.chromium.launch(channel='msedge',headless=True,args=RENDER_ARGS)
   for w,h in [(1440,1000),(390,844)]:
    for v in VARIANTS:
     p=b.new_page(viewport={'width':w,'height':h},timezone_id='America/Sao_Paulo');p.clock.set_fixed_time('2026-11-06T12:00:00Z');errors=[];p.on('pageerror',lambda e:errors.append(str(e)));p.route('**/*',lambda r:r.continue_()if r.request.url.startswith('http://127.0.0.1:5207/')else r.abort())

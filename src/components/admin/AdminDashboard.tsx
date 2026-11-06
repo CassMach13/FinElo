@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import Card from '../ui/Card';
@@ -21,7 +22,7 @@ const AdminDashboard: React.FC = () => {
 
     if (isLoading && (!adminMetrics)) {
         return (
-            <div className="flex h-full items-center justify-center animate-pulse text-gray-400">
+            <div data-finance="muted" className="flex h-full items-center justify-center animate-pulse text-gray-400">
                 Carregando métricas do CRM...
             </div>
         );
@@ -61,58 +62,58 @@ const AdminDashboard: React.FC = () => {
     });
 
     const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
-        if (sortConfig.key !== columnKey) return <span className="text-slate-600 opacity-0 group-hover:opacity-50 ml-1 transition-opacity">↕</span>;
-        return <span className="text-cyan-400 ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+        if (sortConfig.key !== columnKey) return <span data-finance="muted" className="text-slate-600 opacity-0 group-hover:opacity-50 ml-1 transition-opacity">↕</span>;
+        return <span data-finance="info" className="text-cyan-400 ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
     };
 
     return (
         <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Total Usuários</h3>
-                    <p className="text-3xl font-bold text-white mt-2">{adminMetrics?.total_users || 0}</p>
+                <Card data-finance="inset divider" className="flex flex-col bg-slate-800/50 border-white/5">
+                    <h3 data-finance="muted" className="text-gray-400 text-sm font-medium">Total Usuários</h3>
+                    <p data-finance="content" className="text-3xl font-bold text-white mt-2">{adminMetrics?.total_users || 0}</p>
                 </Card>
-                <Card className="flex flex-col bg-slate-800/50 border-white/5 ring-1 ring-yellow-500/30">
-                    <h3 className="text-yellow-500/80 text-sm font-medium">Founder's Pack</h3>
-                    <p className="text-3xl font-bold text-yellow-400 mt-2">
+                <Card data-finance="inset divider" className="flex flex-col bg-slate-800/50 border-white/5 ring-1 ring-yellow-500/30">
+                    <h3 data-finance="warning" className="text-yellow-500/80 text-sm font-medium">Founder's Pack</h3>
+                    <p data-finance="warning" className="text-3xl font-bold text-yellow-400 mt-2">
                         {adminMetrics?.founders_users || 0}
-                        <span className="text-sm font-normal text-yellow-500/50 ml-1">/ 50</span>
+                        <span data-finance="warning" className="text-sm font-normal text-yellow-500/50 ml-1">/ 50</span>
                     </p>
                 </Card>
-                <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">PRO</h3>
-                    <p className="text-3xl font-bold text-cyan-400 mt-2">{adminMetrics?.pro_users || 0}</p>
+                <Card data-finance="inset divider" className="flex flex-col bg-slate-800/50 border-white/5">
+                    <h3 data-finance="muted" className="text-gray-400 text-sm font-medium">PRO</h3>
+                    <p data-finance="info" className="text-3xl font-bold text-cyan-400 mt-2">{adminMetrics?.pro_users || 0}</p>
                 </Card>
-                <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Wealth</h3>
-                    <p className="text-3xl font-bold text-purple-400 mt-2">{adminMetrics?.wealth_users || 0}</p>
+                <Card data-finance="inset divider" className="flex flex-col bg-slate-800/50 border-white/5">
+                    <h3 data-finance="muted" className="text-gray-400 text-sm font-medium">Wealth</h3>
+                    <p data-finance="remaining-tone" className="text-3xl font-bold text-purple-400 mt-2">{adminMetrics?.wealth_users || 0}</p>
                 </Card>
-                <Card className="flex flex-col bg-slate-800/50 border-white/5">
-                    <h3 className="text-gray-400 text-sm font-medium">Basic (Grátis)</h3>
-                    <p className="text-3xl font-bold text-slate-500 mt-2">{adminMetrics?.free_users || 0}</p>
+                <Card data-finance="inset divider" className="flex flex-col bg-slate-800/50 border-white/5">
+                    <h3 data-finance="muted" className="text-gray-400 text-sm font-medium">Basic (Grátis)</h3>
+                    <p data-finance="muted" className="text-3xl font-bold text-slate-500 mt-2">{adminMetrics?.free_users || 0}</p>
                 </Card>
             </div>
 
             {/* CRM Table */}
-            <div className="bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden flex flex-col">
-                <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h3 className="text-lg font-bold text-white">Lista de Clientes (CRM)</h3>
+            <div data-finance="surface divider" className="bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden flex flex-col">
+                <div data-finance="divider" className="p-4 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h3 data-finance="content" className="text-lg font-bold text-white">Lista de Clientes (CRM)</h3>
                     <div className="relative w-full sm:w-64">
-                        <input
+                        <input data-finance="content inset divider control"
                             type="text"
                             placeholder="Buscar por e-mail..."
                             className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-purple-500 outline-none transition-colors"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                        <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                        <span data-finance="muted" className="absolute left-3 top-2.5 text-gray-400">🔍</span>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-400">
-                        <thead className="bg-slate-900/50 text-xs uppercase text-gray-400 font-semibold border-b border-white/5">
+                    <table data-finance="muted" className="w-full text-left text-sm text-gray-400">
+                        <thead data-finance="muted inset divider" className="bg-slate-900/50 text-xs uppercase text-gray-400 font-semibold border-b border-white/5">
                             <tr>
                                 <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('full_name')}>
                                     <div className="flex items-center">Usuário <SortIcon columnKey="full_name"/></div>
@@ -124,30 +125,30 @@ const AdminDashboard: React.FC = () => {
                                     <div className="flex items-center">Data de Cadastro <SortIcon columnKey="created_at"/></div>
                                 </th>
                                 <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('last_activity_at')}>
-                                    <div className="flex items-center text-cyan-500 font-bold">Última Atividade <SortIcon columnKey="last_activity_at"/></div>
+                                    <div data-finance="info" className="flex items-center text-cyan-500 font-bold">Última Atividade <SortIcon columnKey="last_activity_at"/></div>
                                 </th>
                                 <th scope="col" className="px-6 py-3 cursor-pointer group hover:text-white transition-colors" onClick={() => handleSort('last_sign_in_at')}>
                                     <div className="flex items-center">Último Login <SortIcon columnKey="last_sign_in_at"/></div>
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody data-finance="divided" className="divide-y divide-white/5">
                             {sortedUsers.length > 0 ? (
                                 sortedUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-semibold text-slate-200">{user.full_name || 'Usuário sem nome'}</div>
-                                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                            <div data-finance="content" className="font-semibold text-slate-200">{user.full_name || 'Usuário sem nome'}</div>
+                                            <div data-finance="muted" className="text-xs text-slate-500 mt-1 flex items-center gap-2">
                                                 <span>{user.email}</span>
-                                                <button 
+                                                <button data-finance="remaining-hover" 
                                                     onClick={() => handleCopyEmail(user.email, user.id)}
                                                     className="p-1 hover:bg-slate-700 rounded transition-colors group/copy relative"
                                                     title="Copiar e-mail"
                                                 >
                                                     {copiedId === user.id ? (
-                                                        <span className="text-emerald-400 text-xs font-bold">✓ Copiado</span>
+                                                        <span data-finance="positive" className="text-emerald-400 text-xs font-bold">✓ Copiado</span>
                                                     ) : (
-                                                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover/copy:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <svg data-finance="muted" className="w-3.5 h-3.5 text-gray-400 group-hover/copy:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                         </svg>
                                                     )}
@@ -158,39 +159,39 @@ const AdminDashboard: React.FC = () => {
                                             <div className="flex flex-col gap-1 items-start">
                                                 {user.plan_type === 'lifetime' ? (
                                                     // Founder's Pack: comprou via Stripe ou recebeu acesso vitalício
-                                                    <span className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap">
+                                                    <span data-finance="warning" className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap">
                                                         Founder's Pack
                                                     </span>
                                                 ) : !user.plan_type || user.plan_type === 'free' ? (
                                                     // Sem assinatura = Basic Grátis
-                                                    <span className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
+                                                    <span data-finance="muted inset" className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
                                                         Basic (Grátis)
                                                     </span>
                                                 ) : user.tier === 'wealth' ? (
                                                     <div className="flex flex-col gap-0.5">
-                                                        <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                        <span data-finance="remaining-tone remaining-tone-panel" className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
                                                             Wealth
                                                         </span>
-                                                        <span className="text-[9px] text-gray-500 lowercase">
+                                                        <span data-finance="muted" className="text-[9px] text-gray-500 lowercase">
                                                             {user.plan_type === 'annual' ? 'anual' : 'mensal'}
                                                         </span>
                                                     </div>
                                                 ) : user.tier === 'pro' ? (
                                                     <div className="flex flex-col gap-0.5">
-                                                        <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                        <span data-finance="info info-panel" className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
                                                             PRO
                                                         </span>
-                                                        <span className="text-[9px] text-gray-500 lowercase">
+                                                        <span data-finance="muted" className="text-[9px] text-gray-500 lowercase">
                                                             {user.plan_type === 'annual' ? 'anual' : 'mensal'}
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <span className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
+                                                    <span data-finance="muted inset" className="bg-slate-700 px-2 py-0.5 rounded text-[10px] text-gray-400 uppercase">
                                                         Basic (Grátis)
                                                     </span>
                                                 )}
                                                 {user.plan_status && !['active', 'lifetime'].includes(user.plan_status) && (
-                                                    <span className="text-[9px] bg-red-500/20 text-red-500 px-1 py-0.5 rounded font-mono">
+                                                    <span data-finance="negative danger-chip" className="text-[9px] bg-red-500/20 text-red-500 px-1 py-0.5 rounded font-mono">
                                                         {user.plan_status.toUpperCase()}
                                                     </span>
                                                 )}
@@ -201,7 +202,7 @@ const AdminDashboard: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             {ultimaAtividadeExibida(user) ? (
-                                                <span className={`px-2 py-0.5 rounded-full text-xs border ${
+                                                <span data-finance="remaining-dynamic divider" className={`px-2 py-0.5 rounded-full text-xs border ${
                                                     (new Date().getTime() - new Date(ultimaAtividadeExibida(user)!).getTime()) < 3 * 24 * 60 * 60 * 1000
                                                         ? 'bg-green-500/10 border-green-500/30 text-green-400'
                                                         : 'bg-slate-800 border-slate-700 text-gray-500'
@@ -209,10 +210,10 @@ const AdminDashboard: React.FC = () => {
                                                     {new Date(ultimaAtividadeExibida(user)!).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit' })}
                                                 </span>
                                             ) : (
-                                                <span className="text-gray-600 italic">Nunca acessou</span>
+                                                <span data-finance="muted" className="text-gray-600 italic">Nunca acessou</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-gray-500">
+                                        <td data-finance="muted" className="px-6 py-4 text-gray-500">
                                             {user.last_sign_in_at
                                                 ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
                                                 : <span className="italic">nunca</span>}
@@ -221,7 +222,7 @@ const AdminDashboard: React.FC = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                    <td data-finance="muted" colSpan={5} className="px-6 py-8 text-center text-gray-500">
                                         Nenhum usuário encontrado na busca.
                                     </td>
                                 </tr>

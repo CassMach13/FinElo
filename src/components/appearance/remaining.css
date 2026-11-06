@@ -18,4 +18,15 @@
   [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-green-900/30"] { background-color: rgb(var(--appearance-success-surface)); }
   [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-yellow-900/30"] { background-color: rgb(var(--appearance-warning-surface)); }
   [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-red-900/30"] { background-color: rgb(var(--appearance-danger-surface)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"]:is([class~="bg-cyan-500/20"],[class~="bg-cyan-900/40"],[class~="bg-purple-500/20"]) { background-color: rgb(var(--appearance-info-surface)); border-color: rgb(var(--appearance-control-border)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"]:is([class~="bg-slate-700"],[class~="bg-slate-800"],[class~="bg-slate-800/50"],[class~="bg-gray-800"]) { background-color: rgb(var(--appearance-hover)); border-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"]:is([class~="bg-purple-600"],[class~="bg-purple-900/20"]) { background-color: rgb(var(--appearance-chart-3) / .08); border-color: rgb(var(--appearance-chart-3) / .4); }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-red-500/20"] { background-color: rgb(var(--appearance-danger-surface)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-tone-panel"] { background-image: none; }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-purple-500/10"] { background-color: rgb(var(--appearance-selected)); border-color: rgb(var(--appearance-focus)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-file"]::file-selector-button { color: rgb(var(--appearance-info)); background-color: rgb(var(--appearance-info-surface)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-file-target"]:focus-visible + div { outline: 2px solid rgb(var(--appearance-focus)); outline-offset: 2px; }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-slate-800/60"] { background-color: rgb(var(--appearance-hover)); border-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-dynamic"][class~="bg-slate-800/40"] { background-color: rgb(var(--appearance-hover)); border-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="remaining-toggle-thumb"] { background-color: rgb(var(--appearance-action)); }
 }

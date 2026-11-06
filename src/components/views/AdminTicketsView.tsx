@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useState } from 'react';
 import Card from './../ui/Card';
 import Button from './../ui/Button';
@@ -75,23 +76,23 @@ const AdminTicketsView: React.FC = () => {
         <div className="space-y-6 animate-fade-in-up h-[calc(100vh-100px)] flex flex-col">
             <header className="flex justify-between items-center shrink-0">
                 <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    <h2 data-finance="remaining-gradient" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                         Gestão da Plataforma (Admin)
                     </h2>
-                    <p className="text-gray-400">
+                    <p data-finance="muted" className="text-gray-400">
                         {pendingCount > 0 ? `${pendingCount} chamados pedindo atenção.` : 'Tudo em dia por aqui!'}
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="bg-slate-800/80 p-1 rounded-xl flex gap-1">
-                        <button
+                    <div data-finance="inset" className="bg-slate-800/80 p-1 rounded-xl flex gap-1">
+                        <button data-finance="remaining-dynamic remaining-hover"
                             onClick={() => setSelectedTab('tickets')}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${selectedTab === 'tickets' ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
                                 }`}
                         >
                             Chamados
                         </button>
-                        <button
+                        <button data-finance="remaining-dynamic remaining-hover"
                             onClick={() => setSelectedTab('metrics')}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${selectedTab === 'metrics' ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
                                 }`}
@@ -106,22 +107,22 @@ const AdminTicketsView: React.FC = () => {
             {selectedTab === 'tickets' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                     {/* LIST COLUMN */}
-                    <div className="lg:col-span-1 bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 p-4 flex flex-col min-h-0">
+                    <div data-finance="surface divider" className="lg:col-span-1 bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 p-4 flex flex-col min-h-0">
                         {/* Search & Filter */}
                         <div className="space-y-3 mb-4 shrink-0">
                             <div className="relative">
-                                <input
+                                <input data-finance="content inset divider control"
                                     type="text"
-                                    placeholder="Buscar protocolo, termo..."
+                                    aria-label="Buscar protocolo, termo" placeholder="Buscar protocolo, termo..."
                                     className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-purple-500 outline-none transition-colors"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
-                                <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                                <span data-finance="muted" className="absolute left-3 top-2.5 text-gray-400">🔍</span>
                             </div>
                             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                                 {(['all', 'open', 'resolved', 'closed'] as const).map(st => (
-                                    <button
+                                    <button data-finance="remaining-dynamic"
                                         key={st}
                                         onClick={() => setFilterStatus(st)}
                                         className={`px-3 py-1 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-colors ${filterStatus === st
@@ -138,7 +139,7 @@ const AdminTicketsView: React.FC = () => {
                         {/* Ticket List */}
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-slate-700">
                             {filteredTickets.map(ticket => (
-                                <div
+                                <div data-finance="remaining-dynamic divider" role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.currentTarget.click(); } }}
                                     key={ticket.id}
                                     onClick={() => handleSelectTicket(ticket.id)}
                                     className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedTicketId === ticket.id
@@ -148,24 +149,24 @@ const AdminTicketsView: React.FC = () => {
                                 >
                                     <div className="flex justify-between items-start mb-1">
                                         <div className="flex items-center gap-2">
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${ticket.type === 'bug' ? 'bg-red-500/20 text-red-400' :
+                                            <span data-finance="remaining-dynamic" className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${ticket.type === 'bug' ? 'bg-red-500/20 text-red-400' :
                                                 ticket.type === 'feature' ? 'bg-blue-500/20 text-blue-400' :
                                                     'bg-yellow-500/20 text-yellow-400'
                                                 }`}>
                                                 {ticket.type}
                                             </span>
-                                            {ticket.protocol && <span className="text-[10px] font-mono text-cyan-400">#{ticket.protocol}</span>}
+                                            {ticket.protocol && <span data-finance="info" className="text-[10px] font-mono text-cyan-400">#{ticket.protocol}</span>}
                                         </div>
-                                        <span className="text-[10px] text-gray-500">
+                                        <span data-finance="muted" className="text-[10px] text-gray-500">
                                             {new Date(ticket.created_at).toLocaleDateString()}
                                         </span>
                                     </div>
-                                    <h4 className="font-sembold text-sm text-slate-200 line-clamp-1">{ticket.subject}</h4>
-                                    <p className="text-xs text-slate-500 line-clamp-2 mt-1">{ticket.description}</p>
+                                    <h4 data-finance="content" className="font-sembold text-sm text-slate-200 line-clamp-1">{ticket.subject}</h4>
+                                    <p data-finance="muted" className="text-xs text-slate-500 line-clamp-2 mt-1">{ticket.description}</p>
                                 </div>
                             ))}
                             {filteredTickets.length === 0 && (
-                                <div className="text-center py-10 text-gray-500 text-sm">
+                                <div data-finance="muted" className="text-center py-10 text-gray-500 text-sm">
                                     Nenhum chamado encontrado.
                                 </div>
                             )}
@@ -173,15 +174,15 @@ const AdminTicketsView: React.FC = () => {
                     </div>
 
                     {/* DETAIL COLUMN */}
-                    <div className="lg:col-span-2 bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 flex flex-col min-h-0 overflow-hidden">
+                    <div data-finance="surface divider" className="lg:col-span-2 bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 flex flex-col min-h-0 overflow-hidden">
                         {selectedTicket ? (
                             <>
                                 {/* Header */}
-                                <div className="p-4 border-b border-white/5 bg-slate-900/40 shrink-0 flex justify-between items-start">
+                                <div data-finance="inset divider" className="p-4 border-b border-white/5 bg-slate-900/40 shrink-0 flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center gap-3 mb-1">
-                                            <h3 className="text-xl font-bold text-white">{selectedTicket.subject}</h3>
-                                            <span className={`text-xs px-2 py-0.5 rounded border ${selectedTicket.status === 'open' ? 'border-green-500/30 text-green-400' :
+                                            <h3 data-finance="content" className="text-xl font-bold text-white">{selectedTicket.subject}</h3>
+                                            <span data-finance="remaining-dynamic divider" className={`text-xs px-2 py-0.5 rounded border ${selectedTicket.status === 'open' ? 'border-green-500/30 text-green-400' :
                                                 selectedTicket.status === 'resolved' ? 'border-blue-500/30 text-blue-400' :
                                                     selectedTicket.status === 'closed' ? 'border-gray-600 text-gray-500' :
                                                         'border-yellow-500/30 text-yellow-400'
@@ -189,15 +190,15 @@ const AdminTicketsView: React.FC = () => {
                                                 {selectedTicket.status.toUpperCase().replace('_', ' ')}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-4 text-xs text-gray-400">
+                                        <div data-finance="muted" className="flex items-center gap-4 text-xs text-gray-400">
                                             <span>User ID: {selectedTicket.user_id.slice(0, 8)}...</span>
-                                            {selectedTicket.protocol && <span className="text-cyan-400 font-mono">Protocolo: {selectedTicket.protocol}</span>}
+                                            {selectedTicket.protocol && <span data-finance="info" className="text-cyan-400 font-mono">Protocolo: {selectedTicket.protocol}</span>}
                                             <span>{new Date(selectedTicket.created_at).toLocaleString()}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs text-gray-400">Status:</span>
-                                        <select
+                                        <span data-finance="muted" className="text-xs text-gray-400">Status:</span>
+                                        <select aria-label="Status do chamado" data-finance="inset divider control"
                                             value={selectedTicket.status}
                                             onChange={(e) => updateSupportTicketStatus(selectedTicket.id, e.target.value as any)}
                                             className="bg-slate-800 border border-slate-700 rounded text-xs px-2 py-1 outline-none focus:border-purple-500"
@@ -211,14 +212,14 @@ const AdminTicketsView: React.FC = () => {
                                 </div>
 
                                 {/* Messages Area */}
-                                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/20 scrollbar-thin scrollbar-thumb-slate-700">
+                                <div data-finance="inset" className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/20 scrollbar-thin scrollbar-thumb-slate-700">
                                     {/* OP Description */}
                                     <div className="flex flex-col gap-1 max-w-[85%]">
-                                        <span className="text-[10px] uppercase font-bold text-gray-500 ml-1">Descrição Inicial</span>
-                                        <div className="bg-slate-800/80 border border-slate-700/50 p-4 rounded-2xl rounded-tl-none">
-                                            <p className="text-sm text-slate-300 whitespace-pre-wrap">{selectedTicket.description}</p>
+                                        <span data-finance="muted" className="text-[10px] uppercase font-bold text-gray-500 ml-1">Descrição Inicial</span>
+                                        <div data-finance="inset divider" className="bg-slate-800/80 border border-slate-700/50 p-4 rounded-2xl rounded-tl-none">
+                                            <p data-finance="content" className="text-sm text-slate-300 whitespace-pre-wrap">{selectedTicket.description}</p>
                                             {(selectedTicket.attachment_path || selectedTicket.attachment_url) && (
-                                                <div className="mt-3 pt-3 border-t border-slate-700/50">
+                                                <div data-finance="divider" className="mt-3 pt-3 border-t border-slate-700/50">
                                                     <SupportAttachmentLink
                                                         attachment_path={selectedTicket.attachment_path}
                                                         attachment_url={selectedTicket.attachment_url}
@@ -236,16 +237,16 @@ const AdminTicketsView: React.FC = () => {
                                         const isUser = msg.sender_id === selectedTicket.user_id;
                                         return (
                                             <div key={msg.id} className={`flex flex-col gap-1 max-w-[85%] ${!isUser ? 'self-end items-end' : ''}`}>
-                                                <span className={`text-[10px] uppercase font-bold ${!isUser ? 'text-cyan-500 mr-1' : 'text-gray-500 ml-1'}`}>
+                                                <span data-finance="remaining-dynamic" className={`text-[10px] uppercase font-bold ${!isUser ? 'text-cyan-500 mr-1' : 'text-gray-500 ml-1'}`}>
                                                     {!isUser ? 'Você (Suporte)' : 'Usuário'}
                                                 </span>
-                                                <div className={`p-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm border ${!isUser
+                                                <div data-finance="content remaining-tone-panel divider" className={`p-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm border ${!isUser
                                                     ? 'bg-purple-600 border-purple-500 text-white rounded-tr-none'
                                                     : 'bg-slate-800 border-slate-700 text-slate-300 rounded-tl-none'
                                                     }`}>
                                                     {msg.message}
                                                     {(msg.attachment_path || msg.attachment_url) && (
-                                                        <div className={`mt-2 pt-2 border-t ${!isUser ? 'border-purple-500' : 'border-slate-700'}`}>
+                                                        <div data-finance="divider" className={`mt-2 pt-2 border-t ${!isUser ? 'border-purple-500' : 'border-slate-700'}`}>
                                                             <SupportAttachmentLink
                                                                 attachment_path={msg.attachment_path}
                                                                 attachment_url={msg.attachment_url}
@@ -254,18 +255,18 @@ const AdminTicketsView: React.FC = () => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <span className="text-[10px] text-gray-600">{new Date(msg.created_at).toLocaleString()}</span>
+                                                <span data-finance="muted" className="text-[10px] text-gray-600">{new Date(msg.created_at).toLocaleString()}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
 
                                 {/* Reply Box */}
-                                <div className="p-4 bg-slate-900/50 border-t border-white/5 shrink-0">
+                                <div data-finance="inset divider" className="p-4 bg-slate-900/50 border-t border-white/5 shrink-0">
                                     <div className="flex gap-2">
                                         <div className="flex-1 flex flex-col gap-2">
-                                            <textarea
-                                                placeholder="Digite sua resposta..."
+                                            <textarea data-finance="inset divider control"
+                                                aria-label="Resposta ao chamado" placeholder="Digite sua resposta..."
                                                 className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 resize-none h-20"
                                                  value={replyText}
                                                 onChange={(e) => setReplyText(e.target.value)}
@@ -279,7 +280,7 @@ const AdminTicketsView: React.FC = () => {
                                             />
                                             <div className="flex items-center gap-3 px-1">
                                                 <div className="relative group">
-                                                    <input
+                                                    <input aria-label="Anexar arquivo à resposta" data-finance="control remaining-file-target"
                                                         key={replyFileInputVersion}
                                                         type="file"
                                                         className="absolute inset-0 opacity-0 cursor-pointer w-full"
@@ -287,7 +288,7 @@ const AdminTicketsView: React.FC = () => {
                                                         disabled={isSendingReply}
                                                         onChange={(event) => setReplyFile(event.target.files?.[0] ?? null)}
                                                     />
-                                                    <div className="px-3 py-1 bg-slate-800 rounded-lg border border-slate-700 text-[10px] text-gray-400 hover:text-purple-400 transition-colors cursor-pointer max-w-xs truncate">
+                                                    <div data-finance="muted inset divider" className="px-3 py-1 bg-slate-800 rounded-lg border border-slate-700 text-[10px] text-gray-400 hover:text-purple-400 transition-colors cursor-pointer max-w-xs truncate">
                                                         {replyFile ? `📎 ${replyFile.name}` : '📎 Anexar arquivo'}
                                                     </div>
                                                 </div>
@@ -302,14 +303,14 @@ const AdminTicketsView: React.FC = () => {
                                             </Button>
                                         </div>
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mt-2 text-center">
+                                    <p data-finance="muted" className="text-[10px] text-gray-500 mt-2 text-center">
                                         Pressione Enter para enviar. O usuário será notificado na Central de Ajuda.
                                     </p>
                                 </div>
                             </>
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-                                <span className="text-4xl mb-4 opacity-20">🎫</span>
+                            <div data-finance="muted" className="flex-1 flex flex-col items-center justify-center text-gray-500">
+                                <span data-finance="remaining-opaque" className="text-4xl mb-4 opacity-20">🎫</span>
                                 <p>Selecione um chamado para visualizar ou responder.</p>
                             </div>
                         )}

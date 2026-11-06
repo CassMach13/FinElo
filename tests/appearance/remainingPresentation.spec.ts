@@ -4,10 +4,11 @@ import{describe,it,expect}from'vitest';
 import postcss from'postcss';
 import baseline from'./remaining-presentation-baseline.json';
 import{financialImplementationFingerprint}from'./financialPresentationFingerprint';
+import{remainingSessionPresentation}from'./remainingSessionPresentation';
 
 describe('4C preserva implementações e a fronteira pública anterior à pintura',()=>{
  it.each(Object.entries(baseline.files))('%s mantém classes, geometria e lógica',(file,sha)=>{
-  expect(financialImplementationFingerprint(file,file==='src/App.tsx'?readFileSync(file,'utf8').replace('<MainLayout key={user?.id} />','<MainLayout />'):readFileSync(file,'utf8'),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(sha);
+  expect(financialImplementationFingerprint(file,remainingSessionPresentation(file,readFileSync(file,'utf8')),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(sha);
  });
  it('mantém os 163 arquivos funcionais selados',()=>{
   const actual=Object.fromEntries(Object.keys(baseline.functionalSources).map(p=>[p,functionalSourceHash(p,readFileSync(p,'utf8'))]));
