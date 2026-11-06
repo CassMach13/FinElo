@@ -1,0 +1,3843 @@
+{
+  "base": "25a218d9c38f31134c39ebf4313a862a497e8649",
+  "overallVerdict": "NO-GO",
+  "productChanged": false,
+  "legacyCounts": {
+    "total": 40,
+    "PASS": 24,
+    "FAIL": 16
+  },
+  "legacySessions": 4,
+  "legacyResidualFailures": 16,
+  "legacyUnexpected": 0,
+  "legacy": [
+    {
+      "name": "legacy-msedge-original-defer-dirty",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "defer-dirty",
+      "status": "PASS",
+      "workerWaiting": true,
+      "experimentalBSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab"
+    },
+    {
+      "name": "legacy-msedge-original-offline-reconnect",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "offline-reconnect",
+      "status": "PASS",
+      "draftPreserved": true
+    },
+    {
+      "name": "legacy-msedge-original-old-button",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "old-button",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Own legacy 1s reload discarded its draft; B still waiting"
+    },
+    {
+      "name": "legacy-msedge-original-manual-refresh",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "manual-refresh",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Voluntary manual refresh discarded unsaved legacy draft"
+    },
+    {
+      "name": "legacy-msedge-original-close-dirty",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "close-dirty",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "User closed a legacy document with unsaved work; protocol cannot retain that DOM state"
+    },
+    {
+      "name": "legacy-msedge-original-save-observed",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "save-observed",
+      "status": "PASS",
+      "committed": 1,
+      "observedByClient": true,
+      "viewport": "1440x1000, desktop only; no mobile accessibility claim"
+    },
+    {
+      "name": "legacy-msedge-original-defer-pending",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "defer-pending",
+      "status": "PASS",
+      "requestAttempts": 2,
+      "workerWaiting": true
+    },
+    {
+      "name": "legacy-msedge-original-close-accepted-unobserved",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "close-accepted-unobserved",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Synthetic commit without delivered response; manual close loses client feedback",
+      "committed": 2,
+      "requestAttempts": 2
+    },
+    {
+      "name": "legacy-msedge-original-natural-after-voluntary-exit",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "natural-after-voluntary-exit",
+      "status": "PASS",
+      "allLegacyApplicationClientsGone": true,
+      "nativeActivation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5210/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 1794000932,
+        "scriptResponseTime": 1794000932.349876,
+        "controlledClients": [],
+        "targetId": "0756BEDA69C0F2F91E1C1A281FD8FAF8"
+      }
+    },
+    {
+      "name": "legacy-msedge-original-identity-preferences-finance",
+      "session": "legacy-msedge-original",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "original",
+      "step": "identity-preferences-finance",
+      "status": "PASS",
+      "account": "10000000-0000-4000-8000-000000000001",
+      "committed": 2,
+      "requestAttempts": 2,
+      "otherFinancialCollectionsUnchanged": true,
+      "submittedPayloadSHA256": "4b20964cc8ff33eb54e0ba1a6ff70c92b1b7b3f996b24ffef85ee61ef8d613b4"
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-defer-dirty",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "defer-dirty",
+      "status": "PASS",
+      "workerWaiting": true,
+      "experimentalBSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab"
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-offline-reconnect",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "offline-reconnect",
+      "status": "PASS",
+      "draftPreserved": true
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-old-button",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "old-button",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Own legacy 1s reload discarded its draft; B still waiting"
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-manual-refresh",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "manual-refresh",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Voluntary manual refresh discarded unsaved legacy draft"
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-close-dirty",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "close-dirty",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "User closed a legacy document with unsaved work; protocol cannot retain that DOM state"
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-save-observed",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "save-observed",
+      "status": "PASS",
+      "committed": 1,
+      "observedByClient": true,
+      "viewport": "1440x1000, desktop only; no mobile accessibility claim"
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-defer-pending",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "defer-pending",
+      "status": "PASS",
+      "requestAttempts": 2,
+      "workerWaiting": true
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-close-accepted-unobserved",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "close-accepted-unobserved",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Synthetic commit without delivered response; manual close loses client feedback",
+      "committed": 2,
+      "requestAttempts": 2
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-natural-after-voluntary-exit",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "natural-after-voluntary-exit",
+      "status": "PASS",
+      "allLegacyApplicationClientsGone": true,
+      "nativeActivation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5210/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 1794000957,
+        "scriptResponseTime": 1794000957.034302,
+        "controlledClients": [],
+        "targetId": "4DECAC02FB983FE926673AC74AA49B0D"
+      }
+    },
+    {
+      "name": "legacy-msedge-proposed-prompt-identity-preferences-finance",
+      "session": "legacy-msedge-proposed-prompt",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "installedPolicy": "proposed-prompt",
+      "step": "identity-preferences-finance",
+      "status": "PASS",
+      "account": "10000000-0000-4000-8000-000000000001",
+      "committed": 2,
+      "requestAttempts": 2,
+      "otherFinancialCollectionsUnchanged": true,
+      "submittedPayloadSHA256": "4b20964cc8ff33eb54e0ba1a6ff70c92b1b7b3f996b24ffef85ee61ef8d613b4"
+    },
+    {
+      "name": "legacy-chrome-original-defer-dirty",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "defer-dirty",
+      "status": "PASS",
+      "workerWaiting": true,
+      "experimentalBSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab"
+    },
+    {
+      "name": "legacy-chrome-original-offline-reconnect",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "offline-reconnect",
+      "status": "PASS",
+      "draftPreserved": true
+    },
+    {
+      "name": "legacy-chrome-original-old-button",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "old-button",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Own legacy 1s reload discarded its draft; B still waiting"
+    },
+    {
+      "name": "legacy-chrome-original-manual-refresh",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "manual-refresh",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Voluntary manual refresh discarded unsaved legacy draft"
+    },
+    {
+      "name": "legacy-chrome-original-close-dirty",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "close-dirty",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "User closed a legacy document with unsaved work; protocol cannot retain that DOM state"
+    },
+    {
+      "name": "legacy-chrome-original-save-observed",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "save-observed",
+      "status": "PASS",
+      "committed": 1,
+      "observedByClient": true,
+      "viewport": "1440x1000, desktop only; no mobile accessibility claim"
+    },
+    {
+      "name": "legacy-chrome-original-defer-pending",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "defer-pending",
+      "status": "PASS",
+      "requestAttempts": 2,
+      "workerWaiting": true
+    },
+    {
+      "name": "legacy-chrome-original-close-accepted-unobserved",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "close-accepted-unobserved",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Synthetic commit without delivered response; manual close loses client feedback",
+      "committed": 2,
+      "requestAttempts": 2
+    },
+    {
+      "name": "legacy-chrome-original-natural-after-voluntary-exit",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "natural-after-voluntary-exit",
+      "status": "PASS",
+      "allLegacyApplicationClientsGone": true,
+      "nativeActivation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5210/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 1794000984,
+        "scriptResponseTime": 1794000984.604538,
+        "controlledClients": [],
+        "targetId": "C22FE990308E2A3E67A2026303BF2D5A"
+      }
+    },
+    {
+      "name": "legacy-chrome-original-identity-preferences-finance",
+      "session": "legacy-chrome-original",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "original",
+      "step": "identity-preferences-finance",
+      "status": "PASS",
+      "account": "10000000-0000-4000-8000-000000000001",
+      "committed": 2,
+      "requestAttempts": 2,
+      "otherFinancialCollectionsUnchanged": true,
+      "submittedPayloadSHA256": "4b20964cc8ff33eb54e0ba1a6ff70c92b1b7b3f996b24ffef85ee61ef8d613b4"
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-defer-dirty",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "defer-dirty",
+      "status": "PASS",
+      "workerWaiting": true,
+      "experimentalBSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab"
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-offline-reconnect",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "offline-reconnect",
+      "status": "PASS",
+      "draftPreserved": true
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-old-button",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "old-button",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Own legacy 1s reload discarded its draft; B still waiting"
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-manual-refresh",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "manual-refresh",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Voluntary manual refresh discarded unsaved legacy draft"
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-close-dirty",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "close-dirty",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "User closed a legacy document with unsaved work; protocol cannot retain that DOM state"
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-save-observed",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "save-observed",
+      "status": "PASS",
+      "committed": 1,
+      "observedByClient": true,
+      "viewport": "1440x1000, desktop only; no mobile accessibility claim"
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-defer-pending",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "defer-pending",
+      "status": "PASS",
+      "requestAttempts": 2,
+      "workerWaiting": true
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-close-accepted-unobserved",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "close-accepted-unobserved",
+      "status": "FAIL",
+      "residual": true,
+      "reason": "Synthetic commit without delivered response; manual close loses client feedback",
+      "committed": 2,
+      "requestAttempts": 2
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-natural-after-voluntary-exit",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "natural-after-voluntary-exit",
+      "status": "PASS",
+      "allLegacyApplicationClientsGone": true,
+      "nativeActivation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5210/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 1794001010,
+        "scriptResponseTime": 1794001010.941429,
+        "controlledClients": [],
+        "targetId": "CBC2EC4B3BBEFB9B9E023467845C9221"
+      }
+    },
+    {
+      "name": "legacy-chrome-proposed-prompt-identity-preferences-finance",
+      "session": "legacy-chrome-proposed-prompt",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "installedPolicy": "proposed-prompt",
+      "step": "identity-preferences-finance",
+      "status": "PASS",
+      "account": "10000000-0000-4000-8000-000000000001",
+      "committed": 2,
+      "requestAttempts": 2,
+      "otherFinancialCollectionsUnchanged": true,
+      "submittedPayloadSHA256": "4b20964cc8ff33eb54e0ba1a6ff70c92b1b7b3f996b24ffef85ee61ef8d613b4"
+    }
+  ],
+  "cooperativeBatchCounts": {
+    "total": 70,
+    "PASS": 68,
+    "FAIL": 2
+  },
+  "cooperativeRetryCounts": {
+    "total": 2,
+    "PASS": 2,
+    "FAIL": 0
+  },
+  "coverageMeaning": "Final complete reference batch; earlier 68/2 and its two targeted PASS retries remain separate historical attempts",
+  "earlierBatchAndTargetedRetriesHadIdenticalRuntimeArtifacts": true,
+  "cooperativeFinalCounts": {
+    "total": 70,
+    "PASS": 70,
+    "FAIL": 0
+  },
+  "financialAuditCounts": {
+    "total": 70,
+    "PASS": 70,
+    "FAIL": 0
+  },
+  "financialAudit": [
+    {
+      "name": "cooperative-reference-final-msedge-dark-clean",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-dirty",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-pending",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-uncertain",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-clean",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-dirty",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-pending",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-uncertain",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-clean",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-dirty",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-pending",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-uncertain",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-three-mixed",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-silent",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-script-suspended",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-unknown-client",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-new-before-commit",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-new-after-final-check",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-unknown-after-final-check",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-late-work",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-uncovered-unknown",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-closed-before-commit",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-closed-after-commit",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-restart",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-expiry",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-owner-script-suspended-expiry",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-concurrent",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-cancel",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-offline-before-write",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-offline-after-commit",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-delayed-result",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-negative",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 99750,
+      "expectedBalance": 99750
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-zero",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-refused",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-lifecycle-event-contract",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-clean",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-dirty",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-pending",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-uncertain",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-clean",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-dirty",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-pending",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-uncertain",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-clean",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-dirty",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-pending",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-uncertain",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-three-mixed",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-silent",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-script-suspended",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-unknown-client",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-new-before-commit",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-new-after-final-check",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-unknown-after-final-check",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-late-work",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-uncovered-unknown",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-closed-before-commit",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-closed-after-commit",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-restart",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-expiry",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-owner-script-suspended-expiry",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-concurrent",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-cancel",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-offline-before-write",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-offline-after-commit",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-delayed-result",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 101250,
+      "expectedBalance": 101250
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-negative",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 99750,
+      "expectedBalance": 99750
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-zero",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 1,
+      "expectedWrites": 1,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-refused",
+      "status": "PASS",
+      "attempts": 1,
+      "expectedAttempts": 1,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-lifecycle-event-contract",
+      "status": "PASS",
+      "attempts": 0,
+      "expectedAttempts": 0,
+      "writes": 0,
+      "expectedWrites": 0,
+      "balance": 100000,
+      "expectedBalance": 100000
+    }
+  ],
+  "cooperative": [
+    {
+      "name": "cooperative-reference-final-msedge-dark-clean",
+      "scenario": "clean",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "e03404b6-028e-485d-9dbc-5ec39d048f61",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "0624d8b6-a054-4df0-8dc5-2cff1e962dae",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001460.120123,
+        "controlledClients": [],
+        "targetId": "15AE15B46AEB16D2F3833CD1727022BD"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-dirty",
+      "scenario": "dirty",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "a33d9705-e979-41ee-af21-b8891729db71",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "bede8d45-7b54-44c9-b8d0-48548b6d9a00",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001467.647343,
+        "controlledClients": [],
+        "targetId": "236724D1361F2FB7B44908653E485C36"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-pending",
+      "scenario": "pending",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "f356db71-94bb-46f1-bf16-9dfa74f6cad3",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "8171cab5-c9c4-4c0d-be70-e55495ae66f8",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001476.033352,
+        "controlledClients": [],
+        "targetId": "9BE9B4CA96EBDB03570C1C29EA4BCA15"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-uncertain",
+      "scenario": "uncertain",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "279242ef-7f64-4a0a-92ce-c108284cf94a",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "90133967-3306-426a-9012-deeaa4eab754",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001485.375813,
+        "controlledClients": [],
+        "targetId": "39EBB2578732FDD07A28276782D436CD"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-clean",
+      "scenario": "clean",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "0e13c471-5f14-49b2-a7b8-1a78b0cc3c4b",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "6f94f829-68dd-4a48-872d-c37fc67ef3c0",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001493.483413,
+        "controlledClients": [],
+        "targetId": "F04499B1D04F7205A21D3384EF9E8CEA"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-dirty",
+      "scenario": "dirty",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "73b2d158-35de-4e8e-8191-00cb75f09e28",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "f1d10485-c751-4905-836a-e93fba07beba",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001499.611242,
+        "controlledClients": [],
+        "targetId": "58F3CE6D3537A6808AF442601244C41A"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-pending",
+      "scenario": "pending",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "2c3e3871-5c8a-43f4-b3f6-e59d2385a6eb",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "4a24c751-6273-4318-91bf-8a3172a06a50",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001507.955708,
+        "controlledClients": [],
+        "targetId": "C9B5FCD0A5267019CE4BD33FA77BCA16"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-uncertain",
+      "scenario": "uncertain",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "534b048f-0462-449a-8e4b-480316f57745",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "127b004b-c3ce-43fe-ad39-0a48894ab7be",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001517.751261,
+        "controlledClients": [],
+        "targetId": "227C651A8096C41BA3BC91292D1C4157"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-clean",
+      "scenario": "clean",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "123edd57-4399-4835-8f06-473afed0ceff",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "ebe5c9f9-0b2b-4340-a145-b683c713eeef",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001526.604376,
+        "controlledClients": [],
+        "targetId": "556F2F2D1E30090A6E1FBC1A7CF9AD9C"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-dirty",
+      "scenario": "dirty",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "a344e882-5a4b-463c-868c-a4b0d11e2edc",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "36d3c0c0-da77-4377-b885-60d73833501a",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001533.97954,
+        "controlledClients": [],
+        "targetId": "F40DC1C2B9D8C9366F054119D7845C02"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-pending",
+      "scenario": "pending",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "ea053b28-ecd3-43d3-8a88-8c5efddb1833",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "4142843d-fc65-40fd-b665-cbce522c14bc",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001543.133752,
+        "controlledClients": [],
+        "targetId": "EA3C76C8B737B87BC8F542289BC70691"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-uncertain",
+      "scenario": "uncertain",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "e92b5ada-8f53-4899-ac17-79f65264a62b",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "348c1345-6a20-4fc0-ad77-4742e811b690",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001552.847506,
+        "controlledClients": [],
+        "targetId": "CF1E2723AAECA468AEF56BCF3AF4C77C"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-three-mixed",
+      "scenario": "three-mixed",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-silent",
+      "scenario": "silent",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-script-suspended",
+      "scenario": "script-suspended",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "emulation": "CDP script execution disabled, not physical/native freeze",
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-unknown-client",
+      "scenario": "unknown-client",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-new-before-commit",
+      "scenario": "new-before-commit",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-new-after-final-check",
+      "scenario": "new-after-final-check",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "prematureReturnDoesNotClaimSuccess": "PASS",
+        "lateClientPreventsActivation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-unknown-after-final-check",
+      "scenario": "unknown-after-final-check",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "lateClientPreventsActivation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-late-work",
+      "scenario": "late-work",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "lateWorkDenied": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "4b3077e9-4c26-4bf3-9413-fb8f57beb748",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "d68f22bc-dc3e-41ff-9cf7-6c355725b686",
+          "state": "clean",
+          "frozen": true,
+          "phase": "blocked",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001590.410004,
+        "controlledClients": [],
+        "targetId": "1D939FDC3EA392A283A811CD22144CE9"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-uncovered-unknown",
+      "scenario": "uncovered-unknown",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-closed-before-commit",
+      "scenario": "closed-before-commit",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-closed-after-commit",
+      "scenario": "closed-after-commit",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "d71a08da-5e64-45c1-888c-e3b170c26a6a",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001604.149127,
+        "controlledClients": [],
+        "targetId": "DB811024F72289BDE890E69B25F48B0A"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-restart",
+      "scenario": "restart",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "workerRestartDeniedStaleRound": "PASS"
+      },
+      "stoppedWorkerVersion": "1",
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-expiry",
+      "scenario": "expiry",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-owner-script-suspended-expiry",
+      "scenario": "owner-script-suspended-expiry",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "emulation": "CDP owner script execution disabled, not physical/native freeze",
+      "newWorkAfterExpiredRound": false,
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-concurrent",
+      "scenario": "concurrent",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "singleCoordinator": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "0010b6a5-aacd-4604-84fc-3fe637c7da45",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "6d428bfa-c692-47e5-8a19-412023bd492f",
+          "state": "clean",
+          "frozen": true,
+          "phase": "blocked",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001636.165903,
+        "controlledClients": [],
+        "targetId": "854DF383B505E68FE921DA7E294E1C94"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-cancel",
+      "scenario": "cancel",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {},
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-offline-before-write",
+      "scenario": "offline-before-write",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-offline-after-commit",
+      "scenario": "offline-after-commit",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "45cd6bea-a3b0-42e5-b3a6-13b4610b07fe",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001652.121942,
+        "controlledClients": [],
+        "targetId": "93A94492B745E80920BCE74B0067650F"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-delayed-result",
+      "scenario": "delayed-result",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "ee8bb454-173d-44bb-8fcb-3041c3c80c3a",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001656.995883,
+        "controlledClients": [],
+        "targetId": "3CA624C3BEDC24FED4DB573DFCDD2D32"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-negative",
+      "scenario": "negative",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "dbc55af8-ddc8-45fc-a9b3-a832692fec3c",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "99750"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001661.657821,
+        "controlledClients": [],
+        "targetId": "87ADF6AAE291699F1D5D7447144EDF13"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-system-zero",
+      "scenario": "zero",
+      "theme": "system",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "f95aa063-35eb-4918-893b-1880dcdf284f",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001666.323701,
+        "controlledClients": [],
+        "targetId": "ED7E14A4C96EA4344302B9CCB082C079"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-dark-refused",
+      "scenario": "refused",
+      "theme": "dark",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "b72cb301-1565-46be-83c4-36501a81f794",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001671.364808,
+        "controlledClients": [],
+        "targetId": "E065F891DE39E7D8F6222A8239AB6B2A"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-msedge-light-lifecycle-event-contract",
+      "scenario": "lifecycle-event-contract",
+      "theme": "light",
+      "browser": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "lifecycleUnknownUntilExplicitResume": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "emulation": "Synthetic lifecycle event contract, not physical freeze",
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "1e9442b0-a2b6-48ee-94b0-40c9baec0291",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "839ad6d4-cc45-4ce8-9eae-a738924cc2fd",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001676.695772,
+        "controlledClients": [],
+        "targetId": "909AFA7BFFC9EB768D453B868CD156C5"
+      },
+      "lifecycle": [
+        {
+          "page": 2259989661456,
+          "type": "freeze-or-restored",
+          "epoch": "839ad6d4-cc45-4ce8-9eae-a738924cc2fd"
+        }
+      ]
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-clean",
+      "scenario": "clean",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "66ec0776-ab7a-41be-9cdf-8304e22e5642",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "8b9f427d-793e-4a9b-a9a4-fa794b600fb9",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001688.550205,
+        "controlledClients": [],
+        "targetId": "43219267F6F523A037F6004D06AF359E"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-dirty",
+      "scenario": "dirty",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "6759e1a4-5039-4177-be35-ffd624fef596",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "44e5ec9b-9786-41dd-94a5-9c94a4315502",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001695.791151,
+        "controlledClients": [],
+        "targetId": "FDF70D447A93BA466AF077CD92661218"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-pending",
+      "scenario": "pending",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "67a568ca-7606-4f1e-b86a-2fb245a956ac",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "90d5bf32-79c1-4576-919b-89637160c7ac",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001703.290389,
+        "controlledClients": [],
+        "targetId": "C3D0E27934E918E18193A93061B727FE"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-uncertain",
+      "scenario": "uncertain",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "24120cb9-5cba-4b43-850a-23bacb95aca8",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "0515e2c6-1e49-45a2-a731-37467a8f46d9",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001713.831186,
+        "controlledClients": [],
+        "targetId": "CD920F6CFCC18EDB333BE4369214DF4A"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-clean",
+      "scenario": "clean",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "a3dd870f-4d91-4b48-bb08-f42ef27ca37a",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "14301488-c5ea-4c72-a4e3-2f2fe8962dd0",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001723.232164,
+        "controlledClients": [],
+        "targetId": "9D537D106A4DACCAFE6E37F5E52053D4"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-dirty",
+      "scenario": "dirty",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "7e212300-ca30-42c3-956c-da113e31488a",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "58f74d4a-6b3c-4c70-b7b3-e45aee370b3b",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001729.549006,
+        "controlledClients": [],
+        "targetId": "9DCF026BDB8962AEBB8DA14D47395264"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-pending",
+      "scenario": "pending",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "54204f26-68a1-4d16-bd41-f03e9dc28d71",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "ef72ec26-af6e-4148-ba30-34255b36d161",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001738.487699,
+        "controlledClients": [],
+        "targetId": "593097F514D0DA3606A73E8EAF2D523E"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-uncertain",
+      "scenario": "uncertain",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "44755ed7-b069-481c-a0de-19f821510527",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "34b9ba8e-c12a-4625-a029-fcea091af43c",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001747.812833,
+        "controlledClients": [],
+        "targetId": "1566C1837FD685B57E85F2C165A832B9"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-clean",
+      "scenario": "clean",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "31dd6484-f559-496a-a7d3-f8e6de64005e",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "f7e06e36-e0c8-46e5-8028-a69a0e30d05e",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001755.953173,
+        "controlledClients": [],
+        "targetId": "D0159230823809726A23183D17348C5B"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-dirty",
+      "scenario": "dirty",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "2e4dd67d-d11d-4ade-ad5f-0ac2deb151fd",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "53acde9f-7b09-4858-8756-f11e1e6c02d5",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001761.232679,
+        "controlledClients": [],
+        "targetId": "BF83A696A5DB4EA3B9945535A8CA2F46"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-pending",
+      "scenario": "pending",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "6f855ea4-3408-4519-9ea3-5dc6dddaca1f",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "e9a950d7-9f64-45b9-a837-576ee41a27d9",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001771.290319,
+        "controlledClients": [],
+        "targetId": "6E294482CA091EFDB53509C9B44409BE"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-uncertain",
+      "scenario": "uncertain",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "21f07507-7b93-45e6-b972-62f0600e3274",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "5d72319e-5d13-4078-8109-354138f993df",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001780.662469,
+        "controlledClients": [],
+        "targetId": "2A8B1D20FE579D7B1A276BF88FA45FEE"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-three-mixed",
+      "scenario": "three-mixed",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-silent",
+      "scenario": "silent",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-script-suspended",
+      "scenario": "script-suspended",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "emulation": "CDP script execution disabled, not physical/native freeze",
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-unknown-client",
+      "scenario": "unknown-client",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-new-before-commit",
+      "scenario": "new-before-commit",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-new-after-final-check",
+      "scenario": "new-after-final-check",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "prematureReturnDoesNotClaimSuccess": "PASS",
+        "lateClientPreventsActivation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-unknown-after-final-check",
+      "scenario": "unknown-after-final-check",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "lateClientPreventsActivation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-late-work",
+      "scenario": "late-work",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "lateWorkDenied": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "2104a326-c0da-4747-96f7-e6ede9de5b5e",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "827a3080-ab95-481e-b24f-930f62e703b0",
+          "state": "clean",
+          "frozen": true,
+          "phase": "blocked",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001817.245739,
+        "controlledClients": [],
+        "targetId": "E9F82C21BA78652ABE902DEB1E1CAB35"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-uncovered-unknown",
+      "scenario": "uncovered-unknown",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-closed-before-commit",
+      "scenario": "closed-before-commit",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-closed-after-commit",
+      "scenario": "closed-after-commit",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "285de210-83b4-444e-9e63-75d1175ef40c",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001830.368299,
+        "controlledClients": [],
+        "targetId": "B18C8622002BEC2A48CBD40D777DAC1F"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-restart",
+      "scenario": "restart",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "workerRestartDeniedStaleRound": "PASS"
+      },
+      "stoppedWorkerVersion": "1",
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-expiry",
+      "scenario": "expiry",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-owner-script-suspended-expiry",
+      "scenario": "owner-script-suspended-expiry",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "revalidationDenied": "PASS"
+      },
+      "emulation": "CDP owner script execution disabled, not physical/native freeze",
+      "newWorkAfterExpiredRound": false,
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-concurrent",
+      "scenario": "concurrent",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "singleCoordinator": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "99727e05-b581-44f6-bd21-f8fbce9812bd",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "82d76b37-9164-4e3e-a63b-d68c2ef2ed3f",
+          "state": "clean",
+          "frozen": true,
+          "phase": "blocked",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001860.22201,
+        "controlledClients": [],
+        "targetId": "CB1B5A9707A31958BB5C0F2EE5B79C28"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-cancel",
+      "scenario": "cancel",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {},
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-offline-before-write",
+      "scenario": "offline-before-write",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-offline-after-commit",
+      "scenario": "offline-after-commit",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "130e2378-2456-4f4c-8a67-30a81a76a343",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001870.41242,
+        "controlledClients": [],
+        "targetId": "174F073F763AEE70DF50CE7119FEFCCE"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-delayed-result",
+      "scenario": "delayed-result",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "blockedWithoutNavigation": "PASS",
+        "responseObservedBeforeHandoff": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "8e1be25e-c3ae-4f1a-92b9-9f13b7018071",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "101250"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001875.241796,
+        "controlledClients": [],
+        "targetId": "496D26C775001233DD6BD9F7E0587B60"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-negative",
+      "scenario": "negative",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "2bab35c7-5821-47a6-a445-53fce7f7db71",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "99750"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001879.873564,
+        "controlledClients": [],
+        "targetId": "FDBEDDBB9BDA74690AE86E2D1C858504"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-system-zero",
+      "scenario": "zero",
+      "theme": "system",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "53c3fd81-517d-45ef-802a-dd5c913bb686",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001884.282827,
+        "controlledClients": [],
+        "targetId": "797B4617117CB616910E1F7DF43CB8A1"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-dark-refused",
+      "scenario": "refused",
+      "theme": "dark",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "025ce62a-f1f2-4bf7-b2c0-6939b201e7d1",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "dark",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001888.744598,
+        "controlledClients": [],
+        "targetId": "60F9FA60440D01609C3F2B39A34C7768"
+      },
+      "lifecycle": []
+    },
+    {
+      "name": "cooperative-reference-final-chrome-light-lifecycle-event-contract",
+      "scenario": "lifecycle-event-contract",
+      "theme": "light",
+      "browser": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "status": "PASS",
+      "scope": "isolated prototype, no product integration",
+      "checks": {
+        "lifecycleUnknownUntilExplicitResume": "PASS",
+        "naturalActivationAndPinnedResources": "PASS",
+        "themeIdentityBalancePreserved": "PASS"
+      },
+      "emulation": "Synthetic lifecycle event contract, not physical freeze",
+      "beforeVoluntaryExit": [
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "7aa7d19d-3ec9-451e-9b26-bb143eec284d",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        },
+        {
+          "build": "a",
+          "actor": "QA-A",
+          "epoch": "4709ec98-d954-4188-91cc-9c386f53ee6b",
+          "state": "clean",
+          "frozen": true,
+          "phase": "draining",
+          "draft": "",
+          "operation": null,
+          "booted": true,
+          "theme": "light",
+          "balance": "100000"
+        }
+      ],
+      "activation": {
+        "versionId": "1",
+        "registrationId": "0",
+        "scriptURL": "http://127.0.0.1:5221/sw.js",
+        "runningStatus": "running",
+        "status": "activated",
+        "scriptLastModified": 0,
+        "scriptResponseTime": 1794001893.839249,
+        "controlledClients": [],
+        "targetId": "7C7962534B3C5763AEA9C6B2A4120B16"
+      },
+      "lifecycle": [
+        {
+          "page": 2259989663472,
+          "type": "freeze-or-restored",
+          "epoch": "4709ec98-d954-4188-91cc-9c386f53ee6b"
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "file": "adversarial-observer-fixed-matrix.json",
+      "total": 5,
+      "PASS": 4,
+      "FAIL": 1
+    },
+    {
+      "file": "cooperative-final-matrix.json",
+      "total": 70,
+      "PASS": 64,
+      "FAIL": 6
+    },
+    {
+      "file": "cooperative-first-matrix.json",
+      "total": 26,
+      "PASS": 23,
+      "FAIL": 3
+    },
+    {
+      "file": "cooperative-reference-final-matrix.json",
+      "total": 70,
+      "PASS": 70,
+      "FAIL": 0
+    },
+    {
+      "file": "cooperative-verified-matrix.json",
+      "total": 70,
+      "PASS": 68,
+      "FAIL": 2
+    },
+    {
+      "file": "js-suspension-emulated-matrix.json",
+      "total": 2,
+      "PASS": 2,
+      "FAIL": 0
+    },
+    {
+      "file": "legacy-final-matrix.json",
+      "total": 40,
+      "PASS": 24,
+      "FAIL": 16
+    },
+    {
+      "file": "lifecycle-fixed-matrix.json",
+      "total": 5,
+      "PASS": 4,
+      "FAIL": 1
+    },
+    {
+      "file": "lifecycle-observation-verified-matrix.json",
+      "total": 2,
+      "PASS": 2,
+      "FAIL": 0
+    },
+    {
+      "file": "native-freeze-confirmed-matrix.json",
+      "total": 2,
+      "PASS": 0,
+      "FAIL": 2
+    },
+    {
+      "file": "smoke-initial-matrix.json",
+      "total": 1,
+      "PASS": 0,
+      "FAIL": 1
+    },
+    {
+      "file": "smoke-native-cdp-matrix.json",
+      "total": 1,
+      "PASS": 1,
+      "FAIL": 0
+    },
+    {
+      "file": "smoke-observer-fixed-matrix.json",
+      "total": 1,
+      "PASS": 1,
+      "FAIL": 0
+    }
+  ],
+  "validation": {
+    "base": "25a218d9c38f31134c39ebf4313a862a497e8649",
+    "productChanged": false,
+    "localFocal": {
+      "passed": 29,
+      "files": 3,
+      "exitCode": 0
+    },
+    "typescript": {
+      "known": 14,
+      "new": 0,
+      "exitCode": 0
+    },
+    "build": {
+      "exitCode": 0,
+      "pwaEntries": 49,
+      "prototypeMarkers": 0,
+      "appearanceFlag": "false in build process only",
+      "environment": "synthetic .invalid placeholders"
+    },
+    "ci": "Final HEAD/run recorded in PR description",
+    "nativePhysicalFreeze": "NOT CONFIRMED: failed attempts retained",
+    "physicalInstalledPwa": "NOT TESTED",
+    "authRemote": "BLOCKED",
+    "migrationResidualRisks": "Not waived; user acceptance/operational procedure required"
+  },
+  "nativeFreeze": "NOT CONFIRMED: failed attempts preserved",
+  "physicalInstalledPWA": "NOT TESTED",
+  "remoteAuth": "BLOCKED",
+  "productIntegration": "NOT IMPLEMENTED; no production patch applied"
+}

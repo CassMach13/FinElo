@@ -1,0 +1,43 @@
+{
+  "archive": "finelo-ciclo-4d-r2b-evidencias.zip",
+  "checks": [
+    {
+      "files": 1021,
+      "uniqueObjects": 733,
+      "indexSHA256": "d144b902917eb78c89a225fae36307698331be661fe288e0ed509e5a19c8a31d",
+      "archiveSHA256": "506e9472c00eb0bea63501500ba4d36b3efef005d683085b395441b3257b42f1",
+      "bytes": 7855464,
+      "CRC": true,
+      "allSHA256": true
+    },
+    {
+      "files": 1021,
+      "uniqueObjects": 733,
+      "indexSHA256": "d144b902917eb78c89a225fae36307698331be661fe288e0ed509e5a19c8a31d",
+      "archiveSHA256": "506e9472c00eb0bea63501500ba4d36b3efef005d683085b395441b3257b42f1",
+      "bytes": 7855464,
+      "CRC": true,
+      "allSHA256": true
+    }
+  ],
+  "images": [
+    {
+      "file": "cooperative-reference-final-chrome-light-clean-b.png",
+      "bytes": 24337,
+      "sha256": "5284364c61d9152173d275be517ea9370465a7539a5567fb094ee8b9af61eaba"
+    },
+    {
+      "file": "legacy-chrome-original-before-button.png",
+      "bytes": 55198,
+      "sha256": "a57016f900e373fb1054eabb233ca8886939de6f34b87d9246a4a78d5f0b798e"
+    },
+    {
+      "file": "legacy-chrome-original-after-button.png",
+      "bytes": 76365,
+      "sha256": "0c97a419c0faa5ca0767eb002262d0dda2ce46177c9d4c95732e2c476722e5b2"
+    }
+  ],
+  "pngBytes": 155900,
+  "overallVerdict": "NO-GO",
+  "productChanged": false
+}

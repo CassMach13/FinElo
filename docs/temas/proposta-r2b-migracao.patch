@@ -1,0 +1,498 @@
+diff --git a/scripts/diagnostics/pwa-r2b/neutral.html b/scripts/diagnostics/pwa-r2b/neutral.html
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/neutral.html
+@@ -0,0 +1 @@
++<!doctype html><html lang="pt-BR"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>Passagem neutra</title><main style="font:18px system-ui;max-width:700px;margin:40px auto;padding:24px"><h1>Página neutra</h1><p>Esta página não recebe conta, sessão ou dados financeiros. Conclua a saída das outras abas antes de voltar.</p><p>A versão ainda não foi declarada atualizada. Se outra aba continuar usando A, B continuará aguardando.</p><a id="return" href="__APP_ORIGIN__/" referrerpolicy="no-referrer">Voltar e verificar a versão carregada</a></main></html>
+diff --git a/scripts/diagnostics/pwa-r2b/server.py b/scripts/diagnostics/pwa-r2b/server.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/server.py
+@@ -0,0 +1,111 @@
++"""Two loopback origins; synthetic in-memory finance only. No FinElo service imports."""
++import copy
++import hashlib
++import json
++import socket
++import threading
++from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
++from pathlib import Path
++from urllib.parse import urlparse, parse_qs
++
++HERE=Path(__file__).resolve().parent
++ORIGIN='http://127.0.0.1:5221'
++NEUTRAL='http://127.0.0.1:5222'
++
++class State:
++    def __init__(self):
++        self.current='a';self.lock=threading.Lock();self.balances={'QA-A':100000,'QA-B':200000}
++        self.attempts=[];self.writes=[];self.results={};self.held={};self.deliveries=[]
++    def publish(self,version):
++        assert version in ['a','b'];self.current=version
++    def release(self,operation,outcome='accepted'):
++        with self.lock:
++            item=self.held[operation];item['outcome']=outcome;item['event'].set()
++    def snapshot(self):
++        with self.lock:return copy.deepcopy({'balances':self.balances,'attempts':self.attempts,'writes':self.writes,'results':self.results})
++
++def artifact(name,build):
++    assert build in ['a','b']
++    if name=='marker.svg':return f'<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36"><rect width="36" height="36" rx="6" fill="#075985"/><text x="11" y="25" fill="white" font-size="23">{build.upper()}</text></svg>'.encode()
++    assert name in ['index.html','client.js','style.css','worker.js']
++    return (HERE/name).read_text(encoding='utf8').replace('__BUILD__',build).encode('utf8')
++
++def manifest(build):
++    return {name:hashlib.sha256(artifact(name,build)).hexdigest()for name in ['index.html','client.js','style.css','marker.svg','worker.js']}
++
++class Lab:
++    def __init__(self):self.state=State();self.servers=[];self.threads=[]
++    def start(self):
++        state=self.state
++        class Handler(BaseHTTPRequestHandler):
++            protocol_version='HTTP/1.0'
++            def log_message(self,*_):pass
++            def send(self,body,status=200,kind='application/json',immutable=False):
++                if not isinstance(body,bytes):body=json.dumps(body).encode('utf8')
++                self.send_response(status);self.send_header('Content-Type',kind);self.send_header('Content-Length',str(len(body)))
++                self.send_header('Cache-Control','public,max-age=31536000,immutable'if immutable else'no-store')
++                self.send_header('Referrer-Policy','no-referrer');self.end_headers()
++                try:self.wfile.write(body)
++                except (BrokenPipeError,ConnectionResetError):pass
++            def do_GET(self):
++                url=urlparse(self.path);query={k:v[-1]for k,v in parse_qs(url.query).items()}
++                if self.server.server_port==5222:
++                    body=(HERE/'neutral.html').read_text(encoding='utf8').replace('__APP_ORIGIN__',ORIGIN).encode('utf8')
++                    return self.send(body,kind='text/html; charset=utf-8')
++                if url.path=='/sw.js':return self.send(artifact('worker.js',state.current),kind='application/javascript')
++                if url.path in ['/','/app']:return self.send(artifact('index.html',state.current),kind='text/html; charset=utf-8')
++                if url.path.startswith('/v/'):
++                    parts=url.path.split('/');build,name=parts[2:4]
++                    try:data=artifact(name,build)
++                    except (AssertionError,ValueError):return self.send({},404)
++                    kinds={'index.html':'text/html','client.js':'application/javascript','style.css':'text/css','marker.svg':'image/svg+xml'}
++                    return self.send(data,kind=kinds[name],immutable=True)
++                if url.path=='/unknown':return self.send(b'<!doctype html><title>Cliente sem protocolo</title><p id="unknown">Unknown client</p><input id="unknown-draft">',kind='text/html')
++                if url.path=='/unknown-worker.js':return self.send(b'setInterval(()=>{},1000);',kind='application/javascript')
++                if url.path=='/api/balance':return self.send({'cents':state.balances.get(query.get('actor'),0)})
++                if url.path=='/api/result':
++                    with state.lock:result=copy.deepcopy(state.results.get(query.get('id')))
++                    return self.send(result if result and result['actor']==query.get('actor')else{'status':'unknown'})
++                return self.send({},404)
++            def do_POST(self):
++                if self.server.server_port!=5221 or urlparse(self.path).path!='/api/operation':return self.send({},403)
++                body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
++                assert body['actor']in ['QA-A','QA-B'] and type(body['cents'])is int
++                with state.lock:state.attempts.append(copy.deepcopy(body))
++                outcome=body['outcome']
++                if outcome=='held':
++                    item={'event':threading.Event(),'outcome':None}
++                    with state.lock:state.held[body['id']]=item
++                    if not item['event'].wait(30):
++                        self.close_connection=True;return
++                    outcome=item['outcome']
++                accepted=outcome in ['accepted','accepted_lost']
++                result={'status':'accepted'if accepted else'refused','actor':body['actor'],'id':body['id']}
++                with state.lock:
++                    if accepted:
++                        # Deliberately no idempotency compensation: a duplicated
++                        # POST would increment twice and fail the assertions.
++                        state.balances[body['actor']]+=body['cents'];state.writes.append(copy.deepcopy(body))
++                    state.results[body['id']]=result
++                if outcome=='accepted_lost':
++                    self.close_connection=True
++                    try:self.connection.shutdown(socket.SHUT_RDWR)
++                    except OSError:pass
++                    self.connection.close();return
++                self.send(result,201 if accepted else 403)
++        for port in [5221,5222]:
++            server=ThreadingHTTPServer(('127.0.0.1',port),Handler);server.daemon_threads=True
++            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();self.servers.append(server);self.threads.append(thread)
++    def stop(self):
++        for server in self.servers:server.shutdown();server.server_close()
++        for thread in self.threads:thread.join(timeout=2)
++
++if __name__=='__main__':
++    import argparse,time
++    parser=argparse.ArgumentParser();parser.add_argument('--serve',action='store_true');args=parser.parse_args()
++    if args.serve:
++        lab=Lab();lab.start()
++        try:
++            while True:time.sleep(1)
++        except KeyboardInterrupt:pass
++        finally:lab.stop()
+diff --git a/scripts/diagnostics/pwa-r2b/validate.py b/scripts/diagnostics/pwa-r2b/validate.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/validate.py
+@@ -0,0 +1,261 @@
++"""Native-browser acceptance of an isolated protocol, not FinElo integration."""
++import argparse,hashlib,json,sys,time,traceback,shutil
++from pathlib import Path
++HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[2]
++TOOLS=ROOT/'node_modules/.finelo-cycle4d-r2b-tools';OUT=TOOLS/'evidence';OUT.mkdir(exist_ok=True)
++sys.path.insert(0,str(TOOLS/'python'))
++from playwright.sync_api import sync_playwright
++from server import Lab,ORIGIN,NEUTRAL,manifest
++
++def write(name,value):(OUT/name).write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf8')
++def snap(page):return page.evaluate('window.__r2b.snapshot()')
++def wait(page,predicate,timeout=5000):page.wait_for_function(predicate,timeout=timeout,polling=50)
++def boot(context,query='',ready=True):
++    page=context.new_page();page.goto(ORIGIN+'/'+query,wait_until='networkidle')
++    if page.locator('#enter').is_visible()and page.locator('#enter').inner_text()=='Entrar no protótipo':
++        page.locator('#enter').click();page.wait_for_load_state('networkidle')
++    if ready:wait(page,'window.__r2b?.snapshot().booted')
++    return page
++def publish(lab,page):
++    lab.state.publish('b');page.locator('#check').click()
++    wait(page,"(()=>{const b=document.getElementById('update');return !b.disabled})()")
++def edit(page,value='DRAFT_1250'):
++    page.locator('#edit').click();page.locator('#draft').fill(value)
++def operation(page,kind,cents=1250):
++    edit(page);page.locator('#amount').fill(str(cents));page.locator('#outcome').select_option(kind);page.locator('#save').click()
++    wait(page,"window.__r2b.snapshot().operation!==undefined||window.__r2b.events.some(e=>e.type==='result-observed'||e.type==='result-uncertain')")
++def blocked(page):
++    page.locator('#update').click();wait(page,"window.__r2b.snapshot().phase==='blocked'")
++    assert page.evaluate("async()=>!!(await navigator.serviceWorker.getRegistration()).waiting")
++def unchanged(page,expected='DRAFT_1250'):
++    assert snap(page)['build']=='a'and snap(page)['draft']==expected
++    assert page.evaluate("document.querySelector('meta[name=prototype-build]').content")== 'a'
++def commit(owner):
++    owner.locator('#update').click();wait(owner,"window.__r2b.snapshot().phase==='draining'")
++def cache_audit(page):
++    data=page.evaluate("""async()=>{const rows=[];for(const name of await caches.keys()){
++      const cache=await caches.open(name);for(const req of await cache.keys()){
++        const body=await(await cache.match(req)).arrayBuffer();rows.push({name,path:new URL(req.url).pathname,
++          sha:[...new Uint8Array(await crypto.subtle.digest('SHA-256',body))].map(v=>v.toString(16).padStart(2,'0')).join('')});}}
++      return rows;}""")
++    for row in data:
++        parts=row['path'].split('/');assert parts[1]=='v'and parts[2]in['a','b']
++        assert row['sha']==manifest(parts[2])[parts[3]]
++    assert data and not any('/api/'in row['path']for row in data)
++    return data
++def page_audit(page):
++    value=snap(page);build=value['build']
++    assert page.evaluate("document.querySelector('meta[name=prototype-build]').content")==build
++    assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--artifact-version').trim()")==build
++    resources=page.evaluate("performance.getEntriesByType('resource').map(e=>new URL(e.name).pathname).filter(p=>p.startsWith('/v/'))")
++    assert resources and all(path.startswith('/v/'+build+'/')for path in resources)
++    return {'snapshot':value,'resources':resources,'caches':cache_audit(page)}
++def watch_activation(context,page,origin=ORIGIN):
++    session=context.new_cdp_session(page);versions={}
++    session.on('ServiceWorker.workerVersionUpdated',lambda event:versions.update({v['versionId']:v for v in event['versions']}))
++    session.send('ServiceWorker.enable');deadline=time.monotonic()+3
++    while time.monotonic()<deadline:
++        candidates=[v for v in versions.values()if v['status']=='installed'and v['scriptURL']==origin+'/sw.js']
++        if candidates:return session,candidates[-1]['versionId'],versions
++        page.wait_for_timeout(50)
++    session.detach();raise AssertionError('No native waiting version before handoff')
++def activation_done(watch,page):
++    session,version_id,versions=watch
++    session.send('ServiceWorker.disable');session.send('ServiceWorker.enable')
++    deadline=time.monotonic()+5
++    while time.monotonic()<deadline:
++        if versions.get(version_id,{}).get('status')=='activated':
++            observed=versions[version_id].copy();session.detach();return observed
++        page.wait_for_timeout(50)
++    session.detach();raise AssertionError('No natural activation after clients left')
++def finish(owner,peers,context,result):
++    result['beforeVoluntaryExit']=[snap(page)for page in [owner,*peers]]
++    assert all(row['state']=='clean'and row['frozen']for row in result['beforeVoluntaryExit'])
++    observation=watch_activation(context,owner)
++    for peer in peers:
++        peer.locator('#leave').click();peer.wait_for_url(NEUTRAL+'/',timeout=5000)
++    owner.locator('#leave').click();owner.wait_for_url(NEUTRAL+'/',timeout=5000)
++    # Worker observation is DevTools-only. The neutral page never polls the app
++    # origin or claims activation success. It offers only an explicit return.
++    result['activation']=activation_done(observation,owner)
++    owner.locator('#return').click();owner.wait_for_load_state('networkidle');wait(owner,'window.__r2b?.snapshot().booted')
++    assert snap(owner)['build']=='b';result['after']=page_audit(owner)
++
++def stop_waiting_worker(context,page):
++    session=context.new_cdp_session(page);versions=[]
++    session.on('ServiceWorker.workerVersionUpdated',lambda event:versions.extend(event['versions']))
++    session.send('ServiceWorker.enable')
++    deadline=time.monotonic()+3;selected=None
++    while time.monotonic()<deadline:
++        candidates=[v for v in versions if v['status']=='installed'and v['scriptURL']==ORIGIN+'/sw.js']
++        if candidates:selected=candidates[-1];break
++        page.wait_for_timeout(50)
++    assert selected,'No waiting worker in native CDP inventory'
++    session.send('ServiceWorker.stopWorker',{'versionId':selected['versionId']});page.wait_for_timeout(100)
++    return session,selected['versionId']
++
++def case(browser,channel,scenario,theme,label):
++    lab=Lab();lab.start();context=browser.new_context(viewport={'width':390,'height':844}if theme=='light'else{'width':1280,'height':800},color_scheme='light')
++    result={'name':f'{label}-{channel}-{theme}-{scenario}','scenario':scenario,'theme':theme,'browser':channel,'browserVersion':browser.version,'status':'PASS','scope':'isolated prototype, no product integration','checks':{}}
++    navigations=[];responses=[];lifecycle=[]
++    context.expose_binding('__r2bLifecycle',lambda source,payload:lifecycle.append({'page':id(source['page']),**payload}))
++    def attach(page):
++        page.on('framenavigated',lambda frame:navigations.append({'page':id(page),'url':frame.url})if frame==page.main_frame else None)
++        def response_seen(response):
++            if response.status==200 and(response.request.resource_type=='document'or'/v/'in response.url):
++                try:responses.append({'url':response.url,'sha256':hashlib.sha256(response.body()).hexdigest(),'sw':response.from_service_worker})
++                except Exception:pass
++        page.on('response',response_seen)
++    context.on('page',attach)
++    try:
++        query=f'?theme={theme}'
++        if scenario in ['new-before-commit','closed-before-commit','uncovered-unknown','expiry','owner-script-suspended-expiry']:query+='&pause=afterPrepare'
++        if scenario in ['new-after-final-check','unknown-after-final-check']:query+='&pause=beforeHandoff'
++        owner=boot(context,query);peers=[]
++        if scenario in ['clean','dirty','pending','uncertain','three-mixed','silent','script-suspended','new-before-commit','closed-before-commit','late-work','uncovered-unknown','restart','concurrent','cancel','owner-script-suspended-expiry','closed-after-commit','unknown-client','lifecycle-event-contract']:
++            peer=boot(context,'?fault=silent'if scenario=='silent'else'');peers=[peer]
++        baseline=snap(owner);result['before']=page_audit(owner)
++        if scenario in ['dirty','three-mixed']:edit(peers[0])
++        if scenario in ['pending','uncertain']:operation(peers[0],'held'if scenario=='pending'else'accepted_lost')
++        if scenario=='uncertain':wait(peers[0],"window.__r2b.snapshot().state==='unknown'")
++        if scenario=='three-mixed':
++            third=boot(context);peers.append(third);operation(third,'held')
++        if scenario in ['offline-before-write','offline-after-commit','delayed-result','negative','zero','refused']:
++            if scenario=='offline-before-write':
++                edit(owner);context.set_offline(True);owner.locator('#save').click();wait(owner,"window.__r2b.snapshot().state==='unknown'");context.set_offline(False)
++            else:operation(owner,'held'if scenario in['offline-after-commit','delayed-result']else'refused'if scenario=='refused'else'accepted',-250 if scenario=='negative'else 0 if scenario=='zero'else 1250)
++        start_nav=len(navigations);publish(lab,owner)
++        if scenario=='lifecycle-event-contract':
++            edit(peers[0],'LIFECYCLE_DRAFT');peers[0].evaluate("document.dispatchEvent(new Event('freeze'))")
++            wait(peers[0],"window.__r2b.snapshot().state==='unknown'");blocked(owner);unchanged(peers[0],'LIFECYCLE_DRAFT')
++            peers[0].locator('#resume-client').click();wait(peers[0],"window.__r2b.snapshot().state==='dirty'");peers[0].locator('#discard').click()
++            result['emulation']='Synthetic lifecycle event contract, not physical freeze';result['checks']['lifecycleUnknownUntilExplicitResume']='PASS'
++        if scenario=='unknown-client':
++            unknown=context.new_page();unknown.goto(ORIGIN+'/unknown');peers.append(unknown)
++        frozen_session=None
++        if scenario=='script-suspended':
++            owner.bring_to_front()
++            frozen_session=context.new_cdp_session(peers[0]);frozen_session.send('Emulation.setScriptExecutionDisabled',{'value':True})
++            result['emulation']='CDP script execution disabled, not physical/native freeze'
++        if scenario in ['dirty','pending','uncertain','three-mixed','silent','script-suspended','unknown-client','offline-before-write','offline-after-commit','delayed-result']:
++            blocked(owner);assert len(navigations)==start_nav+(1 if scenario=='unknown-client'else 0)
++            assert snap(owner)['build']=='a';result['checks']['blockedWithoutNavigation']='PASS'
++            if scenario in ['dirty','pending','uncertain']:unchanged(peers[0])
++            if scenario in ['pending','uncertain']:assert peers[0].locator('#draft').is_disabled()and peers[0].locator('#amount').is_disabled()
++            if scenario=='three-mixed':
++                unchanged(peers[0]);unchanged(peers[1]);assert lab.state.snapshot()['writes']==[]
++            if frozen_session:frozen_session.send('Emulation.setScriptExecutionDisabled',{'value':False});frozen_session.detach()
++            if scenario in ['silent','script-suspended','unknown-client','three-mixed','offline-before-write']:return result
++            if scenario=='dirty':peers[0].locator('#discard').click()
++            elif scenario=='uncertain':peers[0].locator('#reconcile').click();wait(peers[0],"window.__r2b.snapshot().state==='clean'")
++            else:
++                source=peers[0]if scenario=='pending'else owner
++                job=snap(source)['operation'];assert len(lab.state.snapshot()['attempts'])==1
++                if scenario=='offline-after-commit':context.set_offline(True)
++                lab.state.release(job,'accepted')
++                if scenario=='offline-after-commit':
++                    wait(source,"window.__r2b.snapshot().state==='unknown'");context.set_offline(False);source.locator('#reconcile').click()
++                wait(source,"window.__r2b.snapshot().state==='clean'")
++                result['checks']['responseObservedBeforeHandoff']='PASS'
++        if scenario in ['negative','zero','refused']:
++            wait(owner,"window.__r2b.snapshot().operation===undefined")
++            if scenario=='refused':blocked(owner);owner.locator('#discard').click()
++        if scenario in ['new-before-commit','closed-before-commit','uncovered-unknown','expiry','owner-script-suspended-expiry']:
++            owner.locator('#update').click();wait(owner,"window.__r2b.snapshot().phase==='prepared'")
++            if scenario=='new-before-commit':peers.append(boot(context,ready=False))
++            if scenario=='closed-before-commit':peers[0].close()
++            if scenario=='uncovered-unknown':peers[0].evaluate('window.__r2b.injectUnknown()')
++            if scenario=='owner-script-suspended-expiry':
++                peers[0].bring_to_front()
++                cdp=context.new_cdp_session(owner);cdp.send('Emulation.setScriptExecutionDisabled',{'value':True});peers[0].wait_for_timeout(8300)
++                result['emulation']='CDP owner script execution disabled, not physical/native freeze'
++                admitted=peers[0].evaluate('window.__r2b.edit()')
++                result['newWorkAfterExpiredRound']=admitted
++                if admitted:peers[0].locator('#draft').fill('NEW_AFTER_ABORT')
++                cdp.send('Emulation.setScriptExecutionDisabled',{'value':False});cdp.detach()
++            elif scenario=='expiry':owner.wait_for_timeout(8300)
++            owner.evaluate('window.__r2b.resume()');wait(owner,"window.__r2b.snapshot().phase==='blocked'")
++            if scenario=='owner-script-suspended-expiry':
++                assert owner.evaluate("async()=>!!(await navigator.serviceWorker.getRegistration()).waiting")
++                if result['newWorkAfterExpiredRound']:unchanged(peers[0],'NEW_AFTER_ABORT')
++            assert snap(owner)['build']=='a';result['checks']['revalidationDenied']='PASS';return result
++        commit(owner)
++        if scenario=='late-work':
++            assert peers[0].evaluate('window.__r2b.edit()')is False;assert lab.state.snapshot()['attempts']==[]
++            result['checks']['lateWorkDenied']='PASS'
++        if scenario=='concurrent':
++            blocked(peers[0]);assert snap(owner)['frozen'];result['checks']['singleCoordinator']='PASS'
++        if scenario=='cancel':
++            owner.locator('#cancel').click();wait(owner,'!window.__r2b.snapshot().frozen');assert peers[0].evaluate('window.__r2b.edit()')is True;unchanged(owner,'');return result
++        if scenario=='restart':
++            before=owner.evaluate('window.__r2b.version()');session,worker_id=stop_waiting_worker(context,owner)
++            owner.locator('#leave').click();wait(owner,"window.__r2b.snapshot().phase==='blocked'")
++            after=owner.evaluate('window.__r2b.version()');assert before['generation']!=after['generation'];session.detach()
++            result['checks']['workerRestartDeniedStaleRound']='PASS';result['stoppedWorkerVersion']=worker_id;return result
++        if scenario in ['new-after-final-check','unknown-after-final-check']:
++            owner.locator('#leave').click();owner.wait_for_timeout(100)
++            if scenario=='new-after-final-check':late=boot(context,ready=False)
++            else:
++                late=context.new_page();late.goto(ORIGIN+'/unknown');late.locator('#unknown-draft').fill('UNCOOPERATIVE_DRAFT')
++            owner.evaluate('window.__r2b.resume()');owner.wait_for_url(NEUTRAL+'/',timeout=5000)
++            late.wait_for_timeout(300)
++            waiting=late.evaluate("async()=>!!(await navigator.serviceWorker.getRegistration()).waiting")
++            assert waiting,'New late client did not block natural activation'
++            if scenario=='new-after-final-check':
++                late.locator('#enter').click();wait(late,'window.__r2b.snapshot().booted');edit(late);unchanged(late)
++                owner.locator('#return').click();owner.wait_for_load_state('networkidle');wait(owner,'window.__r2b.snapshot().booted')
++                assert snap(owner)['build']=='a';unchanged(late);page_audit(owner)
++                result['checks']['prematureReturnDoesNotClaimSuccess']='PASS'
++            else:assert late.locator('#unknown-draft').input_value()=='UNCOOPERATIVE_DRAFT'
++            result['checks']['lateClientPreventsActivation']='PASS';return result
++        if scenario=='closed-after-commit':peers[0].close();peers=[]
++        finish(owner,peers,context,result)
++        expected='dark'if theme=='dark'else'light'
++        assert snap(owner)['theme']==expected and snap(owner)['actor']==baseline['actor']
++        assert int(snap(owner)['balance'])==lab.state.balances['QA-A']
++        result['checks']['naturalActivationAndPinnedResources']='PASS'
++        result['checks']['themeIdentityBalancePreserved']='PASS'
++        if theme=='light':owner.screenshot(path=str(OUT/(result['name']+'-b.png')))
++        return result
++    except Exception as error:
++        result.update(status='FAIL',reason=str(error),traceback=traceback.format_exc())
++        try:owner.screenshot(path=str(OUT/(result['name']+'-failure.png')));result['failureState']=snap(owner);result['clientEvents']=owner.evaluate('window.__r2b.events')
++        except Exception:pass
++        return result
++    finally:
++        result['finance']=lab.state.snapshot();result['navigations']=navigations;result['responses']=responses;result['lifecycle']=lifecycle
++        # Compare every observed static response against immutable build bytes.
++        for response in responses:
++            path=response['url'].split('?',1)[0]
++            if '/v/'in path:
++                suffix=path.split('/v/',1)[1];build,name=suffix.split('/',1)
++                if response['sha256']!=manifest(build)[name]:result.update(status='FAIL',reason='Observed resource bytes mismatch')
++        attempts=result['finance']['attempts']
++        if len({row['id']for row in attempts})!=len(attempts):result.update(status='FAIL',reason='Repeated financial write')
++        context.close()
++        for operation_id,item in list(lab.state.held.items()):
++            if not item['event'].is_set():lab.state.release(operation_id,'refused')
++        lab.stop();write(result['name']+'.json',result)
++
++CORE=['clean','dirty','pending','uncertain']
++ADVERSARIAL=['three-mixed','silent','script-suspended','unknown-client','new-before-commit','new-after-final-check','unknown-after-final-check','late-work','uncovered-unknown','closed-before-commit','closed-after-commit','restart','expiry','owner-script-suspended-expiry','concurrent','cancel','offline-before-write','offline-after-commit','delayed-result','negative','zero','refused','lifecycle-event-contract']
++if __name__=='__main__':
++    parser=argparse.ArgumentParser();parser.add_argument('--channels',nargs='+',default=['msedge','chrome']);parser.add_argument('--smoke',action='store_true');parser.add_argument('--only',nargs='+');parser.add_argument('--label',default='cooperative-final');args=parser.parse_args()
++    sources=TOOLS/'sources'/args.label;assert not sources.exists(),'Never overwrite a source snapshot';sources.mkdir(parents=True)
++    source_hashes={}
++    for file in HERE.iterdir():
++        if file.is_file()and file.suffix in ['.py','.js','.html','.css']:
++            shutil.copyfile(file,sources/file.name);source_hashes[file.name]=hashlib.sha256(file.read_bytes()).hexdigest()
++    write(args.label+'-sources.json',{'files':source_hashes,'artifacts':{b:manifest(b)for b in['a','b']}})
++    results=[]
++    with sync_playwright()as p:
++        for channel in args.channels:
++            browser=p.chromium.launch(channel=channel,headless=True)
++            try:
++                matrix=[('clean','light')]if args.smoke else[(s,t)for t in['dark','light','system']for s in CORE]+[(s,['dark','light','system'][i%3])for i,s in enumerate(ADVERSARIAL)]
++                if args.only:matrix=[item for item in matrix if item[0]in args.only]
++                for scenario,theme in matrix:
++                    row=case(browser,channel,scenario,theme,args.label);results.append(row);write(args.label+'-matrix.json',results)
++                    print(json.dumps({k:row[k]for k in ['name','status','checks','reason']if k in row}),flush=True)
++            finally:browser.close()
++    raise SystemExit(1 if any(row['status']=='FAIL'for row in results)else 0)
+diff --git a/scripts/diagnostics/pwa-r2b/legacy.py b/scripts/diagnostics/pwa-r2b/legacy.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/legacy.py
+@@ -0,0 +1,105 @@
++"""Four native legacy sessions; residual loss stays FAIL, never incompatibility PASS."""
++import copy,hashlib,json,runpy,sys,threading,time,traceback
++from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
++from pathlib import Path
++HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[2]
++TOOLS=ROOT/'node_modules/.finelo-cycle4d-r2b-tools';OUT=TOOLS/'evidence'
++sys.path[:0]=[str(TOOLS/'python'),str(ROOT/'scripts/diagnostics')]
++from playwright.sync_api import sync_playwright
++from validate import watch_activation,activation_done
++M=runpy.run_path(str(ROOT/'scripts/diagnostics/pwa-r1-applied-validate.py'),run_name='r2b_legacy_helpers')
++BASE=M['BASE'];NEUTRAL='http://127.0.0.1:5222/'
++
++class AcceptingFixture(M['PendingBackend']):
++    def __init__(self):super().__init__();self.committed=[];self.lost=[]
++    def accept(self,deliver=True):
++        routes=self.pending;self.pending=[]
++        for route in routes:
++            rows=copy.deepcopy(route.request.post_data_json)
++            for row in rows:
++                row.update(id=f'20000000-0000-4000-8000-{len(self.committed)+1:012d}',created_at='2026-11-06T12:00:00Z',updated_at='2026-11-06T12:00:00Z',archived_at=None)
++                self.db['financial_goals'].append(row);self.committed.append(copy.deepcopy(row))
++            if deliver:self.fulfill(route,rows,201)
++            else:self.lost.append(route)
++
++def write(name,value):(OUT/name).write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf8')
++def fingerprint(page):
++    return page.evaluate("""()=>({preferences:Object.fromEntries(Object.entries(localStorage).filter(([k])=>k.startsWith('finelo.appearance.'))),
++      users:Object.entries(localStorage).filter(([k])=>k.startsWith('sb-')).map(([,v])=>{try{return JSON.parse(v).user?.id}catch{return null}}).filter(Boolean)})""")
++def waiting(page):
++    M['waiting'](page)
++    assert page.evaluate("async()=>!!(await navigator.serviceWorker.getRegistration()).waiting")
++def run(browser,channel,policy):
++    name=f'legacy-{channel}-{policy}';rows=[];observer=M['AppliedObserver'](name);backend=AcceptingFixture()
++    M['publish'](policy,'a',observer)
++    context=browser.new_context(viewport={'width':390,'height':844},color_scheme='light',timezone_id='America/Sao_Paulo');observer.attach(context);context.route('**/*',backend.route)
++    def item(step,status='PASS',**details):
++        rows.append({'name':name+'-'+step,'session':name,'browser':channel,'browserVersion':browser.version,'installedPolicy':policy,'step':step,'status':status,**details});write(name+'.json',rows)
++    try:
++        owner=context.new_page();M['boot'](owner);M['choose'](owner,'light');M['loaded_goals'](owner,backend)
++        initial=copy.deepcopy(backend.db);original_ledger=BASE['ledger'](owner)
++        peer=context.new_page();peer.goto(M['ORIGIN']+'/app?view=goals',wait_until='networkidle');M['ready'](peer,revision='a');M['loaded_goals'](peer,backend);M['draft'](peer,'LEGACY_RETAINED')
++        M['publish']('proposed-prompt','b',observer)
++        raw=(M['DIST']/'sw.js').read_bytes();gate=(ROOT/'scripts/diagnostics/pwa-r2/activation-gate-proposal.js').read_bytes()
++        experimental=gate+b'\n'+raw;(M['DIST']/'sw.js').write_bytes(experimental)
++        for page in[owner,peer]:waiting(page)
++        owner.wait_for_timeout(800);assert M['state'](peer)['draft']=='LEGACY_RETAINED';item('defer-dirty',workerWaiting=True,experimentalBSHA256=hashlib.sha256(experimental).hexdigest())
++        context.set_offline(True);backend.offline=True;peer.wait_for_timeout(400);assert M['state'](peer)['draft']=='LEGACY_RETAINED'
++        backend.offline=False;context.set_offline(False);peer.wait_for_timeout(400);assert M['state'](peer)['draft']=='LEGACY_RETAINED';waiting(owner);item('offline-reconnect',draftPreserved=True)
++        M['draft'](owner,'LEGACY_INITIATOR');owner.screenshot(path=str(OUT/(name+'-before-button.png')))
++        owner.get_by_role('button',name='Atualizar Agora',exact=True).click()
++        M['wait_evaluated'](owner,"()=>Boolean(window.__integratedQa?.snapshot().initialDataLoadStatus==='ready'&&!document.querySelector('#goal-form'))")
++        assert M['state'](owner)['html']=='a'and M['state'](peer)['draft']=='LEGACY_RETAINED';waiting(owner)
++        item('old-button','FAIL',residual=True,reason='Own legacy 1s reload discarded its draft; B still waiting');owner.screenshot(path=str(OUT/(name+'-after-button.png')))
++        M['draft'](owner,'LEGACY_MANUAL_REFRESH');owner.reload(wait_until='networkidle');M['ready'](owner,revision='a');assert M['state'](owner)['draft']is None;waiting(owner)
++        item('manual-refresh','FAIL',residual=True,reason='Voluntary manual refresh discarded unsaved legacy draft')
++        assert M['state'](peer)['draft']=='LEGACY_RETAINED';peer.close();waiting(owner)
++        item('close-dirty','FAIL',residual=True,reason='User closed a legacy document with unsaved work; protocol cannot retain that DOM state')
++        owner.set_viewport_size({'width':1440,'height':1000})
++        peer=context.new_page();peer.goto(M['ORIGIN']+'/app?view=goals',wait_until='networkidle');M['ready'](peer,revision='a');M['loaded_goals'](peer,backend)
++        peer.set_viewport_size({'width':1440,'height':1000})
++        M['draft'](peer,'LEGACY_SAVED');peer.get_by_role('button',name='Salvar',exact=True).click();M['wait_pending'](peer,backend);backend.accept()
++        peer.locator('#goal-form').wait_for(state='detached');assert len(backend.committed)==1
++        peer.wait_for_function('(id)=>window.__integratedQa.snapshot().goals.some(g=>g.id===id)',arg=backend.committed[0]['id'],polling=50)
++        assert backend.committed[0]['target_amount']==1234.56;item('save-observed',committed=1,observedByClient=True,viewport='1440x1000, desktop only; no mobile accessibility claim')
++        M['draft'](peer,'LEGACY_ACCEPTED_UNOBSERVED');peer.get_by_role('button',name='Salvar',exact=True).click()
++        deadline=time.monotonic()+5
++        while not backend.pending and time.monotonic()<deadline:peer.wait_for_timeout(50)
++        assert len(backend.pending)==1 and M['state'](peer)['saving'];waiting(owner);owner.wait_for_timeout(600)
++        assert M['state'](peer)['saving'];item('defer-pending',requestAttempts=len(backend.attempts),workerWaiting=True)
++        backend.accept(deliver=False);assert len(backend.committed)==2 and M['state'](peer)['saving'];peer.close();waiting(owner)
++        item('close-accepted-unobserved','FAIL',residual=True,reason='Synthetic commit without delivered response; manual close loses client feedback',committed=2,requestAttempts=len(backend.attempts))
++        stored=fingerprint(owner);observation=watch_activation(context,owner,M['ORIGIN']);owner.goto(NEUTRAL,wait_until='networkidle')
++        activated=activation_done(observation,owner);item('natural-after-voluntary-exit',allLegacyApplicationClientsGone=True,nativeActivation=activated)
++        owner.goto(M['ORIGIN']+'/app?view=goals',wait_until='networkidle');M['ready'](owner,revision='b');M['loaded_goals'](owner,backend)
++        assert fingerprint(owner)==stored and M['state'](owner)['theme']=='light'
++        final_ledger=BASE['ledger'](owner)
++        assert all(final_ledger[key]==original_ledger[key]for key in original_ledger if key!='goals')
++        assert len(backend.attempts)==2 and len(backend.committed)==2
++        for key in initial:
++            if key!='financial_goals':assert backend.db[key]==initial[key]
++        assert len(final_ledger['goals'])==len(original_ledger['goals'])+2
++        item('identity-preferences-finance',account=M['A'],committed=2,requestAttempts=2,otherFinancialCollectionsUnchanged=True,
++             submittedPayloadSHA256=hashlib.sha256(json.dumps(backend.attempts,sort_keys=True).encode()).hexdigest())
++    except Exception as error:item('unexpected-failure','FAIL',unexpected=True,reason=str(error),traceback=traceback.format_exc())
++    finally:context.close();write(name+'.json',rows)
++    return rows
++
++if __name__=='__main__':
++    class Neutral(BaseHTTPRequestHandler):
++        def log_message(self,*_):pass
++        def do_GET(self):
++            body=(HERE/'neutral.html').read_text().replace('__APP_ORIGIN__',M['ORIGIN']).encode();self.send_response(200);self.send_header('Content-Type','text/html');self.send_header('Referrer-Policy','no-referrer');self.end_headers();self.wfile.write(body)
++    neutral=ThreadingHTTPServer(('127.0.0.1',5222),Neutral);threading.Thread(target=neutral.serve_forever,daemon=True).start()
++    M['publish']('proposed-prompt','a',M['AppliedObserver']('legacy-start'));server=M['Server']();server.start();results=[]
++    try:
++        with sync_playwright()as p:
++            for channel in['msedge','chrome']:
++                browser=p.chromium.launch(channel=channel,headless=True)
++                try:
++                    for policy in['original','proposed-prompt']:
++                        rows=run(browser,channel,policy);results+=rows;write('legacy-final-matrix.json',results)
++                        print(json.dumps({'session':channel+'-'+policy,'steps':len(rows),'FAIL':sum(r['status']=='FAIL'for r in rows),'unexpected':sum(bool(r.get('unexpected'))for r in rows)}),flush=True)
++                finally:browser.close()
++    finally:server.stop();neutral.shutdown();neutral.server_close()
++    raise SystemExit(1 if any(row['status']=='FAIL'for row in results)else 0)

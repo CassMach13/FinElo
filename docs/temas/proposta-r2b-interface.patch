@@ -1,0 +1,204 @@
+diff --git a/scripts/diagnostics/pwa-r2b/client.js b/scripts/diagnostics/pwa-r2b/client.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/client.js
+@@ -0,0 +1,179 @@
++/* Executable laboratory, not imported anywhere in the FinElo product. */
++const BUILD='__BUILD__',PROTOCOL='FINELO_R2B_1',LOCK='finelo-r2b-critical';
++const $=id=>document.getElementById(id),epoch=crypto.randomUUID();
++const events=[],work=new Map();
++let registration,frozen=null,attempt=null,draftToken=null,operation=null,booted=false,resumePause=null,lifecycleUnconfirmed=false;
++const actor=localStorage.getItem('r2b.actor')||'QA-A';localStorage.setItem('r2b.actor',actor);
++const record=(type,details={})=>events.push({type,time:Date.now(),...details});
++const state=()=>lifecycleUnconfirmed||[...work.values()].includes('unknown')?'unknown':work.size?[...work.values()].includes('pending')?'pending':'dirty':'clean';
++function theme(){const preference=$('theme').value;localStorage.setItem('r2b.theme',preference);document.documentElement.dataset.theme=preference==='system'?(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):preference;}
++$('theme').value=new URLSearchParams(location.search).get('theme')||localStorage.getItem('r2b.theme')||'dark';theme();$('theme').onchange=theme;matchMedia('(prefers-color-scheme:dark)').addEventListener('change',theme);
++$('identity').textContent=`Conta sintética: ${actor}`;
++function updateStatus(text,phase){$('update-status').textContent=text;if(phase)$('update-status').dataset.phase=phase;record('status',{text,phase});}
++function controls(){
++  $('draft').disabled=!draftToken||!!operation||!!frozen||lifecycleUnconfirmed;$('amount').disabled=!draftToken||!!operation||!!frozen||lifecycleUnconfirmed;
++  $('edit').disabled=!!draftToken||!!frozen||!booted||lifecycleUnconfirmed;
++  $('save').disabled=!draftToken||!!operation||!!frozen||lifecycleUnconfirmed;
++  $('discard').disabled=!draftToken||!!operation||!!frozen||lifecycleUnconfirmed;
++  $('leave').hidden=!frozen?.draining;$('cancel').hidden=!frozen&&!attempt;
++}
++async function mutex(mode){
++  return await new Promise(resolve=>{
++    navigator.locks.request(LOCK,{mode,ifAvailable:true},async lock=>{
++      if(!lock){resolve(null);return;}
++      let release;const held=new Promise(r=>release=r);resolve(release);await held;
++    }).catch(()=>resolve(null));
++  });
++}
++async function acquire(kind){
++  if(frozen||lifecycleUnconfirmed)return null;
++  const release=await mutex('shared');
++  if(!release)return null;
++  if(frozen||lifecycleUnconfirmed){release();return null;}
++  const id=crypto.randomUUID();work.set(id,kind);record('work-start',{id,kind});
++  return {id,release:()=>{work.delete(id);release();record('work-finish',{id});}};
++}
++function rpc(worker,type,values={}){
++  return new Promise((resolve,reject)=>{
++    if(!worker){reject(Error('NO_WAITING_WORKER'));return;}
++    const channel=new MessageChannel(),requestId=crypto.randomUUID();
++    const timer=setTimeout(()=>{channel.port1.close();reject(Error('RPC_NO_RESPONSE'));},1800);
++    channel.port1.onmessage=event=>{
++      clearTimeout(timer);channel.port1.close();
++      if(event.data?.requestId!==requestId){reject(Error('INVALID_REPLY'));return;}
++      resolve(event.data);
++    };
++    worker.postMessage({protocol:PROTOCOL,requestId,type,...values},[channel.port2]);
++  });
++}
++function reset(reason){
++  if(frozen?.timer)clearTimeout(frozen.timer);
++  if(attempt){clearTimeout(attempt.timer);attempt.release();attempt=null;}
++  frozen=null;resumePause?.();resumePause=null;controls();updateStatus(reason,'blocked');
++}
++function suspended(){
++  lifecycleUnconfirmed=true;$('resume-client').hidden=false;record('lifecycle-unconfirmed');
++  void window.__r2bLifecycle?.({type:'freeze-or-restored',epoch});
++  const id=frozen?.roundId||attempt?.roundId;
++  if(id&&registration?.waiting)void rpc(registration.waiting,'CANCEL',{roundId:id}).catch(()=>{});
++  reset('Aba suspensa: confirme a retomada. Trabalho e resultados pendentes foram preservados.');
++}
++document.addEventListener('freeze',suspended);
++window.addEventListener('pageshow',event=>{if(event.persisted)suspended();});
++$('resume-client').onclick=async()=>{
++  try{
++    const version=await rpc(navigator.serviceWorker.controller,'VERSION');
++    if(version.build!==BUILD){updateStatus('Controlador incompatível; trabalho mantido e retomada bloqueada.','blocked');return;}
++    lifecycleUnconfirmed=false;$('resume-client').hidden=true;record('lifecycle-confirmed');controls();
++  }catch{updateStatus('Não foi possível confirmar a versão; retomada bloqueada.','blocked');}
++};
++navigator.serviceWorker.addEventListener('message',event=>{
++  const data=event.data;
++  if(data?.protocol!==PROTOCOL||!registration||![registration.waiting,registration.active].includes(event.source))return;
++  if(data.type==='ABORT'){
++    if(frozen?.roundId===data.roundId||attempt?.roundId===data.roundId)reset('Tentativa cancelada ou expirada. Seu trabalho foi preservado.');return;
++  }
++  if(data.type==='DRAINING'){
++    if(frozen?.roundId===data.roundId){frozen.draining=true;controls();updateStatus('Tudo limpo. Cada aba precisa confirmar sua própria saída.','draining');}return;
++  }
++  if(data.type!=='CHALLENGE'||!event.ports[0])return;
++  if(new URLSearchParams(location.search).get('fault')==='silent')return;
++  if(data.phase==='prepare'&&state()==='clean'&&Date.now()<data.deadline){
++    if(frozen?.timer)clearTimeout(frozen.timer);
++    const token={roundId:data.roundId,deadline:data.deadline,draining:false};frozen=token;
++    token.timer=setTimeout(()=>{if(frozen===token)reset('Coordenação expirada.');},Math.max(0,data.deadline-Date.now()));controls();
++  }
++  const clean=state()==='clean'&&frozen?.roundId===data.roundId&&Date.now()<data.deadline;
++  event.ports[0].postMessage({protocol:PROTOCOL,roundId:data.roundId,nonce:data.nonce,epoch,build:BUILD,state:state(),frozen:clean});
++  record('challenge',{phase:data.phase,roundId:data.roundId,state:state(),frozen:clean});
++});
++// A controller event never triggers a reload. Re-check admission before work.
++navigator.serviceWorker.addEventListener('controllerchange',()=>{record('controllerchange');if(booted)suspended();});
++async function balance(){const response=await fetch(`/api/balance?actor=${actor}`);const value=await response.json();$('balance').textContent=String(value.cents);return value.cents;}
++async function admission(){
++  if(lifecycleUnconfirmed)return false;
++  const version=await rpc(navigator.serviceWorker.controller,'VERSION');
++  if(version.build!==BUILD){updateStatus('Documento e controlador incompatíveis; entrada bloqueada.','blocked');return false;}
++  const release=await mutex('shared');if(!release){updateStatus('Outra aba prepara a atualização. Nenhum trabalho novo foi iniciado.','blocked');return false;}release();return true;
++}
++async function edit(){
++  if(draftToken||!booted||!await admission())return false;
++  const token=await acquire('dirty');if(!token){updateStatus('Edição bloqueada durante a atualização.','blocked');return false;}
++  draftToken=token;controls();$('draft').focus();return true;
++}
++$('edit').onclick=edit;
++$('discard').onclick=()=>{if(operation||frozen)return;draftToken?.release();draftToken=null;$('draft').value='';controls();};
++async function observed(result){
++  if(result.status!=='accepted'&&result.status!=='refused')throw Error('UNKNOWN_RESULT');
++  await balance();$('result').textContent=result.status==='accepted'?'Confirmado pelo servidor sintético.':'Recusado pelo servidor sintético.';
++  record('result-observed',{operation:operation.id,status:result.status});
++  operation.token.release();operation=null;$('reconcile').hidden=true;
++  if(result.status==='accepted'){draftToken?.release();draftToken=null;$('draft').value='';}controls();
++}
++$('save').onclick=async()=>{
++  if(!draftToken||operation||frozen)return;
++  const token=await acquire('pending');if(!token)return;
++  const job={id:crypto.randomUUID(),token};operation=job;controls();$('result').textContent='Aguardando resultado real do transporte sintético…';
++  try{
++    const response=await fetch('/api/operation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:job.id,actor,cents:Number($('amount').value),outcome:$('outcome').value,description:$('draft').value})});
++    const result=await response.json();if(operation===job)await observed(result);
++  }catch{
++    if(operation===job){work.set(job.token.id,'unknown');$('result').textContent='Resultado incerto. A escrita não será repetida.';$('reconcile').hidden=false;controls();record('result-uncertain',{operation:job.id});}
++  }
++};
++$('reconcile').onclick=async()=>{
++  if(!operation)return;
++  try{const response=await fetch(`/api/result?id=${operation.id}&actor=${actor}`);const value=await response.json();if(value.status==='unknown'){record('still-uncertain');return;}await observed(value);}catch{record('reconciliation-offline');}
++};
++async function update(){
++  if(attempt){updateStatus('Uma tentativa já está em andamento.','blocked');return;}
++  const release=await mutex('exclusive');if(!release){updateStatus('Há formulário ou operação em andamento, ou outra tentativa ativa.','blocked');return;}
++  const current={release,roundId:null};attempt=current;controls();
++  try{
++    const prepared=await rpc(registration.waiting,'BEGIN');
++    if(attempt!==current)return;
++    if(prepared.status!=='PREPARED'){reset(prepared.reason);return;}
++    current.roundId=prepared.roundId;current.deadline=prepared.deadline;
++    current.timer=setTimeout(()=>{if(attempt===current)reset('Coordenação expirada; nenhum cliente foi recarregado.');},Math.max(0,prepared.deadline-Date.now()));
++    updateStatus('Prontidão inicial recebida.','prepared');
++    if(new URLSearchParams(location.search).get('pause')==='afterPrepare')await new Promise(resolve=>resumePause=resolve);
++    if(attempt!==current)return;
++    const committed=await rpc(registration.waiting,'COMMIT',{roundId:current.roundId});
++    if(attempt!==current)return;
++    if(committed.status!=='DRAINING'){reset(committed.reason);return;}
++    if(frozen?.roundId===current.roundId)frozen.draining=true;
++    controls();updateStatus('Cada aba deve confirmar sua própria saída. A iniciadora sai por último.','draining');
++  }catch(error){if(attempt===current)reset(error.message);}
++}
++$('update').onclick=update;
++$('cancel').onclick=async()=>{const id=frozen?.roundId||attempt?.roundId;try{if(id)await rpc(registration.waiting,'CANCEL',{roundId:id});}finally{reset('Atualização cancelada. Pode continuar trabalhando.');}};
++$('leave').onclick=async()=>{
++  const token=frozen;if(!token||!token.draining||state()!=='clean')return;
++  try{
++    const result=await rpc(registration.waiting,'LEAVE',{roundId:token.roundId});
++    if(result.status!=='HANDOFF'){if(result.reason==='CLIENTS_REMAIN'){updateStatus('Conclua a saída voluntária das outras abas primeiro.','draining');return;}reset(result.reason);return;}
++    if(new URLSearchParams(location.search).get('pause')==='beforeHandoff')await new Promise(resolve=>resumePause=resolve);
++    // No await between the last local check and voluntary navigation.
++    if(frozen!==token||state()!=='clean'||Date.now()>=token.deadline){reset('Saída negada por estado alterado.');return;}
++    record('own-voluntary-handoff');location.assign('http://127.0.0.1:5222/');
++  }catch(error){reset(error.message);}
++};
++$('check').onclick=async()=>{await registration.update();updateStatus('Busca concluída; aguardando instalação.');};
++let watching=false;
++function watch(){
++  if(watching)return;watching=true;
++  let wasWaiting=false;
++  const refresh=()=>{const waiting=!!registration.waiting;$('update').disabled=!waiting;if(waiting&&!wasWaiting&&!frozen&&!attempt)updateStatus('B disponível. A ativação será natural, após a saída dos clientes.','waiting');wasWaiting=waiting;};
++  registration.addEventListener('updatefound',()=>registration.installing?.addEventListener('statechange',refresh));refresh();
++  setInterval(refresh,250);
++}
++async function boot(){
++  registration=await navigator.serviceWorker.register('/sw.js',{scope:'/',updateViaCache:'none'});await navigator.serviceWorker.ready;
++  if(!navigator.serviceWorker.controller){$('boot').textContent='Primeira instalação pronta. Entre sem nenhum trabalho aberto.';$('enter').hidden=false;$('enter').onclick=()=>{if(!booted&&state()==='clean')location.reload();};watch();return;}
++  if(!await admission()){$('boot').textContent='Entrada em espera; verifique a atualização nas outras abas.';$('enter').hidden=false;$('enter').textContent='Reverificar entrada';$('enter').onclick=()=>boot();watch();return;}
++  await balance();booted=true;$('enter').hidden=true;$('app').hidden=false;$('boot').textContent='Entrada liberada.';controls();watch();record('booted',{build:BUILD,actor});
++}
++window.__r2b={events,edit,version:()=>rpc(registration.waiting||registration.active,'VERSION'),inventory:()=>rpc(registration.waiting||registration.active,'INVENTORY'),resume:()=>{resumePause?.();resumePause=null;},snapshot:()=>({build:BUILD,actor,epoch,state:state(),frozen:!!frozen,phase:$('update-status').dataset.phase,draft:$('draft').value,operation:operation?.id,booted,theme:document.documentElement.dataset.theme,balance:$('balance').textContent}),
++  // Fault injection is confined to this diagnostic fixture, never the product.
++  injectUnknown:()=>{work.set('uncovered-path','unknown');record('injected-uncovered-path');}};
++boot().catch(error=>updateStatus(error.message,'blocked'));
+diff --git a/scripts/diagnostics/pwa-r2b/index.html b/scripts/diagnostics/pwa-r2b/index.html
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/index.html
+@@ -0,0 +1,7 @@
++<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="prototype-build" content="__BUILD__"><title>FinElo · laboratório PWA isolado</title><link rel="stylesheet" href="/v/__BUILD__/style.css"></head><body>
++<main><header><img src="/v/__BUILD__/marker.svg" width="36" height="36" alt="Versão __BUILD__"><div><h1>Laboratório PWA · __BUILD__</h1><p>Protótipo sintético, sem conexão com o FinElo real.</p></div></header>
++<p id="identity"></p><label>Tema <select id="theme"><option value="dark">Escuro</option><option value="light">Claro</option><option value="system">Automático</option></select></label>
++<p id="boot" role="status">Preparando entrada segura…</p><button id="enter" hidden>Entrar no protótipo</button><button id="resume-client" hidden>Confirmar retomada da aba</button>
++<section id="app" hidden><h2>Operação sintética</h2><p>Saldo: <strong id="balance"></strong></p><button id="edit">Editar rascunho</button><label>Descrição <input id="draft" disabled></label><label>Valor em centavos <input id="amount" type="number" value="1250" disabled></label><label>Resposta sintética <select id="outcome"><option>accepted</option><option>refused</option><option>held</option><option>accepted_lost</option></select></label><div class="actions"><button id="save" disabled>Enviar operação</button><button id="discard" disabled>Descartar rascunho</button><button id="reconcile" hidden>Verificar resultado</button></div><p id="result" role="status"></p></section>
++<section><h2>Atualização</h2><div class="actions"><button id="check">Buscar B</button><button id="update" disabled>Atualizar Agora</button><button id="leave" hidden>Continuar nesta aba</button><button id="cancel" hidden>Cancelar atualização</button></div><p id="update-status" role="status"></p></section>
++<footer>A saída nunca grava ou repete operações. A página neutra não recebe dados financeiros, conta ou sessão.</footer></main><script type="module" src="/v/__BUILD__/client.js"></script></body></html>
+diff --git a/scripts/diagnostics/pwa-r2b/style.css b/scripts/diagnostics/pwa-r2b/style.css
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/style.css
+@@ -0,0 +1,3 @@
++:root{--artifact-version:__BUILD__;color-scheme:dark;--bg:#111827;--surface:#1e293b;--text:#f1f5f9;--muted:#cbd5e1;--border:#64748b;--button:#38bdf8;--on-button:#082f49}
++:root[data-theme=light]{color-scheme:light;--bg:#f1f5f9;--surface:#fff;--text:#0f172a;--muted:#334155;--border:#64748b;--button:#075985;--on-button:#fff}
++*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui}main{max-width:880px;margin:24px auto;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:16px}header{display:flex;gap:16px;align-items:center}h1{font-size:24px;margin:0}h2{font-size:18px}p,footer{color:var(--muted)}label{display:block;margin:12px 0}input,select,button{font:inherit;border:1px solid var(--border);border-radius:6px;padding:10px;background:var(--surface);color:var(--text)}input{display:block;width:100%}button{cursor:pointer;background:var(--button);color:var(--on-button);font-weight:650}button:disabled{opacity:.55;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--button);outline-offset:3px}.actions{display:flex;gap:10px;flex-wrap:wrap}section{margin:22px 0;padding:16px 0;border-top:1px solid var(--border)}[hidden]{display:none!important}footer{font-size:13px} @media(max-width:600px){main{margin:0;border-radius:0;padding:16px}h1{font-size:20px}}
