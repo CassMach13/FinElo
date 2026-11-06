@@ -28,42 +28,33 @@ FINANCIAL = ['accounts', 'transactions', 'economicEvents', 'categories', 'assets
 HIDDEN = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 def build_all():
-    original = (ROOT / 'vite.config.ts').read_text(encoding='utf8')
-    assert original.count('skipWaiting: true,') == 1
-    proposal = original.replace('skipWaiting: true,', 'skipWaiting: false,')
-    disposable = ROOT / '.pwa-r1-proposed-vite.config.ts'
-    assert not disposable.exists(), 'Do not overwrite an existing config'
-    disposable.write_text(proposal, encoding='utf8')
-    patch = ''.join(difflib.unified_diff(original.splitlines(True), proposal.splitlines(True),
-                                         fromfile='a/vite.config.ts', tofile='b/vite.config.ts', n=0))
-    (ROOT / 'docs/temas/proposta-pwa-prompt-4d-r1.patch').write_text(patch, encoding='utf8')
-    builds = []
+    historical = subprocess.check_output(['git','show','9c792eefd4c4773128c52708a99d5e65e7f89782:vite.config.ts'],cwd=ROOT).decode().replace('\r\n','\n')
+    current = (ROOT/'vite.config.ts').read_text(encoding='utf8')
+    assert digest(historical.encode()) == '91b292fd907c9ab5f79ee74e827f8ec1cc08282688638d38b25272ad624183c9'
+    assert current == historical.replace('skipWaiting: true,','skipWaiting: false,')
+    disposable = ROOT/'.pwa-r1-reviewed-vite.config.ts'
+    assert not disposable.exists(), 'Do not overwrite a historical copy'
+    disposable.write_text(historical,encoding='utf8')
+    builds=[]
     try:
-        for policy in ['original', 'proposed-prompt']:
-            for revision in ['a', 'b']:
-                destination = TOOLS / 'builds' / (policy + '-' + revision)
+        for policy in ['original','proposed-prompt']:
+            for revision in ['a','b']:
+                destination=TOOLS/'builds'/(policy+'-'+revision)
                 assert not destination.exists(), 'Build snapshots are immutable'
-                started = time.time()
-                with (TOOLS / f'build-{policy}-{revision}.log').open('w', encoding='utf8') as log:
-                    result = subprocess.run(['node', 'node_modules/vite/bin/vite.js', 'build', '--mode', 'staging', '--config', CONFIG],
-                                            cwd=ROOT, env={**ENV, 'FINELO_QA_BUILD': revision, 'FINELO_PWA_R1_POLICY': policy},
-                                            stdout=log, stderr=log, creationflags=HIDDEN, timeout=240)
-                assert result.returncode == 0, f'Build failed: {policy}/{revision}'
-                shutil.copytree(DIST, destination)
-                sw = (destination / 'sw.js').read_text(encoding='utf8')
-                row = {'policy': policy, 'revision': revision, 'started': started, 'finished': time.time(),
-                       'indexSHA256': digest((destination / 'index.html').read_bytes()),
-                       'swSHA256': digest((destination / 'sw.js').read_bytes()),
-                       'skipWaitingMessageHandler': 'SKIP_WAITING' in sw,
-                       'files': {p.relative_to(destination).as_posix(): digest(p.read_bytes()) for p in destination.rglob('*') if p.is_file()}}
-                assert row['skipWaitingMessageHandler'] == (policy == 'proposed-prompt')
-                builds.append(row)
-                write('builds.json', builds)
-                print(json.dumps({key: row[key] for key in ['policy', 'revision', 'indexSHA256', 'swSHA256'] }), flush=True)
+                started=time.time()
+                with(TOOLS/f'build-{policy}-{revision}.log').open('w',encoding='utf8')as log:
+                    result=subprocess.run(['node','node_modules/vite/bin/vite.js','build','--mode','staging','--config',CONFIG],cwd=ROOT,env={**ENV,'FINELO_QA_BUILD':revision,'FINELO_PWA_R1_POLICY':policy},stdout=log,stderr=log,creationflags=HIDDEN,timeout=240)
+                assert result.returncode==0,f'Build failed: {policy}/{revision}'
+                shutil.copytree(DIST,destination)
+                sw=(destination/'sw.js').read_text(encoding='utf8')
+                row={'policy':policy,'revision':revision,'started':started,'finished':time.time(),'configurationSHA256':digest((historical if policy=='original' else current).encode()),'historicalReference':'9c792ee','indexSHA256':digest((destination/'index.html').read_bytes()),'swSHA256':digest((destination/'sw.js').read_bytes()),'skipWaitingMessageHandler':'SKIP_WAITING'in sw,'files':{p.relative_to(destination).as_posix():digest(p.read_bytes())for p in destination.rglob('*')if p.is_file()}}
+                assert row['skipWaitingMessageHandler']==(policy=='proposed-prompt')
+                builds.append(row);write('builds.json',builds)
+                print(json.dumps({k:row[k]for k in ['policy','revision','indexSHA256','swSHA256']}),flush=True)
     finally:
-        assert disposable.read_text(encoding='utf8') == proposal
+        assert disposable.read_text(encoding='utf8')==historical
         disposable.unlink()
-        assert (ROOT / 'vite.config.ts').read_text(encoding='utf8') == original
+        assert (ROOT/'vite.config.ts').read_text(encoding='utf8')==current
 
 class Server:
     def __init__(self):

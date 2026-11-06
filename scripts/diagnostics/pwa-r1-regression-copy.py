@@ -18,10 +18,10 @@ if __name__ == '__main__':
             assert resolved.is_relative_to(target.resolve())
             assert not member.issym() and not member.islnk()
         archive.extractall(target,filter='data')
-    overlays = ['.gitignore','scripts/diagnostics/integrated-pwa.config.ts','scripts/diagnostics/integrated-validate-pwa.py',
+    overlays = ['.gitignore','vite.config.ts','scripts/diagnostics/integrated-pwa.config.ts','scripts/diagnostics/integrated-validate-pwa.py',
                 'scripts/diagnostics/pwa-r1.config.ts','scripts/diagnostics/pwa-r1-observe.js',
                 'scripts/diagnostics/pwa-r1-reconstruct.py','scripts/diagnostics/pwa-r1-validate.py',
-                'scripts/diagnostics/pwa_r1_observation.py','tests/appearance/pwaDiagnosticBoundary.spec.ts']
+                'scripts/diagnostics/pwa_r1_observation.py','scripts/diagnostics/pwa-r1-applied-validate.py','tests/appearance/pwaDiagnosticBoundary.spec.ts']
     for name in overlays:
         output = target / name
         output.parent.mkdir(parents=True,exist_ok=True)

@@ -1,6 +1,12 @@
 # Ciclo 4D-R1 — Investigação da atualização PWA
 
-## Parecer e limites
+## Estado atual após autorização da aplicação
+
+O usuário autorizou exclusivamente **`skipWaiting:true` → `skipWaiting:false` em `vite.config.ts`**, a partir de `9c792ee`. A linha está aplicada na branch da PR #97. **NO-GO mantido**: além dos bloqueios anteriores, a validação de proteção entre abas descrita na seção final encontrou descarte de formulário/operação pendente quando outra aba confirma a atualização. Não foram alterados `ReloadPrompt.tsx`, Auth, RLS, serviços financeiros, coorte ou outros parâmetros de cache.
+
+As seções seguintes até “Aplicação autorizada” registram a investigação histórica entregue em `9c792ee`, quando a proposta ainda não estava aplicada. Seus hashes, pacotes e resultados permanecem preservados. A seção final e as [evidências da aplicação](evidencias-ciclo-4d-r1-aplicacao/README.md) são o estado atual.
+
+## Parecer e limites da investigação histórica (`9c792ee`)
 
 **A falha original foi explicada e o ensaio com navegação explícita passou. O parecer geral continua NO-GO.** A entrega não homologa PWA instalado, aparelhos ou Auth remoto. Base revisada: `c7f1a5c668ef4f39b9b0d489a93c02fa07e72308`, PR #97 em rascunho, branch `codex/finelo-theme-foundation`.
 
@@ -137,3 +143,64 @@ O risco “não sabemos se o servidor/cache entregou B” foi resolvido por hash
 Permanecem **BLOCKED** Auth remoto/staging isolado autorizado e **NOT TESTED** instalação/fechamento/reabertura/reinstalação no sistema, iPhone/Safari, Android/Chrome, interação física, leitor de tela e zoom nativo. Os demais bloqueios de feedback financeiro, Firefox, acessibilidade e riscos legados do [4D](ciclo-4d-homologacao-integrada.md) não foram tratados neste lote. O [roteiro manual](ciclo-4d-roteiro-manual.md) continua aplicável.
 
 **Manter NO-GO.** Não há merge, deploy, migration, ampliação de coorte ou ativação global. A eventual autorização do patch de uma linha não autoriza publicação nem encerra os demais gates.
+
+## Aplicação autorizada — versão instalada, múltiplas abas e trabalho pendente
+
+### Escopo e integridade
+
+Aplicada somente a linha autorizada na configuração do produto. A comparação com `9c792ee` não mostra alterações em `src`, `ReloadPrompt`, Auth, serviços, dependências ou parâmetros restantes do worker/cache. Os testes preservam o hash histórico de configuração **`91b292fd907c9ab5f79ee74e827f8ec1cc08282688638d38b25272ad624183c9`** mediante reversão exata da única linha; não substituem o selo antigo para encobrir alterações. O hash canônico atual é **`fe3eb352f4d8a98a0ae4912f93224992c091ad9d4670f6639b66c26143f0412b`**. `ReloadPrompt` conserva **`b9aee0ed818acb214d29112452ca4b66456ca0a2a826dc7f69d9ed4650573b6f`**.
+
+Os diagnósticos dependentes foram adaptados: `original` passa a significar a configuração imutável de `9c792ee`, carregada de uma cópia descartável validada por SHA; `current-prompt` e o alias histórico `proposed-prompt` usam a configuração atual. O builder não regrava o patch aprovado nem seus arquivos históricos. O replay antigo recusa misturar o harness histórico com a nova configuração e indica o checkout congelado necessário. O ensaio básico atual usa o botão original e verifica a prontidão no mesmo documento B.
+
+### Matriz nova e transição entre políticas
+
+`pwa-r1-applied-validate.py` executa **48 combinações independentes**: Edge/Chrome × Escuro/Claro/Automático × duas transições × quatro estados de trabalho. As transições são **A(false)→B(false)** e **A(true) previamente instalado/ativo→B(false)**. A segunda não é uma repetição dos oito testes anteriores sob a mesma política.
+
+Usam-se **workers brutos gerados pelo Workbox, sem o handler diagnóstico de versão**, perfis descartáveis, SDK instalado e HTTP sintético. O worker A já controla o cliente e tem precache antes de publicar B no servidor local. O cenário de página reaberta conserva a instalação do worker, storage e preferência no mesmo contexto. Isso comprova um **Service Worker previamente instalado no perfil**, não um PWA instalado no sistema operacional.
+
+As quatro variantes são: página reaberta com offline/reconexão e rascunho; duas abas ociosas; outra aba com formulário não salvo; outra aba com POST de Objetivo pendente. Em cada variante, B deve esperar, a página continua A antes da confirmação e o botão original é o único mecanismo de aceitação. O modo Automático também é exercitado com mudança de media query. Os estados são observados antes e depois da confirmação.
+
+**Resultado: 48 cenários, 24 PASS / 24 FAIL; zero falhas inesperadas do validador. Código de saída da matriz: 1.** Os 24 FAILs são falhas reais do critério de proteção entre abas; não foram tratados como sucesso por serem esperados após a reprodução inicial.
+
+| Transição / cenário, repetido em Edge e Chrome nos três temas | Execuções | PASS | FAIL |
+| --- | --- | --- | --- |
+| A(false)→B(false), página reaberta/offline/reconexão | 6 | 6 | 0 |
+| A(false)→B(false), duas abas ociosas | 6 | 6 | 0 |
+| A(false)→B(false), outra aba com rascunho | 6 | 0 | 6 |
+| A(false)→B(false), outra aba com POST pendente | 6 | 0 | 6 |
+| A(true) instalado→B(false), página reaberta/offline/reconexão | 6 | 6 | 0 |
+| A(true) instalado→B(false), duas abas ociosas | 6 | 6 | 0 |
+| A(true) instalado→B(false), outra aba com rascunho | 6 | 0 | 6 |
+| A(true) instalado→B(false), outra aba com POST pendente | 6 | 0 | 6 |
+
+Em **48/48**, não houve interrupção antes da confirmação e passaram os controles de bytes/versões, equivalência das coleções financeiras, ausência de duplicação/persistência financeira e isolamento da conta B na aba verificadora. Houve **12 POSTs intencionais de teste, um por cenário pendente**, todos submetidos ao transporte sintético de recusa, sem persistência. Esses controles PASS não anulam o FAIL de estado/feedback na segunda aba.
+
+Os quatro builds reproduziram **exatamente os hashes de HTML/SW dos artefatos revisados do R1**, incluindo o antigo `true` e o `false` agora aplicado. Esse pareamento consta de `applied-historical-parity.json`; não se redefiniu o que era a versão antiga.
+
+### Falha confirmada: confirmação em uma aba interrompe outra
+
+Antes de qualquer confirmação, os controles verificam worker B em espera, documento/runtime A, rascunho preservado e POST ainda pendente. **O problema ocorre depois de confirmar na aba ociosa**: o novo worker assume o controle das demais abas; o listener `controlling` instalado pelo cliente Workbox para o aviso de atualização recarrega essas páginas, mesmo sem clique local e com trabalho pendente.
+
+O formulário da segunda aba desaparece. No cenário de gravação, o POST original foi iniciado pelo botão real “Salvar” e mantido pendente pelo transporte sintético; a recarga descarta o estado “Salvando…” e o contexto responsável pelo resultado. A recusa sintética é então liberada, sem qualquer persistência financeira. **Isso demonstra interrupção do cliente, não prova perda ou corrupção de dados em um servidor real.** A conclusão técnica é que a linha autorizada não fornece proteção de trabalho pendente entre abas.
+
+`syntheticRefusalDelivery` registra apenas o resultado de `route.fulfill`: o rótulo `refusal-delivered` significa que a chamada retornou sem erro, **não certifica que o documento antigo recebeu a resposta**. Os resultados não utilizam esse retorno como prova de feedback ao usuário.
+
+Esses FAILs não foram contornados por clique forçado, limpeza de cache, troca de Auth, cancelamento prévio da operação de outra aba ou edição de `ReloadPrompt`. A CLI da matriz termina com código **1** quando há falhas. Sua aceitação é separada da suíte de código/CI: uma suíte verde não aprova esse fluxo.
+
+### Valores e versões de recursos
+
+Os testes comparam exatamente as sete coleções financeiras, os dados brutos do backend sintético, o payload real do POST e sua quantidade. Objetivos são consultados pela interface antes da comparação para que A e B tenham a **mesma coleção integralmente carregada**, incluindo registros arquivados; não se compara o cache vazio de uma Dashboard recém-aberta com os objetivos consultados depois. A navegação necessária para consultar essa coleção é registrada pelo fluxo, sem alteração de consultas do produto.
+
+HTML, runtime executado e respostas dos recursos JS/CSS/imagens/fontes observáveis são confrontados com o manifesto SHA da versão correspondente. Recursos compartilhados só são aceitos com bytes idênticos; canários rejeitam um recurso exclusivo de A em B e bytes incorretos no mesmo caminho. O download/leitura de `sw.js` de B enquanto A está aberto é tratado como plano de atualização, separado dos bundles executados pela página; seus hashes devem pertencer ao par A/B autorizado.
+
+O Chromium não expõe o evento de resposta original do favicon por página. O auditor comprova que o favicon tem **bytes idênticos nos quatro builds**, e verifica o SHA da cópia do cache, registrando essa limitação em `invariantAssetEvidence`. Isso não dispensa nenhum JS/CSS nem permite aceitar um recurso diferente entre versões. Os caches são auditados por URL/hash, sem respostas de Auth/REST/Functions/Storage.
+
+Os controles iniciais incorretos do novo validador foram preservados separadamente: favicon não observável, leitura diagnóstica do worker B confundida com bundle A e comparação de Objetivos antes de terminar sua consulta. A matriz final usa as condições corrigidas; nenhum valor financeiro ou esperado histórico foi removido para obter PASS.
+
+### Validações, evidências e decisão
+
+Suíte completa **versionada**, sem `.env` ou faturas privadas: **3.416 PASS + um ignorado; 212 arquivos PASS + um ignorado (213)**, em 720,39 s. Focal: **258 testes / 17 arquivos PASS**. TypeScript: **14 diagnósticos conhecidos, zero novos**. Build padrão: **49 entradas PWA**, com handler `SKIP_WAITING` e sem `skipWaiting` incondicional no início do worker; sem deploy. Os overlays exatos da execução completa são preservados, e os refinamentos de observação Python são verificados pela matriz nativa.
+
+A matriz e as contagens finais por navegador, preferência, transição e cenário estão em [metrics.json](evidencias-ciclo-4d-r1-aplicacao/metrics.json). O pacote externo preserva também todos os FAILs preliminares, antes/depois dos casos críticos, artefatos brutos, hashes históricos e fontes. O CI do HEAD exato é registrado na descrição da [PR #97 em rascunho](https://github.com/CassMach13/FinElo/pull/97); não se reutiliza o selo do commit autorizado como aprovação da nova versão.
+
+**NO-GO obrigatório mantido.** A correção de proteção entre abas/formulários/operações exige escopo adicional, com coordenação antes de ativar/recarregar clientes; não cabe implementar esse mecanismo alterando apenas a linha autorizada. `ReloadPrompt`, Auth e serviços financeiros permanecem intactos. Continuam BLOCKED os ensaios de Auth/staging remoto isolado e NOT TESTED PWA instalado, aparelhos físicos, leitores de tela e zoom nativo; acessibilidade e feedback financeiro anteriores também não foram encerrados. Sem merge, deploy, migration, ampliação da coorte ou Claro global.

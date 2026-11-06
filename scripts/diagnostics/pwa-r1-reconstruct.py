@@ -38,6 +38,7 @@ def close(self, *args, **kwargs):
     return original_close(self, *args, **kwargs)
 
 if __name__ == '__main__':
+    assert digest((ROOT/'vite.config.ts').read_text(encoding='utf8').encode()) == '91b292fd907c9ab5f79ee74e827f8ec1cc08282688638d38b25272ad624183c9', 'Historical replay requires the frozen 9c792ee checkout, including its configuration; do not replay old assumptions with the new product policy'
     files = ['scripts/diagnostics/integrated-validate-pwa.py', 'scripts/diagnostics/integrated-pwa.config.ts',
              'scripts/diagnostics/integrated_fixture_backend.py', 'vite.config.ts', 'src/components/pwa/ReloadPrompt.tsx']
     harness = subprocess.check_output(['git','show',REVIEWED+':scripts/diagnostics/integrated-validate-pwa.py'],cwd=ROOT)

@@ -51,7 +51,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
           // Screenshots da Central de Ajuda carregam sob demanda; não entram no download inicial do app.
           globIgnores: ['**/node_modules/**/*', 'demo-video.mp4', 'logo/FinElo_Banner_Youtube.png', 'help/**'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-          skipWaiting: true,
+          skipWaiting: false,
           clientsClaim: true,
           runtimeCaching: [
             {

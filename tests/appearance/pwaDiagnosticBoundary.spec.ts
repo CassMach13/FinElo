@@ -13,7 +13,7 @@ function setup(mode='staging',flag='true',backend='https://integrated-fixture.in
   return {command:'build',mode} as ConfigEnv;
 }
 afterEach(()=>vi.unstubAllEnvs());
-describe('4D-R1: proposta isolada não muda a política publicada',()=>{
+describe('4D-R1: política autorizada e comparação histórica isolada',()=>{
   it.each([
     ['production','true','https://integrated-fixture.invalid'],
     ['development','true','https://integrated-fixture.invalid'],
@@ -26,19 +26,25 @@ describe('4D-R1: proposta isolada não muda a política publicada',()=>{
     const env=setup();vi.stubEnv('FINELO_PWA_R1_POLICY','global-auto-update');
     await expect(factory(env)).rejects.toThrow('Unknown local PWA experiment');
   });
-  it('a comparação original não depende da cópia de proposta',async()=>{
-    const env=setup();vi.stubEnv('FINELO_PWA_R1_POLICY','original');
+  it('a política atual não depende de cópias históricas descartáveis',async()=>{
+    const env=setup();vi.stubEnv('FINELO_PWA_R1_POLICY','current-prompt');
     const config=await factory(env);
     expect(config.build.outDir.replaceAll('\\','/')).toMatch(/node_modules\/\.finelo-cycle4d-tools\/pwa-dist$/);
     expect(config.plugins.flat().some((plugin:any)=>plugin.name==='pwa-r1-rendered-build-observer')).toBe(true);
   });
-  it('preserva integralmente configuração e interface de produção aprovadas em c7f1a5c',()=>{
+  it('preserva os hashes históricos com reversão exata da única linha autorizada',()=>{
     const expected={
       'vite.config.ts':'91b292fd907c9ab5f79ee74e827f8ec1cc08282688638d38b25272ad624183c9',
       'src/components/pwa/ReloadPrompt.tsx':'b9aee0ed818acb214d29112452ca4b66456ca0a2a826dc7f69d9ed4650573b6f',
     };
     for(const[file,hash]of Object.entries(expected)){
-      expect(createHash('sha256').update(readFileSync(file,'utf8').replaceAll('\r\n','\n')).digest('hex')).toBe(hash);
+      let source=readFileSync(file,'utf8').replaceAll('\r\n','\n');
+      if(file==='vite.config.ts'){
+        expect(source.split('skipWaiting: false,')).toHaveLength(2);
+        expect(source).not.toContain('skipWaiting: true,');
+        source=source.replace('skipWaiting: false,','skipWaiting: true,');
+      }
+      expect(createHash('sha256').update(source).digest('hex')).toBe(hash);
     }
   });
 });

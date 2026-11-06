@@ -9,7 +9,12 @@ ROOT=Path.cwd();TOOLS=ROOT/'node_modules/.finelo-cycle4d-tools';OUT=TOOLS/'evide
 env={**os.environ,'GEMINI_API_KEY':'','VITE_SUPABASE_URL':'https://integrated-fixture.invalid','VITE_SUPABASE_PUBLISHABLE_KEY':'synthetic-public-key','VITE_SUPABASE_ANON_KEY':'synthetic-public-key','VITE_APPEARANCE_PILOT':'true','VITE_CARD_ENGINE_FORCE':'false','VITE_CARD_V2_FORCE':'false'}
 results=[]
 def record(name,status='PASS',**detail):results.append({'scenario':name,'status':status,**detail});print(json.dumps(results[-1],ensure_ascii=True),flush=True)
-def ready(p,actor=A):p.wait_for_function('window.__integratedQa!==undefined');p.wait_for_function('(id)=>window.__integratedQa.snapshot().actor===id',arg=actor,timeout=30000)
+def ready(p,actor=A,revision=None,financial=False):
+ p.wait_for_function("""({actor,revision,financial})=>{
+  const s=window.__integratedQa?.snapshot();
+  return Boolean(s&&s.actor===actor&&(!financial||s.initialDataLoadStatus==='ready')&&(!revision||document.querySelector('meta[name=qa-build]')?.content===revision));
+ }""",arg={'actor':actor,'revision':revision,'financial':financial})
+
 def theme(p):return p.locator('[data-qa-eligible]').get_attribute('data-finelo-theme')
 def screenshot(p,name):p.screenshot(path=str(OUT/f'pwa-{name}.png'))
 
@@ -37,14 +42,12 @@ def run():
      build=subprocess.run(['node','node_modules/vite/bin/vite.js','build','--mode','staging','--config','scripts/diagnostics/integrated-pwa.config.ts'],env={**env,'FINELO_QA_BUILD':'b'},stdout=build_log,stderr=build_log,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt'else 0)
     assert build.returncode==0,'QA build B failed'
     b_sha=hashlib.sha256((TOOLS/'pwa-dist/sw.js').read_bytes()).hexdigest();assert b_sha!=a_sha
-    # Activation does not replace an already rendered document. The current
-    # prompt+skipWaiting policy can also bypass needRefresh. First observe the
-    # controller transition, then exercise explicit browser reload. The original
-    # update UI is tested independently by the R1 comparison matrix.
+    # The authorized policy waits for confirmation. Exercise the original button;
+    # the historical explicit-reload result remains frozen in the 9c792ee evidence.
     p.evaluate('()=>{window.__qaPreviousController=navigator.serviceWorker.controller;void navigator.serviceWorker.ready.then(r=>r.update())}')
-    p.wait_for_function('navigator.serviceWorker.controller!==window.__qaPreviousController',timeout=30000)
-    p.reload(wait_until='networkidle')
-    p.locator('meta[name=qa-build][content=b]').wait_for(state='attached',timeout=30000);ready(p);assert theme(p)=='light';after=p.evaluate('window.__integratedQa.snapshot()');assert all(financial[k]==after[k]for k in['accounts','transactions','assets','categories','budgets']);cache_b=p.evaluate("async()=>{for(const key of await caches.keys()){const c=await caches.open(key);for(const req of await c.keys()){if(new URL(req.url).pathname==='/index.html'){const r=await c.match(req);if((await r.text()).includes('name=\"qa-build\" content=\"b\"'))return true}}}return false}");assert cache_b;record('native-worker-update-a-to-b-precache-appearance',serviceWorkerSHA256=b_sha,financialEquivalent=True,explicitBrowserReload=True,automaticDocumentReloadCertified=False);screenshot(p,'updated-light')
+    p.get_by_role('button',name='Atualizar Agora',exact=True).wait_for(timeout=30000)
+    p.get_by_role('button',name='Atualizar Agora',exact=True).click()
+    p.locator('meta[name=qa-build][content=b]').wait_for(state='attached',timeout=30000);ready(p,revision='b',financial=True);assert theme(p)=='light';after=p.evaluate('window.__integratedQa.snapshot()');assert all(financial[k]==after[k]for k in['accounts','transactions','assets','categories','budgets']);cache_b=p.evaluate("async()=>{for(const key of await caches.keys()){const c=await caches.open(key);for(const req of await c.keys()){if(new URL(req.url).pathname==='/index.html'){const r=await c.match(req);if((await r.text()).includes('name=\"qa-build\" content=\"b\"'))return true}}}return false}");assert cache_b;record('native-worker-update-a-to-b-precache-appearance',serviceWorkerSHA256=b_sha,financialEquivalent=True,originalUpdateButtonConfirmed=True,automaticDocumentReloadCertified=False);screenshot(p,'updated-light')
     p.evaluate('window.__integratedQa.logout()');p.wait_for_function('window.__integratedQa.snapshot().actor===null');assert theme(p)=='dark';p.evaluate("window.__integratedQa.login('b')");ready(p,B);assert theme(p)=='dark';assert not p.locator('body').inner_text().find('Pessoa_A_QA')>=0;record('logout-login-b-in-existing-cache',sdkActor=p.evaluate('window.__integratedQa.sdkActor()'));screenshot(p,'account-b-dark')
     p.evaluate('async()=>{for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister();for(const k of await caches.keys())await caches.delete(k)}');assert p.evaluate('navigator.serviceWorker.getRegistrations().then(r=>r.length)')==0;p.evaluate("navigator.serviceWorker.register('/sw.js')");p.evaluate('navigator.serviceWorker.ready');record('synthetic-origin-worker-unregister-register',notOsUninstallReinstall=True)
    except Exception as e:
