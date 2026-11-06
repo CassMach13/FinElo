@@ -1,0 +1,5 @@
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -54 +54 @@
+-          skipWaiting: true,
++          skipWaiting: false,

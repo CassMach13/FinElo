@@ -178,3 +178,7 @@ Roteiro executável por operador: [ciclo-4d-roteiro-manual.md](ciclo-4d-roteiro-
 5. Preencher Safari/iPhone, Android/Chrome, desktop, zoom nativo e leitor de tela; repetir dados/temas/print sem divergências e obter autorização explícita para o piloto.
 
 Rollback visual: manter a flag desligada e retirar a entrada diagnóstica do uso; nenhum schema exige rollback. Não reverter as correções de privacidade autorizadas no 4C. Não iniciar piloto, merge ou deploy automaticamente a partir deste relatório.
+
+## Complemento 4D-R1
+
+O [4D-R1](ciclo-4d-r1-pwa.md) explica o FAIL histórico sem alterar estas evidências: B já estava ativo/no precache, enquanto o documento A não tinha navegado. O harness com recarga explícita passou. A UI da política atual falha no aviso após reabrir a página; uma proposta isolada de `skipWaiting:false` passou em oito ensaios, mas não foi aplicada à configuração do produto. Permanecem uma observação instrumental de espera não isolada e os bloqueios remotos/físicos e de risco anteriores. **O parecer continua NO-GO.**
