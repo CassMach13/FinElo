@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { appAlert, useDialogStore } from './useDialogStore';
-import { persistAppearanceTheme, supabase } from '../supabaseClient';
+import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
 import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
 import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
 import {
@@ -565,6 +565,7 @@ let transactionsFetchGeneration = 0;
 let assetSessionGeneration = 0;
 let assetsFetchGeneration = 0;
 const appearanceSaves = new Set<string>();
+const metadataWrites = new Map<string, Promise<void>>();
 let appearanceRevision = 0;
 let confirmedAppearance: { id: string; theme: 'dark' | 'light' | 'system' } | undefined;
 const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
@@ -814,25 +815,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     if (!user) return;
+    const isCurrentSession = captureAssetSession(get);
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || session?.user.id !== user.id || !isCurrentSession()) return;
     
     // Update local state optimistically
+    const currentUser = get().user!;
     const updatedUser = {
-      ...user,
+      ...currentUser,
       user_metadata: {
-        ...user.user_metadata,
+        ...currentUser.user_metadata,
         ...preferences
       }
     };
     get().setUser(updatedUser as User);
 
-    // Persist to Supabase Auth
-    const { error } = await supabase.auth.updateUser({
-      data: preferences
+    // A late SDK updateUser response can restore its captured session after another login.
+    // Bind metadata writes to the initiating bearer without mutating the global SDK cache.
+    const previous = metadataWrites.get(user.id) ?? Promise.resolve();
+    const saving = previous.catch(() => undefined).then(async () => {
+      if (isCurrentSession()) await persistUserMetadata(session.access_token, preferences);
     });
-    
-    if (error) {
+    metadataWrites.set(user.id, saving);
+    try {
+      await saving;
+    } catch (error) {
       console.error('Error updating user preferences:', error);
-      // Optional: rollback state if needed
+      // Preserve the existing optimistic-state/error behavior for the same account.
+    } finally {
+      if (metadataWrites.get(user.id) === saving) metadataWrites.delete(user.id);
     }
   },
 

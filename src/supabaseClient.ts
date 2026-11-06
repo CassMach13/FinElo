@@ -34,3 +34,17 @@ export async function persistAppearanceTheme(accessToken: string, theme: Appeara
     });
     if (!response.ok) throw new Error('Não foi possível salvar a aparência.');
 }
+
+/** Captured account metadata write. Never saves or restores a global SDK session. */
+export async function persistUserMetadata(accessToken: string, preferences: Record<string, unknown>): Promise<void> {
+    const response = await fetch(new URL('auth/v1/user', supabaseUrl.replace(/\/?$/, '/')), {
+        method: 'PUT',
+        headers: {
+            apikey: supabasePublishableKey,
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data: preferences }),
+    });
+    if (!response.ok) throw new Error('Não foi possível salvar as preferências.');
+}

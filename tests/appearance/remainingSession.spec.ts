@@ -1,7 +1,8 @@
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-import {functionalSourceHash,SESSION_STORE_APPROVED,SESSION_STORE_BEFORE} from './functionalSourceHash';
+import {reverseSessionPatch} from './reverseSessionPatch';
+import {functionalSourceHash,SESSION_STORE_APPROVED,SESSION_STORE_BEFORE,SESSION_STORE_C1_APPROVED,AUTH_CLIENT_APPROVED,AUTH_CLIENT_BEFORE} from './functionalSourceHash';
 
 const m=vi.hoisted(()=>({user:null as any,hold:false,pending:[] as Array<()=>void>,calls:[] as any[]}));
 vi.mock('../../src/supabaseClient',()=>({persistAppearanceTheme:vi.fn(),supabase:{
@@ -67,13 +68,10 @@ describe('exceção exata mantém todos os selos anteriores auditáveis',()=>{
  it('reverte somente o patch aprovado e reconstrói o SHA original do store',()=>{
   const current=readFileSync('src/hooks/useAppStore.ts','utf8').replaceAll('\r\n','\n');
   expect(sha(current)).toBe(SESSION_STORE_APPROVED);
-  const patch=readFileSync('docs/temas/proposta-isolamento-4c.patch','utf8').replaceAll('\r\n','\n').split('--- a/src/App.tsx')[0];
-  const lines=current.split('\n'),out:string[]=[];let cursor=0;
-  const hunks=patch.split(/^@@ /m).slice(1);
-  for(const hunk of hunks){const rows=hunk.split('\n'),header=rows.shift()!;const start=Number(header.match(/\+(\d+)/)![1])-1;out.push(...lines.slice(cursor,start));cursor=start;
-   for(const row of rows){if(!row||row.startsWith('\\'))continue;if(row[0]===' '||row[0]==='+'){expect(lines[cursor++]).toBe(row.slice(1))}if(row[0]===' '||row[0]==='-')out.push(row.slice(1))}
-  }
-  out.push(...lines.slice(cursor));expect(sha(out.join('\n'))).toBe(SESSION_STORE_BEFORE);
+  const authPatch=readFileSync('docs/temas/proposta-preferencias-auth-4c.patch','utf8');
+  const c1=reverseSessionPatch(current,authPatch,'src/hooks/useAppStore.ts');expect(sha(c1)).toBe(SESSION_STORE_C1_APPROVED);
+  const original=reverseSessionPatch(c1,readFileSync('docs/temas/proposta-isolamento-4c.patch','utf8'),'src/hooks/useAppStore.ts');expect(sha(original)).toBe(SESSION_STORE_BEFORE);
+  const client=readFileSync('src/supabaseClient.ts','utf8');expect(sha(client)).toBe(AUTH_CLIENT_APPROVED);expect(sha(reverseSessionPatch(client,authPatch,'src/supabaseClient.ts'))).toBe(AUTH_CLIENT_BEFORE);
  });
  it('qualquer alteração adicional no store continua quebrando o selo',()=>{
   const source=readFileSync('src/hooks/useAppStore.ts','utf8');expect(functionalSourceHash('src/hooks/useAppStore.ts',source+'\n// unrelated')).not.toBe(SESSION_STORE_BEFORE);
