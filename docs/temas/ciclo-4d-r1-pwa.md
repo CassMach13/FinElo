@@ -128,6 +128,8 @@ Evidências anteriores do 4D permanecem históricas, incluindo o FAIL. O pacote 
 
 Conjunto canônico: `canonical-summary.json`, derivado de `verified-matrix.json` e da substituição identificada em `navigation-confirmation.json`. Não apaga resultados anteriores. [Evidências compactas e manifesto](evidencias-ciclo-4d-r1/README.md) registram os hashes e a dupla verificação do pacote externo.
 
+Pacote externo final: **7.940.433 bytes / 1.023 caminhos / 506 objetos**; SHA-256 `85000adad08a923abe34244f7f810e702c5b0fb8b59e624fae286a7d0cdbe2a8`, índice `7ba126f9908a7f1a22082aaa90868486ad8ccec96e462eba3c8edd9d58a2d0b8`. CRC e todos os SHA conferidos duas vezes. Quatro imagens versionadas: **285.667 bytes**. O checkpoint de fontes é `1de5b472df58f8e535aa1b2c80ad921efa7c5537`; o fechamento acrescenta documentação e embalagem.
+
 ## Impacto no NO-GO
 
 O risco “não sabemos se o servidor/cache entregou B” foi resolvido por hashes e eventos. O ensaio manual A→B tem uma correção comprovada de harness. A aprovação por UI deve ser avaliada conforme a política efetivamente usada; o teste da proposta não aprova a configuração real por substituição.
