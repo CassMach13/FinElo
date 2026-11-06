@@ -3,7 +3,7 @@ import type { ImportLog, Transaction } from '../src/types';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), getUser: vi.fn(), alert: vi.fn() }));
 vi.mock('../src/supabaseClient', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from, auth: { getUser: mocks.getUser } } }));
-vi.mock('../src/hooks/useDialogStore', () => ({ appAlert: mocks.alert }));
+vi.mock('../src/hooks/useDialogStore', async (importOriginal) => ({ ...(await importOriginal<typeof import('../src/hooks/useDialogStore')>()), appAlert: mocks.alert }));
 import { useAppStore } from '../src/hooks/useAppStore';
 import { maintainImportBatch } from '../src/services/importHistoryService';
 

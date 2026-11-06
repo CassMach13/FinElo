@@ -74,7 +74,7 @@ vi.mock('../../src/supabaseClient', () => ({
     auth: { getUser: async () => ({ data: { user: mocks.user } }), signOut: async () => ({ error: null }) },
   },
 }));
-vi.mock('../../src/hooks/useDialogStore', () => ({ appAlert: vi.fn(), appConfirm: vi.fn() }));
+vi.mock('../../src/hooks/useDialogStore', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../src/hooks/useDialogStore')>()), appAlert: vi.fn(), appConfirm: vi.fn() }));
 
 import { useAppStore } from '../../src/hooks/useAppStore';
 import { createEconomicEvent, deleteEconomicEvent } from '../../src/services/economicEventService';

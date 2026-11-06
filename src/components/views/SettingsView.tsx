@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import '../appearance/investments.css';
 ﻿
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -581,7 +582,7 @@ const SettingsView: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <h1 className="text-3xl font-bold text-light">Configurações</h1>
+                <h1 data-finance="content" className="text-3xl font-bold text-light">Configurações</h1>
                 <TourButton currentView="settings" />
             </div>
 
@@ -634,11 +635,11 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo', 'Saldo Inicial']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white flex items-center gap-2">
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white flex items-center gap-2">
                                     {item.Nome_Conta}
-                                    {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
+                                    {item.is_archived && <span data-finance="warning warning-panel" className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
                                 <td data-finance={"investment-equity"} className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${item.is_archived ? 'text-gray-500 line-through' : getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
                                     {formatCurrency(item.Saldo_Inicial)}
                                 </td>
@@ -647,7 +648,7 @@ const SettingsView: React.FC = () => {
                         onAdd={() => { setEditingAccount(null); setAccountModalOpen(true); }}
                         onEdit={(item) => { setEditingAccount(item); setAccountModalOpen(true); }}
                         renderExtraActions={(item) => (
-                            <button className="text-orange-400 hover:text-orange-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2" onClick={async () => {
+                            <button data-finance="warning" className="text-orange-400 hover:text-orange-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2" onClick={async () => {
                                 if (await appConfirm(item.is_archived ? 'Deseja desarquivar esta conta?' : 'Deseja arquivar esta conta? O histórico será mantido, mas ela não aparecerá mais nos resumos.', item.is_archived ? 'Desarquivar' : 'Arquivar Conta', item.is_archived ? 'Desarquivar' : 'Arquivar', 'warning')) {
                                     const { archiveAccount } = useAppStore.getState();
                                     await archiveAccount(item.id, !item.is_archived);
@@ -817,33 +818,33 @@ const SettingsView: React.FC = () => {
                             <>
                                 <td className="px-4 py-4 text-sm">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
-                                        <span className="font-medium text-white">{item.Nome_Categoria}</span>
+                                        <div data-finance="danger-chip" className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
+                                        <span data-finance="content" className="font-medium text-white">{item.Nome_Categoria}</span>
                                     </div>
                                 </td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
+                                <td data-finance="remaining-dynamic" className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
                                     {item.Tipo === 'Renda' ? 'Entrada' : item.Tipo === 'Despesa' ? 'Saída' : 'Movimentação'}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                     {item.is_investment ? (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                        <span data-finance="positive success-panel" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                             Sim
                                         </span>
                                     ) : (
-                                        <span className="text-gray-600 font-medium">Não</span>
+                                        <span data-finance="muted" className="text-gray-600 font-medium">Não</span>
                                     )}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                     {!item.is_investment && (item.Tipo === 'Despesa' || item.Tipo === 'Ambos') ? (
                                         item.is_essential ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                            <span data-finance="info info-panel" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                                                 Sim
                                             </span>
                                         ) : (
-                                            <span className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
+                                            <span data-finance="muted" className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
                                         )
                                     ) : (
-                                        <span className="text-gray-700">-</span>
+                                        <span data-finance="muted" className="text-gray-700">-</span>
                                     )}
                                 </td>
                             </>
@@ -858,10 +859,10 @@ const SettingsView: React.FC = () => {
 
                 {/* 5. Gerenciar Orçamentos */}
                 <div id="settings-budgets">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] p-4">
+                    <div data-finance="success-panel" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] p-4">
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">Orçamento mensal</p>
-                            <p className="text-xs text-gray-400">
+                            <p data-finance="content" className="text-sm font-semibold text-white">Orçamento mensal</p>
+                            <p data-finance="muted" className="text-xs text-gray-400">
                                 Defina limites para cada mês e copie do mês anterior. Este editor anual funciona como padrão quando não há um orçamento específico para o mês.
                             </p>
                         </div>
@@ -882,7 +883,7 @@ const SettingsView: React.FC = () => {
                         renderRow={(item: Budget) => (
                             <>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm">{item.Categoria}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{formatCurrency(item.Valor_Limite_Mensal)}</td>
+                                <td data-finance="positive" className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{formatCurrency(item.Valor_Limite_Mensal)}</td>
                             </>
                         )}
                         onAdd={openNewBudgetModal}
@@ -891,18 +892,18 @@ const SettingsView: React.FC = () => {
                         searchKeys={['Categoria', 'Valor_Limite_Mensal']}
                         searchPlaceholder="Buscar por categoria ou limite..."
                         extraHeader={
-                            <div className="flex items-center justify-center gap-4 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                <button
+                            <div data-finance="inset divider" className="flex items-center justify-center gap-4 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                <button data-finance="muted remaining-hover"
                                     onClick={() => setSelectedBudgetYear(prev => prev - 1)}
                                     className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                                     title="Ano Anterior"
                                 >
                                     <ChevronLeftIcon className="w-5 h-5" />
                                 </button>
-                                <span className="text-lg font-bold text-white min-w-[80px] text-center">
+                                <span data-finance="content" className="text-lg font-bold text-white min-w-[80px] text-center">
                                     {selectedBudgetYear}
                                 </span>
-                                <button
+                                <button data-finance="muted remaining-hover"
                                     onClick={() => setSelectedBudgetYear(prev => prev + 1)}
                                     className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                                     title="Próximo Ano"
@@ -1045,8 +1046,8 @@ const SettingsView: React.FC = () => {
                     <Card className="flex flex-col">
                         <div className="flex justify-between items-center mb-4">
                             <div className='flex items-center gap-2'>
-                                <h2 className="text-xl font-bold text-light">Plano Família (Compartilhamento)</h2>
-                                <span className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full border border-accent/50">Novo</span>
+                                <h2 data-finance="content" className="text-xl font-bold text-light">Plano Família (Compartilhamento)</h2>
+                                <span data-finance="positive success-panel" className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full border border-accent/50">Novo</span>
                             </div>
                             {isPremium ? (
                                 <Button onClick={() => setInviteModalOpen(true)}>Adicionar Familiar</Button>
@@ -1057,12 +1058,12 @@ const SettingsView: React.FC = () => {
                             )}
                         </div>
 
-                        <div className="bg-primary rounded-lg border border-slate-700 p-4">
+                        <div data-finance="inset divider" className="bg-primary rounded-lg border border-slate-700 p-4">
                             {familyMembers.length === 0 ? (
-                                <div className="text-center text-gray-400 py-4">
+                                <div data-finance="muted" className="text-center text-gray-400 py-4">
                                     <p>Nenhum membro adicionado ainda.</p>
                                     <p className="text-sm mt-1">Convide alguém para ver e editar suas finanças em conjunto.</p>
-                                    <p className="text-xs mt-2 text-gray-500">O convidado precisa aceitar o vínculo (banner no Dashboard ou botão aqui). Com status Aceito, ambos veem as transações um do outro.</p>
+                                    <p data-finance="muted" className="text-xs mt-2 text-gray-500">O convidado precisa aceitar o vínculo (banner no Dashboard ou botão aqui). Com status Aceito, ambos veem as transações um do outro.</p>
                                 </div>
                             ) : (
                                 <ul className="space-y-2">
@@ -1081,11 +1082,11 @@ const SettingsView: React.FC = () => {
                                         const nicknameKey = otherEmail ? normalizeFamilyMemberEmail(otherEmail) : '';
 
                                         return (
-                                            <li key={member.id} className="bg-slate-800 p-3 rounded gap-3 space-y-3">
+                                            <li data-finance="inset" key={member.id} className="bg-slate-800 p-3 rounded gap-3 space-y-3">
                                                 <div className="flex justify-between items-center gap-3">
-                                                <span className="text-sm font-medium text-white min-w-0 truncate">{displayName}</span>
+                                                <span data-finance="content" className="text-sm font-medium text-white min-w-0 truncate">{displayName}</span>
                                                 <div className="flex items-center gap-2 shrink-0">
-                                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${member.status === 'accepted' ? 'text-green-400 bg-green-900/30' :
+                                                    <span data-finance="remaining-dynamic" className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${member.status === 'accepted' ? 'text-green-400 bg-green-900/30' :
                                                         member.status === 'declined' ? 'text-danger bg-red-900/30' :
                                                             'text-yellow-400 bg-yellow-900/30'
                                                         }`}>
@@ -1104,7 +1105,7 @@ const SettingsView: React.FC = () => {
                                                             Aceitar
                                                         </Button>
                                                     )}
-                                                    <button
+                                                    <button data-finance="negative"
                                                         onClick={async () => {
                                                             const msg = isReceivedInvite
                                                                 ? `Sair do plano compartilhado de ${member.owner_email}?`
@@ -1135,7 +1136,7 @@ const SettingsView: React.FC = () => {
                                                 </div>
                                                 </div>
                                                 {otherEmail && nicknameKey ? (
-                                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-1 border-t border-white/5">
+                                                    <div data-finance="divider" className="flex flex-col sm:flex-row sm:items-end gap-2 pt-1 border-t border-white/5">
                                                         <div className="flex-1 min-w-0">
                                                             <Input
                                                                 label="Apelido na auditoria"
@@ -1158,7 +1159,7 @@ const SettingsView: React.FC = () => {
                                                         >
                                                             {savingNicknameEmail === nicknameKey ? 'Salvando…' : 'Salvar apelido'}
                                                         </Button>
-                                                        <p className="text-[10px] text-slate-500 sm:col-span-2">
+                                                        <p data-finance="muted" className="text-[10px] text-slate-500 sm:col-span-2">
                                                             Usado nos chips e agrupamentos em Transações (só para você).
                                                         </p>
                                                     </div>
@@ -1176,7 +1177,7 @@ const SettingsView: React.FC = () => {
                 <div className="lg:col-span-2">
                     <Card className="flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-light">Cartão V2 — Modo Sombra (Divergências)</h2>
+                            <h2 data-finance="content" className="text-xl font-bold text-light">Cartão V2 — Modo Sombra (Divergências)</h2>
                             <div className="flex gap-2">
                                 <Button variant="secondary" onClick={refreshCreditCardShadowDashboard}>
                                     Atualizar
@@ -1187,7 +1188,7 @@ const SettingsView: React.FC = () => {
                             </div>
                         </div>
                         {creditCardShadowDashboard.length === 0 ? (
-                            <p className="text-sm text-gray-400">
+                            <p data-finance="muted" className="text-sm text-gray-400">
                                 Sem dados de comparação ainda. Importe uma fatura de cartão com o shadow mode ativo.
                             </p>
                         ) : (
@@ -1207,34 +1208,34 @@ const SettingsView: React.FC = () => {
                                                 : 'Sem Dados';
 
                                     return (
-                                        <div key={row.accountId} className="rounded-xl border border-slate-700 bg-slate-900/40 p-4">
+                                        <div data-finance="inset divider" key={row.accountId} className="rounded-xl border border-slate-700 bg-slate-900/40 p-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <p className="text-sm font-semibold text-white">{row.accountName}</p>
-                                                <span className={`text-[11px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${badgeClass}`}>
+                                                <p data-finance="content" className="text-sm font-semibold text-white">{row.accountName}</p>
+                                                <span data-finance="remaining-dynamic divider" className={`text-[11px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${badgeClass}`}>
                                                     {badgeLabel}
                                                 </span>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3 text-xs">
                                                 <div>
-                                                    <p className="text-gray-400">V1 (fatura líquida)</p>
-                                                    <p className="text-white font-semibold">{formatCurrency(row.v1CurrentGross)}</p>
+                                                    <p data-finance="muted" className="text-gray-400">V1 (fatura líquida)</p>
+                                                    <p data-finance="content" className="text-white font-semibold">{formatCurrency(row.v1CurrentGross)}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-gray-400">V2 (charges)</p>
-                                                    <p className="text-white font-semibold">{formatCurrency(row.v2CurrentGross)}</p>
+                                                    <p data-finance="muted" className="text-gray-400">V2 (charges)</p>
+                                                    <p data-finance="content" className="text-white font-semibold">{formatCurrency(row.v2CurrentGross)}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-gray-400">V2 (fatura líquida)</p>
-                                                    <p className="text-white font-semibold">{formatCurrency(row.v2OpenAmount)}</p>
+                                                    <p data-finance="muted" className="text-gray-400">V2 (fatura líquida)</p>
+                                                    <p data-finance="content" className="text-white font-semibold">{formatCurrency(row.v2OpenAmount)}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-gray-400">Diferença</p>
-                                                    <p className="text-amber-300 font-semibold">
+                                                    <p data-finance="muted" className="text-gray-400">Diferença</p>
+                                                    <p data-finance="warning" className="text-amber-300 font-semibold">
                                                         {formatCurrency(row.absoluteDiff)} ({row.diffPercent.toFixed(2)}%)
                                                     </p>
                                                 </div>
                                             </div>
-                                            <p className="text-[11px] text-gray-500 mt-2">
+                                            <p data-finance="muted" className="text-[11px] text-gray-500 mt-2">
                                                 Última origem analisada: {row.lastOrigin || '—'}
                                             </p>
                                         </div>
@@ -1249,26 +1250,26 @@ const SettingsView: React.FC = () => {
                 <div className="lg:col-span-2">
                     <Card className="flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-light">Cartão V2 — Auditoria de Reprocessamentos</h2>
+                            <h2 data-finance="content" className="text-xl font-bold text-light">Cartão V2 — Auditoria de Reprocessamentos</h2>
                             <Button variant="secondary" onClick={fetchCreditCardReprocessJobs}>
                                 Atualizar Logs
                             </Button>
                         </div>
                         {creditCardReprocessJobs.length === 0 ? (
-                            <p className="text-sm text-gray-400">Nenhum reprocessamento registrado ainda.</p>
+                            <p data-finance="muted" className="text-sm text-gray-400">Nenhum reprocessamento registrado ainda.</p>
                         ) : (
-                            <div className="overflow-x-auto rounded-xl border border-slate-700">
-                                <table className="min-w-full divide-y divide-slate-800">
-                                    <thead className="bg-slate-800/70">
+                            <div data-finance="divider" className="overflow-x-auto rounded-xl border border-slate-700">
+                                <table data-finance="divided" className="min-w-full divide-y divide-slate-800">
+                                    <thead data-finance="inset" className="bg-slate-800/70">
                                         <tr>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Início</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Conta</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Status</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Resumo</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Fim</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Início</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Conta</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Status</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Resumo</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Fim</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-800">
+                                    <tbody data-finance="divided" className="divide-y divide-slate-800">
                                         {creditCardReprocessJobs.map((job) => {
                                             const accountName = accounts.find(a => a.id === job.account_id)?.Nome_Conta || 'Conta desconhecida';
                                             const statusClass =
@@ -1288,20 +1289,20 @@ const SettingsView: React.FC = () => {
 
                                             return (
                                                 <tr key={job.id} className="text-xs">
-                                                    <td className="px-3 py-2 text-gray-300">{new Date(job.started_at).toLocaleString()}</td>
-                                                    <td className="px-3 py-2 text-white font-medium">{accountName}</td>
+                                                    <td data-finance="content" className="px-3 py-2 text-gray-300">{new Date(job.started_at).toLocaleString()}</td>
+                                                    <td data-finance="content" className="px-3 py-2 text-white font-medium">{accountName}</td>
                                                     <td className="px-3 py-2">
-                                                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusClass}`}>
+                                                        <span data-finance="remaining-dynamic" className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusClass}`}>
                                                             {job.status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-3 py-2 text-gray-300">
-                                                        <span className="font-semibold text-cyan-300">{mode}</span>
+                                                    <td data-finance="content" className="px-3 py-2 text-gray-300">
+                                                        <span data-finance="info" className="font-semibold text-cyan-300">{mode}</span>
                                                         {processed !== '-' && <span> • {processed} itens</span>}
                                                         {origin && <span> • {origin}</span>}
                                                         {range && <span> • {range}</span>}
                                                     </td>
-                                                    <td className="px-3 py-2 text-gray-400">
+                                                    <td data-finance="muted" className="px-3 py-2 text-gray-400">
                                                         {job.finished_at ? new Date(job.finished_at).toLocaleString() : '—'}
                                                     </td>
                                                 </tr>
@@ -1430,7 +1431,7 @@ const SettingsView: React.FC = () => {
                             value={rebuildToDate}
                             onChange={(e) => setRebuildToDate(e.target.value)}
                         />
-                        <p className="text-xs text-gray-500">
+                        <p data-finance="muted" className="text-xs text-gray-500">
                             Esta ação limpa e recalcula os ciclos V2 no intervalo informado, gerando log de auditoria.
                         </p>
                     </div>
@@ -1777,7 +1778,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({ budget, categories, onClose, 
                             <option key={c.id} value={c.Nome_Categoria}>{c.Nome_Categoria}</option>
                         ))}
                     </Select>
-                    {!!budget && <p className="text-xs text-gray-400 mt-1">A categoria não pode ser alterada na edição.</p>}
+                    {!!budget && <p data-finance="muted" className="text-xs text-gray-400 mt-1">A categoria não pode ser alterada na edição.</p>}
                 </div>
                 <Input
                     label="Limite Mensal (R$)"
@@ -1954,7 +1955,7 @@ const BackupCard: React.FC = () => {
 
     return (
         <Card title="Backup e Restauração" className="mt-6">
-            <p className="text-gray-300 mb-4">Baixe um arquivo de backup com todos os seus dados. Guarde-o em um local seguro.</p>
+            <p data-finance="content" className="text-gray-300 mb-4">Baixe um arquivo de backup com todos os seus dados. Guarde-o em um local seguro.</p>
             <Button onClick={handleDownloadBackup} className="w-full">Baixar Backup Completo</Button>
         </Card>
     );

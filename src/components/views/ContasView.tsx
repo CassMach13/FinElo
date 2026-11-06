@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { Account } from '../../types';
@@ -65,7 +66,7 @@ const ContasView: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-light">Minhas Contas</h1>
+                <h1 data-finance="content" className="text-3xl font-bold text-light">Minhas Contas</h1>
                 <Button onClick={openNewAccountModal}>Adicionar Conta</Button>
             </div>
 
@@ -75,30 +76,30 @@ const ContasView: React.FC = () => {
                 headers={['Nome da Conta', 'Tipo', 'Saldo Inicial / Limite', 'Saldo Atual / Fatura']}
                 renderRow={(item) => (
                     <>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-light flex items-center gap-2">
+                        <td data-finance="content" className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-light flex items-center gap-2">
                             {item.Nome_Conta}
-                            {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
+                            {item.is_archived && <span data-finance="warning warning-panel" className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        <td data-finance="content" className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                             {item.Tipo_Conta}
                             {item.Tipo_Conta === 'Cartão de Crédito' && (item.dia_fechamento || item.dia_vencimento) && (
-                                <div className="text-[10px] text-gray-500 mt-0.5">
+                                <div data-finance="muted" className="text-[10px] text-gray-500 mt-0.5">
                                     {item.dia_fechamento ? `Fecha dia ${item.dia_fechamento}` : 'Ciclo: Mês atual'}
                                     {item.dia_vencimento ? ` · Vence dia ${item.dia_vencimento}` : ''}
                                 </div>
                             )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                        <td data-finance="muted" className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                             {item.Tipo_Conta === 'Cartão de Crédito' && item.limite_credito ? (
-                                <span className="text-indigo-300 font-semibold">{formatCurrency(item.limite_credito)}</span>
+                                <span data-finance="info" className="text-indigo-300 font-semibold">{formatCurrency(item.limite_credito)}</span>
                             ) : (
                                 <>{formatCurrency(item.Saldo_Inicial)} <span className="text-xs">em {new Date(item.Data_Saldo_Inicial).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span></>
                             )}
                         </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${item.is_archived ? 'text-gray-500 line-through' : 'text-light'}`}>
+                        <td data-finance="muted" className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${item.is_archived ? 'text-gray-500 line-through' : 'text-light'}`}>
                             {formatCurrency(item.Saldo_Atual_Calculado ?? 0)}
                             {item.Tipo_Conta === 'Cartão de Crédito' && item.limite_credito && (
-                                <div className="text-[10px] text-gray-500 font-normal mt-0.5">
+                                <div data-finance="muted" className="text-[10px] text-gray-500 font-normal mt-0.5">
                                     {formatCurrency(Math.max((item.limite_credito || 0) + (item.Saldo_Atual_Calculado ?? 0), 0))} disponível
                                 </div>
                             )}
@@ -123,7 +124,7 @@ const ContasView: React.FC = () => {
             )}
 
             {/* Mobile Floating Action Button (FAB) */}
-            <button
+            <button data-finance="content action remaining-hover"
                 onClick={openNewAccountModal}
                 className="fixed lg:hidden bottom-[80px] right-6 w-14 h-14 bg-highlight hover:bg-sky-400 text-white rounded-full shadow-[0_4px_14px_rgba(56,189,248,0.5)] flex items-center justify-center transition-transform active:scale-95 z-40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-highlight"
                 aria-label="Nova Conta"
@@ -165,7 +166,7 @@ const CrudCard = <T extends { id: string, is_archived?: boolean },>({ title, dat
     return (
         <Card className="flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-light">{title}</h2>
+                <h2 data-finance="content" className="text-xl font-bold text-light">{title}</h2>
                 {!hideAddButton && <Button onClick={onAdd}>Adicionar Novo</Button>}
             </div>
             <Input
@@ -179,61 +180,61 @@ const CrudCard = <T extends { id: string, is_archived?: boolean },>({ title, dat
                 {/* Mobile Card View */}
                 <div className="block lg:hidden space-y-3 mb-6">
                     {filteredData.map(item => (
-                        <div key={item.id} className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-2 relative">
+                        <div data-finance="surface divider" key={item.id} className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-2 relative">
                             {headers.map((header, idx) => (
-                                <div key={header} className="flex justify-between items-center text-sm border-b border-slate-700/30 pb-1 last:border-0 last:pb-0">
-                                    <span className="text-gray-500 font-medium text-xs">{header}</span>
+                                <div data-finance="divider" key={header} className="flex justify-between items-center text-sm border-b border-slate-700/30 pb-1 last:border-0 last:pb-0">
+                                    <span data-finance="muted" className="text-gray-500 font-medium text-xs">{header}</span>
                                     {/* We use a React fragment wrapper to capture the specific td content from renderRow since it returns <td> elements */}
-                                    <span className="text-white font-semibold text-right max-w-[60%] truncate">
+                                    <span data-finance="content" className="text-white font-semibold text-right max-w-[60%] truncate">
                                         {React.Children.toArray((renderRow(item) as any).props?.children || renderRow(item))[idx] || String(Object.values(item)[idx + 1] || '-')}
                                     </span>
                                 </div>
                             ))}
-                            <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
+                            <div data-finance="divider" className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
                                 {onArchive && (
-                                    <button className="text-orange-400 hover:text-orange-300 font-semibold p-1" onClick={() => onArchive(item.id, !item.is_archived)}>
+                                    <button data-finance="warning" className="text-orange-400 hover:text-orange-300 font-semibold p-1" onClick={() => onArchive(item.id, !item.is_archived)}>
                                         {item.is_archived ? 'Desarquivar' : 'Arquivar'}
                                     </button>
                                 )}
-                                <button className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
+                                <button data-finance="info" className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
                                     Editar
                                 </button>
-                                <button className="text-danger hover:text-red-400 font-semibold p-1" onClick={() => onDelete(item.id)}>
+                                <button data-finance="negative" className="text-danger hover:text-red-400 font-semibold p-1" onClick={() => onDelete(item.id)}>
                                     Excluir
                                 </button>
                             </div>
                         </div>
                     ))}
-                    {filteredData.length === 0 && <p className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
+                    {filteredData.length === 0 && <p data-finance="muted" className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
                 </div>
 
                 {/* Desktop Table View */}
-                <div className="hidden lg:block bg-primary rounded-lg shadow-inner overflow-x-auto">
-                    <table className="min-w-[800px] sm:min-w-full divide-y divide-secondary">
-                        <thead className="bg-slate-700">
+                <div data-finance="inset" className="hidden lg:block bg-primary rounded-lg shadow-inner overflow-x-auto">
+                    <table data-finance="divided" className="min-w-[800px] sm:min-w-full divide-y divide-secondary">
+                        <thead data-finance="inset" className="bg-slate-700">
                             <tr>
-                                {headers.map(header => <th key={header} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">{header}</th>)}
-                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ações</th>
+                                {headers.map(header => <th data-finance="content" key={header} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">{header}</th>)}
+                                <th data-finance="content" scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ações</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-secondary">
+                        <tbody data-finance="divided" className="divide-y divide-secondary">
                             {filteredData.map(item => (
                                 <tr key={item.id}>
                                     {renderRow(item)}
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                                         {onArchive && (
-                                            <button className="text-orange-400 hover:text-orange-300 font-semibold" onClick={() => onArchive(item.id, !item.is_archived)}>
+                                            <button data-finance="warning" className="text-orange-400 hover:text-orange-300 font-semibold" onClick={() => onArchive(item.id, !item.is_archived)}>
                                                 {item.is_archived ? 'Desarquivar' : 'Arquivar'}
                                             </button>
                                         )}
-                                        <button className="text-highlight hover:text-sky-300 font-semibold" onClick={() => onEdit(item)}>Editar</button>
-                                        <button className="text-danger hover:text-red-400 font-semibold" onClick={() => onDelete(item.id)}>Excluir</button>
+                                        <button data-finance="info" className="text-highlight hover:text-sky-300 font-semibold" onClick={() => onEdit(item)}>Editar</button>
+                                        <button data-finance="negative" className="text-danger hover:text-red-400 font-semibold" onClick={() => onDelete(item.id)}>Excluir</button>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {filteredData.length === 0 && <p className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
+                    {filteredData.length === 0 && <p data-finance="muted" className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
                 </div>
             </div>
         </Card>

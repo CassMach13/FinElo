@@ -200,7 +200,7 @@ const AppContent: React.FC = () => {
       {/* MainLayout reads /pricing from the URL to open the in-app pricing view. */}
       <Route path="/pricing" element={user ? <Navigate to="/app?view=pricing" replace /> : <LandingPage />} />
       <Route element={<ProtectedRoute isAuthReady={isAuthReady} user={user} />}>
-        <Route path="/app" element={<MainLayout />} />
+        <Route path="/app" element={<MainLayout key={user?.id} />} />
         <Route path="/dashboard" element={<Navigate to="/app" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

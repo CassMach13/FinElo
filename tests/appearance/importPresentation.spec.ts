@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {functionalSourceHash} from './functionalSourceHash';
 import {readFileSync} from 'node:fs';
 import {describe,expect,it} from 'vitest';
 import baseline from './import-presentation-baseline.json';
@@ -12,7 +12,7 @@ describe('lote 3B conserva os caminhos financeiros revisados em 6f7a94b',()=>{
   });
   it('não altera parsers, persistência, classificação, dedupe, parcelas ou datas',()=>{
     const actual=Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[
-      path,createHash('sha256').update(readFileSync(path,'utf8').replaceAll('\r\n','\n')).digest('hex'),
+      path,functionalSourceHash(path,readFileSync(path,'utf8')),
     ]));
     expect(actual).toEqual(baseline.financialSources);
   });

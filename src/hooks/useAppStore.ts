@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { appAlert } from './useDialogStore';
+import { appAlert, useDialogStore } from './useDialogStore';
 import { persistAppearanceTheme, supabase } from '../supabaseClient';
 import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
 import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
@@ -605,6 +605,13 @@ const EMPTY_USER_SCOPED_DATA: Partial<AppState> = {
   assets: [],
   pendingInvites: [],
   subscription: null,
+  goals: [],
+  goalsStatus: 'idle',
+  goalsUserId: null,
+  supportTickets: [],
+  adminMetrics: null,
+  helpIntent: null,
+  isLoading: false,
 };
 
 const switched = (state: Pick<AppState, 'user'>, next: { id?: string } | null) =>
@@ -709,6 +716,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
   setUser: (user) => {
     if (get().user?.id !== user?.id) {
+      // Cancelar uma confirmação nunca autoriza a operação da sessão anterior.
+      useDialogStore.getState().closeDialog(false);
+      useDialogStore.setState({ options: null });
       assetSessionGeneration += 1;
       appearanceRevision += 1;
       confirmedAppearance = undefined;
@@ -3347,13 +3357,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Admin Metrics
   fetchAdminMetrics: async () => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return;
     const { data: { user } } = await supabase.auth.getUser();
     // Apenas tenta buscar se houver usúario e for o admin
-    if (!user || user.email !== 'cassiomq@gmail.com') return;
+    if (!user || !isCurrentSession() || user.id !== get().user?.id || user.email !== 'cassiomq@gmail.com') return;
 
     set({ isLoading: true });
     // Chama a function segura via RPC
     const { data, error } = await supabase.rpc('get_admin_metrics');
+    if (!isCurrentSession()) return;
     if (error) {
       console.error('Erro ao buscar métricas de administrador:', error);
       set({ isLoading: false });
@@ -3591,24 +3604,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Support Tickets
   fetchSupportTickets: async () => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user || !isCurrentSession() || user.id !== get().user?.id) return;
     const { data, error } = await supabase
       .from('support_tickets')
       .select('*, messages:support_messages(*)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
+    if (!isCurrentSession()) return;
     if (error) console.error('Erro ao buscar chamados:', error);
     else set({ supportTickets: data as any }); // Cast needed due to complex join
   },
 
   fetchAllTickets: async () => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return;
     const { data, error } = await supabase
       .from('support_tickets')
       .select('*, messages:support_messages(*)')
       .order('created_at', { ascending: false });
 
+    if (!isCurrentSession()) return;
     if (error) console.error('Erro ao buscar todos os chamados:', error);
     else set({ supportTickets: data as any });
   },
@@ -3849,8 +3868,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createGoal: async (input) => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return false;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    if (!user || !isCurrentSession() || user.id !== get().user?.id) return false;
     const { data, error } = await supabase
       .from('financial_goals')
       .insert([{
@@ -3861,6 +3882,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         target_date: input.target_date,
       }])
       .select();
+    if (!isCurrentSession()) return false;
     if (error || !data?.[0]) {
       console.error('Erro ao criar objetivo:', error);
       await appAlert('Não foi possível salvar o objetivo. Tente novamente.', 'Objetivos', 'danger');

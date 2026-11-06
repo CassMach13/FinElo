@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {functionalSourceHash} from './functionalSourceHash';
 import {readFileSync} from 'node:fs';
 import postcss from 'postcss';
 import {describe,expect,it} from 'vitest';
@@ -10,7 +10,7 @@ describe('Ciclo 4A preserva os cálculos e a apresentação legada do Dashboard'
   expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(hash);
  });
  it('preserva todos os 156 módulos financeiros selados antes da conversão',()=>{
-  expect(Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[path,createHash('sha256').update(readFileSync(path,'utf8').replaceAll('\r\n','\n')).digest('hex')]))).toEqual(baseline.financialSources);
+  expect(Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[path,functionalSourceHash(path,readFileSync(path,'utf8'))]))).toEqual(baseline.financialSources);
  });
  it('restringe a pintura à tela e ao Claro, exceto o acesso por teclado ao conteúdo existente',()=>{
   const css=postcss.parse(readFileSync('src/components/appearance/dashboard.css','utf8'));

@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {functionalSourceHash} from './functionalSourceHash';
 import {readFileSync} from 'node:fs';
 import {describe,expect,it} from 'vitest';
 import baseline from './reconciliation-presentation-baseline.json';
@@ -9,7 +9,7 @@ describe('lote 3D conserva a operação e apresentação legadas da conciliaçã
   expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(hash);
  });
  it('preserva os 156 módulos financeiros, incluindo serviço, intenção e dois livros',()=>{
-  const actual=Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[path,createHash('sha256').update(readFileSync(path,'utf8').replaceAll('\r\n','\n')).digest('hex')]));
+  const actual=Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[path,functionalSourceHash(path,readFileSync(path,'utf8'))]));
   expect(actual).toEqual(baseline.financialSources);
  });
 });

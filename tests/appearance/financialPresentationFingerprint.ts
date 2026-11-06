@@ -7,7 +7,7 @@ export function financialImplementationFingerprint(path: string, source: string,
   const presentation=new Set(['manageFocus','tabIndex','role','aria-label','onKeyDown','onFocus',...additionalAttributes]);
   const result=ts.transform(ast,[context=>root=>{
     const visit:ts.Visitor=node=>{
-      if(ts.isImportDeclaration(node)&&ts.isStringLiteral(node.moduleSpecifier)&&node.moduleSpecifier.text.endsWith('/appearance/financial.css'))return undefined;
+      if(ts.isImportDeclaration(node)&&ts.isStringLiteral(node.moduleSpecifier)&&(node.moduleSpecifier.text.endsWith('/appearance/financial.css')||node.moduleSpecifier.text.endsWith('/appearance/remaining.css')))return undefined;
       if(ts.isImportDeclaration(node)&&ts.isStringLiteral(node.moduleSpecifier)&&additionalComponents.some(name=>(node.moduleSpecifier as ts.StringLiteral).text.endsWith('/'+name)))return undefined;
       if(ts.isJsxSelfClosingElement(node)&&additionalComponents.includes(node.tagName.getText(ast)))return undefined;
       if(ts.isJsxAttribute(node)&&(node.name.getText(ast).startsWith('data-finance')||presentation.has(node.name.getText(ast))))return undefined;
