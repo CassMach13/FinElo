@@ -973,7 +973,7 @@ const DashboardView: React.FC = () => {
             </div>
             <div>
               <h3 data-finance="content" className="text-lg font-bold text-white">Identifique seus bancos</h3>
-              <p className="text-highlight/80 text-sm">
+              <p data-finance="info" className="text-highlight/80 text-sm">
                 Seus cards de conta ficarão muito mais bonitos com os <b>logos oficiais</b>. Configure agora!
               </p>
             </div>

@@ -1,0 +1,35 @@
+diff --git a/src/components/goals/GoalFormModal.tsx b/src/components/goals/GoalFormModal.tsx
+index b5bcbeb..95b9fd2 100644
+--- a/src/components/goals/GoalFormModal.tsx
++++ b/src/components/goals/GoalFormModal.tsx
+@@ -62,7 +62,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
+   };
+ 
+   return (
+-    <Modal
++    <Modal manageFocus
+       isOpen
+       onClose={onClose}
+       title={isEdit ? 'Editar objetivo' : 'Novo objetivo'}
+@@ -86,7 +86,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
+           onChange={(e) => setName(e.target.value)}
+           placeholder="Ex.: Reserva de emergência"
+           error={errors.name}
+-          autoFocus
++          autoFocus={false}
+         />
+         <Input
+           id="goal-target"
+diff --git a/src/components/views/DashboardView.tsx b/src/components/views/DashboardView.tsx
+index d17577b..9503f27 100644
+--- a/src/components/views/DashboardView.tsx
++++ b/src/components/views/DashboardView.tsx
+@@ -973,7 +973,7 @@ const DashboardView: React.FC = () => {
+             </div>
+             <div>
+               <h3 data-finance="content" className="text-lg font-bold text-white">Identifique seus bancos</h3>
+-              <p className="text-highlight/80 text-sm">
++              <p data-finance="info" className="text-highlight/80 text-sm">
+                 Seus cards de conta ficarão muito mais bonitos com os <b>logos oficiais</b>. Configure agora!
+               </p>
+             </div>

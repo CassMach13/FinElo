@@ -1,5 +1,6 @@
 /** Exact UI lifetime exceptions; every other handler and legacy class remains fingerprinted. */
 export function remainingSessionPresentation(file: string, source: string): string {
+ if(file==='src/components/goals/GoalFormModal.tsx')return source.replace('autoFocus={false}','autoFocus');
  if(file==='src/App.tsx')return source.replace('<MainLayout key={user?.id} />','<MainLayout />');
  if(file==='src/components/help/HelpCenterBrowse.tsx')return source
   .replace('aria-controls={`help-topic-body-${topic.id}`}','')

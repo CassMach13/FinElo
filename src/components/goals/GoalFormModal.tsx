@@ -62,7 +62,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
   };
 
   return (
-    <Modal
+    <Modal manageFocus
       isOpen
       onClose={onClose}
       title={isEdit ? 'Editar objetivo' : 'Novo objetivo'}
@@ -86,7 +86,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
           onChange={(e) => setName(e.target.value)}
           placeholder="Ex.: Reserva de emergência"
           error={errors.name}
-          autoFocus
+          autoFocus={false}
         />
         <Input
           id="goal-target"
