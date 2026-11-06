@@ -63,7 +63,7 @@ O detector Impeccable foi executado uma vez ao terminar a UI: três avisos `gray
 
 **PASS para revisão do Ciclo 4A**, com a limitação mobile preexistente indicada abaixo. PR #97 permanece em rascunho; não há autorização de Claro global ou publicação.
 
-- 554 capturas lógicas representativas, desktop/mobile e quatro variantes. O pacote guarda imagens idênticas uma única vez e mantém todos os nomes/SHAs no mapa de capturas.
+- 528 capturas da interface, desktop/mobile e quatro variantes, mais 26 rasters de páginas PDF e 14 capturas anteriores à edição. O pacote guarda imagens idênticas uma única vez e mantém todos os nomes/SHAs no mapa de capturas.
 - 250 paridades Escuras: 247 exatas; 3 diferenças dentro do limite já aprovado no 3A, com conteúdo/geometria/cores/paint SVG iguais. Detalhes: states/mobile-yearly-compare-dark: 5 pixels, delta máximo 2; extras/desktop-long-period-dark: 9 pixels, delta máximo 1; extras/mobile-long-period-dark: 3 pixels, delta máximo 1. Nenhuma tolerância maior foi usada.
 - 49146 amostras de contraste Claro aprovadas (1023 observações distintas por tipo/texto/razão/limiar), incluindo repetições entre estados e rolagens. Mínimos 5.122:1 para texto/campos e 3.409:1 para elementos essenciais/foco. Zero falhas.
 - 368 snapshots financeiros comparados e 186 trocas de pintura com zero commits React, cálculo de saldo, consulta, gravação ou evento econômico adicional. A medição é da pintura isolada; não é uma nova homologação do Auth remoto.
@@ -123,7 +123,6 @@ A diferença eventual entre local e CI é anterior: o CI ignora um CSV privado e
 Preparar referências com `prepare-financial-baseline.py --base <SHA> --target-name theme-dashboard-main-baseline` e `theme-dashboard-reviewed-baseline`; o script verifica hashes e não sobrescreve uma referência divergente. Iniciar `serve-card-preview.ps1 -Port 5205`, que usa somente URL/chave fictícias, e executar `validate-dashboard-themes.py --out-dir <pasta>` com `--suite states|extras|interactions|a11y|premium`, `--viewport desktop|mobile|all` e `--themes all|light`. Usar `validate-dashboard-print.py` para os 12 PDFs. Playwright/Edge e PyMuPDF são ferramentas de diagnóstico, instaladas temporariamente, sem nova dependência de aplicação.
 
 Os manifestos completos, audits, payloads, fontes atuais/referências, capturas anteriores à edição, PDFs/textos/rasters, logs e versões ficam no ZIP externo. PNGs idênticos são deduplicados por conteúdo; o mapa preserva cada captura lógica e permite reconstruí-la pelo SHA-256. O ZIP é reaberto e conferido por CRC e pelo hash de cada entrada. Os arquivos temporários e o servidor exclusivo são removidos após a verificação.
-
 
 ## Impressão
 
