@@ -1,0 +1,91 @@
+{
+  "productCodeCommit": "ab91f69d3c1da868cf3ac5b815d5630e4b63f361",
+  "baselineMain": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+  "baselineReviewed": "7159efc9d3ca71567ac4f1814ffdfa69b1732b5f",
+  "fullTests": {
+    "passed": 3421,
+    "files": 211
+  },
+  "focal": {
+    "passed": 298,
+    "files": 17
+  },
+  "typeScript": {
+    "known": 14,
+    "new": 0
+  },
+  "build": {
+    "pass": true,
+    "precache": 49
+  },
+  "C1": {
+    "captures": 392,
+    "financialComparisons": 294,
+    "darkParity": 196,
+    "exact": 190,
+    "computedAA": 6268,
+    "unresolvedAA": 0,
+    "note": "4 star observations outside C1 closed by C3 global matrix; intermediate raw report preserved."
+  },
+  "C2": {
+    "captures": 280,
+    "financialComparisons": 210,
+    "darkParity": 140,
+    "exact": 137,
+    "computedAA": 4052,
+    "unresolvedAA": 0,
+    "independentNativeFrames": 48,
+    "independentNativeParity": 24
+  },
+  "C3": {
+    "captures": 144,
+    "financialComparisons": 108,
+    "darkParity": 72,
+    "exact": 64,
+    "computedAA": 1007,
+    "unresolvedAA": 0
+  },
+  "C3Residual": {
+    "captures": 24,
+    "financialComparisons": 18,
+    "darkParity": 12,
+    "exact": 12,
+    "computedAA": 223,
+    "extraComputedAA": 1480,
+    "unresolvedAA": 0
+  },
+  "interactions": {
+    "cases": 38,
+    "captures": 16,
+    "computedAA": 206
+  },
+  "session": {
+    "browserCases": 40,
+    "pendingAttachmentCases": 20,
+    "permanentStoreRegressionCases": 13,
+    "realSdkTests": 11
+  },
+  "print": {
+    "pdfs": 56,
+    "pages": 228,
+    "pass": true
+  },
+  "rollout": {
+    "globalLight": false,
+    "cohortExpanded": false,
+    "merge": false,
+    "productionDeploy": false
+  },
+  "4c3-validation.json": {
+    "minText": 5.122,
+    "minEssential": 5.122
+  },
+  "4c3-residual-validation.json": {
+    "minText": 5.122,
+    "minEssential": 4.097
+  },
+  "boundaries": {
+    "cases": 22,
+    "pass": true
+  }
+}

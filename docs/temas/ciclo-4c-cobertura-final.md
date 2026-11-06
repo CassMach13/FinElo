@@ -2,7 +2,7 @@
 
 ## Estado do ciclo
 
-Em execução, a partir de `7159efc9d3ca71567ac4f1814ffdfa69b1732b5f`, na PR #97 em rascunho. Main e ancestral comum confirmados antes de editar: `6fa1188b1864e85da587e61c7e46009a5e82adb4`. Baselines imutáveis: 268 fontes main e 282 revisadas. Inventário inicial: 39 consumidores, com fingerprints AST anteriores à conversão e 163 arquivos funcionais selados. Focal anterior: **282 testes / 16 arquivos PASS**.
+Homologação local concluída, a partir de `7159efc9d3ca71567ac4f1814ffdfa69b1732b5f`, na PR #97 em rascunho. Main e ancestral comum confirmados antes de editar: `6fa1188b1864e85da587e61c7e46009a5e82adb4`. Baselines imutáveis: 268 fontes main e 282 revisadas. Inventário inicial: 39 consumidores, com fingerprints AST anteriores à conversão e 163 arquivos funcionais selados. Focal anterior: **282 testes / 16 arquivos PASS**. Árvore final do produto: `ab91f69d3c1da868cf3ac5b815d5630e4b63f361`; commits anteriores do ciclo: `cf9b15b`, `ae29d36`, `f51a2b3`.
 
 Sublotes: 4C1 Objetivos, Contas e Configurações; 4C2 Ajuda, administração e assinatura; 4C3 menus, portais e resíduos. Cada sublote exige suas evidências antes do seguinte. O Claro continua isolado. Sem merge, deploy de produção, migration, pagamento real, alteração de coorte ou homologação física.
 
@@ -57,9 +57,9 @@ Preservar classes Escuras, geometria e impressão; aplicar os tokens existentes 
 
 Fixtures sintéticas e SDK/handlers originais com transporte/storage em memória. Pagamentos não serão iniciados; contratos, preços e destinos de checkout serão comparados sem acesso aos provedores. RLS, dados reais e serviços remotos não serão alterados.
 
-## Entrega pendente
+## Referências e rastreabilidade
 
-As matrizes finais por componente, acessibilidade, paridade, contraste, sessão, equivalência, PDFs, CI, pacote externo e pendências 4D serão preenchidas conforme os sublotes forem homologados. As evidências anteriores permanecem preservadas.
+Os checkpoints abaixo preservam a sequência de autorização e fechamento dos sublotes. A matriz final e os limites da entrega constam ao final. [Evidências compactas](./evidencias-ciclo-4c/README.md); o pacote externo contém também resultados intermediários rejeitados, identificados separadamente da matriz aceita. As evidências anteriores permanecem intactas.
 
 ## Checkpoint 4C1 em homologação
 
@@ -123,4 +123,69 @@ Impressão financeira complementar: **16 PDFs / 48 páginas** de Dashboard, Tran
 
 Revisão de React: efeitos visuais desconectam observers/listeners e restauram atributos; não há consultas/store/cálculos no bridge de portais. Detector Impeccable limitado executado uma vez: avisos sobre classes legadas de animação, borda lateral, gradientes e paleta foram conferidos contra os baselines e preservados por contrato; a pintura Clara remove os gradientes de texto e usa tokens com contraste computado. Sem redesign ou inversão de cores.
 
-Build final/PWA: **PASS, 49 entradas**; TypeScript: **14 conhecidos, nenhum novo**. Aparência/Ajuda/onboarding: **298 testes / 17 arquivos PASS**. A suíte completa e os ensaios finais de fronteira/flag ainda estão em confirmação neste checkpoint.
+Build final/PWA: **PASS, 49 entradas**; TypeScript: **14 conhecidos, nenhum novo**. Aparência/Ajuda/onboarding: **298 testes / 17 arquivos PASS**. Confirmação posterior: **3.421 testes / 211 arquivos PASS** na execução integral e **22 ensaios de fronteira/flag PASS**.
+
+## Matriz final de cobertura
+
+| Rota / consumidor | Situação | Estados e proteção |
+| --- | --- | --- |
+| `/app?view=goals`: GoalsView, GoalsPanel, GoalCard e dois modais | **Completo / PASS** | Normal, atingido, expirado, arquivado, vazio, erro, lista longa, CRUD, validação, valor manual, pendência e cancelamento; zero movimentações financeiras |
+| `settings`: configs, contas, categorias, orçamento e regras | **Completo / PASS** | Seções, busca vazia, listas, cadastro/edição/cancelamento, valores e payloads iguais; seções de importação reutilizam 3B |
+| `settings`: família, convites, permissões e preferências | **Completo / PASS** | Convite e confirmação/cancelamento; perfis e decisões de acesso originais; flags/coorte sem ampliação |
+| `settings`: bens, detalhes de financiamento e consórcio | **Completo / protegido do 4B** | Não reconvertido; impressão e selos funcionais revalidados |
+| `settings`: backup e auditorias administrativas | **Completo / PASS** | Superfícies e avisos existentes; sem execução destrutiva de reprocessamento/backup remoto |
+| ContasView | **Completo / isolado** | Componente legado sem rota atual; diagnóstico cobre normal/vazio/lista longa e cadastro de cartão; não foi exposto por navegação nova |
+| `help`: artigos, guia de cartões, suporte, histórico, mensagens e anexos | **Completo / PASS** | Busca, vazio, expandir, draft, validação, envio sintético, erro, loading, resposta, seleção/consentimento de arquivo e acesso pendente; serviço/storage intactos |
+| `admin`: AdminTicketsView e AdminDashboard | **Completo / PASS** | Lista, chamado, resposta, status, filtro, vazio, métricas carregando, CRM e busca; whitelist/RLS originais |
+| `pricing` autenticada e `success` | **Completo / PASS** | Planos mensal/anual, promoção, esgotado, assinatura ativa, aviso/cancelamento e confirmação; preços/links/checkout selados, nenhum pagamento iniciado |
+| Shell, UserAccountWidget, Avatar e menus | **Completo / PASS** | Desktop/mobile, badges, fallback, foco, hover, Enter/Escape e retorno de foco |
+| AppLock, AuthLoadingScreen, GlobalDialog e Termos | **Completo / PASS** | PIN, loading, diálogo info/warning/danger, leitura legal, desabilitado, confirmação, falha e troca de titular durante gravação |
+| InstallPWA, ReloadPrompt e portais de tours | **Completo / PASS em emulação** | Instalação e instruções iOS, pronto offline/atualização, tours Ajuda/Configurações e fallback Admin. Sem instalar ou atualizar um PWA real |
+| Dashboard, Transações, Importação, faturas/pagamentos/conciliação, Investimentos e onboarding | **Completo / protegido de 3A–4B** | Adaptadores anteriores reutilizados, 39 contratos de consumidores, selos de domínio, suíte integral e regressão financeira de impressão |
+| LandingPage, AuthView, `/pricing` anônimo e `/update-password` | **Excluídos deliberadamente** | Identidade pública original; sem tema pessoal herdado, formulário/dados de A ou amostra de aparência |
+
+Não resta uma rota autenticada do inventário classificada como parcial ou não convertida na referência isolada. Isso não habilita a aplicação Clara globalmente. Métodos de configuração de PIN existentes no store não possuem controles renderizados em Settings; nenhum fluxo novo foi inventado. A proteção efetivamente exibida é AppLock. Mobile não recebeu uma entrada nova de instalação: o diagnóstico monta adicionalmente o componente para verificar a apresentação, mantendo a visibilidade de navegação anterior.
+
+## Matriz de acessibilidade e paridade
+
+| Verificação | Resultado | Limite da conclusão |
+| --- | --- | --- |
+| 4C1: 196 paridades Escuras | **PASS**: 190 exatas, seis ruídos limitados | Quatro observações da estrela externa ao sublote foram corrigidas e encerradas na matriz 4C3 |
+| 4C2: 140 paridades Escuras | **PASS**: 137 exatas, três ruídos limitados | Seis estados nativos usam páginas independentes com dados idênticos ao replay; 24 comparações auxiliares exatas |
+| 4C3: 72 paridades + 12 residuais | **PASS**: 64 + 12 exatas | Oito ruídos limitados no conjunto global; nenhuma mudança de conteúdo, geometria ou cor funcional |
+| Contraste Claro | **PASS** | 6.268 observações em 4C1, 4.052 em 4C2, 1.007 globais, 223 residuais, 1.480 adicionais e 206 de interação. Mínimo texto 4,571:1 no 4C2; essenciais 3,567:1. São amostras computadas, não certificação integral WCAG |
+| Avatar/PIN/seleção/nativos | **PASS** | 360 matizes do Avatar; pontos PIN vazios/preenchidos; seleção, radios/checkbox, file-selector-button, foco/hover e desabilitado |
+| Teclado e overlays | **PASS** | Tab/Shift+Tab, Enter, Escape, foco inicial/restaurado, região legal rolável, menu, modal e aviso de assinatura; sem acionar checkout |
+| Trocar CSS | **PASS** | Contadores de commits React, seletores financeiros, requests e eventos iguais antes/depois em todas as capturas da matriz |
+| Contraste Escuro anterior | **Preservado, não certificado AA** | Limitações anteriores continuam registradas; paridade não equivale a aprovar o contraste legado |
+| Leitor de tela, Safari e aparelhos físicos | **Pendente 4D** | Viewports Edge 1440×1000 e 390×844 não substituem homologação assistiva ou física |
+
+O limite de raster de 3A continua: delta por canal até 2 e quantidade de pixels até `max(20, área × 0,0001)`, exclusivamente com igualdade independente de conteúdo/geometria/cores. Sem máscaras, inversão ou filtros. Frames de composição instável foram rejeitados e preservados no pacote, sem incorporá-los aos PASS.
+
+## Equivalência e segurança consolidadas
+
+**630 comparações principais de dados, props funcionais, payloads e resultados PASS**: 294 no 4C1, 210 no 4C2, 108 no 4C3 e 18 residuais. A comparação inclui valores, identificadores, titularidade e coleções integrais da fixture. Somente atributos de pintura `data-finance` em elementos React são normalizados; nenhum campo financeiro é omitido. Os objetivos continuam independentes do livro de transações. Preços, destinos de pagamento, permissões, importações, conciliação e cálculos não foram alterados.
+
+Treze regressões permanentes de store/sessão, 40 ensaios de navegador e 20 de janelas de anexo PASS. Mais 11 testes com SDK Supabase instalado e helpers HTTP reais verificam cache, eventos, fila, concorrência, login oficial A→B, offline/reconexão e confirmação de tema, sem transporte externo. Termos acrescenta quatro resultados assíncronos por tema/viewport. Não há conteúdo antigo nos commits observados da interface atual. As diferenças de conteúdo em estados legados inválidos são as exceções de sessão explicitamente autorizadas, não tolerância de raster.
+
+Os 163 selos funcionais originais não foram regravados: 161 arquivos iguais e duas exceções por SHA exato, reversíveis até os bytes originais. O writer genérico não atualiza o cache de metadados do SDK por conta própria; a interface usa o store e a reconciliação normal. A cobertura dos escritores autorizados não certifica todo concorrente interno possível do SDK nem altera os fluxos públicos de recuperação de senha.
+
+Fixtures usam dados exclusivamente sintéticos, SDK/query builders/handlers do produto, transporte e storage em memória e rede externa bloqueada. As verificações de RLS da suíte executam PostgreSQL descartável local; a fixture de UI não é apresentada como prova de políticas remotas. Nenhuma sessão, conta financeira ou cobrança real foi utilizada.
+
+## Qualidade e próximos passos
+
+Suíte local final: **3.421 testes / 211 arquivos PASS**. Primeira execução: 3.419 PASS e dois contratos desatualizados (HTML com papel semântico e mock do writer autorizado); ambos foram adaptados sem enfraquecer as asserções, e a execução integral de confirmação passou. Focal final: **298 / 17 PASS**. TypeScript: **14 diagnósticos preexistentes, nenhum novo**. Build/PWA: **PASS, 49 entradas**; aviso anterior de bundle grande preservado. PDFs: **56 / 228 páginas PASS**, com paginação, dimensões, texto e raster idênticos.
+
+O 4D deverá homologar integração em staging autorizado, aparelhos iOS/Android, Safari, PWA realmente instalado, leitores de tela e sessão/múltiplas abas no ambiente real. Também deve deliberar os riscos legados já separados nos relatórios 3D/4A/4B (feedbacks, overflow e entradas sintéticas incoerentes), sem atribuí-los à pintura. Antes de piloto global, exigir capturas comparáveis por rota nos dois temas, regressão de impressão, contraste, foco, troca A/B e aprovação explícita de elegibilidade/publicação. Rollback visual: manter flag desligada e retirar o consumidor da amostra; rollback de Auth exige preservar as correções de privacidade autorizadas, sem reintroduzir o writer inseguro.
+
+O aplicativo continua Escuro. O seletor é **Tema da amostra**, somente staging + flag existente + `app_metadata.appearance_pilot`; desligado ou fora da coorte não renderiza a amostra. Sem merge, deploy de produção, migrations, operações destrutivas ou ampliação da coorte.
+
+Os 22 ensaios de fronteira usam o App real nas rotas públicas, nos dois viewports; verificam flag desligada, conta inelegível, Claro/Escuro/Automático com mudança do sistema, falha de gravação sem perder confirmação, eventos Auth, troca A→B, logout e ausência de herança pessoal. A LandingPage contém imagens lazy fora do viewport: o roteiro público aguarda fontes e pintura visível, sem bloquear esperando essas imagens não solicitadas. Não foi alterado código público para resolver a espera.
+
+## Pacote e revisão da PR
+
+[Seis capturas finais comparativas, métricas e hashes](./evidencias-ciclo-4c/README.md): 511.826 bytes de PNGs versionados. O pacote externo **finelo-ciclo-4c-evidencias.zip** tem **56.975.460 bytes**, 3.109 arquivos lógicos e 2.037 objetos únicos. CRC e hashes conferidos duas vezes. SHA-256 do ZIP: `380903f2ee675ce33f625bd213b2ff3e988eab0b11865f1424b8c1e69b20513a`; índice: `98645f93895ab2e894bd77bb3882885fdc489915a67858936f1b212f8ef82dcd`. O índice distingue caminhos lógicos e objetos deduplicados. Não contém faturas privadas, credenciais ou logs brutos de teste.
+
+Validação remota: [Quality baseline do HEAD da PR #97](https://github.com/CassMach13/FinElo/pull/97/checks). O corpo da PR registra o SHA final, o run e o resultado observado. A diferença já existente entre testes locais e CI corresponde a 20 casos com fixtures privadas locais (CSV e XP) ausentes do Git; não são distribuídas neste pacote.
+
+O 4C está preparado para revisão de código e evidências. A autorização para publicação geral não faz parte deste ciclo; exige a homologação integrada do 4D. PR em rascunho, sem merge ou deploy de produção.

@@ -7,7 +7,10 @@ checks=[]
 A='10000000-0000-4000-8000-000000000001';B='10000000-0000-4000-8000-000000000002'
 
 def boot(p,port,**q):
- p.goto(f'http://127.0.0.1:{port}/scripts/diagnostics/remaining-preview.html?'+urlencode(q),wait_until='networkidle',timeout=120000);p.wait_for_function('window.__remainingPreview!==undefined');settle(p)
+ p.goto(f'http://127.0.0.1:{port}/scripts/diagnostics/remaining-preview.html?'+urlencode(q),wait_until='networkidle',timeout=120000);p.wait_for_function('window.__remainingPreview!==undefined')
+ # Public Landing has lazy offscreen images. Their load is not an above-fold gate.
+ if q.get('actual')=='true':p.evaluate('async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}');p.wait_for_timeout(750)
+ else:settle(p)
 
 def ok(name,w,**details):checks.append({'scenario':name,'width':w,'pass':True,**details});print(json.dumps(checks[-1]),flush=True)
 def sample(p,theme):p.wait_for_function("t=>document.querySelector('[aria-label=\"Piloto de aparência\"] [data-finelo-theme]')?.dataset.fineloTheme===t",arg=theme)
