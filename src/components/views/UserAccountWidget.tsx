@@ -58,7 +58,7 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
 
 
     return (
-        <div ref={widgetRef} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
+        <div ref={widgetRef} onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); widgetRef.current?.querySelector('button')?.focus(); } }} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
             {/* Área clicável do usuário */}
             <button data-appearance-part="menu-item" aria-expanded={isOpen} aria-label="Menu da conta" onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
                 <Avatar user={user} className={position === 'top' ? 'h-8 w-8' : 'h-10 w-10'} />

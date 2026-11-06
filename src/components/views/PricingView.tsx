@@ -48,16 +48,16 @@ const PricingView: React.FC = () => {
     };
 
     return (
-        <div className="min-h-full py-12 px-4 sm:px-6 lg:px-8 relative">
+        <div data-finance="remaining-pricing" className="min-h-full py-12 px-4 sm:px-6 lg:px-8 relative">
             {/* Upgrade Warning Modal */}
             {showUpgradeWarning && (
-                <div data-finance="inset" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <div data-finance="scrim remaining-dialog" role="dialog" aria-modal="true" aria-labelledby="pricing-upgrade-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
                     <div data-finance="inset" className="bg-slate-900 border border-yellow-500/50 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
                         <div data-finance="warning" className="flex items-center gap-3 text-yellow-500 mb-4">
                             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <h3 className="text-xl font-bold">Atenção ao Upgrade</h3>
+                            <h3 id="pricing-upgrade-title" className="text-xl font-bold">Atenção ao Upgrade</h3>
                         </div>
                         <p data-finance="content" className="text-gray-300 mb-6 leading-relaxed">
                             Você já possui uma assinatura <strong>Anual</strong> ativa.

@@ -7,6 +7,7 @@ import '../../src/components/appearance/financial.css';
 import {createRemainingFixture,REMAINING_A as A,REMAINING_B as B,remainingId} from './remaining-fixtures';
 
 const params=new URLSearchParams(location.search),baseline=params.get('baseline');
+(window as any).__remainingReact=React;
 const prefix=baseline==='main'||baseline==='reviewed'?`/scripts/diagnostics/theme-remaining-${baseline}-baseline/src`:'/src';
 const load=(p:string)=>(window as any).__remainingModule(location.origin+prefix+p);
 // Literal current imports share Vite's HMR URL with the mounted consumers.
@@ -17,6 +18,11 @@ const {default:MainLayout}=await load('/layouts/MainLayout.tsx'),{default:Contas
 const {GlobalDialog}=await load('/components/ui/GlobalDialog.tsx'),{useDialogStore}=await load('/hooks/useDialogStore.ts');
 const {default:AppearanceSessionSync}=baseline==='main'?{default:()=>null}:await load('/components/appearance/AppearanceSessionSync.tsx');
 const {default:appSource}=await load('/App.tsx?raw');
+const {AppLock}=await load('/components/auth/AppLock.tsx'),{AuthLoadingScreen}=await load('/components/auth/ProtectedRoute.tsx');
+const {default:TermsModal}=await load('/components/modals/TermsModal.tsx');
+const {default:InstallPWA}=await load('/components/pwa/InstallPWA.tsx');
+const ReloadPrompt=params.has('pwa')?(await load('/components/pwa/ReloadPrompt.tsx')).default:()=>null;
+const ActualApp=params.get('actual')==='true'?(await load('/App.tsx')).default:null;
 const keyedRoot=appSource.includes('<MainLayout key={user?.id} />');
 const fixture=createRemainingFixture(params.get('case')??'complete'),wire=(v:any)=>JSON.parse(JSON.stringify(v));
 let syntheticRandomSequence=2000;Object.defineProperty(crypto,'randomUUID',{value:()=>remainingId(1,++syntheticRandomSequence)});
@@ -25,7 +31,7 @@ const db:any={financial_goals:wire(fixture.goals),contas:wire(fixture.accounts),
 if((window as any).__remainingSeed?.db)Object.assign(db,wire((window as any).__remainingSeed.db));
 const held=new Set<string>(),failures=new Set<string>(),waiting=new Map<string,Array<()=>void>>(),events:any[]=[],trace:any[]=[],authListeners=new Set<(event:string,session:any)=>void>();
 let commits=0,calculations=0,sequence=1000,currentId:string|null=A;
-const userFor=(id:string)=>({id,email:params.get('admin')==='true'&&id===A?'cassiomq@gmail.com':id===A?'pessoa-a@example.invalid':'pessoa-b@example.invalid',app_metadata:{appearance_pilot:id===A&&params.get('pilot')==='eligible',credit_card_engine_disabled:true,card_v2_disabled:true,atomic_imports_enabled:false,dashboard_owner_scope_disabled:true,investment_portfolios_disabled:true},user_metadata:{full_name:id===A?'Pessoa_A_QA':'Pessoa_B_QA',appearance_theme:id===A?'dark':'system',onboarding_v1_dismissed_at:'2026-01-01T12:00:00Z',terms_accepted_version:'v_2026_03_17_consumer_rights',creditCardPaymentCategory:'Pagamento Cartão'}});
+const userFor=(id:string)=>({id,email:params.get('admin')==='true'&&id===A?'cassiomq@gmail.com':id===A?'pessoa-a@example.invalid':'pessoa-b@example.invalid',app_metadata:{appearance_pilot:id===A&&params.get('pilot')==='eligible',credit_card_engine_disabled:true,card_v2_disabled:true,atomic_imports_enabled:false,dashboard_owner_scope_disabled:true,investment_portfolios_disabled:true},user_metadata:{full_name:id===A?'Pessoa_A_QA':'Pessoa_B_QA',appearance_theme:id===A?(params.get('preference')??'dark'):'system',onboarding_v1_dismissed_at:'2026-01-01T12:00:00Z',terms_accepted_version:params.get('terms')==='required'?undefined:'v_2026_03_17_consumer_rights',creditCardPaymentCategory:'Pagamento Cartão'}});
 const popups:any[]=[];if(params.get('popup')==='synthetic')window.open=(()=>{const popup:any={closed:false,navigations:[],opener:null,location:{replace:(url:string)=>popup.navigations.push(url)},close:()=>{popup.closed=true}};popups.push(popup);return popup})as any;
 const remoteUsers=new Map([[A,userFor(A)],[B,userFor(B)]]);
 const actor=()=>useAppStore.getState().user?.id??null;
@@ -49,8 +55,9 @@ const answer=(data:any,status=200)=>new Response(JSON.stringify(data),{status,he
  const key=(method==='GET'?'read:':'write:')+table;
  if(url.pathname==='/auth/v1/user'){
   const jwt=headers.get('authorization')?.replace(/^Bearer /,'')??'',id=jwt.startsWith('synthetic-session-')?jwt.slice('synthetic-session-'.length):currentId;
-  if(held.has('appearance:'+id))await wait('appearance:'+id);
-  if(!id||failures.has('appearance:'+id))return answer({message:'Falha sintética de preferência'},503);
+  const writeKey=(Object.hasOwn(body?.data??{},'appearance_theme')?'appearance:':'profile:')+id;
+  if(held.has(writeKey))await wait(writeKey);
+  if(!id||failures.has(writeKey))return answer({message:'Falha sintética de preferência'},503);
   if(method==='PUT')remoteUsers.set(id,{...remoteUsers.get(id)!,user_metadata:{...remoteUsers.get(id)!.user_metadata,...body.data}});
   return answer(wire(remoteUsers.get(id)));
  }
@@ -85,9 +92,17 @@ useAppStore.setState({user:wire(remoteUsers.get(A)),isWealth:params.get('plan')!
 const originalBalance=useAppStore.getState().getAccountsWithCalculatedBalance;
 useAppStore.setState({getAccountsWithCalculatedBalance:(...args:any[])=>{calculations++;return originalBalance(...args)}});
 const root=createRoot(document.getElementById('root')!);
-function visible(){const body=document.querySelector('#root')as HTMLElement,fields=[...body.querySelectorAll<HTMLInputElement>('input,textarea')].filter(e=>e.getClientRects().length).map(e=>e.type==='password'?'<redacted>':e.value);return{actor:actor(),view:useAppStore.getState().currentView,text:body.innerText,fields}}
+function visible(){const body=document.querySelector('#root')as HTMLElement,fields=[...body.querySelectorAll<HTMLInputElement>('input,textarea')].filter(e=>e.getClientRects().length).map(e=>e.type==='password'||/pin|senha|password/i.test(e.name+e.id+e.placeholder)?'<redacted>':e.value);return{actor:actor(),view:useAppStore.getState().currentView,text:body.innerText,fields}}
 function props(){const found:any[]=[];const strip=(key:string,value:any)=>key==='children'||key==='_owner'||key==='ref'||typeof value==='function'?undefined:value;function visit(f:any){if(!f)return;const name=f.type?.name??'';if(['GoalsPanel','GoalCard','GoalFormModal','UpdateGoalValueModal','AccountModal','CategoryModal','MappingRuleModal','InviteMemberModal','AssetModal','AssetDetailModal','CrudCard','BudgetModal','ImportConfigModal'].includes(name))found.push({component:name,props:f.memoizedProps});visit(f.child);visit(f.sibling)}visit((root as any)._internalRoot.current);return JSON.parse(JSON.stringify(found,strip))}
 function snapshot(){const s=useAppStore.getState();return wire({scenario:fixture.scenario,actor:actor(),db,events,requests:(window as any).__remainingRequests,props:props(),visible:visible(),sources:{goals:s.goals,accounts:s.accounts,transactions:s.transactions,assets:s.assets,categories:s.categories,mappingRules:s.mappingRules,budgets:s.budgets,importConfigs:s.importConfigs,supportTickets:s.supportTickets,adminMetrics:s.adminMetrics,user:s.user?{id:s.user.id,user_metadata:s.user.user_metadata}:null}})}
 (window as any).__remainingPreview={snapshot,trace:()=>trace,profile:()=>({commits,calculations,requests:(window as any).__remainingRequests.length,events:events.length}),hold:(key:string)=>held.add(key),fail:(key:string)=>failures.add(key),release:(key:string)=>{held.delete(key);failures.delete(key);const rows=waiting.get(key)??[];waiting.delete(key);rows.forEach(r=>r())},auth:(id:string|null)=>{currentId=id;useAppStore.getState().setUser(id?wire(remoteUsers.get(id)):null);if(id)useAppStore.setState({isPremium:true,isWealth:true,initialDataLoadStatus:'ready',transactionsUserId:id})},authEvent:(event:string)=>{const s=session();useAppStore.getState().setUser(s?.user??null);authListeners.forEach(cb=>cb(event,s))},updateMetadata:(data:any)=>useAppStore.getState().updateUserPreferences(data),popups:()=>popups.map(p=>({closed:p.closed,navigations:p.navigations})),sessionEntry:()=>({keyedRoot,prefix})};
 function SessionView(){const user=useAppStore((s:any)=>s.user);if(!user)return<p role="status">Referência sem sessão autenticada.</p>;return params.get('view')==='accounts'?<ContasView key={keyedRoot?user.id:undefined}/>:<MainLayout key={keyedRoot?user.id:undefined}/>}
-root.render(<BrowserRouter><div data-finelo-theme={params.get('theme')==='light'?'light':'dark'} className="min-h-screen bg-theme-canvas text-theme-content"><React.Profiler id="remaining-reference" onRender={()=>{commits++;trace.push(visible())}}><SessionView/><GlobalDialog/><AppearanceSessionSync/></React.Profiler></div></BrowserRouter>);
+let dialogResults:any[]=[];(window as any).__remainingPreview.dialog=(kind:string)=>{void useDialogStore.getState().openDialog({title:'Diálogo sintético',message:'Mensagem sintética para revisão.',variant:kind,type:'confirm'}).then((result:any)=>dialogResults.push(result))};
+(window as any).__remainingPreview.dialogResults=()=>dialogResults;
+if(params.get('lock')==='on')localStorage.setItem('finelo_app_pin','5432');
+if(params.get('anonymous')==='true'){currentId=null;useAppStore.getState().setUser(null)}
+if(ActualApp){history.replaceState(null,'',params.get('route')??'/app?view=settings');root.render(<ActualApp/>)}
+else{
+ function Globals(){const[termsOpen,setTermsOpen]=React.useState(params.get('terms')==='readonly');return <><SessionView/><GlobalDialog/><AppearanceSessionSync/><ReloadPrompt/>{params.get('install')==='standalone'&&<div style={{position:'fixed',inset:24,maxWidth:340,zIndex:60}}><InstallPWA/></div>}{termsOpen&&<TermsModal isOpen onClose={()=>setTermsOpen(false)}/>}</>}
+ root.render(<BrowserRouter><div data-finelo-theme={params.get('theme')==='light'?'light':'dark'} className="min-h-screen bg-theme-canvas text-theme-content"><React.Profiler id="remaining-reference" onRender={()=>{commits++;trace.push(visible())}}>{params.get('checking')==='true'?<AuthLoadingScreen/>:<AppLock><Globals/></AppLock>}</React.Profiler></div></BrowserRouter>);
+}

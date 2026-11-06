@@ -19,7 +19,7 @@ def load(p,v,view,case='complete',**extra):
  p.wait_for_function('window.__remainingPreview!==undefined');p.add_style_tag(content='*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}')
  settle(p)
  p.wait_for_function("window.__remainingPreview.snapshot().actor==='10000000-0000-4000-8000-000000000001'")
- if view=='goals' and case not in ['empty','load-error']:
+ if view=='goals' and case not in ['empty','load-error'] and extra.get('checking')!='true' and extra.get('lock')!='on':
   p.wait_for_function('window.__remainingPreview.snapshot().sources.goals.length>0')
 def action(p,name,exact=True):return p.get_by_role('button',name=name,exact=exact).filter(visible=True)
 def cancel(p):

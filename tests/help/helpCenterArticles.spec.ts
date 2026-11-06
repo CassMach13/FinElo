@@ -73,7 +73,7 @@ describe('Central de Ajuda — artigo com passos e screenshots', () => {
 
   it('negrito vira <strong> e o texto sem marcação passa intacto', () => {
     expect(renderToStaticMarkup(React.createElement('p', null, renderEmphasis('Clique em **Importar** agora')))).toBe(
-      '<p>Clique em <strong class="font-semibold text-slate-200">Importar</strong> agora</p>'
+      '<p>Clique em <strong data-finance="content" class="font-semibold text-slate-200">Importar</strong> agora</p>'
     );
     expect(renderEmphasis('sem marcação')).toBe('sem marcação');
   });

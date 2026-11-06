@@ -1,3 +1,4 @@
+import RemainingAppearanceBridge from '../components/appearance/RemainingAppearanceBridge';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../hooks/useAppStore';
 import DashboardView from '../components/views/DashboardView';
@@ -145,7 +146,7 @@ export default function MainLayout() {
                             onClick={() => setCurrentView('pricing')}
                             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors mb-2 ${currentView === 'pricing' ? 'bg-highlight/20 text-highlight' : 'text-gray-400 hover:text-white hover:bg-slate-800'}`}
                         >
-                            <div className={`h-5 w-5 flex-shrink-0 border border-current rounded-full flex items-center justify-center text-[10px] font-bold ${isPremium ? 'text-amber-400 border-amber-400' : ''}`}>
+                            <div data-finance="warning" className={`h-5 w-5 flex-shrink-0 border border-current rounded-full flex items-center justify-center text-[10px] font-bold ${isPremium ? 'text-amber-400 border-amber-400' : ''}`}>
                                 {isPremium ? '★' : '💎'}
                             </div>
                             <span className="font-semibold text-xs xl:text-sm truncate">
@@ -192,6 +193,7 @@ export default function MainLayout() {
             </>}
             overlays={<TermsModal />}
         >
+            <RemainingAppearanceBridge view={currentView} />
             {viewMap[currentView] || viewMap.dashboard}
         </AuthenticatedShell>
     );

@@ -8,6 +8,7 @@ cases=[('goals','goals','complete'),('goals-long','goals','long'),('goal-form','
 stage=sys.argv[1]if len(sys.argv)>1 else'all'
 if stage=='4c1':cases=cases[:6]
 elif stage=='4c2':cases=cases[6:]
+elif stage=='4c3':cases=[('financial-dashboard','dashboard','complete'),('financial-transactions','transactions','complete'),('financial-import','import','complete'),('financial-investments','investments','complete')]
 with sync_playwright()as pw:
  b=pw.chromium.launch(channel='msedge',headless=True,args=['--disable-gpu','--force-color-profile=srgb','--disable-skia-runtime-opts'])
  for v in VARIANTS:
