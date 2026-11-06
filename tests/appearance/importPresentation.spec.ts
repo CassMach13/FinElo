@@ -6,7 +6,9 @@ import {financialImplementationFingerprint} from './financialPresentationFingerp
 
 describe('lote 3B conserva os caminhos financeiros revisados em 6f7a94b',()=>{
   it.each(Object.entries(baseline.files))('%s preserva classes e implementação original',(path,hash)=>{
-    expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(hash);
+    // 4B paints only the Assets section of Settings; the original AST/hash stays authoritative.
+    const presentation=[...baseline.additionalPresentationComponents,...(path==='src/components/views/SettingsView.tsx'?['investments.css']:[])];
+    expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'),baseline.additionalPresentationAttributes,presentation)).toBe(hash);
   });
   it('não altera parsers, persistência, classificação, dedupe, parcelas ou datas',()=>{
     const actual=Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[

@@ -80,7 +80,7 @@ export default function MainLayout() {
         dashboard: <DashboardView />,
         import: <ImportView />,
         transactions: <TransactionsView />,
-        investments: <InvestmentsView />,
+        investments: <InvestmentsView key={user?.id} />,
         goals: <GoalsView />,
         settings: <SettingsView />,
         help: <HelpView />,

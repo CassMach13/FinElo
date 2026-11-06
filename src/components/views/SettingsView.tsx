@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 ﻿
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import '../appearance/financial.css';
@@ -638,7 +639,7 @@ const SettingsView: React.FC = () => {
                                     {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${item.is_archived ? 'text-gray-500 line-through' : getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
+                                <td data-finance={"investment-equity"} className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${item.is_archived ? 'text-gray-500 line-through' : getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
                                     {formatCurrency(item.Saldo_Inicial)}
                                 </td>
                             </>
@@ -921,21 +922,21 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo / Status', 'Valor Bruto', 'Dívida', 'P. Líquido (Equity)']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
+                                <td data-finance={"content"} className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm">
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-gray-400 font-medium">
+                                        <span data-finance={"muted"} className="text-gray-400 font-medium">
                                             {item.type === 'car' ? 'Veículo' : item.type === 'property' ? 'Imóvel' : 'Outro'}
                                         </span>
                                         {item.is_financed && (
                                             <div className="flex items-center gap-2">
-                                                <div className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
-                                                    <div
+                                                <div data-finance={"inset"} className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
+                                                    <div data-finance={"info-line"}
                                                         className="h-full bg-highlight shadow-[0_0_8px_rgba(0,195,255,0.5)]"
                                                         style={{ width: `${((item.paid_installments || 0) / (item.total_installments || 1)) * 100}%` }}
                                                     ></div>
                                                 </div>
-                                                <span className={`text-[9px] font-black uppercase tracking-tighter shadow-sm ${
+                                                <span data-finance={"" + " " + (item.financing_type === 'consortium' ? "investment-tone" : "info") + " " + ""} className={`text-[9px] font-black uppercase tracking-tighter shadow-sm ${
                                                     item.financing_type === 'consortium' ? 'text-purple-400' : 'text-highlight'
                                                 }`}>
                                                     {item.financing_type === 'consortium' ? '🔄 Consórcio' : '🏦 Financiado'}
@@ -944,17 +945,17 @@ const SettingsView: React.FC = () => {
                                         )}
                                     </div>
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
+                                <td data-finance={"muted"} className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
                                     {formatCurrency(item.value)}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
+                                <td data-finance={"negative"} className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
                                     {item.is_financed ? (
                                         formatCurrency(item.remaining_balance || 0)
                                     ) : (
-                                        <span className="text-gray-700">-</span>
+                                        <span data-finance={"muted"} className="text-gray-700">-</span>
                                     )}
                                 </td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-black ${getCurrencyColorClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))} ${getCurrencyBgClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}`}>
+                                <td data-finance={"investment-equity"} className={`px-4 py-4 whitespace-nowrap text-sm font-black ${getCurrencyColorClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))} ${getCurrencyBgClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}`}>
                                     {formatCurrency(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
                                 </td>
                             </>
@@ -964,7 +965,7 @@ const SettingsView: React.FC = () => {
                         renderExtraActions={(item) => {
                             if (!item.is_financed && !item.financing_type) return null;
                             return (
-                                <button
+                                <button data-finance={"info info-panel secondary"}
                                     className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-highlight/10 text-highlight hover:bg-highlight/20 border border-highlight/30 hover:border-highlight/60 transition-all"
                                     onClick={() => { setViewingAsset(item); setAssetDetailModalOpen(true); }}
                                     title="Ver detalhes do financiamento / consórcio"

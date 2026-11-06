@@ -170,12 +170,12 @@ describe('CRUD de carteiras e ativos (apresentação e regras)', () => {
     const create = renderToStaticMarkup(React.createElement(PortfolioFormModal, props));
     expect(create).toContain('Nova carteira');
     expect(create).toContain('Ione');
-    expect(create).toMatch(/<button type="submit" disabled=""/);
+    expect(create).toMatch(/<button\b[^>]* type="submit" disabled=""/);
     expect(create).toContain('maxLength="80"');
     const rename = renderToStaticMarkup(React.createElement(PortfolioFormModal, { ...props, portfolio }));
     expect(rename).toContain('Renomear carteira');
     expect(rename).toContain('value="Reserva"');
-    expect(rename).toMatch(/<button type="submit" disabled=""/);
+    expect(rename).toMatch(/<button\b[^>]* type="submit" disabled=""/);
     expect(renderToStaticMarkup(React.createElement(PortfolioFormModal, { ...props, isOpen: false }))).toBe('');
   });
 

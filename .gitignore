@@ -62,3 +62,6 @@ service-account*.json
 scripts/sql/diagnose_marcelo_*.sql
 
 .vercel
+
+scripts/diagnostics/theme-investments-main-baseline/
+scripts/diagnostics/theme-investments-reviewed-baseline/
