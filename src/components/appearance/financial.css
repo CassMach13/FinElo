@@ -1,0 +1,133 @@
+/* Reviewed consumer roles. Legacy classes remain the source of dark/print presentation. */
+@media screen {
+  [data-finelo-theme="light"] [data-finance] { --finance-owner: var(--appearance-action-hover); }
+  [data-finelo-theme="light"] [data-finance~="content"] { color: rgb(var(--appearance-content)); }
+  [data-finelo-theme="light"] [data-finance~="muted"] { color: rgb(var(--appearance-muted)); }
+  [data-finelo-theme="light"] [data-finance~="positive"] { color: rgb(var(--appearance-positive)); }
+  [data-finelo-theme="light"] [data-finance~="negative"] { color: rgb(var(--appearance-negative)); }
+  [data-finelo-theme="light"] [data-finance~="info"] { color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="warning"] { color: rgb(var(--appearance-warning)); }
+
+  [data-finelo-theme="light"] :is([data-finance~="surface"], [data-finance~="head"], [data-finance~="inset"]) {
+    background-image: none;
+    background-color: rgb(var(--appearance-surface));
+  }
+  [data-finelo-theme="light"] :is([data-finance~="head"], [data-finance~="inset"]) { background-color: rgb(var(--appearance-hover)); }
+  [data-finelo-theme="light"] [data-finance~="divider"] { border-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="divided"] > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="line"] { background-image: none; background-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="positive-line"] { background-color: rgb(var(--appearance-positive)); }
+  [data-finelo-theme="light"] [data-finance~="negative-line"] { background-color: rgb(var(--appearance-negative)); }
+  [data-finelo-theme="light"] [data-finance~="info-line"] { background-color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="warning-line"] { background-color: rgb(var(--appearance-warning)); }
+  [data-finelo-theme="light"] [data-finance~="account-card"] { border-left-color: rgb(var(--appearance-action)); }
+
+  [data-finelo-theme="light"] :is([data-finance~="info-panel"], [data-finance~="info-chip"]) {
+    color: rgb(var(--appearance-info)); background-image: none;
+    background-color: rgb(var(--appearance-info-surface)); border-color: rgb(var(--appearance-info) / .35);
+  }
+  [data-finelo-theme="light"] [data-finance~="info-chip"] > svg { color: inherit; }
+  [data-finelo-theme="light"] :is([data-finance~="success-panel"], [data-finance~="success-chip"]) {
+    color: rgb(var(--appearance-success)); background-image: none;
+    background-color: rgb(var(--appearance-success-surface)); border-color: rgb(var(--appearance-success) / .35);
+  }
+  [data-finelo-theme="light"] :is([data-finance~="warning-panel"], [data-finance~="warning-chip"]) {
+    color: rgb(var(--appearance-warning)); background-image: none;
+    background-color: rgb(var(--appearance-warning-surface)); border-color: rgb(var(--appearance-warning) / .35);
+  }
+  [data-finelo-theme="light"] [data-finance~="danger-chip"] {
+    color: rgb(var(--appearance-danger)); background-image: none;
+    background-color: rgb(var(--appearance-danger-surface)); border-color: rgb(var(--appearance-danger) / .35);
+  }
+  [data-finelo-theme="light"] [data-finance~="row"]:hover,
+  [data-finelo-theme="light"] [data-finance~="hover"]:hover { background-color: rgb(var(--appearance-hover)); }
+  [data-finelo-theme="light"] [data-finance~="secondary"] {
+    background-color: rgb(var(--appearance-surface)); border-color: rgb(var(--appearance-control-border)); color: rgb(var(--appearance-content));
+  }
+  [data-finelo-theme="light"] [data-finance~="secondary"]:hover {
+    background-color: rgb(var(--appearance-hover)); color: rgb(var(--appearance-content)); border-color: rgb(var(--appearance-control-border));
+  }
+  [data-finelo-theme="light"] [data-finance~="selected"],
+  [data-finelo-theme="light"] [data-finance~="selected"]:hover {
+    color: rgb(var(--appearance-info)); background-color: rgb(var(--appearance-selected)); border-color: rgb(var(--appearance-focus));
+    --tw-ring-color: rgb(var(--appearance-focus));
+  }
+  [data-finelo-theme="light"] [data-finance~="link"],
+  [data-finelo-theme="light"] [data-finance~="link"]:hover { color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="negative"]:hover { color: rgb(var(--appearance-negative)); }
+  [data-finelo-theme="light"] [data-finance~="muted"]:hover { color: rgb(var(--appearance-muted)); }
+
+  [data-finelo-theme="light"] [data-finance~="control"],
+  [data-finelo-theme="light"] [data-finance~="control"]:is(:hover,:focus) {
+    background-color: rgb(var(--appearance-control)); color: rgb(var(--appearance-content));
+    border-color: rgb(var(--appearance-control-border)); color-scheme: light;
+  }
+  [data-finelo-theme="light"] [data-finance~="choice"] {
+    background-color: rgb(var(--appearance-control)); border-color: rgb(var(--appearance-control-border)); accent-color: rgb(var(--appearance-action)); color-scheme: light;
+  }
+  [data-finelo-theme="light"] [data-finance~="editable"] { border-color: rgb(var(--appearance-control-border)); }
+  [data-finelo-theme="light"] [data-finance~="editable"]:hover { border-color: rgb(var(--appearance-focus)); }
+  [data-finelo-theme="light"] [data-finance~="action"],
+  [data-finelo-theme="light"] [data-finance~="action"]:hover {
+    background-image: none; background-color: rgb(var(--appearance-action)); border-color: rgb(var(--appearance-action)); color: rgb(var(--appearance-on-action));
+  }
+  [data-finelo-theme="light"] [data-finance~="action"]:hover { background-color: rgb(var(--appearance-action-hover)); }
+  [data-finelo-theme="light"] [data-finance~="danger-action"],
+  [data-finelo-theme="light"] [data-finance~="danger-action"]:hover {
+    background-color: rgb(var(--appearance-danger)); color: rgb(var(--appearance-on-action));
+  }
+  [data-finelo-theme="light"] button[data-finance]:disabled {
+    color: rgb(var(--appearance-on-disabled)); background-color: rgb(var(--appearance-disabled)); opacity: 1;
+  }
+  [data-finelo-theme="light"] :is([data-finance~="retained"], [data-finance~="readonly-row"]) { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="retained"] { background-color: rgb(var(--appearance-warning-surface)); }
+  [data-finelo-theme="light"] [data-finance~="loading-overlay"] { background-color: rgb(var(--appearance-surface) / .9); color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="spinner"] { border-color: rgb(var(--appearance-divider)); border-top-color: rgb(var(--appearance-info)); }
+
+  [data-finelo-theme="light"] [data-finance-owner="violet"] { --finance-owner: var(--appearance-chart-3); }
+  [data-finelo-theme="light"] [data-finance-owner="amber"] { --finance-owner: var(--appearance-warning); }
+  [data-finelo-theme="light"] [data-finance-owner="sky"] { --finance-owner: var(--appearance-info); }
+  [data-finelo-theme="light"] [data-finance-owner="rose"] { --finance-owner: var(--appearance-negative); }
+  [data-finelo-theme="light"] [data-finance~="owner"] {
+    color: rgb(var(--finance-owner)); background-color: rgb(var(--finance-owner) / .08); border-color: rgb(var(--finance-owner) / .35);
+  }
+  [data-finelo-theme="light"] [data-finance~="owner-dot"] { background-color: currentColor; }
+  [data-finelo-theme="light"] :is(textarea, [data-finance][tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--appearance-focus)); outline-offset: 2px; box-shadow: none;
+  }
+  [data-finelo-theme="light"] [data-finance~="rule-action"]:focus-visible { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="scrim"] { background-color: rgb(var(--appearance-scrim) / .48); }
+  [data-finelo-theme="light"] [data-finance~="upload-icon"] { color: rgb(var(--appearance-info)) !important; }
+  [data-finelo-theme="light"] [data-finance~="upload"] { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="upload"][data-finance-disabled="true"] {
+    background-color: rgb(var(--appearance-disabled)); color: rgb(var(--appearance-on-disabled)); border-color: rgb(var(--appearance-control-border));
+  }
+  [data-finelo-theme="light"] [data-finance~="favorite"]:focus-visible { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="favorite"] {
+    color: rgb(var(--appearance-content)); background-color: rgb(var(--appearance-surface)); box-shadow: 0 0 0 1px rgb(var(--appearance-content));
+  }
+  [data-finelo-theme="light"] [data-finance~="favorite"][aria-pressed="true"] { box-shadow: 0 0 0 2px rgb(var(--appearance-action-hover)); }
+  [data-finelo-theme="light"] [data-finance~="focus-reveal"]:focus-visible { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="active-tab"] { border-color: currentColor; }
+  [data-finelo-theme="light"] [data-finance~="native-select"] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23526175' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e") !important;
+  }
+  [data-finelo-theme="light"] [data-finance~="control"]:disabled {
+    color: rgb(var(--appearance-on-disabled)); background-color: rgb(var(--appearance-disabled)); opacity: 1;
+  }
+  [data-finelo-theme="light"] [data-finance~="control"]::placeholder { color: rgb(var(--appearance-muted)); opacity: 1; }
+  [data-finelo-theme="light"][data-finance~="tour"] { background-color: rgb(var(--appearance-surface)); color: rgb(var(--appearance-content)); }
+  [data-finelo-theme="light"][data-finance~="tour"] button { text-shadow: none; }
+  [data-finelo-theme="light"][data-finance~="tour"] [data-finance~="action"]:is(:hover,:focus) {
+    color: rgb(var(--appearance-on-action)); background-color: rgb(var(--appearance-action-hover)); border-color: rgb(var(--appearance-action));
+  }
+  [data-finelo-theme="light"][data-finance~="tour"] .driver-popover-btn-disabled {
+    opacity: 1; color: rgb(var(--appearance-on-disabled)); background-color: rgb(var(--appearance-disabled)); border-color: rgb(var(--appearance-control-border));
+  }
+  [data-finelo-theme="light"] [data-finance~="card-chart-bar"] { background-color: rgb(var(--appearance-chart-1)); box-shadow: none; }
+  [data-finelo-theme="light"] [data-finance~="card-chart-active-bar"] { background-color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="card-chart-tab"]:hover [data-finance~="card-chart-bar"] { background-color: rgb(var(--appearance-chart-1)); }
+  [data-finelo-theme="light"] [data-finance~="card-chart-tab"]:hover [data-finance~="card-chart-active-bar"] { background-color: rgb(var(--appearance-info)); }
+  [data-finelo-theme="light"] [data-finance~="card-chart-tab"]:focus-visible [data-finance~="card-chart-value"] { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="audit-checksum"] { opacity: 1; }
+}

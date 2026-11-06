@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 import React, { useState, useEffect } from 'react';
 import { Investment } from '../../types';
 
@@ -134,16 +135,16 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
         'w-full bg-primary border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-highlight focus:ring-1 focus:ring-highlight';
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-secondary rounded-2xl w-full max-w-lg shadow-xl border border-slate-700/50 flex flex-col max-h-[90vh]">
-                <div className="p-6 pb-4 border-b border-slate-700/50 flex justify-between items-center shrink-0">
+        <div role="dialog" aria-modal="true" data-finance={"overlay investment-dialog"} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div data-finance={"divider surface"} className="bg-secondary rounded-2xl w-full max-w-lg shadow-xl border border-slate-700/50 flex flex-col max-h-[90vh]">
+                <div data-finance={"divider"} className="p-6 pb-4 border-b border-slate-700/50 flex justify-between items-center shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-white">{title}</h2>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <h2 data-finance={"content"} className="text-xl font-bold text-white">{title}</h2>
+                        <p data-finance={"muted"} className="text-xs text-gray-500 mt-1">
                             Campos opcionais ajudam a estimar rendimento e conferir prazos.
                         </p>
                     </div>
-                    <button
+                    <button data-finance-close="" aria-label="Fechar" data-finance={"content secondary"}
                         onClick={onClose}
                         className="text-gray-400 hover:text-white transition-colors shrink-0"
                         disabled={isSubmitting}
@@ -157,16 +158,16 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
 
                 <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
                     {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-sm">
+                        <div role="alert" data-finance={"negative danger-chip"} className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-sm">
                             {error}
                         </div>
                     )}
 
                     <fieldset className="space-y-3">
-                        <legend className="text-xs font-bold uppercase tracking-wider text-gray-500">Identificação</legend>
+                        <legend data-finance={"muted"} className="text-xs font-bold uppercase tracking-wider text-gray-500">Identificação</legend>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Instituição *</label>
-                            <input
+                            <label htmlFor="investment-field-1" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Instituição *</label>
+                            <input id="investment-field-1" data-finance={"content control divider"}
                                 type="text"
                                 value={institution}
                                 onChange={(e) => setInstitution(e.target.value)}
@@ -176,8 +177,8 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Tipo de produto *</label>
-                            <input
+                            <label htmlFor="investment-field-2" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Tipo de produto *</label>
+                            <input id="investment-field-2" data-finance={"content control divider"}
                                 type="text"
                                 value={productType}
                                 onChange={(e) => setProductType(e.target.value)}
@@ -187,8 +188,8 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Nome do ativo</label>
-                            <input
+                            <label htmlFor="investment-field-3" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Nome do ativo</label>
+                            <input id="investment-field-3" data-finance={"content control divider"}
                                 type="text"
                                 value={productName}
                                 onChange={(e) => setProductName(e.target.value)}
@@ -199,14 +200,14 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                     </fieldset>
 
                     <fieldset className="space-y-3">
-                        <legend className="text-xs font-bold uppercase tracking-wider text-gray-500">Valores</legend>
+                        <legend data-finance={"muted"} className="text-xs font-bold uppercase tracking-wider text-gray-500">Valores</legend>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Saldo atual (posição) *</label>
+                            <label htmlFor="investment-field-4" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Saldo atual (posição) *</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-400">R$</span>
+                                    <span data-finance={"muted"} className="text-gray-400">R$</span>
                                 </div>
-                                <input
+                                <input id="investment-field-4" data-finance={"content control divider"}
                                     type="number"
                                     step="0.01"
                                     min="0.01"
@@ -219,12 +220,12 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Valor aplicado (principal)</label>
+                            <label htmlFor="investment-field-5" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Valor aplicado (principal)</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-400">R$</span>
+                                    <span data-finance={"muted"} className="text-gray-400">R$</span>
                                 </div>
-                                <input
+                                <input id="investment-field-5" data-finance={"content control divider"}
                                     type="number"
                                     step="0.01"
                                     min="0"
@@ -234,18 +235,18 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                                     className={`${fieldClass} pl-10`}
                                 />
                             </div>
-                            <p className="text-[11px] text-gray-500 mt-1">
+                            <p data-finance={"muted"} className="text-[11px] text-gray-500 mt-1">
                                 Se preenchido, a diferença para o saldo atual indica ganho acumulado na posição.
                             </p>
                         </div>
                     </fieldset>
 
                     <fieldset className="space-y-3">
-                        <legend className="text-xs font-bold uppercase tracking-wider text-gray-500">Datas</legend>
+                        <legend data-finance={"muted"} className="text-xs font-bold uppercase tracking-wider text-gray-500">Datas</legend>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Data da aplicação</label>
-                                <input
+                                <label htmlFor="investment-field-6" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Data da aplicação</label>
+                                <input id="investment-field-6" data-finance={"content control divider"}
                                     type="date"
                                     value={applicationDate}
                                     onChange={(e) => setApplicationDate(e.target.value)}
@@ -253,8 +254,8 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Vencimento</label>
-                                <input
+                                <label htmlFor="investment-field-7" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Vencimento</label>
+                                <input id="investment-field-7" data-finance={"content control divider"}
                                     type="date"
                                     value={maturityDate}
                                     onChange={(e) => setMaturityDate(e.target.value)}
@@ -265,35 +266,35 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                     </fieldset>
 
                     <fieldset className="space-y-3">
-                        <legend className="text-xs font-bold uppercase tracking-wider text-gray-500">Rentabilidade</legend>
+                        <legend data-finance={"muted"} className="text-xs font-bold uppercase tracking-wider text-gray-500">Rentabilidade</legend>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Índice / taxa do produto</label>
-                            <input
+                            <label htmlFor="investment-field-8" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Índice / taxa do produto</label>
+                            <input id="investment-field-8" data-finance={"content control divider"}
                                 type="text"
                                 value={yieldRate}
                                 onChange={(e) => setYieldRate(e.target.value)}
                                 placeholder="Ex: 100% CDI, IPCA + 6%, 12% a.a."
                                 className={fieldClass}
                             />
-                            <p className="text-[11px] text-gray-500 mt-1">Como o produto rende no contrato (igual à planilha da corretora).</p>
+                            <p data-finance={"muted"} className="text-[11px] text-gray-500 mt-1">Como o produto rende no contrato (igual à planilha da corretora).</p>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">Rendimento mensal esperado</label>
-                            <input
+                            <label htmlFor="investment-field-9" data-finance={"muted"} className="block text-sm font-medium text-gray-300 mb-1">Rendimento mensal esperado</label>
+                            <input id="investment-field-9" data-finance={"content control divider"}
                                 type="text"
                                 value={monthlyYieldRate}
                                 onChange={(e) => setMonthlyYieldRate(e.target.value)}
                                 placeholder="Ex: 0,9%, R$ 320 ou 1,1% a.m."
                                 className={fieldClass}
                             />
-                            <p className="text-[11px] text-gray-500 mt-1">
+                            <p data-finance={"muted"} className="text-[11px] text-gray-500 mt-1">
                                 Use se já souber quanto recebe por mês — ajuda a projetar a carteira manualmente.
                             </p>
                         </div>
                     </fieldset>
 
                     <div className="pt-2 flex justify-end gap-3">
-                        <button
+                        <button data-finance-close="" data-finance={"content secondary"}
                             type="button"
                             onClick={onClose}
                             disabled={isSubmitting}
@@ -301,7 +302,7 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                         >
                             Cancelar
                         </button>
-                        <button
+                        <button data-finance={"content action"}
                             type="submit"
                             disabled={isSubmitting}
                             className="px-6 py-2 rounded-lg font-medium bg-highlight hover:bg-highlight-hover text-white transition-colors disabled:opacity-50"

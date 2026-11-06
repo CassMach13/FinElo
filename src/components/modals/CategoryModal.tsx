@@ -55,7 +55,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave
     };
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={true}
             onClose={onClose}
             title={category ? 'Editar Categoria' : 'Nova Categoria'}
@@ -78,16 +78,16 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave
                     </Select>
                 </div>
                 <div className="flex items-center gap-2">
-                    <input
+                    <input data-finance="choice"
                         type="checkbox"
                         id="is-investment"
                         checked={isInvestment}
                         onChange={(e) => setIsInvestment(e.target.checked)}
                         className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-accent focus:ring-accent"
                     />
-                    <label htmlFor="is-investment" className="text-sm text-gray-300 select-none cursor-pointer">
+                    <label data-finance="muted" htmlFor="is-investment" className="text-sm text-gray-300 select-none cursor-pointer">
                         Esta categoria representa um <strong>Investimento</strong> ou <strong>Retirada</strong>?
-                        <span className="block text-xs text-gray-500 font-normal">
+                        <span data-finance="muted" className="block text-xs text-gray-500 font-normal">
                             Transações nesta categoria serão separadas do fluxo operacional no Dashboard.
                         </span>
                     </label>
@@ -95,16 +95,16 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ category, onClose, onSave
 
                 {!isInvestment && type !== 'Renda' && (
                     <div className="flex items-center gap-2">
-                        <input
+                        <input data-finance="choice"
                             type="checkbox"
                             id="is-essential"
                             checked={isEssential}
                             onChange={(e) => setIsEssential(e.target.checked)}
                             className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500"
                         />
-                        <label htmlFor="is-essential" className="text-sm text-gray-300 select-none cursor-pointer">
+                        <label data-finance="muted" htmlFor="is-essential" className="text-sm text-gray-300 select-none cursor-pointer">
                             Este é um <strong>Gasto Essencial</strong>? (50-30-20)
-                            <span className="block text-xs text-gray-500 font-normal">
+                            <span data-finance="muted" className="block text-xs text-gray-500 font-normal">
                                 Marque se for item de sobrevivência (ex: Aluguel, Luz, Mercado). Não marque se for 'Estilo de Vida'.
                             </span>
                         </label>

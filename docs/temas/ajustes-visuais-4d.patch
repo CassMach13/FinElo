@@ -1,0 +1,17 @@
+diff --git a/src/components/goals/GoalFormModal.tsx b/src/components/goals/GoalFormModal.tsx
+index b5bcbeb..95b9fd2 100644
+--- a/src/components/goals/GoalFormModal.tsx
++++ b/src/components/goals/GoalFormModal.tsx
+@@ -65 +65 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
+-    <Modal
++    <Modal manageFocus
+@@ -89 +89 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
+-          autoFocus
++          autoFocus={false}
+diff --git a/src/components/views/DashboardView.tsx b/src/components/views/DashboardView.tsx
+index d17577b..9503f27 100644
+--- a/src/components/views/DashboardView.tsx
++++ b/src/components/views/DashboardView.tsx
+@@ -976 +976 @@ const DashboardView: React.FC = () => {
+-              <p className="text-highlight/80 text-sm">
++              <p data-finance="info" className="text-highlight/80 text-sm">

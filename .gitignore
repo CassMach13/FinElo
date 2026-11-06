@@ -19,6 +19,17 @@ dist
 dist-ssr
 *.local
 .vercel
+
+# Snapshot imutável e reproduzível da main para comparação visual local
+scripts/diagnostics/theme-financial-baseline/
+scripts/diagnostics/theme-import-main-baseline/
+scripts/diagnostics/theme-import-reviewed-baseline/
+scripts/diagnostics/theme-card-main-baseline/
+scripts/diagnostics/theme-card-reviewed-baseline/
+scripts/diagnostics/theme-reconciliation-main-baseline/
+scripts/diagnostics/theme-reconciliation-reviewed-baseline/
+scripts/diagnostics/theme-dashboard-main-baseline/
+scripts/diagnostics/theme-dashboard-reviewed-baseline/
 .vscode
 
 # Assets / Media (Large Files)
@@ -51,3 +62,12 @@ service-account*.json
 scripts/sql/diagnose_marcelo_*.sql
 
 .vercel
+
+scripts/diagnostics/theme-investments-main-baseline/
+scripts/diagnostics/theme-investments-reviewed-baseline/
+
+scripts/diagnostics/theme-remaining-main-baseline/
+scripts/diagnostics/theme-remaining-reviewed-baseline/
+scripts/diagnostics/theme-integrated-main-baseline/
+scripts/diagnostics/theme-integrated-reviewed-baseline/
+scripts/diagnostics/theme-pwa-r1-regression/

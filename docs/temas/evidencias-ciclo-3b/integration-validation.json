@@ -1,0 +1,306 @@
+{
+  "status": "PASS",
+  "bases": {
+    "main": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+    "reviewed": "6f7a94b11286843d073295cc2be4e3c7601ea531"
+  },
+  "source_sha256": {
+    "src/components/views/ImportView.tsx": "87f0d799142edf60137aa3810bdc8f547c585222dd3991f21e986ab0db1adc48",
+    "src/components/modals/OpenFinanceReviewModal.tsx": "64f6afdb4edaa83b164d0bc3abd0c9f4cde516f74dee566aab84911f404f0b91",
+    "src/components/modals/SaveConfigModal.tsx": "0cd25094c0c282d50198ad7b78b7c90bd56be098e4bf26e132b731b8f0edc295",
+    "src/components/modals/ImportDetailsModal.tsx": "2eb1cff34bd10ec533d90f2ed4b0b9ad0311264b88011fecd46bafdf4eedeb96",
+    "src/components/onboarding/ImportSuccessPanel.tsx": "2651e4bc042a22f9344ae4c9d678608bb85fc40888533deb956995aa46d63f0a",
+    "src/components/views/SettingsView.tsx": "f74a2a6c7c6b5ec5e1a0f1c037a282897346ce3c3d484fe8ab51534fed2067fd",
+    "src/components/imports/ImportFeedback.tsx": "c38bc8eae38691e4b870c7cd68779d1681b6fbfaa0ae8a15943c8f0f4426b312",
+    "src/components/appearance/financial.css": "dd044c50a0294e16ee0baee33b1a305f3cbc06926e59f41ba76d6958c71daf14",
+    "scripts/diagnostics/import-preview-runtime.tsx": "2f0ad6d987a1cc04be961f4a390fdb39fa1dd97f382b5d8cb7930c2f063d453e",
+    "scripts/diagnostics/import-preview.tsx": "b6e7823f79df98d53886f3b5b34530f8713d582f51c2498f89322c242530d418",
+    "scripts/diagnostics/validate-import-themes.py": "35cbcd084a29f744226a7fa32b0aa94674a08281eff27c5b3b13b840f0bababa",
+    "scripts/diagnostics/import_visual_checks.py": "a228014200d07847d31c377eb26ea48341438daf7c7d169831180d559872ec45"
+  },
+  "remote_requests": 0,
+  "javascript_errors": [],
+  "accessibility": {
+    "desktop-dark": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "desktop-light": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "mobile-dark": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "mobile-light": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    }
+  },
+  "approved_feedback_exceptions": {
+    "desktop-consentimento-cpf-invalido": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "6e11364bd72624c208c1822b5d603ebbf000f5d04fd9bc7339d7e4a297d2f677",
+      "dark_sha256": "557ecac9fa8eaa97ab93a5a3c393a1a1f9a6b7811db01bc7db5542e7a24fa066",
+      "reference_presentation": {
+        "geometry": "021c44b487a430f843c91df4498df73f4ab00c4764bacc62df26ba450bc1812f",
+        "content": "b321e68e9ef724776d2f2c0225037927fb9827611b5453399c11d1f99b2e467d",
+        "colors": "a8a92df634085d2676b9e64876d90a0b6a2e681d2e3c4fb5fb99a1bd74ee398c"
+      },
+      "dark_presentation": {
+        "geometry": "43e018ccd160a60905bb01574160abf887f5ba72b665147bff63278e19a3e4bd",
+        "content": "bdd37c06c9033e2be5168cfb66e150df7298db8e69c67d8a39d20d5c041451c9",
+        "colors": "c00d4fc793d58ac6cb1186d7a339c97e41f498b3f4c9cd2e8f893f19fd5d949d"
+      },
+      "financial_equivalence": true
+    },
+    "desktop-consentimento-erro": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "9b29cdb426c988fd21b84e186a8c9f91304727c46115b0812c83c9986375ac70",
+      "dark_sha256": "fd5ae93a10b23faeda8db658225f958c9fbc1e44e7b5920000f135ac3c856047",
+      "reference_presentation": {
+        "geometry": "021c44b487a430f843c91df4498df73f4ab00c4764bacc62df26ba450bc1812f",
+        "content": "a4476437b0a35c2edb8600363fb411cc7cd20c1bf2d4e2f8db0661629f4f59d7",
+        "colors": "6bb137e9fca852473e1c95127cf56ed5455cc4743c7b134038dd9220304ed65e"
+      },
+      "dark_presentation": {
+        "geometry": "43e018ccd160a60905bb01574160abf887f5ba72b665147bff63278e19a3e4bd",
+        "content": "4a81f723abfcce2f9c2795038a128d76853978595c5458a1b68f9bab4254680f",
+        "colors": "3eae7fe0039407b1edd203fc1080f9f00a93532968cddbbd15b5f08cd38b63fa"
+      },
+      "financial_equivalence": true
+    },
+    "desktop-integracao-erro-e-suporte": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "3c94f2609fef15db1bb0505d973c94c59391a662daa6bf7bda5c71b6df4736d0",
+      "dark_sha256": "5d0296cd4483b2ede0e3eba1d882be15c635d33b090a1960a09c23054f81f60d",
+      "reference_presentation": {
+        "geometry": "f36b397839e9709eaf62e666eb1abc789c8324e3707d6a36a096a5497ab06943",
+        "content": "a9c307927e3133f623e46ff3faaf1141f623941940649b669ce27604b91123c8",
+        "colors": "a766dfcb126e1d826df84f27e9c8402cea9fd06acb101b0568c439f82622847e"
+      },
+      "dark_presentation": {
+        "geometry": "13a9255463fd718b89f4cf25f48ec0c87b359efbaaef3ed4b7ae2cd6a6d5ff3f",
+        "content": "60fbd97fc702bf0516c856b86b167cac3b9524715e7886a7a6ed4268d72e75b1",
+        "colors": "81d1dfa8aefb06d3dd8bba9d4586c14eba1040a9bb7b73b978958a527991933c"
+      },
+      "financial_equivalence": true
+    },
+    "desktop-integracao-janela-simulada": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "172bbd568e3fbcfc8fcf275fc3a0adfa324bc7277490b9ce9b3800c3e656a7cf",
+      "dark_sha256": "c4e65ff8fc64533d3adfd2768ea79debc74959b4c7a86ae762359b87af033d4e",
+      "reference_presentation": {
+        "geometry": "b023cdbc4dfa6ca22f0b6016e5020e3fa5ad7dc33f3647f9e149e4f839144ab9",
+        "content": "fba83c8a286142084ad9b2025d78e9a6a7c9cd59ae666b617d7c1beb9b76717e",
+        "colors": "50a1686a29c7cabaec3f049ffdf926b51a676dd7be9913fc797ef488cf156181"
+      },
+      "dark_presentation": {
+        "geometry": "ad02394a299c1fae0f1652da19aa092a851c8be454e3ca7eb6d0356995267fcf",
+        "content": "2531f9c27e782d474dfdf1ad7e6c29a64639b912f3b2ff5c01d2ac0a5b07839c",
+        "colors": "445ebcb9d68160ae68b4b17a3adac4057ad3ecd41826fd4e6c2e21b4a0859100"
+      },
+      "financial_equivalence": true
+    },
+    "desktop-integracao-retorno": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "7e9c9a143038e65e67615ed95b4e91ff5c7769a2cf34a089f70d6fcce0ca3693",
+      "dark_sha256": "9e59874d5612c8d13a95d56a677bb157d382816e4c0c2f019ef795a2ea8dbe75",
+      "reference_presentation": {
+        "geometry": "43932124f4b9d826609887666e6e017c9bee43b90a790c8fd26dd654902180b7",
+        "content": "37660627ba42bd545e417d6c88d9d0b38d7af807f2b2abdc5b991808b2c8b00d",
+        "colors": "f6cf3290ac358d5a1dc4939d3bdf610bffa1cb91b778c7dc885ef7c3b200685d"
+      },
+      "dark_presentation": {
+        "geometry": "5c5793c71227243b1e9f877c1171f156da81ead8eed26fab8585a0777ea87415",
+        "content": "ff79f37593afd4adec91b9271f3c7b9121dd312abb1bccb41e88bda3f7023a2f",
+        "colors": "f99403d4b060ecd63c607ee670167f89d78805a5a6f9b9654f99351b609f6f63"
+      },
+      "financial_equivalence": true
+    },
+    "mobile-consentimento-cpf-invalido": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "124820007b972fa8c7ca7a2179c8789ab541e41f8cd348318d45af3d31c7f95f",
+      "dark_sha256": "f51806128d7e8a83e80b70340f3efdb68629329b5e0c864ca49e69277a900b45",
+      "reference_presentation": {
+        "geometry": "98133db68d453c0281fe78768b4957d9f7836eca2706c283a5730d125cecf740",
+        "content": "b321e68e9ef724776d2f2c0225037927fb9827611b5453399c11d1f99b2e467d",
+        "colors": "a8a92df634085d2676b9e64876d90a0b6a2e681d2e3c4fb5fb99a1bd74ee398c"
+      },
+      "dark_presentation": {
+        "geometry": "23ff6990b209e2c33b9f4f055229ed06371793c73e26fa4167e007a315ff65b6",
+        "content": "bdd37c06c9033e2be5168cfb66e150df7298db8e69c67d8a39d20d5c041451c9",
+        "colors": "c00d4fc793d58ac6cb1186d7a339c97e41f498b3f4c9cd2e8f893f19fd5d949d"
+      },
+      "financial_equivalence": true
+    },
+    "mobile-consentimento-erro": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "9feeef49981e9bc88782397918352f3303a0ffe63679ecf7457745e246c0b669",
+      "dark_sha256": "b274c68b4bcd1cc6b7220a2442a52088237e27b3d7505039c8d18fc271923053",
+      "reference_presentation": {
+        "geometry": "98133db68d453c0281fe78768b4957d9f7836eca2706c283a5730d125cecf740",
+        "content": "a4476437b0a35c2edb8600363fb411cc7cd20c1bf2d4e2f8db0661629f4f59d7",
+        "colors": "6bb137e9fca852473e1c95127cf56ed5455cc4743c7b134038dd9220304ed65e"
+      },
+      "dark_presentation": {
+        "geometry": "23ff6990b209e2c33b9f4f055229ed06371793c73e26fa4167e007a315ff65b6",
+        "content": "4a81f723abfcce2f9c2795038a128d76853978595c5458a1b68f9bab4254680f",
+        "colors": "3eae7fe0039407b1edd203fc1080f9f00a93532968cddbbd15b5f08cd38b63fa"
+      },
+      "financial_equivalence": true
+    },
+    "mobile-integracao-erro-e-suporte": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "47e48569b32eb2e38a602a2ed6f427a11f8c80c27a328a9ee4c53ccc86810778",
+      "dark_sha256": "778fa4a7642cdfae3dc2b34587eb537165b157fc53e57830955665a0186af487",
+      "reference_presentation": {
+        "geometry": "394d02aa455a9d25726bc5a800eff4044324f998a322fe4193111992dd033849",
+        "content": "a9c307927e3133f623e46ff3faaf1141f623941940649b669ce27604b91123c8",
+        "colors": "a766dfcb126e1d826df84f27e9c8402cea9fd06acb101b0568c439f82622847e"
+      },
+      "dark_presentation": {
+        "geometry": "2cfdb0d96cbdeae1c1ac40d50566d515f57fcc8c792a3723c509a74d93bca1a7",
+        "content": "60fbd97fc702bf0516c856b86b167cac3b9524715e7886a7a6ed4268d72e75b1",
+        "colors": "81d1dfa8aefb06d3dd8bba9d4586c14eba1040a9bb7b73b978958a527991933c"
+      },
+      "financial_equivalence": true
+    },
+    "mobile-integracao-janela-simulada": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "b47f68ee070388fb260788abab48643319ba9bb128492a170c11fe65abf04322",
+      "dark_sha256": "5ed5d0dfd71b5da7338c85ef02d118fa181f0bdc2b8562c63150177c0561124d",
+      "reference_presentation": {
+        "geometry": "72667d94a4ad5d59419c26eb3f417a817d4b8200305d544c147914eca6fde7cf",
+        "content": "fba83c8a286142084ad9b2025d78e9a6a7c9cd59ae666b617d7c1beb9b76717e",
+        "colors": "50a1686a29c7cabaec3f049ffdf926b51a676dd7be9913fc797ef488cf156181"
+      },
+      "dark_presentation": {
+        "geometry": "d292cc09e3ef7281299df765d13dc9df352a39ca9ac8e1b6acd5e14a6a5f4a0d",
+        "content": "2531f9c27e782d474dfdf1ad7e6c29a64639b912f3b2ff5c01d2ac0a5b07839c",
+        "colors": "445ebcb9d68160ae68b4b17a3adac4057ad3ecd41826fd4e6c2e21b4a0859100"
+      },
+      "financial_equivalence": true
+    },
+    "mobile-integracao-retorno": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "c260ad8375041f663bcb9ecec3c8ab7ddf2ad5b175f5b1ca6e7f0b0a088f7592",
+      "dark_sha256": "7fa0f0fee8f244e037404f959853674180cec205b8097550c1e6df477bb5141e",
+      "reference_presentation": {
+        "geometry": "db84ac870d18df8c0a302a8d4cfab45cf5c817926fb7e4af1fd4282e1086c19b",
+        "content": "37660627ba42bd545e417d6c88d9d0b38d7af807f2b2abdc5b991808b2c8b00d",
+        "colors": "f6cf3290ac358d5a1dc4939d3bdf610bffa1cb91b778c7dc885ef7c3b200685d"
+      },
+      "dark_presentation": {
+        "geometry": "4340541717eed4c5579702fd42b81ead228141f62515b62276dfb4720adb42a9",
+        "content": "ff79f37593afd4adec91b9271f3c7b9121dd312abb1bccb41e88bda3f7023a2f",
+        "colors": "f99403d4b060ecd63c607ee670167f89d78805a5a6f9b9654f99351b609f6f63"
+      },
+      "financial_equivalence": true
+    }
+  },
+  "external_manifest": {
+    "path": "integration/validation.json",
+    "sha256": "01b61dcc309f7db6dfcf3ea6af166c5e244ac8a42c193c92c00fb4dfca1b3342",
+    "bytes": 115253
+  },
+  "parity": {
+    "desktop-main": {
+      "pass": true,
+      "comparisons": 27,
+      "exact": 27,
+      "tolerances": {}
+    },
+    "desktop-dark": {
+      "pass": true,
+      "comparisons": 22,
+      "exact": 22,
+      "tolerances": {}
+    },
+    "mobile-main": {
+      "pass": true,
+      "comparisons": 27,
+      "exact": 27,
+      "tolerances": {}
+    },
+    "mobile-dark": {
+      "pass": true,
+      "comparisons": 22,
+      "exact": 22,
+      "tolerances": {}
+    }
+  },
+  "financial": {
+    "desktop-reviewed": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "desktop-main": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "desktop-dark": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "desktop-light": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "mobile-reviewed": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "mobile-main": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "mobile-dark": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    },
+    "mobile-light": {
+      "equivalent": true,
+      "sha256": "a53767d43535a8a3527ee611d916e5f04e34c8df4cfd21d6c7ec716c7afdab90",
+      "states": 27
+    }
+  },
+  "contrast": {
+    "desktop": {
+      "samples": 1644,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": 0
+    },
+    "mobile": {
+      "samples": 1644,
+      "minimum_text": 5.122,
+      "minimum_essential": 4.397,
+      "failures": 0
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "v2-1440-ready-main": {
+    "sha256": "8407681537b4d94815bbf2af90a13b06d1381e8ffb24278fba80c67a3e0d894e"
+  },
+  "v2-1440-ready-dark": {
+    "sha256": "8407681537b4d94815bbf2af90a13b06d1381e8ffb24278fba80c67a3e0d894e"
+  },
+  "v2-1440-ready-light": {
+    "sha256": "26f8bc032cf031e630ad445b06653a8696cae746c593e1cfa4872cecf79ec3be"
+  },
+  "v2-390-ready-dark": {
+    "sha256": "c6ed48afedf3b0481cccd8908da8bbf5ffbb7e183bd33dda88fad5a0bec41221"
+  },
+  "v2-390-ready-light": {
+    "sha256": "3147010c8f4d0257daf82ec47502b178c11c6fbef66a3c0777e52c32d5c2046d"
+  },
+  "assets-390-financing-light": {
+    "sha256": "2a29d89d05d5278644b3fd718225737e1c26de52c47a844ba3edad7fbda381fe"
+  }
+}

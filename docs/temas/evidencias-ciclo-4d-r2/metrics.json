@@ -1,0 +1,2085 @@
+{
+  "base": "11e58ddcd4dc68978cbea401e4c13a72c87fbc7a",
+  "verdict": "NO-GO",
+  "productChanged": false,
+  "implementation": "NOT IMPLEMENTED: additional SW policy authorization required by step 3",
+  "acceptance": "NOT MET: no 48/48 PASS and adversarial approval",
+  "baselineCounts": {
+    "total": 48,
+    "PASS": 23,
+    "FAIL": 25,
+    "safetyFailures": 23,
+    "unexpectedFailures": 2
+  },
+  "baseline": [
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-dark-single-reopened-offline",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-dark-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-idle",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS"
+      },
+      "harnessOrUnexpectedFailure": true,
+      "reason": "Page.wait_for_function: Timeout 30000ms exceeded."
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-dark-tabs-dirty",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-dark-tabs-pending",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-light-single-reopened-offline",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-light-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-light-tabs-dirty",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-light-tabs-pending",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-system-single-reopened-offline",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-system-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-system-tabs-dirty",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-current-to-current-system-tabs-pending",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-dark-single-reopened-offline",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-dark-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-dark-tabs-dirty",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-dark-tabs-pending",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-light-single-reopened-offline",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-light-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-light-tabs-dirty",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-light-tabs-pending",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-system-single-reopened-offline",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-system-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-system-tabs-dirty",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-msedge-legacy-to-current-system-tabs-pending",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-dark-single-reopened-offline",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-dark-tabs-idle",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-dark-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS"
+      },
+      "harnessOrUnexpectedFailure": true,
+      "reason": "Page.wait_for_function: Timeout 30000ms exceeded."
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-dark-tabs-pending",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-light-single-reopened-offline",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-light-tabs-idle",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-light-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-light-tabs-pending",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "light",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-system-single-reopened-offline",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-system-tabs-idle",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-system-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-current-to-current-system-tabs-pending",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "system",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-dark-single-reopened-offline",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-dark-tabs-idle",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-dark-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-dark-tabs-pending",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "dark",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-light-single-reopened-offline",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-light-tabs-idle",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-light-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-light-tabs-pending",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "light",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-system-single-reopened-offline",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "single-reopened-offline",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "offlineAppearance": "PASS",
+        "reconnection": "PASS",
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-system-tabs-idle",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-system-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": []
+    },
+    {
+      "name": "r2-baseline-final-chrome-legacy-to-current-system-tabs-pending",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "legacy-to-current",
+      "preference": "system",
+      "scenario": "tabs-pending",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "light",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded a pending financial operation",
+      "intentionalFinancialPostAttempts": [
+        {
+          "table": "financial_goals",
+          "body": [
+            {
+              "user_id": "10000000-0000-4000-8000-000000000001",
+              "name": "PWA_R1_DRAFT_A",
+              "target_amount": 1234.56,
+              "current_amount": 0,
+              "target_date": null
+            }
+          ]
+        }
+      ],
+      "syntheticRefusalDelivery": [
+        "refusal-delivered"
+      ]
+    }
+  ],
+  "sameDeadlineRetryCounts": {
+    "total": 2,
+    "PASS": 1,
+    "FAIL": 1,
+    "safetyFailures": 1,
+    "unexpectedFailures": 0
+  },
+  "sameDeadlineRetries": [
+    {
+      "name": "r2-same-deadline-retry-msedge-current-to-current-dark-tabs-idle",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-idle",
+      "status": "PASS",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": [],
+      "originalAttempt": "r2-baseline-final-msedge-current-to-current-dark-tabs-idle",
+      "originalReason": "Page.wait_for_function: Timeout 30000ms exceeded."
+    },
+    {
+      "name": "r2-same-deadline-retry-chrome-current-to-current-dark-tabs-dirty",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "transition": "current-to-current",
+      "preference": "dark",
+      "scenario": "tabs-dirty",
+      "status": "FAIL",
+      "rawWorkers": true,
+      "osInstallation": "NOT TESTED",
+      "remoteAuth": "BLOCKED",
+      "checks": {
+        "noAutomaticInterruptionBeforeConfirmation": "PASS",
+        "otherTabPendingWorkPreserved": "FAIL",
+        "resourceVersionsAndBytes": "PASS",
+        "financialCollectionsEquivalent": "PASS",
+        "noDuplicateOrPersistedFinancialWrite": "PASS",
+        "accountIsolation": "PASS"
+      },
+      "secondaryAfterOtherTabConfirmation": {
+        "html": "b",
+        "runtime": "b",
+        "draft": null,
+        "target": null,
+        "saving": false,
+        "theme": "dark",
+        "actor": "10000000-0000-4000-8000-000000000001",
+        "ready": "ready"
+      },
+      "safetyFailure": true,
+      "reason": "Other tab reloaded without its own confirmation and discarded an unsaved form",
+      "intentionalFinancialPostAttempts": [],
+      "syntheticRefusalDelivery": [],
+      "originalAttempt": "r2-baseline-final-chrome-current-to-current-dark-tabs-dirty",
+      "originalReason": "Page.wait_for_function: Timeout 30000ms exceeded."
+    }
+  ],
+  "boundaryCounts": {
+    "total": 4,
+    "PASS": 0,
+    "FAIL": 4,
+    "safetyFailures": 4,
+    "unexpectedFailures": 0
+  },
+  "boundary": [
+    {
+      "name": "r2-boundary-msedge-proposed-prompt",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "policyA": "proposed-prompt",
+      "kind": "counterexample, not R2 acceptance",
+      "status": "FAIL",
+      "workerB": "diagnostic prefix gate; not raw release",
+      "historicalArtifactsModified": false,
+      "productSourcesModified": false,
+      "diagnosticWorkerSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab",
+      "inventory": {
+        "namespace": "FINELO_PWA_R2",
+        "protocol": 1,
+        "requestId": "2d09445c-ef97-4c02-8dff-0c6623137a6a",
+        "status": "INVENTORY_ONLY",
+        "clients": [
+          {
+            "id": "736b0d3a-62b5-4cbf-a62a-2685be318a2c",
+            "type": "window",
+            "readiness": "unknown"
+          },
+          {
+            "id": "fbaf458e-480d-4ff4-8f07-aceca9d3d6dc",
+            "type": "window",
+            "readiness": "unknown"
+          }
+        ]
+      },
+      "broadcastReplies": 0,
+      "before": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_INITIATOR_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "after": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": null,
+          "target": null,
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "counterexampleReproduced": true,
+      "workerState": {
+        "waiting": "installed",
+        "active": "activated",
+        "controllerIsActive": true
+      },
+      "reason": "Old initiating page discarded its draft using its own 1s fallback reload, even though new worker activation was refused"
+    },
+    {
+      "name": "r2-boundary-msedge-original",
+      "channel": "msedge",
+      "browserVersion": "156.0.4314.58",
+      "policyA": "original",
+      "kind": "counterexample, not R2 acceptance",
+      "status": "FAIL",
+      "workerB": "diagnostic prefix gate; not raw release",
+      "historicalArtifactsModified": false,
+      "productSourcesModified": false,
+      "diagnosticWorkerSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab",
+      "inventory": {
+        "namespace": "FINELO_PWA_R2",
+        "protocol": 1,
+        "requestId": "5f0ccbf7-936d-439d-b99d-37c8b2549504",
+        "status": "INVENTORY_ONLY",
+        "clients": [
+          {
+            "id": "86f509e4-f690-4c3f-8fac-a448e4ce262c",
+            "type": "window",
+            "readiness": "unknown"
+          },
+          {
+            "id": "45e3ad21-3a6f-42d2-9936-e081a4df67bd",
+            "type": "window",
+            "readiness": "unknown"
+          }
+        ]
+      },
+      "broadcastReplies": 0,
+      "before": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_INITIATOR_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "after": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": null,
+          "target": null,
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "counterexampleReproduced": true,
+      "workerState": {
+        "waiting": "installed",
+        "active": "activated",
+        "controllerIsActive": true
+      },
+      "reason": "Old initiating page discarded its draft using its own 1s fallback reload, even though new worker activation was refused"
+    },
+    {
+      "name": "r2-boundary-chrome-proposed-prompt",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "policyA": "proposed-prompt",
+      "kind": "counterexample, not R2 acceptance",
+      "status": "FAIL",
+      "workerB": "diagnostic prefix gate; not raw release",
+      "historicalArtifactsModified": false,
+      "productSourcesModified": false,
+      "diagnosticWorkerSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab",
+      "inventory": {
+        "namespace": "FINELO_PWA_R2",
+        "protocol": 1,
+        "requestId": "fae7d4cf-77b7-473d-a9c2-1928bc38bc9d",
+        "status": "INVENTORY_ONLY",
+        "clients": [
+          {
+            "id": "a99e73a0-3313-4f9b-bd26-4837b7033429",
+            "type": "window",
+            "readiness": "unknown"
+          },
+          {
+            "id": "428b61f2-4096-41a3-828a-4175e8a1ca44",
+            "type": "window",
+            "readiness": "unknown"
+          }
+        ]
+      },
+      "broadcastReplies": 0,
+      "before": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_INITIATOR_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "after": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": null,
+          "target": null,
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "counterexampleReproduced": true,
+      "workerState": {
+        "waiting": "installed",
+        "active": "activated",
+        "controllerIsActive": true
+      },
+      "reason": "Old initiating page discarded its draft using its own 1s fallback reload, even though new worker activation was refused"
+    },
+    {
+      "name": "r2-boundary-chrome-original",
+      "channel": "chrome",
+      "browserVersion": "156.0.8078.80",
+      "policyA": "original",
+      "kind": "counterexample, not R2 acceptance",
+      "status": "FAIL",
+      "workerB": "diagnostic prefix gate; not raw release",
+      "historicalArtifactsModified": false,
+      "productSourcesModified": false,
+      "diagnosticWorkerSHA256": "5e52bc4517b2ff021e3dce1e297367edfd388af451ae011f78db5c9f832765ab",
+      "inventory": {
+        "namespace": "FINELO_PWA_R2",
+        "protocol": 1,
+        "requestId": "c4e5645c-e45f-42ca-82b8-4ff3f8a89436",
+        "status": "INVENTORY_ONLY",
+        "clients": [
+          {
+            "id": "c0d63d08-414d-43e2-81c4-70d6ea5e0685",
+            "type": "window",
+            "readiness": "unknown"
+          },
+          {
+            "id": "ded6ac3f-a39b-47b2-b29d-15ee12f6fdf7",
+            "type": "window",
+            "readiness": "unknown"
+          }
+        ]
+      },
+      "broadcastReplies": 0,
+      "before": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_INITIATOR_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "after": [
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": null,
+          "target": null,
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        },
+        {
+          "html": "a",
+          "runtime": "a",
+          "draft": "R2_OTHER_TAB_DRAFT",
+          "target": "1234,56",
+          "saving": false,
+          "theme": "light",
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "ready": "ready"
+        }
+      ],
+      "counterexampleReproduced": true,
+      "workerState": {
+        "waiting": "installed",
+        "active": "activated",
+        "controllerIsActive": true
+      },
+      "reason": "Old initiating page discarded its draft using its own 1s fallback reload, even though new worker activation was refused"
+    }
+  ],
+  "localValidation": {
+    "fullSuite": {
+      "passed": 3428,
+      "skipped": 1,
+      "passedFiles": 213,
+      "skippedFiles": 1,
+      "exitCode": 0,
+      "durationSeconds": 737.55,
+      "sourceReceipt": "r2-regression-source.json",
+      "environment": "synthetic explicit placeholders; .invalid origin; no .env or untracked private files"
+    },
+    "focal": {
+      "passed": 12,
+      "files": 1,
+      "exitCode": 0,
+      "meaning": "proposed boundary diagnostics only"
+    },
+    "typescript": {
+      "known": 14,
+      "new": 0,
+      "exitCode": 0
+    },
+    "build": {
+      "exitCode": 0,
+      "pwaEntries": 49,
+      "proposalMarkers": 0,
+      "skipWaitingMessageHandler": true,
+      "configurationCanonicalSHA256": "fe3eb352f4d8a98a0ae4912f93224992c091ad9d4670f6639b66c26143f0412b",
+      "warnings": [
+        "Browserslist caniuse-lite 6 months old",
+        "chunk-size warning"
+      ]
+    },
+    "firstFullRun": "r2-run-attempts.json records 13 failed imports without mandatory placeholder environment; preserved, not suppressed",
+    "productChanged": false,
+    "ci": "see PR description for exact final HEAD/run"
+  },
+  "remoteAuth": "BLOCKED",
+  "physicalInstalledPWA": "NOT TESTED",
+  "adversarialAcceptance": "NOT TESTED: complete protocol not installed; see report for individual scope",
+  "historicalR1ArchiveSHA256": "12d8c7fa215cbb828eb0dd251898e12f0683371a0f08fc1dc731d10d26126456"
+}

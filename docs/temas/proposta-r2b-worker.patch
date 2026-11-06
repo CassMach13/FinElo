@@ -1,0 +1,132 @@
+diff --git a/scripts/diagnostics/pwa-r2b/worker.js b/scripts/diagnostics/pwa-r2b/worker.js
+new file mode 100644
+--- /dev/null
++++ b/scripts/diagnostics/pwa-r2b/worker.js
+@@ -0,0 +1,127 @@
++/* Isolated prototype only. Served exclusively by server.py on loopback.
++ * Deliberately has NO skipWaiting, claim, navigate or cache deletion path.
++ */
++const BUILD = '__BUILD__';
++const PROTOCOL = 'FINELO_R2B_1';
++const ACK_MS = 700;
++const LEASE_MS = 8000;
++const CACHE = `finelo-r2b-${BUILD}`;
++const STATIC = ['index.html','client.js','style.css','marker.svg'].map(name=>`/v/${BUILD}/${name}`);
++globalThis.prototypeActivated = false;
++globalThis.prototypeGeneration = crypto.randomUUID();
++let round = null;
++self.addEventListener('install',event=>event.waitUntil((async()=>{
++  const cache=await caches.open(CACHE);await cache.addAll(STATIC);
++})()));
++self.addEventListener('activate',()=>{globalThis.prototypeActivated=true;});
++self.addEventListener('fetch',event=>{
++  const url=new URL(event.request.url);
++  if(url.origin!==self.location.origin)return;
++  if(event.request.mode==='navigate' && ['/', '/app'].includes(url.pathname)){
++    event.respondWith(caches.open(CACHE).then(c=>c.match(`/v/${BUILD}/index.html`)));
++  }else if(url.pathname.startsWith('/v/')){
++    event.respondWith((async()=>{
++      if(!STATIC.includes(url.pathname))return new Response('Wrong build',{status:409});
++      return (await(await caches.open(CACHE)).match(url.pathname))||new Response('Missing immutable asset',{status:503});
++    })());
++  }
++  // API requests are never cached, rewritten, queued or retried.
++});
++
++const inventory=()=>self.clients.matchAll({type:'all',includeUncontrolled:true});
++const ids=clients=>clients.map(c=>c.id).sort().join('|');
++function broadcast(clients,type,current){
++  for(const c of clients)c.postMessage({protocol:PROTOCOL,type,roundId:current.id});
++}
++async function abort(reason){
++  const previous=round;round=null;
++  if(previous){clearTimeout(previous.timer);broadcast(await inventory(),'ABORT',previous);}
++  return {status:'BLOCKED',reason};
++}
++function valid(id){return round&&round.id===id&&Date.now()<round.deadline;}
++function challenge(client,current,phase){
++  return new Promise(resolve=>{
++    const channel=new MessageChannel(),nonce=crypto.randomUUID();
++    const timer=setTimeout(()=>{channel.port1.close();resolve({client:client.id,state:'unknown',reason:'NO_RESPONSE'});},ACK_MS);
++    channel.port1.onmessage=event=>{
++      const data=event.data;clearTimeout(timer);channel.port1.close();
++      if(data?.protocol!==PROTOCOL||data.nonce!==nonce||data.roundId!==current.id||
++         typeof data.epoch!=='string'||data.build===undefined){resolve({client:client.id,state:'unknown',reason:'INVALID_ACK'});return;}
++      resolve({client:client.id,epoch:data.epoch,build:data.build,state:data.state,frozen:data.frozen});
++    };
++    client.postMessage({protocol:PROTOCOL,type:'CHALLENGE',roundId:current.id,nonce,phase,
++      deadline:current.deadline,generation:prototypeGeneration},[channel.port2]);
++  });
++}
++async function verify(current,phase,clients,compareMembership=true){
++  const replies=await Promise.all(clients.map(c=>challenge(c,current,phase)));
++  if(round!==current||!valid(current.id))return {reason:'EXPIRED_OR_RESTARTED'};
++  const blocked=replies.find(r=>r.state!=='clean'||r.frozen!==true);
++  if(blocked)return {reason:blocked.reason||blocked.state||'UNKNOWN_CLIENT',replies};
++  if(phase!=='prepare'&&replies.some(r=>current.epochs.get(r.client)!==r.epoch))return {reason:'DOCUMENT_CHANGED',replies};
++  const fresh=await inventory();
++  if(compareMembership&&ids(fresh)!==ids(clients))return {reason:'MEMBERSHIP_CHANGED',replies};
++  return {replies};
++}
++self.addEventListener('message',event=>{
++  const data=event.data;
++  // A legacy caller cannot force activation, including a caller with no port.
++  if(data?.type==='SKIP_WAITING')return;
++  if(data?.protocol!==PROTOCOL||typeof data.requestId!=='string'||data.requestId.length>100||!event.ports[0])return;
++  const reply=value=>event.ports[0].postMessage({requestId:data.requestId,...value,generation:prototypeGeneration,build:BUILD});
++  event.waitUntil((async()=>{
++    try{
++      const source=event.source?.id&&await self.clients.get(event.source.id);
++      if(!source||source.type!=='window'||new URL(source.url).origin!==self.location.origin){reply({status:'BLOCKED',reason:'INVALID_SOURCE'});return;}
++      if(data.type==='VERSION'){reply({status:'VERSION',activated:prototypeActivated});return;}
++      if(data.type==='INVENTORY'){reply({status:'INVENTORY',clients:(await inventory()).map(c=>({id:c.id,type:c.type}))});return;}
++      if(data.type==='BEGIN'){
++        if(round&&Date.now()<round.deadline){reply({status:'BLOCKED',reason:'BUSY'});return;}
++        if(round)await abort('EXPIRED');
++        const current={id:crypto.randomUUID(),owner:source.id,phase:'prepare',deadline:Date.now()+LEASE_MS,epochs:new Map(),members:new Set(),departed:new Set()};
++        round=current;
++        current.timer=setTimeout(()=>{if(round===current)void abort('EXPIRED');},LEASE_MS);
++        const clients=await inventory();
++        if(clients.some(c=>c.type!=='window')){reply(await abort('UNKNOWN_WORKER_CLIENT'));return;}
++        current.members=new Set(clients.map(c=>c.id));
++        const result=await verify(current,'prepare',clients);
++        if(result.reason){reply({...await abort(result.reason),replies:result.replies});return;}
++        for(const item of result.replies)current.epochs.set(item.client,item.epoch);
++        current.phase='prepared';reply({status:'PREPARED',roundId:current.id,deadline:current.deadline,clients:result.replies});return;
++      }
++      if(!valid(data.roundId)){
++        if(typeof data.roundId==='string')broadcast(await inventory(),'ABORT',{id:data.roundId});
++        reply({status:'BLOCKED',reason:'STALE_OR_EXPIRED'});return;
++      }
++      const current=round;
++      if(data.type==='CANCEL'){
++        if(!current.members.has(source.id)){reply({status:'BLOCKED',reason:'NOT_MEMBER'});return;}
++        reply(await abort('CANCELLED'));return;
++      }
++      if(data.type==='STATUS'){reply({status:current.phase.toUpperCase(),roundId:current.id,deadline:current.deadline});return;}
++      if(data.type==='COMMIT'){
++        if(source.id!==current.owner||current.phase!=='prepared'){reply({status:'BLOCKED',reason:'NOT_OWNER_OR_PHASE'});return;}
++        const clients=await inventory();
++        if(ids(clients)!==[...current.members].sort().join('|')){reply(await abort('MEMBERSHIP_CHANGED'));return;}
++        const result=await verify(current,'commit',clients);
++        if(result.reason){reply({...await abort(result.reason),replies:result.replies});return;}
++        current.phase='draining';broadcast(clients,'DRAINING',current);
++        reply({status:'DRAINING',roundId:current.id,deadline:current.deadline});return;
++      }
++      if(data.type==='LEAVE'){
++        if(current.phase!=='draining'||!current.members.has(source.id)){reply({status:'BLOCKED',reason:'NOT_MEMBER_OR_PHASE'});return;}
++        const clients=await inventory();
++        if(clients.some(c=>!current.members.has(c.id))){reply(await abort('NEW_CLIENT'));return;}
++        if(source.id===current.owner&&clients.some(c=>c.id!==source.id)){reply({status:'BLOCKED',reason:'CLIENTS_REMAIN'});return;}
++        const result=await verify(current,'leave',[source],false);
++        if(result.reason){reply(await abort(result.reason));return;}
++        const fresh=await inventory();
++        if(!valid(current.id)||fresh.some(c=>!current.members.has(c.id))){reply(await abort('NEW_CLIENT_OR_EXPIRED'));return;}
++        if(source.id===current.owner&&fresh.some(c=>c.id!==source.id)){reply({status:'BLOCKED',reason:'CLIENTS_REMAIN'});return;}
++        current.departed.add(source.id);
++        reply({status:'HANDOFF',roundId:current.id,deadline:current.deadline});return;
++      }
++      reply({status:'BLOCKED',reason:'UNSUPPORTED'});
++    }catch{reply(await abort('PROTOCOL_ERROR'));}
++  })());
++});

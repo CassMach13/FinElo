@@ -1,0 +1,35 @@
+{
+  "productCodeCommit": "ab91f69d3c1da868cf3ac5b815d5630e4b63f361",
+  "images": [
+    {
+      "file": "global-shell-1440-dark.png",
+      "bytes": 91118,
+      "sha256": "559755a3a6e665076d469f02f1ec7d5f6d2e8ed80ad5f72b21e92063f29b7202"
+    },
+    {
+      "file": "global-shell-1440-light.png",
+      "bytes": 92847,
+      "sha256": "6099331b661a28c1e5d9ec6eba1568dcc290d9b9b6edc1c3ddb70b521d340b15"
+    },
+    {
+      "file": "residual-file-consent-checked-1440-dark.png",
+      "bytes": 96686,
+      "sha256": "94a6bfc2d89592fe5f84b01db8db595b26faca1156427036497d4880e34197bf"
+    },
+    {
+      "file": "residual-file-consent-checked-1440-light.png",
+      "bytes": 95564,
+      "sha256": "44c1c7f22b52573e387718118c770e7d98aa38969d1cfa404aa10d8a45b9cab8"
+    },
+    {
+      "file": "global-pin-locked-390-dark.png",
+      "bytes": 114598,
+      "sha256": "9090f1cb161e470acaa9e04eb752ec8c3377f609b224ebfac8ccec9ec777247e"
+    },
+    {
+      "file": "global-pin-locked-390-light.png",
+      "bytes": 21013,
+      "sha256": "deab01ab394410bc0229bb05fed146db6a9887f9b943edd2cadc9ae3a5fd52f4"
+    }
+  ]
+}

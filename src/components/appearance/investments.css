@@ -1,0 +1,37 @@
+@import './financial.css';
+/* Screen paint only. Legacy classes, SVG coordinates and print stay authoritative. */
+@media screen {
+ [data-finelo-theme="light"] [data-finance~="investment-tone"] { color: rgb(var(--appearance-chart-3)); }
+ [data-finelo-theme="light"] [data-finance~="investment-panel"] { color: rgb(var(--appearance-chart-3)); background-color: rgb(var(--appearance-chart-3) / .08); border-color: rgb(var(--appearance-chart-3) / .4); }
+ [data-finelo-theme="light"] [data-finance~="investment-line"] { background-color: rgb(var(--appearance-chart-3)); }
+ [data-finelo-theme="light"] [data-finance~="investment-gradient"] { color: rgb(var(--appearance-content)); background-image: none; }
+ [data-finelo-theme="light"] [data-finance~="investment-opaque"] { opacity: 1; }
+ [data-finelo-theme="light"] [data-finance~="investment-value"] { color: rgb(var(--appearance-content)); }
+ [data-finelo-theme="light"] [data-finance~="investment-value"][class~="text-emerald-300"] { color: rgb(var(--appearance-positive)); }
+ [data-finelo-theme="light"] [data-finance~="investment-value"][class~="text-slate-500"] { color: rgb(var(--appearance-muted)); }
+ [data-finelo-theme="light"] [data-finance~="investment-shelf-card"] { color: rgb(var(--appearance-content)); background-color: rgb(var(--appearance-control)); border-color: rgb(var(--appearance-control-border)); }
+ [data-finelo-theme="light"] [data-finance~="investment-shelf-card"][aria-pressed="true"] { background-color: rgb(var(--appearance-info-surface)); border-color: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-classification"] { color: rgb(var(--appearance-muted)); background-color: rgb(var(--appearance-control)); border-color: rgb(var(--appearance-control-border)); }
+ [data-finelo-theme="light"] [data-finance~="investment-classification"][data-finance-state="assigned"] { color: rgb(var(--appearance-info)); background-color: rgb(var(--appearance-info-surface)); border-color: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-equity"] { color: rgb(var(--appearance-content)); background-color: rgb(var(--appearance-surface)); }
+ [data-finelo-theme="light"] [data-finance~="investment-equity"][class~="text-accent"] { color: rgb(var(--appearance-positive)); background-color: rgb(var(--appearance-success-surface)); }
+ [data-finelo-theme="light"] [data-finance~="investment-equity"][class~="text-danger"] { color: rgb(var(--appearance-negative)); background-color: rgb(var(--appearance-danger-surface)); }
+ [data-finelo-theme="light"] [data-finance~="investment-painted"] { color: rgb(var(--appearance-content)); background: rgb(var(--appearance-surface)) !important; border-color: rgb(var(--appearance-control-border)) !important; box-shadow: 0 8px 24px rgb(var(--appearance-content) / .12) !important; }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-label"] { fill: rgb(var(--appearance-muted)); }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-grid"] { stroke: rgb(var(--appearance-divider)); }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-line"] { stroke: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-point"] { fill: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-marker"] { fill: rgb(var(--appearance-surface)); stroke: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-stop"] { stop-color: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-glow"] { opacity: 0; }
+ [data-finelo-theme="light"] [data-finance~="investment-chart-focus"]:focus-visible { stroke: rgb(var(--appearance-focus)); }
+ [data-finelo-theme="light"] [data-finance~="investment-bar"] { background-color: rgb(var(--appearance-info)); }
+ [data-finelo-theme="light"] [data-finance~="investment-hint-trigger"]:focus-visible,
+ [data-finelo-theme="light"] [data-finance~="investment-file-trigger"]:focus-visible { outline: 2px solid rgb(var(--appearance-focus)); outline-offset: 2px; }
+ [data-finance~="investment-hint-trigger"]:focus-within > [data-finance~="investment-hint"],
+ [data-finance~="investment-menu"]:focus-within > [data-finance~="investment-menu-popup"] { visibility: visible; opacity: 1; }
+ [data-finance~="investment-hint-trigger"]:is(:hover,:focus-within) > [data-finance~="investment-hint"],
+ [data-finance~="investment-chart-tooltip"] { pointer-events: auto; }
+ [data-finance~="investment-hint-trigger"][data-finance-dismissed] > [data-finance~="investment-hint"],
+ [data-finance~="investment-menu"][data-finance-dismissed] > [data-finance~="investment-menu-popup"] { visibility: hidden; opacity: 0; pointer-events: none; }
+}

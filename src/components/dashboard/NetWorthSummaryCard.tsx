@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React, { useMemo } from 'react';
 import Card from '../ui/Card';
 import { InformationCircleIcon, ArrowsUpDownIcon } from '../ui/icons';
@@ -110,19 +111,19 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
     >
       <div className="flex justify-between items-start gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest opacity-80">
+          <h3 data-finance="muted dashboard-opaque" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest opacity-80">
             Patrimônio total
           </h3>
-          <div className="group/tooltip relative shrink-0">
+          <div data-finance="dashboard-hint-trigger" tabIndex={0} role="img" aria-label={"Soma do que você possui hoje: contas + investimentos + bens (valor de mercado menos financiamento). «Líquido» nos bens é valor líquido patrimonial, não dinheiro disponível. Não é o fluxo do mês."} className="group/tooltip relative shrink-0">
             <InformationCircleIcon className="h-3.5 w-3.5 text-gray-500 hover:text-gray-300 cursor-help" />
-            <div className="absolute left-0 bottom-full mb-2 hidden w-56 p-3 bg-slate-950/98 backdrop-blur-xl text-[10px] leading-relaxed text-slate-300 rounded-xl shadow-2xl border border-white/10 group-hover/tooltip:block z-[9999] pointer-events-none">
+            <div role="tooltip" data-finance="muted divider inset dashboard-hint" className="absolute left-0 bottom-full mb-2 hidden w-56 p-3 bg-slate-950/98 backdrop-blur-xl text-[10px] leading-relaxed text-slate-300 rounded-xl shadow-2xl border border-white/10 group-hover/tooltip:block z-[9999] pointer-events-none">
               Soma do que você possui hoje: contas + investimentos + bens (valor de mercado menos
               financiamento). «Líquido» nos bens é valor líquido patrimonial, não dinheiro disponível. Não é o
               fluxo do mês.
             </div>
           </div>
         </div>
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-white/5 to-white/10 border border-white/5 text-accent shrink-0">
+        <div data-finance="positive divider" className="p-2.5 rounded-xl bg-gradient-to-br from-white/5 to-white/10 border border-white/5 text-accent shrink-0">
           <ArrowsUpDownIcon className="w-4 h-4" />
         </div>
       </div>
@@ -134,38 +135,38 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
             compareLabel={compare.periodLabel}
             minHeight="min-h-[96px]"
             primary={
-              <p className={`text-2xl font-bold tracking-tight tabular-nums ${variantClass}`}>
+              <p data-finance={(total === 0 ? "content" : (total > 0 ? "positive" : "negative"))} className={`text-2xl font-bold tracking-tight tabular-nums ${variantClass}`}>
                 {formatCurrency(total)}
               </p>
             }
             compare={
-              <p className="text-2xl font-bold tracking-tight tabular-nums text-slate-200">
+              <p data-finance="content" className="text-2xl font-bold tracking-tight tabular-nums text-slate-200">
                 {formatCurrency(compare.breakdown.total)}
               </p>
             }
             footer={
-              <p className={`text-[10px] font-semibold text-center ${deltaToneClass}`}>
+              <p data-finance={(compare?.deltaTone === 'positive' ? "positive" : (compare?.deltaTone === 'negative' ? "negative" : "muted"))} className={`text-[10px] font-semibold text-center ${deltaToneClass}`}>
                 {compare.deltaLabel}
               </p>
             }
           />
-          <p className="text-[10px] text-slate-500 mt-2 text-center">
+          <p data-finance="muted" className="text-[10px] text-slate-500 mt-2 text-center">
             Posição no fim de cada período (contas + investimentos + bens)
           </p>
         </div>
       ) : (
         <>
-          <p className={`text-2xl sm:text-3xl font-bold tracking-tight mt-3 ${variantClass}`}>
+          <p data-finance={(total === 0 ? "content" : (total > 0 ? "positive" : "negative"))} className={`text-2xl sm:text-3xl font-bold tracking-tight mt-3 ${variantClass}`}>
             {formatCurrency(total)}
           </p>
-          <p className="text-[10px] text-slate-400 mt-1">
+          <p data-finance="muted" className="text-[10px] text-slate-400 mt-1">
             Patrimônio consolidado (ativos − financiamentos dos bens)
           </p>
         </>
       )}
 
       {barTotal > 0 && total > 0 ? (
-        <div
+        <div data-finance="divider inset"
           className="mt-4 flex h-2.5 w-full overflow-hidden rounded-full bg-slate-800/80 border border-white/5"
           role="img"
           aria-label="Composição do patrimônio"
@@ -174,7 +175,7 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
             const w = Math.max(0, seg.amount) / barTotal;
             if (w < 0.005) return null;
             return (
-              <div
+              <div data-finance={'chart-bar ' + (seg.id === 'investments' ? 'investment-line dashboard-asset-investment' : seg.id === 'assets' ? 'warning-line dashboard-asset-property' : 'info-line')}
                 key={seg.id}
                 className={`${seg.barColor} h-full transition-all duration-500 first:rounded-l-full last:rounded-r-full`}
                 style={{ width: `${w * 100}%` }}
@@ -189,29 +190,29 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
         {segments.map((seg) => {
           const pct = total !== 0 ? (seg.amount / Math.abs(total)) * 100 : 0;
           return (
-            <li
+            <li data-finance="divider"
               key={seg.id}
               className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-0.5 items-baseline text-sm border-b border-white/5 pb-2 last:border-0 last:pb-0"
             >
-              <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${seg.barColor}`} aria-hidden />
+              <span data-finance={seg.id === 'investments' ? 'investment-line' : seg.id === 'assets' ? 'warning-line' : 'info-line'} className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${seg.barColor}`} aria-hidden />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className={`font-semibold ${seg.color}`}>{seg.label}</span>
-                  <span
+                  <span data-finance={seg.id === 'investments' ? 'investment' : seg.id === 'assets' ? 'warning' : 'info'} className={`font-semibold ${seg.color}`}>{seg.label}</span>
+                  <span data-finance={seg.id === 'investments' ? 'investment-panel' : seg.id === 'assets' ? 'warning-panel' : 'info-panel'}
                     className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border ${seg.liquidityClass}`}
                   >
                     {seg.liquidityTag}
                   </span>
                 </div>
-                <span className="block text-[10px] text-slate-400 leading-snug mt-0.5">{seg.hint}</span>
+                <span data-finance="muted" className="block text-[10px] text-slate-400 leading-snug mt-0.5">{seg.hint}</span>
                 {seg.detail ? (
-                  <span className="block text-[10px] text-slate-300/80 mt-0.5">{seg.detail}</span>
+                  <span data-finance="muted" className="block text-[10px] text-slate-300/80 mt-0.5">{seg.detail}</span>
                 ) : null}
               </div>
               <div className="text-right shrink-0">
-                <span className="font-bold text-slate-100 tabular-nums">{formatCurrency(seg.amount)}</span>
+                <span data-finance="content" className="font-bold text-slate-100 tabular-nums">{formatCurrency(seg.amount)}</span>
                 {total !== 0 ? (
-                  <span className="block text-[10px] text-slate-500 tabular-nums">{pct.toFixed(0)}%</span>
+                  <span data-finance="muted" className="block text-[10px] text-slate-500 tabular-nums">{pct.toFixed(0)}%</span>
                 ) : null}
               </div>
             </li>
@@ -219,7 +220,7 @@ const NetWorthSummaryCard: React.FC<NetWorthSummaryCardProps> = ({
         })}
       </ul>
 
-      <p className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-white/5 leading-relaxed">
+      <p data-finance="muted divider" className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-white/5 leading-relaxed">
         Contas + Investimentos + Bens patrimoniais = {formatCurrency(total)}
       </p>
     </Card>

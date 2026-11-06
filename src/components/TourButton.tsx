@@ -15,7 +15,7 @@ export const TourButton: React.FC<TourButtonProps> = ({ className, currentView }
     };
 
     return (
-        <button
+        <button data-finance="info-chip hover"
             onClick={handleStartTour}
             className={`no-print flex items-center gap-2 px-4 py-2 text-sm font-medium text-light bg-accent/20 hover:bg-accent/30 rounded-lg transition-colors border border-accent/50 ${className}`}
         >

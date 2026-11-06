@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/supabaseClient', () => ({
   supabase: { from: mocks.from, rpc: mocks.rpc, auth: { getUser: mocks.getUser, signOut: mocks.signOut } },
 }));
-vi.mock('../../src/hooks/useDialogStore', () => ({ appAlert: mocks.alert, appConfirm: vi.fn() }));
+vi.mock('../../src/hooks/useDialogStore', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../src/hooks/useDialogStore')>()), appAlert: mocks.alert, appConfirm: vi.fn() }));
 
 import { BACKGROUND_SYNC_MIN_INTERVAL_MS, useAppStore } from '../../src/hooks/useAppStore';
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '../appearance/financial.css';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { formatCurrency } from '../../utils/formatters';
@@ -50,7 +51,7 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
   const pendentes = sugestoes.filter((s) => (escolhas.get(s.indice) ?? null) === null).length;
 
   return (
-    <Modal
+    <Modal manageFocus
       isOpen={true}
       onClose={onCancel}
       title="Parcelas de compras que você já classificou"
@@ -65,16 +66,17 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
     >
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-gray-300 text-sm">
+          <p data-finance="muted" className="text-gray-300 text-sm">
             {sugestoes.length === 1
               ? 'Uma parcela do arquivo tem sugestão de classificação.'
               : `${sugestoes.length} parcelas do arquivo têm sugestões de classificação.`}{' '}
-            Só o <strong className="text-white">nome</strong> e a{' '}
-            <strong className="text-white">categoria</strong> são copiadas — valor, data e parcela
+            Só o <strong data-finance="content" className="text-white">nome</strong> e a{' '}
+            <strong data-finance="content" className="text-white">categoria</strong> são copiadas — valor, data e parcela
             vêm do arquivo.
           </p>
           {aplicadas > 0 && (
             <button
+              data-finance="link"
               type="button"
               onClick={desmarcarTodas}
               className="text-xs text-highlight hover:text-sky-400 whitespace-nowrap"
@@ -85,7 +87,7 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
         </div>
 
         {pendentes > 0 && aplicadas > 0 && (
-          <p className="text-xs text-gray-400">
+          <p data-finance="muted" className="text-xs text-gray-400">
             {pendentes === 1 ? '1 parcela precisa' : `${pendentes} parcelas precisam`} da sua escolha;
             sem escolha, {pendentes === 1 ? 'ela entra' : 'elas entram'} como veio no arquivo.
           </p>
@@ -96,19 +98,19 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
           const ambigua = sugestao.candidatos.length > 1;
 
           return (
-            <div key={sugestao.indice} className="border border-slate-700 rounded-md p-3 bg-slate-900/50">
+            <div data-finance="inset divider" key={sugestao.indice} className="border border-slate-700 rounded-md p-3 bg-slate-900/50">
               <div className="flex justify-between items-baseline gap-3 mb-1">
-                <span className="text-white text-sm font-medium truncate">
+                <span data-finance="content" className="text-white text-sm font-medium truncate">
                   {sugestao.descricaoImportada || 'Lançamento sem descrição'}
                 </span>
-                <span className="text-gray-400 text-xs whitespace-nowrap">
+                <span data-finance="muted" className="text-gray-400 text-xs whitespace-nowrap">
                   {sugestao.parcelaAtual}/{sugestao.totalParcelas} · {formatCurrency(sugestao.valor)} ·{' '}
                   {formatarData(sugestao.data)}
                 </span>
               </div>
 
               {ambigua && (
-                <p className="text-xs text-yellow-400 mb-2">
+                <p data-finance="warning" className="text-xs text-yellow-400 mb-2">
                   Mais de uma compra anterior bate com esta parcela. Escolha qual delas é, ou deixe
                   como está.
                 </p>
@@ -116,10 +118,12 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
               <div className="space-y-1">
                 {sugestao.candidatos.map((candidato) => (
                   <label
+                    data-finance={escolhido === candidato.idTransacao ? 'hover selected' : 'hover'}
                     key={candidato.idTransacao}
                     className="flex items-start gap-2 cursor-pointer p-2 rounded hover:bg-slate-800/60"
                   >
                     <input
+                      data-finance="choice"
                       type="radio"
                       name={`sugestao-${sugestao.indice}`}
                       className="mt-1 text-highlight focus:ring-highlight"
@@ -127,9 +131,9 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
                       onChange={() => escolher(sugestao.indice, candidato.idTransacao)}
                     />
                     <span className="text-sm min-w-0">
-                      <span className="text-white">{candidato.nomeFantasia || 'Sem descrição'}</span>
-                      <span className="text-gray-400"> · {candidato.categoria || 'Sem categoria'}</span>
-                      <span className="block text-xs text-gray-500">
+                      <span data-finance="content" className="text-white">{candidato.nomeFantasia || 'Sem descrição'}</span>
+                      <span data-finance="muted" className="text-gray-400"> · {candidato.categoria || 'Sem categoria'}</span>
+                      <span data-finance="muted" className="block text-xs text-gray-500">
                         {[
                           `${formatCurrency(candidato.valor)} em ${formatarData(candidato.data)}`,
                           ...evidenciasDoCandidato(candidato),
@@ -139,15 +143,16 @@ const InstallmentSuggestionModal: React.FC<InstallmentSuggestionModalProps> = ({
                   </label>
                 ))}
 
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-800/60">
+                <label data-finance={escolhido === null ? 'hover selected' : 'hover'} className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-800/60">
                   <input
+                    data-finance="choice"
                     type="radio"
                     name={`sugestao-${sugestao.indice}`}
                     className="text-highlight focus:ring-highlight"
                     checked={escolhido === null}
                     onChange={() => escolher(sugestao.indice, null)}
                   />
-                  <span className="text-sm text-gray-400">
+                  <span data-finance="muted" className="text-sm text-gray-400">
                     Nenhuma — importar como veio no arquivo
                   </span>
                 </label>

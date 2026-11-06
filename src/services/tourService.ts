@@ -228,6 +228,18 @@ export const startTour = (currentView: string, onComplete?: () => void) => {
         nextBtnText: 'Próximo',
         prevBtnText: 'Anterior',
         doneBtnText: 'Entendi',
+        onPopoverRender: (popover) => {
+            if (currentView !== 'import' || !document.querySelector('[data-finelo-theme="light"] [data-finance~="import-view"]')) return;
+            // The library renders a portal outside the isolated import root. Scope only this popover.
+            popover.wrapper.setAttribute('data-finelo-theme', 'light');
+            popover.wrapper.setAttribute('data-finance', 'tour');
+            popover.title.setAttribute('data-finance', 'content');
+            popover.description.setAttribute('data-finance', 'muted');
+            popover.progress.setAttribute('data-finance', 'muted');
+            popover.previousButton.setAttribute('data-finance', 'secondary');
+            popover.nextButton.setAttribute('data-finance', 'action');
+            popover.closeButton.setAttribute('data-finance', 'muted');
+        },
         onDestroyStarted: () => {
             if (!driverObj.hasNextStep() || confirm("Fechar o tutorial?")) {
                 driverObj.destroy();

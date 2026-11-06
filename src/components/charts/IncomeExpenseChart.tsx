@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import { Transaction } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
@@ -41,16 +42,16 @@ const IncomeExpenseBar: React.FC<{
   return (
     <div className="space-y-2.5">
       <div className="flex justify-between items-center text-xs">
-        <span className="text-gray-400">Receitas</span>
-        <span className="text-emerald-400 font-bold tabular-nums">{formatCurrency(income)}</span>
+        <span data-finance="muted" className="text-gray-400">Receitas</span>
+        <span data-finance="positive" className="text-emerald-400 font-bold tabular-nums">{formatCurrency(income)}</span>
       </div>
-      <div className="w-full h-6 bg-slate-800/80 rounded-full overflow-hidden flex border border-slate-700/40">
-        <div style={{ width: `${incomePercent}%` }} className={`h-full ${incomeClass}`} />
-        <div style={{ width: `${expensePercent}%` }} className={`h-full ${expenseClass}`} />
+      <div data-finance="chart-track" className="w-full h-6 bg-slate-800/80 rounded-full overflow-hidden flex border border-slate-700/40">
+        <div data-finance={'chart-bar chart-income' + (tone === 'compare' ? ' chart-previous' : '')} style={{ width: `${incomePercent}%` }} className={`h-full ${incomeClass}`} />
+        <div data-finance={'chart-bar chart-expense' + (tone === 'compare' ? ' chart-previous' : '')} style={{ width: `${expensePercent}%` }} className={`h-full ${expenseClass}`} />
       </div>
       <div className="flex justify-between items-center text-xs">
-        <span className="text-gray-400">Despesas</span>
-        <span className="text-rose-400 font-bold tabular-nums">{formatCurrency(expense)}</span>
+        <span data-finance="muted" className="text-gray-400">Despesas</span>
+        <span data-finance="negative" className="text-rose-400 font-bold tabular-nums">{formatCurrency(expense)}</span>
       </div>
     </div>
   );
@@ -97,14 +98,14 @@ const IncomeExpenseChart: React.FC<ChartProps> = ({
         primary={
           <div className="space-y-2">
             <IncomeExpenseBar income={primary.income} expense={primary.expense} />
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] pt-1 border-t border-white/5">
+            <div data-finance="divider" className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] pt-1 border-t border-white/5">
               {incomeDelta && (
-                <span className={`font-semibold ${toneClass(incomeDelta.tone)}`}>
+                <span data-finance={(incomeDelta.tone === 'positive' ? "positive" : (incomeDelta.tone === 'negative' ? "negative" : "muted"))} className={`font-semibold ${toneClass(incomeDelta.tone)}`}>
                   Receitas {incomeDelta.label}
                 </span>
               )}
               {expenseDelta && (
-                <span className={`font-semibold ${toneClass(expenseDelta.tone)}`}>
+                <span data-finance={(expenseDelta.tone === 'positive' ? "positive" : (expenseDelta.tone === 'negative' ? "negative" : "muted"))} className={`font-semibold ${toneClass(expenseDelta.tone)}`}>
                   Despesas {expenseDelta.label}
                 </span>
               )}

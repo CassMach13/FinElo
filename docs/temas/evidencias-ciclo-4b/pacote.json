@@ -1,0 +1,17 @@
+{
+  "archive": "finelo-ciclo-4b-evidencias.zip",
+  "bytes": 130453436,
+  "sha256": "0275285f00cfbb1d41c8377581a0245ac8cfa62dd7da0e9f7632ba22f0d55fd1",
+  "indexSHA256": "2e279e47d679ff204d4441baad131b4d0a909b051022d0c9128b61385c551e35",
+  "indexedFiles": 2409,
+  "ZIPentries": 2410,
+  "imageCounts": {
+    "ui": 904,
+    "pdf-page": 68,
+    "before": 13
+  },
+  "imageReferences": 985,
+  "uniquePNGs": 443,
+  "verifiedCRC": true,
+  "verifiedEverySHA256": true
+}

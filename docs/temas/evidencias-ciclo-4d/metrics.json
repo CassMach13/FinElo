@@ -1,0 +1,672 @@
+{
+  "navigation": {
+    "captures": 208,
+    "browsers": [
+      {
+        "browser": "edge",
+        "version": "156.0.4314.58",
+        "status": "PASS"
+      },
+      {
+        "browser": "chrome",
+        "version": "156.0.8078.80",
+        "status": "PASS"
+      },
+      {
+        "browser": "firefox",
+        "version": "157.0",
+        "status": "PASS"
+      },
+      {
+        "browser": "webkit",
+        "version": "27.2",
+        "status": "PASS"
+      }
+    ],
+    "financialComparisons": 128,
+    "financialFailures": 0,
+    "darkParities": 16,
+    "darkExact": 16,
+    "issues": [
+      {
+        "kind": "javascript",
+        "engine": "firefox",
+        "width": 1440,
+        "preference": "dark",
+        "errors": [
+          "Acquiring an exclusive Navigator LockManager lock \"lock:sb-integrated-fixture-auth-token\" immediately failed"
+        ]
+      },
+      {
+        "kind": "javascript",
+        "engine": "firefox",
+        "width": 1440,
+        "preference": "light",
+        "errors": [
+          "Acquiring an exclusive Navigator LockManager lock \"lock:sb-integrated-fixture-auth-token\" immediately failed"
+        ]
+      },
+      {
+        "kind": "javascript",
+        "engine": "firefox",
+        "width": 1440,
+        "preference": "system",
+        "errors": [
+          "Acquiring an exclusive Navigator LockManager lock \"lock:sb-integrated-fixture-auth-token\" immediately failed"
+        ]
+      },
+      {
+        "kind": "javascript",
+        "engine": "firefox",
+        "width": 390,
+        "preference": "dark",
+        "errors": [
+          "Acquiring an exclusive Navigator LockManager lock \"lock:sb-integrated-fixture-auth-token\" immediately failed"
+        ]
+      },
+      {
+        "kind": "javascript",
+        "engine": "firefox",
+        "width": 390,
+        "preference": "light",
+        "errors": [
+          "Acquiring an exclusive Navigator LockManager lock \"lock:sb-integrated-fixture-auth-token\" immediately failed"
+        ]
+      },
+      {
+        "kind": "javascript",
+        "engine": "firefox",
+        "width": 390,
+        "preference": "system",
+        "errors": [
+          "Acquiring an exclusive Navigator LockManager lock \"lock:sb-integrated-fixture-auth-token\" immediately failed"
+        ]
+      }
+    ]
+  },
+  "contrast": {
+    "total": 32784,
+    "light": 21856,
+    "lightFailures": 0,
+    "dark": 10928,
+    "darkFailures": 2888,
+    "minimumLightText": 5.122,
+    "minimumLightEssential": 3.567
+  },
+  "auth": {
+    "groups": 36,
+    "expected": 36,
+    "results": [
+      {
+        "engine": "edge",
+        "scenario": "choices-reload-system",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "two-tabs-rapid-save",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "profile-refresh-offline-reconnect",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "switch-form-late-read-logout",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "pending-profile-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "pending-terms-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "modal-focus-restoration",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "choices-reload-system",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "two-tabs-rapid-save",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "profile-refresh-offline-reconnect",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "switch-form-late-read-logout",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "pending-profile-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "pending-terms-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "modal-focus-restoration",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "choices-reload-system",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "two-tabs-rapid-save",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "profile-refresh-offline-reconnect",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "switch-form-late-read-logout",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "pending-profile-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "pending-terms-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "modal-focus-restoration",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "choices-reload-system",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "two-tabs-rapid-save",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "profile-refresh-offline-reconnect",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "switch-form-late-read-logout",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "pending-profile-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "pending-terms-after-login-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "modal-focus-restoration",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "late-goals-read-theme-switch-and-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "edge",
+        "scenario": "admin-metrics-pending-replaced-by-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "late-goals-read-theme-switch-and-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "admin-metrics-pending-replaced-by-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "late-goals-read-theme-switch-and-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "admin-metrics-pending-replaced-by-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "late-goals-read-theme-switch-and-b",
+        "status": "PASS"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "admin-metrics-pending-replaced-by-b",
+        "status": "PASS"
+      }
+    ]
+  },
+  "accessibility": {
+    "results": [
+      {
+        "engine": "edge",
+        "scenario": "keyboard-navigation",
+        "status": "PASS",
+        "views": [
+          "dashboard",
+          "transactions",
+          "import",
+          "investments",
+          "goals",
+          "settings",
+          "help"
+        ]
+      },
+      {
+        "engine": "edge",
+        "scenario": "reflow-equivalent-200",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 720,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "edge",
+        "scenario": "reflow-equivalent-400",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 360,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "edge",
+        "scenario": "landscape-viewport",
+        "status": "FAIL",
+        "nativeBrowserZoom": false,
+        "width": 844,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 6
+      },
+      {
+        "engine": "edge",
+        "scenario": "native-month-control",
+        "status": "PASS",
+        "inputType": "month"
+      },
+      {
+        "engine": "edge",
+        "scenario": "forced-colors-emulation",
+        "status": "PASS",
+        "effective": true,
+        "screenReaderTest": false
+      },
+      {
+        "engine": "edge",
+        "scenario": "reduced-motion-observed",
+        "status": "FAIL",
+        "effective": true
+      },
+      {
+        "engine": "chrome",
+        "scenario": "keyboard-navigation",
+        "status": "PASS",
+        "views": [
+          "dashboard",
+          "transactions",
+          "import",
+          "investments",
+          "goals",
+          "settings",
+          "help"
+        ]
+      },
+      {
+        "engine": "chrome",
+        "scenario": "reflow-equivalent-200",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 720,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "chrome",
+        "scenario": "reflow-equivalent-400",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 360,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "chrome",
+        "scenario": "landscape-viewport",
+        "status": "FAIL",
+        "nativeBrowserZoom": false,
+        "width": 844,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 6
+      },
+      {
+        "engine": "chrome",
+        "scenario": "native-month-control",
+        "status": "PASS",
+        "inputType": "month"
+      },
+      {
+        "engine": "chrome",
+        "scenario": "forced-colors-emulation",
+        "status": "PASS",
+        "effective": true,
+        "screenReaderTest": false
+      },
+      {
+        "engine": "chrome",
+        "scenario": "reduced-motion-observed",
+        "status": "FAIL",
+        "effective": true
+      },
+      {
+        "engine": "firefox",
+        "scenario": "keyboard-navigation",
+        "status": "PASS",
+        "views": [
+          "dashboard",
+          "transactions",
+          "import",
+          "investments",
+          "goals",
+          "settings",
+          "help"
+        ]
+      },
+      {
+        "engine": "firefox",
+        "scenario": "reflow-equivalent-200",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 720,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "firefox",
+        "scenario": "reflow-equivalent-400",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 360,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "firefox",
+        "scenario": "landscape-viewport",
+        "status": "FAIL",
+        "nativeBrowserZoom": false,
+        "width": 844,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 6
+      },
+      {
+        "engine": "firefox",
+        "scenario": "native-month-control",
+        "status": "PASS",
+        "inputType": "text"
+      },
+      {
+        "engine": "firefox",
+        "scenario": "forced-colors-emulation",
+        "status": "PASS",
+        "effective": true,
+        "screenReaderTest": false
+      },
+      {
+        "engine": "firefox",
+        "scenario": "reduced-motion-observed",
+        "status": "FAIL",
+        "effective": true
+      },
+      {
+        "engine": "webkit",
+        "scenario": "keyboard-navigation",
+        "status": "PASS",
+        "views": [
+          "dashboard",
+          "transactions",
+          "import",
+          "investments",
+          "goals",
+          "settings",
+          "help"
+        ]
+      },
+      {
+        "engine": "webkit",
+        "scenario": "reflow-equivalent-200",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 720,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "webkit",
+        "scenario": "reflow-equivalent-400",
+        "status": "PASS",
+        "nativeBrowserZoom": false,
+        "width": 360,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 0
+      },
+      {
+        "engine": "webkit",
+        "scenario": "landscape-viewport",
+        "status": "FAIL",
+        "nativeBrowserZoom": false,
+        "width": 844,
+        "documentOverflow": 0,
+        "mainOverflow": 0,
+        "unnamedNav": 6
+      },
+      {
+        "engine": "webkit",
+        "scenario": "native-month-control",
+        "status": "PASS",
+        "inputType": "text"
+      },
+      {
+        "engine": "webkit",
+        "scenario": "forced-colors-emulation",
+        "status": "PASS",
+        "effective": true,
+        "screenReaderTest": false
+      },
+      {
+        "engine": "webkit",
+        "scenario": "reduced-motion-observed",
+        "status": "FAIL",
+        "effective": true
+      },
+      {
+        "scenario": "legacy-delayed-tour-after-navigation",
+        "baseline": "reviewed",
+        "status": "FAIL",
+        "tourTitle": "Bem-vindo ao FinElo! 👋",
+        "currentView": "transactions"
+      },
+      {
+        "scenario": "legacy-delayed-tour-after-navigation",
+        "baseline": "current",
+        "status": "FAIL",
+        "tourTitle": "Bem-vindo ao FinElo! 👋",
+        "currentView": "transactions"
+      }
+    ]
+  },
+  "pwa": {
+    "cases": [
+      {
+        "scenario": "native-service-worker-registration",
+        "status": "PASS",
+        "scope": {
+          "scope": "http://127.0.0.1:5210/",
+          "state": "activated"
+        },
+        "build": "a",
+        "serviceWorkerSHA256": "08646300bf9e5f43f88b539e2e2537d8529516ef05c6c5ef1bf92b03bd76b935",
+        "notOsInstalled": true
+      },
+      {
+        "scenario": "offline-reload-cached-auth-appearance",
+        "status": "PASS",
+        "theme": "light",
+        "financialDataCacheCertified": false
+      },
+      {
+        "scenario": "online-recovery",
+        "status": "PASS"
+      },
+      {
+        "scenario": "new-browser-page-same-context-preference",
+        "status": "PASS",
+        "notStandaloneApp": true
+      },
+      {
+        "scenario": "pwa-sequence",
+        "status": "FAIL",
+        "reason": "Locator.wait_for: Timeout 60000ms exceeded.\nCall log:\n  - waiting for locator(\"meta[name=qa-build][content=b]\")\n",
+        "diagnostic": {
+          "url": "http://127.0.0.1:5210/app?view=dashboard",
+          "revision": "a",
+          "api": true,
+          "actor": "10000000-0000-4000-8000-000000000001",
+          "theme": "light"
+        }
+      },
+      {
+        "scenario": "os-install-standalone-close-reopen-remove-reinstall",
+        "status": "NOT TESTED",
+        "reason": "No physical/OS installation in this isolated headless profile; manual runbook required"
+      }
+    ],
+    "transport": "synthetic HTTP, real browser service worker/cache",
+    "remoteAuth": "BLOCKED"
+  },
+  "print": {
+    "pdfs": 12,
+    "pages": 42,
+    "comparisons": [
+      {
+        "scenario": "dashboard",
+        "variant": "dark",
+        "status": "PASS"
+      },
+      {
+        "scenario": "dashboard",
+        "variant": "light",
+        "status": "PASS"
+      },
+      {
+        "scenario": "transactions",
+        "variant": "dark",
+        "status": "PASS"
+      },
+      {
+        "scenario": "transactions",
+        "variant": "light",
+        "status": "PASS"
+      },
+      {
+        "scenario": "investments",
+        "variant": "dark",
+        "status": "PASS"
+      },
+      {
+        "scenario": "investments",
+        "variant": "light",
+        "status": "PASS"
+      },
+      {
+        "scenario": "goal-form",
+        "variant": "dark",
+        "status": "PASS"
+      },
+      {
+        "scenario": "goal-form",
+        "variant": "light",
+        "status": "PASS"
+      }
+    ]
+  },
+  "exports": {
+    "files": 6,
+    "comparisons": [
+      {
+        "variant": "dark",
+        "format": "csv",
+        "status": "PASS"
+      },
+      {
+        "variant": "light",
+        "format": "csv",
+        "status": "PASS"
+      },
+      {
+        "variant": "dark",
+        "format": "xlsx",
+        "status": "PASS"
+      },
+      {
+        "variant": "light",
+        "format": "xlsx",
+        "status": "PASS"
+      }
+    ]
+  }
+}

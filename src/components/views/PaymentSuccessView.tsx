@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -15,15 +16,15 @@ const PaymentSuccessView: React.FC = () => {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 animate-fade-in">
             <div className="text-6xl mb-4">🎉</div>
-            <h1 className="text-4xl font-bold text-light">Parabéns! Você é Premium.</h1>
-            <p className="text-gray-400 max-w-lg text-lg">
+            <h1 data-finance="content" className="text-4xl font-bold text-light">Parabéns! Você é Premium.</h1>
+            <p data-finance="muted" className="text-gray-400 max-w-lg text-lg">
                 Seu pagamento foi confirmado com sucesso. Obrigado por apoiar o FinElo!
                 Todas as funcionalidades ilimitadas já estão disponíveis para você.
             </p>
 
-            <Card className="bg-green-900/20 border-green-500/30 max-w-md p-6">
-                <h3 className="text-green-400 font-bold mb-2">O que acontece agora?</h3>
-                <p className="text-sm text-gray-300">
+            <Card data-finance="success-panel" className="bg-green-900/20 border-green-500/30 max-w-md p-6">
+                <h3 data-finance="positive" className="text-green-400 font-bold mb-2">O que acontece agora?</h3>
+                <p data-finance="content" className="text-sm text-gray-300">
                     Nosso sistema está processando sua assinatura. Se as funcionalidades Premium ainda não aparecerem,
                     aguarde 1 ou 2 minutos e recarregue a página.
                 </p>

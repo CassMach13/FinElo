@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 import React from 'react';
 
 /** Situação de uma posição na estrutura de carteiras (V2-B1B). Apresentação pura. */
@@ -20,16 +21,16 @@ const ClassificationBadge: React.FC<ClassificationBadgeProps> = ({ portfolioName
   const text = (
     <>
       <span className="truncate">{label}</span>
-      {archived && <span className="shrink-0 text-[9px] uppercase tracking-wider text-gray-400">arquivada</span>}
-      {holdingName && <span className="truncate text-gray-400">· {holdingName}</span>}
+      {archived && <span data-finance={"muted"} className="shrink-0 text-[9px] uppercase tracking-wider text-gray-400">arquivada</span>}
+      {holdingName && <span data-finance={"muted"} className="truncate text-gray-400">· {holdingName}</span>}
     </>
   );
   const base = `inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tone}`;
-  if (!onAction) return <span data-classification-badge="" className={base}>{text}</span>;
+  if (!onAction) return <span data-finance-state={archived ? "archived" : portfolioName ? "assigned" : "empty"} data-finance={"investment-classification"} data-classification-badge="" className={base}>{text}</span>;
   return (
-    <button type="button" data-classification-badge="" onClick={onAction} title={portfolioName ? 'Mover ou remover da carteira' : 'Classificar em uma carteira'} className={`${base} hover:border-highlight hover:text-white`}>
+    <button data-finance-state={archived ? "archived" : portfolioName ? "assigned" : "empty"} data-finance={"investment-classification"} type="button" data-classification-badge="" onClick={onAction} title={portfolioName ? 'Mover ou remover da carteira' : 'Classificar em uma carteira'} className={`${base} hover:border-highlight hover:text-white`}>
       {text}
-      <svg className="h-3 w-3 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      <svg data-finance={"investment-opaque"} className="h-3 w-3 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
     </button>
   );
 };

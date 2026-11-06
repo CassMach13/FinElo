@@ -1,0 +1,634 @@
+{
+  "status": "PASS",
+  "states": {
+    "mapping-main": {
+      "pages": 3,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b4a6cd281a0e41a887355bdb6cd058fad7919eea3bc24546249f5ba39d1988d7"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b74ef635e689edb02304a1fa8ff2ae4734f2216c8d0fb24afb4132234fd66c34"
+        }
+      ],
+      "pdf_sha256": "14436206b6308a07b2dcce0e31495f39294ca5487a258f2aff3e8ca7c4b9bdf1"
+    },
+    "mapping-reviewed": {
+      "pages": 3,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b4a6cd281a0e41a887355bdb6cd058fad7919eea3bc24546249f5ba39d1988d7"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b74ef635e689edb02304a1fa8ff2ae4734f2216c8d0fb24afb4132234fd66c34"
+        }
+      ],
+      "pdf_sha256": "bff30d7fbfa2ec09206e3362c436ef3a8ce63a49bdbe57ebb9a5366d13fbcb63"
+    },
+    "mapping-dark": {
+      "pages": 3,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b4a6cd281a0e41a887355bdb6cd058fad7919eea3bc24546249f5ba39d1988d7"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b74ef635e689edb02304a1fa8ff2ae4734f2216c8d0fb24afb4132234fd66c34"
+        }
+      ],
+      "pdf_sha256": "eec3f86c9361a643d0fc3082cf78983d9e5daf6ccc06ed992d5d147673b2f008"
+    },
+    "mapping-light": {
+      "pages": 3,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b4a6cd281a0e41a887355bdb6cd058fad7919eea3bc24546249f5ba39d1988d7"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "b74ef635e689edb02304a1fa8ff2ae4734f2216c8d0fb24afb4132234fd66c34"
+        }
+      ],
+      "pdf_sha256": "ca716360697749a21d7c5ab060aba6e6c3a29727f7345682e2a32d15919db734"
+    },
+    "history-main": {
+      "pages": 12,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "a76d864f2cc3465c7374c91c99380fb6dd6deb3321cd526e369ee5c1568a2f73"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "f4ae93d47546982a3ec6f4ac3ee63f3cbfc13a643fce7086bcbc882eabbb9eaa"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9e5c8314633442112618c76a32c462f1ac396efe9544e952b456dbac613e2738"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "e404721c35b10f4865dfed53ac8078ca81c34bd256f8e7f111bd95b632659e77"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "25d4cab0425d14a7366aac64d148b5f4dc891088b3792aa020672a7c9956cf2c"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9befb7309b91e284e556a3a6d3f2af4fc4f5a1e4bf1c52298585d303be1f42f9"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "7898435938b998e1ec3b75063fb92b962ec133d1e4430179291b1acdd4e968fb"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "67e744f406c3d2d922ef3590190f5f453837e7d50599c623753ec41712cc57d5"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "518ee427c298a7048d00d00a752ec05710de365495241104a7e96768b291fcb0"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "8a2705e82ad57855710a598b18ebe13bc638d4a1e55eaff3f67be78269721a16"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "438e42ddb7290cf368af44fee5883675ca305567d0c0ef9a77b98b3a922c8d9d"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "bbdd86a929afed4951ada45097c01fcf7330355d29c0e8a2f801e59c8567f8d4"
+        }
+      ],
+      "pdf_sha256": "192001166630b916dcda714b664db598ee6637789d2284abaf129da8acf22c27"
+    },
+    "history-reviewed": {
+      "pages": 12,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "a76d864f2cc3465c7374c91c99380fb6dd6deb3321cd526e369ee5c1568a2f73"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "f4ae93d47546982a3ec6f4ac3ee63f3cbfc13a643fce7086bcbc882eabbb9eaa"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9e5c8314633442112618c76a32c462f1ac396efe9544e952b456dbac613e2738"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "e404721c35b10f4865dfed53ac8078ca81c34bd256f8e7f111bd95b632659e77"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "25d4cab0425d14a7366aac64d148b5f4dc891088b3792aa020672a7c9956cf2c"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9befb7309b91e284e556a3a6d3f2af4fc4f5a1e4bf1c52298585d303be1f42f9"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "7898435938b998e1ec3b75063fb92b962ec133d1e4430179291b1acdd4e968fb"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "67e744f406c3d2d922ef3590190f5f453837e7d50599c623753ec41712cc57d5"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "518ee427c298a7048d00d00a752ec05710de365495241104a7e96768b291fcb0"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "8a2705e82ad57855710a598b18ebe13bc638d4a1e55eaff3f67be78269721a16"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "438e42ddb7290cf368af44fee5883675ca305567d0c0ef9a77b98b3a922c8d9d"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "bbdd86a929afed4951ada45097c01fcf7330355d29c0e8a2f801e59c8567f8d4"
+        }
+      ],
+      "pdf_sha256": "a340985e2a9bc44546b903367ecc64072d3231a4abd683343505448aa17fb395"
+    },
+    "history-dark": {
+      "pages": 12,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "a76d864f2cc3465c7374c91c99380fb6dd6deb3321cd526e369ee5c1568a2f73"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "f4ae93d47546982a3ec6f4ac3ee63f3cbfc13a643fce7086bcbc882eabbb9eaa"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9e5c8314633442112618c76a32c462f1ac396efe9544e952b456dbac613e2738"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "e404721c35b10f4865dfed53ac8078ca81c34bd256f8e7f111bd95b632659e77"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "25d4cab0425d14a7366aac64d148b5f4dc891088b3792aa020672a7c9956cf2c"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9befb7309b91e284e556a3a6d3f2af4fc4f5a1e4bf1c52298585d303be1f42f9"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "7898435938b998e1ec3b75063fb92b962ec133d1e4430179291b1acdd4e968fb"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "67e744f406c3d2d922ef3590190f5f453837e7d50599c623753ec41712cc57d5"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "518ee427c298a7048d00d00a752ec05710de365495241104a7e96768b291fcb0"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "8a2705e82ad57855710a598b18ebe13bc638d4a1e55eaff3f67be78269721a16"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "438e42ddb7290cf368af44fee5883675ca305567d0c0ef9a77b98b3a922c8d9d"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "bbdd86a929afed4951ada45097c01fcf7330355d29c0e8a2f801e59c8567f8d4"
+        }
+      ],
+      "pdf_sha256": "a231b0391daa62230b3b2b837f7029b3394462599d5bbf366d5b4ecfaec555b2"
+    },
+    "history-light": {
+      "pages": 12,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "a76d864f2cc3465c7374c91c99380fb6dd6deb3321cd526e369ee5c1568a2f73"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "f4ae93d47546982a3ec6f4ac3ee63f3cbfc13a643fce7086bcbc882eabbb9eaa"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9e5c8314633442112618c76a32c462f1ac396efe9544e952b456dbac613e2738"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "e404721c35b10f4865dfed53ac8078ca81c34bd256f8e7f111bd95b632659e77"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "25d4cab0425d14a7366aac64d148b5f4dc891088b3792aa020672a7c9956cf2c"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "9befb7309b91e284e556a3a6d3f2af4fc4f5a1e4bf1c52298585d303be1f42f9"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "7898435938b998e1ec3b75063fb92b962ec133d1e4430179291b1acdd4e968fb"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "67e744f406c3d2d922ef3590190f5f453837e7d50599c623753ec41712cc57d5"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "518ee427c298a7048d00d00a752ec05710de365495241104a7e96768b291fcb0"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "8a2705e82ad57855710a598b18ebe13bc638d4a1e55eaff3f67be78269721a16"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "438e42ddb7290cf368af44fee5883675ca305567d0c0ef9a77b98b3a922c8d9d"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "bbdd86a929afed4951ada45097c01fcf7330355d29c0e8a2f801e59c8567f8d4"
+        }
+      ],
+      "pdf_sha256": "7d15e858d1dd4a2c073bd841ea0bc04fa2ff8499754ff70eab834c20a2bb256a"
+    },
+    "hidden-error-main": {
+      "pages": 2,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "46229d34928bd2ced7c1772ad147502a9fd3d165e59d49f3862fc22400b06038"
+        }
+      ],
+      "pdf_sha256": "49002db33a7dda5861aeaf268486597179ff178e52dffc93bfee884b875b330c"
+    },
+    "hidden-error-reviewed": {
+      "pages": 2,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "46229d34928bd2ced7c1772ad147502a9fd3d165e59d49f3862fc22400b06038"
+        }
+      ],
+      "pdf_sha256": "96e53492951dc4d7121e810731c5c89bb8c56435899e595ecde11966d157e3d2"
+    },
+    "hidden-error-dark": {
+      "pages": 2,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "46229d34928bd2ced7c1772ad147502a9fd3d165e59d49f3862fc22400b06038"
+        }
+      ],
+      "pdf_sha256": "1dda3cc17afc564b2a7c76f9432e5e8b88bd904fca24abb6ef1824006d21ce67"
+    },
+    "hidden-error-light": {
+      "pages": 2,
+      "raster_identical": true,
+      "page_rasters": [
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "37213f93bfe6490be82e1cbf3d52fe65fd6fa7b014ea4b8aaaa3837585bffbfc"
+        },
+        {
+          "size": [
+            595,
+            842,
+            3
+          ],
+          "sha256": "46229d34928bd2ced7c1772ad147502a9fd3d165e59d49f3862fc22400b06038"
+        }
+      ],
+      "pdf_sha256": "a1df9faf77481dc996ded3585ccb68fbc4ca1cc05f511a15ee8b2181c708b139"
+    }
+  },
+  "remote_requests": 0
+}

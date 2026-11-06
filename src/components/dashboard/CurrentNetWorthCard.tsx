@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import Card from '../ui/Card';
 import { ChevronDownIcon, InformationCircleIcon } from '../ui/icons';
@@ -48,62 +49,62 @@ export default function CurrentNetWorthCard({ position, status, scopeLabel, onRe
     <Card className="flex flex-col h-full sm:col-span-2 lg:col-span-3">
       <section aria-label="Posição patrimonial atual" aria-busy={loading} data-net-worth-v2="">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h3 className="text-lg font-semibold text-light">Patrimônio líquido</h3>
-          <p className="min-w-0 break-words text-xs text-slate-300">{scopeLabel}</p>
+          <h3 data-finance="content" className="text-lg font-semibold text-light">Patrimônio líquido</h3>
+          <p data-finance="muted" className="min-w-0 break-words text-xs text-slate-300">{scopeLabel}</p>
         </div>
-        <p data-net-worth-total="" className={`mt-2 break-words text-3xl sm:text-4xl font-bold tracking-tight tabular-nums ${(p?.netWorthCents ?? 0) < 0 ? 'text-red-300' : 'text-cyan-300'}`}>
+        <p data-finance={((p?.netWorthCents ?? 0) < 0 ? "negative" : "info")} data-net-worth-total="" className={`mt-2 break-words text-3xl sm:text-4xl font-bold tracking-tight tabular-nums ${(p?.netWorthCents ?? 0) < 0 ? 'text-red-300' : 'text-cyan-300'}`}>
           {money(p?.netWorthCents)}
         </p>
-        <p className="mt-2 text-xs text-slate-300">
+        <p data-finance="muted" className="mt-2 text-xs text-slate-300">
           {p ? 'Posição atual em ' + formatDateOnlyPtBr(p.asOf) : 'Posição atual'}
         </p>
-        {loading ? <p role="status" className="mt-2 text-sm text-slate-300">Carregando a posição patrimonial atual…</p> : null}
+        {loading ? <p data-finance="muted" role="status" className="mt-2 text-sm text-slate-300">Carregando a posição patrimonial atual…</p> : null}
         {status === 'error' ? (
-          <div role="alert" className="mt-3 text-sm text-slate-200">
+          <div data-finance="content" role="alert" className="mt-3 text-sm text-slate-200">
             <p>Não foi possível concluir a leitura da posição. Os totais estão indisponíveis.</p>
-            <button type="button" onClick={onRetry} className="mt-2 rounded-lg border border-slate-400 px-3 py-2 text-sm font-semibold text-light hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            <button data-finance="content divider" type="button" onClick={onRetry} className="mt-2 rounded-lg border border-slate-400 px-3 py-2 text-sm font-semibold text-light hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
               Tentar novamente
             </button>
           </div>
         ) : null}
         {p?.completeness === 'partial' ? (
-          <p role="status" className="mt-3 text-sm text-amber-200">Há fontes incompletas. Totais que dependem delas ficam indisponíveis.</p>
+          <p data-finance="warning" role="status" className="mt-3 text-sm text-amber-200">Há fontes incompletas. Totais que dependem delas ficam indisponíveis.</p>
         ) : null}
-        <dl data-net-worth-components="" className="mt-6 divide-y divide-white/10 border-t border-white/10">
+        <dl data-finance="divider" data-net-worth-components="" className="mt-6 divide-y divide-white/10 border-t border-white/10">
           {rows.map((row) => (
             <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 py-3.5">
-              <dt className={`flex min-w-0 items-baseline gap-2 text-sm font-medium leading-5 ${row.color}`}>
-                <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${row.marker}`} />
+              <dt data-finance={row.label === 'Investimentos' ? 'investment' : row.label === 'Bens patrimoniais líquidos' ? 'warning' : row.label === 'Obrigações de cartões' ? 'negative' : row.label === 'Créditos comprovados em cartões' ? 'positive' : 'info'} className={`flex min-w-0 items-baseline gap-2 text-sm font-medium leading-5 ${row.color}`}>
+                <span data-finance={row.label === 'Investimentos' ? 'investment-line' : row.label === 'Bens patrimoniais líquidos' ? 'warning-line' : row.label === 'Obrigações de cartões' ? 'negative-line' : row.label === 'Créditos comprovados em cartões' ? 'positive-line' : 'info-line'} aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${row.marker}`} />
                 {row.label}
               </dt>
-              <dd className={`text-right text-sm sm:text-base font-semibold tabular-nums ${(row.value ?? 0) < 0 ? 'text-red-300' : row.color}`}>{money(row.value)}</dd>
-              {row.support ? <dd className="col-span-2 pl-3.5 text-xs leading-5 text-slate-300">{row.detail}</dd> : null}
+              <dd data-finance={(row.value ?? 0) < 0 ? "negative" : row.label === "Investimentos" ? "investment" : row.label === "Bens patrimoniais líquidos" ? "warning" : row.label === "Obrigações de cartões" ? "negative" : row.label === "Créditos comprovados em cartões" ? "positive" : "info"} className={`text-right text-sm sm:text-base font-semibold tabular-nums ${(row.value ?? 0) < 0 ? 'text-red-300' : row.color}`}>{money(row.value)}</dd>
+              {row.support ? <dd data-finance="muted" className="col-span-2 pl-3.5 text-xs leading-5 text-slate-300">{row.detail}</dd> : null}
             </div>
           ))}
         </dl>
-        <dl className={`mt-3 border-y py-4 ${(p?.availableAfterOverdueCents ?? 0) < 0 ? 'border-rose-300/20 bg-rose-400/5' : 'border-white/10'}`}>
+        <dl data-finance={((p?.availableAfterOverdueCents ?? 0) < 0 ? "negative-panel" : "divider")} className={`mt-3 border-y py-4 ${(p?.availableAfterOverdueCents ?? 0) < 0 ? 'border-rose-300/20 bg-rose-400/5' : 'border-white/10'}`}>
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <dt className="max-w-64 text-sm font-semibold leading-5 text-light">Disponível após obrigações vencidas</dt>
-            <dd data-available-after-overdue="" className={`text-xl font-bold tabular-nums ${(p?.availableAfterOverdueCents ?? 0) < 0 ? 'text-red-300' : p?.availableAfterOverdueCents == null ? 'text-light' : 'text-emerald-300'}`}>{money(p?.availableAfterOverdueCents)}</dd>
+            <dt data-finance="content" className="max-w-64 text-sm font-semibold leading-5 text-light">Disponível após obrigações vencidas</dt>
+            <dd data-finance={((p?.availableAfterOverdueCents ?? 0) < 0 ? "negative" : (p?.availableAfterOverdueCents == null ? "content" : "positive"))} data-available-after-overdue="" className={`text-xl font-bold tabular-nums ${(p?.availableAfterOverdueCents ?? 0) < 0 ? 'text-red-300' : p?.availableAfterOverdueCents == null ? 'text-light' : 'text-emerald-300'}`}>{money(p?.availableAfterOverdueCents)}</dd>
           </div>
-          {(p?.availableAfterOverdueCents ?? 0) < 0 ? <dd className="mt-2 text-xs font-medium text-rose-200">Saldo negativo após vencidas</dd> : null}
+          {(p?.availableAfterOverdueCents ?? 0) < 0 ? <dd data-finance="negative" className="mt-2 text-xs font-medium text-rose-200">Saldo negativo após vencidas</dd> : null}
         </dl>
         {p?.reconciliationPending || (p && p.archivedAccountsWithPosition > 0) ? (
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-slate-300">
+          <div data-finance="muted" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-slate-300">
             {p?.reconciliationPending ? <span>Conciliação pendente</span> : null}
             {p && p.archivedAccountsWithPosition > 0 ? <span>Contas arquivadas incluídas</span> : null}
           </div>
         ) : null}
-        <details data-net-worth-details="" className="group mt-2 text-xs text-slate-300">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg py-3 font-medium text-light hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+        <details data-finance="muted" data-net-worth-details="" className="group mt-2 text-xs text-slate-300">
+          <summary data-finance="content" className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg py-3 font-medium text-light hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
             {p?.cards.length ? 'Ver cartões e origem dos valores' : 'Como ler estes valores'}
             <span aria-hidden="true" className="shrink-0 transition-transform duration-200 motion-reduce:transition-none group-open:rotate-180"><ChevronDownIcon className="h-4 w-4" /></span>
           </summary>
-          <div className="space-y-5 border-t border-white/10 py-4 leading-relaxed">
+          <div data-finance="divider" className="space-y-5 border-t border-white/10 py-4 leading-relaxed">
             {p?.cards.length ? (
               <ul className="space-y-4" aria-label="Cartões e origem dos valores">
                 {p.cards.map((card) => <li key={card.accountId}>
-                  <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm text-light">
+                  <div data-finance="content" className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm text-light">
                     <span className="min-w-0 break-words font-medium">{card.accountName}:</span>
                     <span className="tabular-nums">{money(card.amounts?.totalRecognizedCents)} em obrigações.</span>
                   </div>
@@ -115,11 +116,11 @@ export default function CurrentNetWorthCard({ position, status, scopeLabel, onRe
             ) : null}
             <dl className="space-y-3">
               {rows.filter((row) => !row.support).map((row) => <div key={row.label}>
-                <dt className="font-medium text-slate-200">{row.label}</dt>
+                <dt data-finance="content" className="font-medium text-slate-200">{row.label}</dt>
                 <dd className="mt-0.5">{row.detail}</dd>
               </div>)}
               <div>
-                <dt className="font-medium text-slate-200">Disponível após obrigações vencidas</dt>
+                <dt data-finance="content" className="font-medium text-slate-200">Disponível após obrigações vencidas</dt>
                 <dd className="mt-0.5">Saldo bancário menos faturas vencidas sem pagamento reconhecido. Não altera o saldo das contas.</dd>
               </div>
             </dl>
@@ -128,7 +129,7 @@ export default function CurrentNetWorthCard({ position, status, scopeLabel, onRe
             <p>A posição atual independe do período operacional selecionado. Comparação histórica de patrimônio indisponível até haver histórico temporal confiável.</p>
           </div>
         </details>
-        <p className="mt-1 flex items-start gap-2 text-xs leading-5 text-slate-300">
+        <p data-finance="muted" className="mt-1 flex items-start gap-2 text-xs leading-5 text-slate-300">
           <span aria-hidden="true" className="mt-0.5 shrink-0"><InformationCircleIcon className="h-4 w-4" /></span>
           Comparação histórica de patrimônio indisponível.
         </p>

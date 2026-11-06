@@ -1,0 +1,52 @@
+--- a/src/components/modals/TermsModal.tsx
++++ b/src/components/modals/TermsModal.tsx
+@@ -1,8 +1,8 @@
+ import '../appearance/remaining.css';
+-import React, { useEffect, useState } from 'react';
++import React, { useEffect, useRef, useState } from 'react';
+ import Modal from '../ui/Modal';
+ import Button from '../ui/Button';
+-import { supabase } from '../../supabaseClient';
++import { persistUserMetadata, supabase } from '../../supabaseClient';
+ import { useAppStore } from '../../hooks/useAppStore';
+ 
+ // Versioning - Change this to force re-acceptance
+@@ -136,6 +136,9 @@
+     const [internalIsOpen, setInternalIsOpen] = useState(false);
+     const [loading, setLoading] = useState(false);
+     const [hasRead, setHasRead] = useState(false);
++    // The account-keyed shell owns this consent dialog and its pending return.
++    const mounted = useRef(true);
++    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+ 
+     // Determine effective open state
+     // If controlledIsOpen is undefined, we use internal state (Automatic mode)
+@@ -176,20 +179,23 @@
+         setLoading(true);
+ 
+         try {
+-            const { error } = await supabase.auth.updateUser({
+-                data: { terms_accepted_version: CURRENT_TERMS_VERSION }
+-            });
+-
++            const { data: { session }, error } = await supabase.auth.getSession();
+             if (error) throw error;
++            if (!mounted.current || session?.user.id !== user.id || useAppStore.getState().user?.id !== user.id) return;
++            await persistUserMetadata(session.access_token, { terms_accepted_version: CURRENT_TERMS_VERSION });
++            if (!mounted.current || useAppStore.getState().user?.id !== user.id) return;
++            const currentUser = useAppStore.getState().user!;
++            useAppStore.getState().setUser({ ...currentUser, user_metadata: { ...currentUser.user_metadata, terms_accepted_version: CURRENT_TERMS_VERSION } });
+ 
+             // Success
+             setInternalIsOpen(false);
+ 
+         } catch (err: any) {
++            if (!mounted.current) return;
+             console.error('Error accepting terms:', err);
+             alert('Erro ao aceitar os termos. Por favor, tente novamente.');
+         } finally {
+-            setLoading(false);
++            if (mounted.current) setLoading(false);
+         }
+     };
+ 

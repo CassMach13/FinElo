@@ -1,0 +1,178 @@
+{
+  "status": "PASS",
+  "bases": {
+    "main": "6fa1188b1864e85da587e61c7e46009a5e82adb4",
+    "reviewed": "6f7a94b11286843d073295cc2be4e3c7601ea531"
+  },
+  "source_sha256": {
+    "src/components/views/ImportView.tsx": "87f0d799142edf60137aa3810bdc8f547c585222dd3991f21e986ab0db1adc48",
+    "src/components/modals/OpenFinanceReviewModal.tsx": "64f6afdb4edaa83b164d0bc3abd0c9f4cde516f74dee566aab84911f404f0b91",
+    "src/components/modals/SaveConfigModal.tsx": "0cd25094c0c282d50198ad7b78b7c90bd56be098e4bf26e132b731b8f0edc295",
+    "src/components/modals/ImportDetailsModal.tsx": "2eb1cff34bd10ec533d90f2ed4b0b9ad0311264b88011fecd46bafdf4eedeb96",
+    "src/components/onboarding/ImportSuccessPanel.tsx": "2651e4bc042a22f9344ae4c9d678608bb85fc40888533deb956995aa46d63f0a",
+    "src/components/views/SettingsView.tsx": "f74a2a6c7c6b5ec5e1a0f1c037a282897346ce3c3d484fe8ab51534fed2067fd",
+    "src/components/imports/ImportFeedback.tsx": "c38bc8eae38691e4b870c7cd68779d1681b6fbfaa0ae8a15943c8f0f4426b312",
+    "src/components/appearance/financial.css": "dd044c50a0294e16ee0baee33b1a305f3cbc06926e59f41ba76d6958c71daf14",
+    "scripts/diagnostics/import-preview-runtime.tsx": "2f0ad6d987a1cc04be961f4a390fdb39fa1dd97f382b5d8cb7930c2f063d453e",
+    "scripts/diagnostics/import-preview.tsx": "b6e7823f79df98d53886f3b5b34530f8713d582f51c2498f89322c242530d418",
+    "scripts/diagnostics/validate-import-themes.py": "fa12fc2c217b43783e41c47c1f176fd9e32ab9d26986dcbfe806892fd6b5b005",
+    "scripts/diagnostics/import_visual_checks.py": "a228014200d07847d31c377eb26ea48341438daf7c7d169831180d559872ec45"
+  },
+  "remote_requests": 0,
+  "javascript_errors": [],
+  "accessibility": {
+    "desktop-dark": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "desktop-light": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "mobile-dark": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    },
+    "mobile-light": {
+      "favorite_keyboard": true,
+      "disabled_file_control": true,
+      "enabled_file_chooser_keyboard": true,
+      "modal_focus_loop_escape_restore": true,
+      "consent_focus_loop_escape_restore": true,
+      "financial_rows_unchanged": true
+    }
+  },
+  "approved_feedback_exceptions": {
+    "desktop-arquivo-invalid-excel": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "8284c5cf8fd157834829fe0d521b66fed7102308810bdd2401fe1c8fd533353a",
+      "dark_sha256": "d0dd563950fb0795b342906f54c18db43674d1dbf9af1a3e4f4c388e528e231c",
+      "reference_presentation": {
+        "geometry": "731ec77ce4591172152a6b4b44043763a80ac815de6112b2c868bce09baee0b0",
+        "content": "bbd45f5053a0f4fa4693af60398b188ff4960064d6e0b145e6f8d81b9093acf4",
+        "colors": "c54cfe4c6488e0e20b8e11c522543175cc42234930327ad265d8381133d1259f"
+      },
+      "dark_presentation": {
+        "geometry": "bd92f4cfd51a7caad18c4fa4a0c0740ccbe4267b5f0e42161b5a91436bef2228",
+        "content": "43e9d84be9092321ac1b18a84795e59c94f957b806ee5351b9e1467c556fa527",
+        "colors": "223fc40efb0edea218cfeaf77ac7049fde3a0643ad749743ee26fc7d4cae99bc"
+      },
+      "financial_equivalence": true
+    },
+    "mobile-arquivo-invalid-excel": {
+      "authorization": "User explicitly approved showing existing hidden notifications in both themes",
+      "reference_sha256": "9063565dfaec7bfad2c18bb66821b5250c9fbd0d57ad696c7deebaf6573f0461",
+      "dark_sha256": "6cf3c36f48f6dd9c95791498fcdb96e7bf6bbb8abc92e697da06c2314db35f2c",
+      "reference_presentation": {
+        "geometry": "8c0788be48ffca4316e0dc8cf570552a3e29ec96794238e8c6088338a46cd717",
+        "content": "bbd45f5053a0f4fa4693af60398b188ff4960064d6e0b145e6f8d81b9093acf4",
+        "colors": "c54cfe4c6488e0e20b8e11c522543175cc42234930327ad265d8381133d1259f"
+      },
+      "dark_presentation": {
+        "geometry": "10e612508879387a31a78996abd6a383b62fb08c03ca15f5ff55af4819362bdc",
+        "content": "43e9d84be9092321ac1b18a84795e59c94f957b806ee5351b9e1467c556fa527",
+        "colors": "223fc40efb0edea218cfeaf77ac7049fde3a0643ad749743ee26fc7d4cae99bc"
+      },
+      "financial_equivalence": true
+    }
+  },
+  "external_manifest": {
+    "path": "files/validation.json",
+    "sha256": "1a30fe54178208624938cf6057c5ca67d4a489957e9669e699e732e1f61f51b8",
+    "bytes": 163323
+  },
+  "parity": {
+    "desktop-main": {
+      "pass": true,
+      "comparisons": 43,
+      "exact": 43,
+      "tolerances": {}
+    },
+    "desktop-dark": {
+      "pass": true,
+      "comparisons": 42,
+      "exact": 42,
+      "tolerances": {}
+    },
+    "mobile-main": {
+      "pass": true,
+      "comparisons": 43,
+      "exact": 43,
+      "tolerances": {}
+    },
+    "mobile-dark": {
+      "pass": true,
+      "comparisons": 42,
+      "exact": 42,
+      "tolerances": {}
+    }
+  },
+  "financial": {
+    "desktop-reviewed": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "desktop-main": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "desktop-dark": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "desktop-light": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "mobile-reviewed": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "mobile-main": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "mobile-dark": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    },
+    "mobile-light": {
+      "equivalent": true,
+      "sha256": "aab7904794654c71a80cb09cdbc0e3e387be8a403a41a8e8a2c381313e25c2e0",
+      "states": 43
+    }
+  },
+  "contrast": {
+    "desktop": {
+      "samples": 1243,
+      "minimum_text": 4.894,
+      "minimum_essential": 3.567,
+      "failures": 0
+    },
+    "mobile": {
+      "samples": 1243,
+      "minimum_text": 4.894,
+      "minimum_essential": 3.567,
+      "failures": 0
+    }
+  }
+}

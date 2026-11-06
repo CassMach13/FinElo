@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useRef, useState } from 'react';
 import type { FinancialGoal } from '../../types';
 import { computeGoalProgress, formatDeadlineLabel } from '../../domain/goals/goalProgress';
@@ -63,7 +64,7 @@ const GoalCard: React.FC<Props> = ({
     'block w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-white/10 focus:bg-white/10 focus:outline-none';
 
   return (
-    <article
+    <article data-finance="surface divider remaining-opaque"
       className={`min-w-0 rounded-2xl border border-white/5 bg-secondary/30 p-4 shadow-xl sm:p-5 ${
         p.isArchived ? 'opacity-80' : ''
       }`}
@@ -71,26 +72,26 @@ const GoalCard: React.FC<Props> = ({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words text-base font-bold text-white">{goal.name}</h3>
+          <h3 data-finance="content" className="break-words text-base font-bold text-white">{goal.name}</h3>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {p.isReached && !p.isArchived && (
-              <span className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
+              <span data-finance="positive success-panel" className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
                 ✓ Objetivo alcançado
               </span>
             )}
             {p.isExpired && !p.isArchived && (
-              <span className="rounded bg-yellow-500/15 px-2 py-0.5 text-[11px] font-semibold text-yellow-300">
+              <span data-finance="warning warning-panel" className="rounded bg-yellow-500/15 px-2 py-0.5 text-[11px] font-semibold text-yellow-300">
                 Prazo encerrado
               </span>
             )}
             {p.isArchived && (
-              <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-gray-300">Arquivado</span>
+              <span data-finance="content inset" className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-gray-300">Arquivado</span>
             )}
           </div>
         </div>
 
         <div className="relative shrink-0" ref={menuRef}>
-          <button
+          <button data-finance="content remaining-hover"
             type="button"
             aria-label={`Mais opções do objetivo ${goal.name}`}
             aria-haspopup="menu"
@@ -101,28 +102,28 @@ const GoalCard: React.FC<Props> = ({
             ⋯
           </button>
           {menuOpen && (
-            <div
+            <div data-finance="inset divider"
               role="menu"
               className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-white/10 bg-primary shadow-xl"
             >
               {p.isArchived ? (
                 <>
-                  <button type="button" role="menuitem" className={itemClass} onClick={run(() => onUnarchive(goal))}>
+                  <button data-finance="content remaining-hover" type="button" role="menuitem" className={itemClass} onClick={run(() => onUnarchive(goal))}>
                     Restaurar
                   </button>
-                  <button type="button" role="menuitem" className={`${itemClass} text-danger`} onClick={run(() => onDelete(goal))}>
+                  <button data-finance="remaining-dynamic remaining-hover" type="button" role="menuitem" className={`${itemClass} text-danger`} onClick={run(() => onDelete(goal))}>
                     Excluir
                   </button>
                 </>
               ) : (
                 <>
-                  <button type="button" role="menuitem" className={itemClass} onClick={run(() => onEdit(goal))}>
+                  <button data-finance="content remaining-hover" type="button" role="menuitem" className={itemClass} onClick={run(() => onEdit(goal))}>
                     Editar
                   </button>
-                  <button type="button" role="menuitem" className={itemClass} onClick={run(() => onArchive(goal))}>
+                  <button data-finance="content remaining-hover" type="button" role="menuitem" className={itemClass} onClick={run(() => onArchive(goal))}>
                     Arquivar
                   </button>
-                  <button type="button" role="menuitem" className={`${itemClass} text-danger`} onClick={run(() => onDelete(goal))}>
+                  <button data-finance="remaining-dynamic remaining-hover" type="button" role="menuitem" className={`${itemClass} text-danger`} onClick={run(() => onDelete(goal))}>
                     Excluir
                   </button>
                 </>
@@ -133,11 +134,11 @@ const GoalCard: React.FC<Props> = ({
       </div>
 
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="min-w-0 break-words text-sm tabular-nums text-gray-300">
-          <span className="text-lg font-bold text-white">{formatCurrency(goal.current_amount)}</span> de{' '}
+        <p data-finance="content" className="min-w-0 break-words text-sm tabular-nums text-gray-300">
+          <span data-finance="content" className="text-lg font-bold text-white">{formatCurrency(goal.current_amount)}</span> de{' '}
           {formatCurrency(goal.target_amount)}
         </p>
-        <span className="text-sm font-semibold tabular-nums text-gray-200">{formatPercent(p.progressPercent)}</span>
+        <span data-finance="content" className="text-sm font-semibold tabular-nums text-gray-200">{formatPercent(p.progressPercent)}</span>
       </div>
 
       <div
@@ -152,7 +153,7 @@ const GoalCard: React.FC<Props> = ({
         <ProgressBar value={p.progressBarPercent} max={100} color={p.isReached ? 'bg-accent' : 'bg-highlight'} />
       </div>
 
-      <div className="mt-3 space-y-0.5 text-sm text-gray-400">
+      <div data-finance="muted" className="mt-3 space-y-0.5 text-sm text-gray-400">
         {p.isReached ? (
           <p>
             Você chegou lá.
@@ -160,7 +161,7 @@ const GoalCard: React.FC<Props> = ({
           </p>
         ) : (
           <p>
-            Faltam <span className="font-semibold tabular-nums text-gray-200">{formatCurrency(p.remainingAmount)}</span>
+            Faltam <span data-finance="content" className="font-semibold tabular-nums text-gray-200">{formatCurrency(p.remainingAmount)}</span>
             {deadlineLabel && <> · até {deadlineLabel}</>}
           </p>
         )}
@@ -168,7 +169,7 @@ const GoalCard: React.FC<Props> = ({
         {!p.isReached && p.monthsRemaining === 0 && <p>Prazo neste mês</p>}
         {p.monthlyNeeded !== null && (
           <p>
-            Para chegar lá: <span className="font-semibold tabular-nums text-gray-200">{formatCurrency(p.monthlyNeeded)}</span>/mês
+            Para chegar lá: <span data-finance="content" className="font-semibold tabular-nums text-gray-200">{formatCurrency(p.monthlyNeeded)}</span>/mês
           </p>
         )}
       </div>
@@ -181,7 +182,7 @@ const GoalCard: React.FC<Props> = ({
         ) : (
           <span />
         )}
-        {updated && <span className="text-[11px] text-gray-500">Atualizado em {updated}</span>}
+        {updated && <span data-finance="muted" className="text-[11px] text-gray-500">Atualizado em {updated}</span>}
       </div>
     </article>
   );

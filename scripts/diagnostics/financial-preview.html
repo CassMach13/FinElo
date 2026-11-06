@@ -1,0 +1,9 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinElo · referência financeira isolada</title></head><body><div id="root"></div>
+<script>
+// Keep the exact module URL used by static application imports. Vite rewrites dynamic TS imports with ?import.
+window.__financialNativeImport = source => {
+  const url = new URL(source, location.origin);
+  if (url.origin !== location.origin || !/^\/(src|scripts\/diagnostics\/theme-financial-baseline\/src)\//.test(url.pathname)) throw Error('Módulo fora da referência');
+  return import(url.href);
+};
+</script><script type="module" src="/scripts/diagnostics/financial-preview.tsx"></script></body></html>

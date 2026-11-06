@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 
 import React, { useState, useEffect } from 'react';
 import Card from './../ui/Card';
@@ -114,32 +115,32 @@ const HelpView: React.FC = () => {
         <div className="space-y-6 animate-fade-in-up">
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                    <h1 data-finance="remaining-gradient" className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
                         Central de Ajuda
                     </h1>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <p data-finance="muted" className="text-sm text-slate-500 mt-1">
                         Busque por palavra-chave ou navegue pelos tópicos de cada área do FinElo.
                     </p>
                 </div>
                 <TourButton currentView="help" />
             </div>
 
-            <div className="flex flex-wrap bg-slate-800/50 p-1 rounded-lg w-fit gap-1">
-                <button
+            <div data-finance="inset" className="flex flex-wrap bg-slate-800/50 p-1 rounded-lg w-fit gap-1">
+                <button data-finance="remaining-dynamic"
                     id="help-tab-topics"
                     onClick={() => setActiveTab('topics')}
                     className={`px-4 py-2 rounded-md transition-all ${activeTab === 'topics' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
                 >
                     Tópicos
                 </button>
-                <button
+                <button data-finance="remaining-dynamic"
                     id="help-tab-new"
                     onClick={() => setActiveTab('new')}
                     className={`px-4 py-2 rounded-md transition-all ${activeTab === 'new' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
                 >
                     Novo Chamado
                 </button>
-                <button
+                <button data-finance="remaining-dynamic"
                     id="help-tab-history"
                     onClick={() => setActiveTab('history')}
                     className={`px-4 py-2 rounded-md transition-all relative ${activeTab === 'history' ? 'bg-cyan-500/20 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
@@ -147,8 +148,8 @@ const HelpView: React.FC = () => {
                     Meus Chamados
                     {unreadCount > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                            <span data-finance="info-panel remaining-opaque" className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                            <span data-finance="info-panel" className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
                         </span>
                     )}
                 </button>
@@ -164,8 +165,8 @@ const HelpView: React.FC = () => {
                         <h2 className="text-xl font-bold mb-4">Abrir Novo Chamado</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Tipo de Solicitação</label>
-                                 <Select
+                                <label data-finance="muted" htmlFor="support-type" className="block text-sm font-medium text-slate-400 mb-1">Tipo de Solicitação</label>
+                                 <Select id="support-type"
                                      value={type}
                                      onChange={(e) => setType(e.target.value as 'question' | 'bug' | 'feature')}
                                      disabled={isLoading}
@@ -176,8 +177,8 @@ const HelpView: React.FC = () => {
                                 </Select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Assunto</label>
-                                <Input
+                                <label data-finance="muted" htmlFor="support-subject" className="block text-sm font-medium text-slate-400 mb-1">Assunto</label>
+                                <Input id="support-subject"
                                     value={subject}
                                     onChange={(e) => setSubject(e.target.value)}
                                      placeholder="Resumo do problema..."
@@ -186,8 +187,8 @@ const HelpView: React.FC = () => {
                                  />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Descrição Detalhada</label>
-                                <textarea
+                                <label data-finance="muted" htmlFor="support-description" className="block text-sm font-medium text-slate-400 mb-1">Descrição Detalhada</label>
+                                <textarea id="support-description" data-finance="content inset divider control"
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 transition-colors min-h-[150px]"
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
@@ -197,8 +198,8 @@ const HelpView: React.FC = () => {
                                  />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Anexar Imagem ou Arquivo (Opcional)</label>
-                                <input
+                                <label data-finance="muted" htmlFor="support-attachment" className="block text-sm font-medium text-slate-400 mb-1">Anexar Imagem ou Arquivo (Opcional)</label>
+                                <input id="support-attachment" data-finance="muted control remaining-file"
                                     key={newTicketFileInputVersion}
                                     type="file"
                                     className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-cyan-500/10 file:text-cyan-400 hover:file:bg-cyan-500/20 transition-all"
@@ -207,12 +208,12 @@ const HelpView: React.FC = () => {
                                      disabled={isLoading}
                                  />
                                 {file && (
-                                    <div className="mt-4 p-4 bg-slate-800/80 border border-slate-700/80 rounded-lg shadow-inner">
-                                        <p className="text-xs text-cyan-400 bg-cyan-900/30 border border-cyan-500/20 px-3 py-2 rounded-md w-fit mb-3 flex items-center gap-2">
+                                    <div data-finance="inset divider" className="mt-4 p-4 bg-slate-800/80 border border-slate-700/80 rounded-lg shadow-inner">
+                                        <p data-finance="info info-panel" className="text-xs text-cyan-400 bg-cyan-900/30 border border-cyan-500/20 px-3 py-2 rounded-md w-fit mb-3 flex items-center gap-2">
                                             <span>📎</span> <span className="font-semibold">{file.name}</span>
                                         </p>
                                         <label className="flex items-start gap-3 cursor-pointer group">
-                                            <input
+                                            <input data-finance="info inset divider control"
                                                 type="checkbox"
                                                 className="mt-0.5 w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-500 bg-slate-900 cursor-pointer"
                                                  checked={hasFileAcceptance}
@@ -220,8 +221,8 @@ const HelpView: React.FC = () => {
                                                  required
                                                  disabled={isLoading}
                                              />
-                                            <span className="text-[11px] leading-relaxed text-slate-400 group-hover:text-slate-300 transition-colors">
-                                                <strong className="text-slate-200 block mb-1">Termo de Consentimento e Isenção de Responsabilidade (LGPD)</strong>
+                                            <span data-finance="muted" className="text-[11px] leading-relaxed text-slate-400 group-hover:text-slate-300 transition-colors">
+                                                <strong data-finance="content" className="text-slate-200 block mb-1">Termo de Consentimento e Isenção de Responsabilidade (LGPD)</strong>
                                                 Ao anexar este documento, declaro expressamente que estou enviando informações confidenciais ou sensíveis por minha livre e espontânea vontade, exclusivamente com a finalidade de viabilizar o suporte técnico. Adicionalmente, concordo em <strong>isentar a FinElo e seus controladores</strong> de toda e qualquer responsabilidade civil ou criminal por eventuais perdas, danos ou vazamentos decorrentes do envio voluntário desta documentação específica no ambiente de atendimento.
                                             </span>
                                         </label>
@@ -240,7 +241,7 @@ const HelpView: React.FC = () => {
                 {activeTab === 'history' && (
                     <div className="space-y-4 max-w-4xl mx-auto">
                         {supportTickets.length === 0 ? (
-                            <p className="text-center text-slate-500 py-10">Você ainda não tem chamados abertos.</p>
+                            <p data-finance="muted" className="text-center text-slate-500 py-10">Você ainda não tem chamados abertos.</p>
                         ) : (
                             supportTickets.map(ticket => {
                                 const hasMessages = ticket.messages && ticket.messages.length > 0;
@@ -250,24 +251,24 @@ const HelpView: React.FC = () => {
                                  const replyDraft = replyDraftFor(ticket.id);
 
                                 return (
-                                    <Card key={ticket.id} className={`transition-all cursor-default border-l-4 ${hasNewReply ? 'border-l-cyan-400 bg-cyan-900/10 border-cyan-500/30' : 'border-l-slate-600 hover:bg-slate-800/50'}`}>
+                                    <Card data-finance="info-panel" key={ticket.id} className={`transition-all cursor-default border-l-4 ${hasNewReply ? 'border-l-cyan-400 bg-cyan-900/10 border-cyan-500/30' : 'border-l-slate-600 hover:bg-slate-800/50'}`}>
                                         <div className="flex justify-between items-center mb-2">
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${ticket.type === 'bug' ? 'bg-red-500/20 text-red-400' :
+                                                <span data-finance="remaining-dynamic" className={`text-xs px-2 py-1 rounded font-bold uppercase ${ticket.type === 'bug' ? 'bg-red-500/20 text-red-400' :
                                                     ticket.type === 'feature' ? 'bg-purple-500/20 text-purple-400' :
                                                         'bg-blue-500/20 text-blue-400'
                                                     }`}>
                                                     {ticket.type === 'bug' ? 'Bug' : ticket.type === 'feature' ? 'Sugestão' : 'Dúvida'}
                                                 </span>
-                                                <span className="text-xs text-slate-500">{new Date(ticket.created_at).toLocaleString()}</span>
+                                                <span data-finance="muted" className="text-xs text-slate-500">{new Date(ticket.created_at).toLocaleString()}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {ticket.protocol && (
-                                                    <span className="text-[10px] bg-cyan-900/30 text-cyan-400 px-2 py-1 rounded border border-cyan-500/20 font-mono">
+                                                    <span data-finance="info info-panel" className="text-[10px] bg-cyan-900/30 text-cyan-400 px-2 py-1 rounded border border-cyan-500/20 font-mono">
                                                         #{ticket.protocol}
                                                     </span>
                                                 )}
-                                                <div className={`px-2 py-1 rounded text-xs border ${ticket.status === 'open' ? 'border-green-500 text-green-400' :
+                                                <div data-finance="remaining-dynamic divider" className={`px-2 py-1 rounded text-xs border ${ticket.status === 'open' ? 'border-green-500 text-green-400' :
                                                     ticket.status === 'in_progress' ? 'border-yellow-500 text-yellow-400' :
                                                         ticket.status === 'resolved' ? 'border-blue-500 text-blue-400' :
                                                             'border-gray-500 text-gray-400'
@@ -281,11 +282,11 @@ const HelpView: React.FC = () => {
 
                                         <h3 className="font-bold text-lg mb-2">{ticket.subject}</h3>
 
-                                        <div className="bg-slate-900/50 p-4 rounded-lg text-sm text-slate-300 mb-4 whitespace-pre-wrap border border-slate-700/50">
+                                        <div data-finance="content inset divider" className="bg-slate-900/50 p-4 rounded-lg text-sm text-slate-300 mb-4 whitespace-pre-wrap border border-slate-700/50">
                                             {ticket.description}
                                             {(ticket.attachment_path || ticket.attachment_url) && (
-                                                <div className="mt-4 pt-4 border-t border-slate-700">
-                                                    <p className="text-xs text-slate-500 mb-2 uppercase font-bold">Anexo:</p>
+                                                <div data-finance="divider" className="mt-4 pt-4 border-t border-slate-700">
+                                                    <p data-finance="muted" className="text-xs text-slate-500 mb-2 uppercase font-bold">Anexo:</p>
                                                     <SupportAttachmentLink
                                                         attachment_path={ticket.attachment_path}
                                                         attachment_url={ticket.attachment_url}
@@ -296,17 +297,17 @@ const HelpView: React.FC = () => {
                                         </div>
 
                                         {ticket.messages && ticket.messages.length > 0 && (
-                                            <div className="space-y-3 mb-4 pl-4 border-l-2 border-slate-700">
+                                            <div data-finance="divider" className="space-y-3 mb-4 pl-4 border-l-2 border-slate-700">
                                                 {[...(ticket.messages || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map(msg => {
                                                     const isMe = msg.sender_id === user?.id;
                                                     return (
                                                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                                            <span className="text-[10px] text-gray-500 mb-1">{isMe ? 'Você' : 'Suporte FinElo'} - {new Date(msg.created_at).toLocaleString()}</span>
-                                                            <div className={`p-3 rounded-xl max-w-[90%] text-sm ${isMe ? 'bg-slate-700 text-slate-200 rounded-tr-none' : 'bg-cyan-900/40 border border-cyan-500/30 text-cyan-100 rounded-tl-none'
+                                                            <span data-finance="muted" className="text-[10px] text-gray-500 mb-1">{isMe ? 'Você' : 'Suporte FinElo'} - {new Date(msg.created_at).toLocaleString()}</span>
+                                                            <div data-finance="remaining-dynamic" className={`p-3 rounded-xl max-w-[90%] text-sm ${isMe ? 'bg-slate-700 text-slate-200 rounded-tr-none' : 'bg-cyan-900/40 border border-cyan-500/30 text-cyan-100 rounded-tl-none'
                                                                 }`}>
                                                                 {msg.message}
                                                                 {(msg.attachment_path || msg.attachment_url) && (
-                                                                    <div className={`mt-2 pt-2 border-t ${isMe ? 'border-slate-600' : 'border-cyan-500/20'}`}>
+                                                                    <div data-finance="divider" className={`mt-2 pt-2 border-t ${isMe ? 'border-slate-600' : 'border-cyan-500/20'}`}>
                                                                         <SupportAttachmentLink
                                                                             attachment_path={msg.attachment_path}
                                                                             attachment_url={msg.attachment_url}
@@ -323,11 +324,11 @@ const HelpView: React.FC = () => {
 
                                         <div className="mt-4 flex gap-2">
                                             {(ticket.status === 'closed' || ticket.status === 'resolved') ? (
-                                                <div className="w-full bg-slate-800/50 border border-slate-700 p-3 rounded-lg flex justify-between items-center">
-                                                    <span className="text-sm text-gray-400">
+                                                <div data-finance="inset divider" className="w-full bg-slate-800/50 border border-slate-700 p-3 rounded-lg flex justify-between items-center">
+                                                    <span data-finance="muted" className="text-sm text-gray-400">
                                                         Este chamado está encerrado. (Protocolo: {ticket.protocol})
                                                     </span>
-                                                    <button
+                                                    <button data-finance="info"
                                                         onClick={() => {
                                                             setSubject(`Referência ao Protocolo ${ticket.protocol || 'N/A'}`);
                                                             setDescription(`Referente ao chamado anterior de protocolo #${ticket.protocol || 'N/A'}.\n\nContexto:\n`);
@@ -341,9 +342,9 @@ const HelpView: React.FC = () => {
                                              ) : (
                                                  <>
                                                      <div className="flex-1 flex flex-col gap-2">
-                                                         <input
+                                                         <input data-finance="inset divider control"
                                                              type="text"
-                                                             placeholder="Responder..."
+                                                             aria-label="Responder ao chamado" placeholder="Responder..."
                                                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-colors"
                                                              value={replyDraft.message}
                                                              onChange={(event) => updateReplyDraft(ticket.id, { message: event.target.value })}
@@ -357,7 +358,7 @@ const HelpView: React.FC = () => {
                                                          />
                                                          <div className="flex items-center justify-between px-1">
                                                              <div className="relative group">
-                                                                 <input
+                                                                 <input aria-label="Anexar arquivo à resposta" data-finance="control remaining-file-target"
                                                                      key={`${ticket.id}-${replyDraft.fileInputVersion}`}
                                                                      type="file"
                                                                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -367,7 +368,7 @@ const HelpView: React.FC = () => {
                                                                          file: event.target.files?.[0] ?? null,
                                                                      })}
                                                                  />
-                                                                 <div className="h-8 flex items-center px-3 bg-slate-800 rounded-md border border-slate-700 text-[10px] text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer max-w-full">
+                                                                 <div data-finance="muted inset divider" className="h-8 flex items-center px-3 bg-slate-800 rounded-md border border-slate-700 text-[10px] text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer max-w-full">
                                                                      <span className="truncate">
                                                                          {replyDraft.file ? `📎 ${replyDraft.file.name}` : '📎 Anexar imagem ou documento'}
                                                                      </span>
@@ -384,7 +385,7 @@ const HelpView: React.FC = () => {
                                                          {replyDraft.isSending ? 'Enviando...' : 'Enviar'}
                                                      </Button>
                                                     <div className="w-full mt-2 pl-1">
-                                                        <p className="text-[9px] text-slate-500 leading-tight">
+                                                        <p data-finance="muted" className="text-[9px] text-slate-500 leading-tight">
                                                             <strong>Aviso de Privacidade:</strong> Ao optar por anexar e enviar arquivos nesta conversa, você consente com o compartilhamento e isenta a FinElo de responsabilidade sobre o tráfego destes dados sensíveis de suporte (LGPD).
                                                         </p>
                                                     </div>

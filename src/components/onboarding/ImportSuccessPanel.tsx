@@ -1,4 +1,5 @@
 import React from 'react';
+import "../appearance/financial.css";
 import Button from '../ui/Button';
 
 /**
@@ -28,25 +29,25 @@ const ImportSuccessPanel: React.FC<ImportSuccessPanelProps> = ({
   canImportAnother = true,
   quotaNote,
 }) => (
-  <section
+  <section data-finance="success-panel divider"
     role="status"
     aria-labelledby="import-success-title"
     className="rounded-xl border border-green-700/60 bg-green-900/20 p-5 space-y-4"
   >
     <div>
-      <h3 id="import-success-title" className="text-lg font-bold text-green-200">
+      <h3 data-finance="positive" id="import-success-title" className="text-lg font-bold text-green-200">
         ✅ Importação concluída
       </h3>
-      <p className="text-sm text-green-100/90 mt-1">
+      <p data-finance="positive" className="text-sm text-green-100/90 mt-1">
         {plural(imported, 'transação adicionada', 'transações adicionadas')}.
         {ignored > 0
           ? ` ${plural(ignored, 'já existia e foi ignorada', 'já existiam e foram ignoradas')}.`
           : ''}
       </p>
-      <p className="text-xs text-green-100/70 mt-1">
+      <p data-finance="positive" className="text-xs text-green-100/70 mt-1">
         Dê uma olhada rápida nas categorias para os números ficarem certos.
       </p>
-      {quotaNote ? <p className="text-xs text-green-100/70 mt-1">{quotaNote}</p> : null}
+      {quotaNote ? <p data-finance="positive" className="text-xs text-green-100/70 mt-1">{quotaNote}</p> : null}
     </div>
     <div className="flex flex-col sm:flex-row gap-2">
       <Button onClick={onReviewTransactions} className="sm:w-auto w-full">

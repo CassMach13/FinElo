@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useState } from 'react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
@@ -88,13 +89,13 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, currentM
             </div>}
         >
             <div className="space-y-4">
-                <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 p-3 rounded text-sm mb-2">
+                <div data-finance="warning warning-panel" className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 p-3 rounded text-sm mb-2">
                     <strong>⚠️ Atenção:</strong> Ao adicionar um membro, ele terá acesso <u>TOTAL</u> para ver, editar e excluir suas transações e contas. Use com cuidado.
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 mb-4">
-                    <span className="text-gray-300 text-sm">Vagas em uso:</span>
-                    <span className="font-bold text-white">
+                <div data-finance="inset divider" className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 mb-4">
+                    <span data-finance="content" className="text-gray-300 text-sm">Vagas em uso:</span>
+                    <span data-finance="content" className="font-bold text-white">
                         {currentMembers.length} / {subscription?.family_slots || 0}
                     </span>
                 </div>
@@ -108,12 +109,12 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, currentM
                     required
                 />
 
-                <p className="text-xs text-gray-400">
+                <p data-finance="muted" className="text-xs text-gray-400">
                     A pessoa deve usar exatamente este email para acessar o FinElo. Se ela já tiver conta, os dados dela serão mesclados visualmente com os seus.
                 </p>
 
-                <div className="bg-primary/50 p-3 rounded border border-slate-700 text-xs text-gray-400">
-                    <p className="font-bold text-gray-300 mb-1">Valores por vaga adicional:</p>
+                <div data-finance="muted inset divider" className="bg-primary/50 p-3 rounded border border-slate-700 text-xs text-gray-400">
+                    <p data-finance="content" className="font-bold text-gray-300 mb-1">Valores por vaga adicional:</p>
                     <ul className="list-disc pl-4 space-y-1">
                         <li>Plano PRO: R$ 4,50 / mês</li>
                         <li>Plano WEALTH: R$ 9,00 / mês</li>

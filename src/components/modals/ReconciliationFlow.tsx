@@ -1,3 +1,4 @@
+import '../appearance/financial.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ReconciliationResolutionModal,
@@ -157,7 +158,7 @@ export function ReconciliationFlow({
   if (fase.nome === 'calculando') {
     return (
       <div role="status" aria-label="Calculando a diferença" className="p-6 text-center">
-        <p className="text-sm text-slate-300">Calculando a diferença…</p>
+        <p data-finance="muted" className="text-sm text-slate-300">Calculando a diferença…</p>
       </div>
     );
   }
@@ -165,12 +166,13 @@ export function ReconciliationFlow({
   if (fase.nome === 'erro') {
     return (
       <div role="alert" className="p-4 flex flex-col gap-3">
-        <p className="text-sm text-rose-300">Não foi possível calcular: {fase.motivo}</p>
+        <p data-finance="negative" className="text-sm text-rose-300">Não foi possível calcular: {fase.motivo}</p>
         <div className="flex gap-2 justify-end">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded bg-slate-700 text-slate-100">
+          <button data-finance="secondary" type="button" onClick={onClose} className="px-3 py-1.5 rounded bg-slate-700 text-slate-100">
             Fechar
           </button>
           <button
+            data-finance="secondary"
             type="button"
             onClick={() => void carregar()}
             className="px-3 py-1.5 rounded bg-slate-600 text-slate-100"
@@ -185,9 +187,9 @@ export function ReconciliationFlow({
   if (fase.nome === 'concluido') {
     return (
       <div role="status" className="p-4 flex flex-col gap-4">
-        <p className="text-sm text-emerald-300">{fase.texto}</p>
+        <p data-finance="positive" className="text-sm text-emerald-300">{fase.texto}</p>
         <div className="flex justify-end">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded bg-slate-700 text-slate-100">
+          <button data-finance="secondary" type="button" onClick={onClose} className="px-3 py-1.5 rounded bg-slate-700 text-slate-100">
             Fechar
           </button>
         </div>
@@ -210,16 +212,17 @@ export function ReconciliationFlow({
       />
 
       {ativas.length > 0 && (
-        <div className="px-4 pb-4 border-t border-white/10 pt-3 flex flex-col gap-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">
+        <div data-finance="divider" className="px-4 pb-4 border-t border-white/10 pt-3 flex flex-col gap-2">
+          <p data-finance="muted" className="text-xs uppercase tracking-wide text-slate-400">
             Resoluções registradas nesta competência
           </p>
           {ativas.map((r) => (
             <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-slate-300">
+              <span data-finance="content" className="text-slate-300">
                 {r.resolvedAmount == null ? 'Valor oficial informado' : money(Math.round(r.resolvedAmount * 100))}
               </span>
               <button
+                data-finance="secondary"
                 type="button"
                 disabled={gravando}
                 onClick={() => void desfazer(r.id)}

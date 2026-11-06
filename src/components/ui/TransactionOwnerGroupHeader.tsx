@@ -19,15 +19,15 @@ const TransactionOwnerGroupHeader: React.FC<TransactionOwnerGroupHeaderProps> = 
     return (
       <div className="flex items-center gap-2 py-1">
         <FamilyOwnerBadge profile={profile} compact />
-        <span className="text-xs font-bold text-slate-200">{label}</span>
+        <span data-finance="content" className="text-xs font-bold text-slate-200">{label}</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-slate-900/50">
+    <div data-finance="inset divider" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-slate-900/50">
       <FamilyOwnerBadge profile={profile} compact />
-      <span className="text-sm font-bold text-white">{label}</span>
+      <span data-finance="content" className="text-sm font-bold text-white">{label}</span>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildSmoothGappedArea, buildSmoothGappedPath, splitSegments } from '../charts/AnnualEvolutionChart';
 import { formatCurrency } from '../../utils/formatters';
@@ -113,20 +114,20 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
   };
 
   return (
-    <section aria-label="Evolução do saldo investido" data-portfolio-chart="" className="min-w-0 rounded-2xl border border-slate-700/50 bg-secondary p-4 shadow-xl sm:p-6">
+    <section data-finance={"divider surface"} aria-label="Evolução do saldo investido" data-portfolio-chart="" className="min-w-0 rounded-2xl border border-slate-700/50 bg-secondary p-4 shadow-xl sm:p-6">
       <div className="mb-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Últimos 12 meses</p>
-        <h2 className="text-lg font-semibold text-white">Evolução do saldo investido</h2>
-        <p className="text-xs text-gray-500">Saldo registrado por mês. Meses sem posição ficam em branco.</p>
+        <p data-finance={"muted"} className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Últimos 12 meses</p>
+        <h2 data-finance={"content"} className="text-lg font-semibold text-white">Evolução do saldo investido</h2>
+        <p data-finance={"muted"} className="text-xs text-gray-500">Saldo registrado por mês. Meses sem posição ficam em branco.</p>
       </div>
 
       {!hasAnyData ? (
-        <div data-chart-empty="" className="rounded-xl border border-dashed border-slate-700/60 px-4 py-10 text-center text-sm text-gray-400">
+        <div data-finance={"muted divider"} data-chart-empty="" className="rounded-xl border border-dashed border-slate-700/60 px-4 py-10 text-center text-sm text-gray-400">
           Nenhuma posição registrada nos 12 meses até {formatMonthLabel(selectedKey)}.
         </div>
       ) : (
         <>
-          <div ref={wrapRef} className="relative w-full min-w-0" onMouseLeave={() => setActive(null)}>
+          <div ref={wrapRef} className="relative w-full min-w-0" onMouseLeave={() => { if (!wrapRef.current?.contains(document.activeElement)) setActive(null); }}>
             <svg
               width={width}
               height={height}
@@ -137,9 +138,9 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
             >
               <defs>
                 <linearGradient id={`pf-area-${uid}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PORTFOLIO_COLOR} stopOpacity="0.2" />
-                  <stop offset="70%" stopColor={PORTFOLIO_COLOR} stopOpacity="0.025" />
-                  <stop offset="100%" stopColor={PORTFOLIO_COLOR} stopOpacity="0" />
+                  <stop offset="0%" stopColor={PORTFOLIO_COLOR} stopOpacity="0.2" data-finance="investment-chart-stop" />
+                  <stop offset="70%" stopColor={PORTFOLIO_COLOR} stopOpacity="0.025" data-finance="investment-chart-stop" />
+                  <stop offset="100%" stopColor={PORTFOLIO_COLOR} stopOpacity="0" data-finance="investment-chart-stop" />
                 </linearGradient>
                 <filter id={`pf-blur-${uid}`} filterUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
                   <feGaussianBlur stdDeviation="4" />
@@ -148,8 +149,8 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
 
               {geometry.scale.ticks.map((tick) => (
                 <g key={tick}>
-                  <line x1={PAD.left} x2={width - PAD.right} y1={y(tick)} y2={y(tick)} stroke="rgba(148, 163, 184, 0.075)" strokeWidth="1" />
-                  <text x={PAD.left - 8} y={y(tick) + 3.5} textAnchor="end" className="fill-gray-500 tabular-nums" fontSize="10">
+                  <line x1={PAD.left} x2={width - PAD.right} y1={y(tick)} y2={y(tick)} stroke="rgba(148, 163, 184, 0.075)" strokeWidth="1" data-finance="investment-chart-grid" />
+                  <text x={PAD.left - 8} y={y(tick) + 3.5} textAnchor="end" className="fill-gray-500 tabular-nums" fontSize="10" data-finance="investment-chart-label">
                     {compactBRL(tick)}
                   </text>
                 </g>
@@ -157,7 +158,7 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
 
               {months.map((m, i) =>
                 i % labelEvery === 0 ? (
-                  <text key={m.key} x={x(i)} y={height - 8} textAnchor="middle" className="fill-gray-500" fontSize="10">
+                  <text key={m.key} x={x(i)} y={height - 8} textAnchor="middle" className="fill-gray-500" fontSize="10" data-finance="investment-chart-label">
                     {formatMonthShort(m.key)}
                   </text>
                 ) : null
@@ -173,21 +174,21 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
                 strokeLinejoin="round"
                 filter={`url(#pf-blur-${uid})`}
                 opacity={active !== null ? 0.24 : 0.1}
-                aria-hidden="true"
+                aria-hidden="true" data-finance="investment-chart-glow"
               />
-              <path d={geometry.path} data-portfolio-line="" fill="none" stroke={PORTFOLIO_COLOR} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
+              <path d={geometry.path} data-portfolio-line="" fill="none" stroke={PORTFOLIO_COLOR} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" data-finance="investment-chart-line" />
 
               {geometry.isolated.map((p) => (
-                <circle key={`iso-${p.x}`} data-isolated-point="" cx={p.x} cy={p.y} r="3.5" fill={PORTFOLIO_COLOR} />
+                <circle key={`iso-${p.x}`} data-isolated-point="" cx={p.x} cy={p.y} r="3.5" fill={PORTFOLIO_COLOR} data-finance="investment-chart-point" />
               ))}
 
               {activeMonth && active !== null && (
                 <g aria-hidden="true">
-                  <line x1={x(active)} x2={x(active)} y1={PAD.top} y2={PAD.top + innerH} stroke="rgba(206,218,234,0.26)" strokeDasharray="2 4" strokeWidth="1" />
+                  <line x1={x(active)} x2={x(active)} y1={PAD.top} y2={PAD.top + innerH} stroke="rgba(206,218,234,0.26)" strokeDasharray="2 4" strokeWidth="1" data-finance="investment-chart-grid" />
                   {activeMonth.balance !== null && (
                     <>
-                      <circle cx={x(active)} cy={y(activeMonth.balance)} r="9" fill={PORTFOLIO_COLOR} opacity="0.28" filter={`url(#pf-blur-${uid})`} />
-                      <circle cx={x(active)} cy={y(activeMonth.balance)} r="4" fill={SURFACE} stroke={PORTFOLIO_COLOR} strokeWidth="2" />
+                      <circle cx={x(active)} cy={y(activeMonth.balance)} r="9" fill={PORTFOLIO_COLOR} opacity="0.28" filter={`url(#pf-blur-${uid})`} data-finance="investment-chart-glow" />
+                      <circle cx={x(active)} cy={y(activeMonth.balance)} r="4" fill={SURFACE} stroke={PORTFOLIO_COLOR} strokeWidth="2" data-finance="investment-chart-marker" />
                     </>
                   )}
                 </g>
@@ -212,14 +213,14 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
                     onFocus={() => setActive(i)}
                     onBlur={() => setActive(null)}
                     onClick={() => setActive((cur) => (cur === i ? null : i))}
-                    onKeyDown={(e) => onKeyDown(e, i)}
+                    onKeyDown={(e) => onKeyDown(e, i)} data-finance="investment-chart-focus"
                   />
                 );
               })}
             </svg>
 
             {activeMonth && (
-              <div
+              <div data-finance={"investment-painted investment-chart-tooltip content"}
                 role="status"
                 className="pointer-events-none absolute top-3 z-10 rounded-xl border p-3 text-xs backdrop-blur-[10px]"
                 style={{
@@ -230,13 +231,13 @@ const PortfolioHistoryChart: React.FC<Props> = ({ months, selectedKey }) => {
                   boxShadow: '0 18px 42px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.035)',
                 }}
               >
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white">{formatMonthLabel(activeMonth.key)}</p>
+                <p data-finance={"content"} className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white">{formatMonthLabel(activeMonth.key)}</p>
                 {activeMonth.balance === null ? (
-                  <p className="text-gray-500">{NO_POSITION_LABEL}</p>
+                  <p data-finance={"muted"} className="text-gray-500">{NO_POSITION_LABEL}</p>
                 ) : (
                   <>
-                    <p className="font-semibold tabular-nums text-gray-100">{formatCurrency(activeMonth.balance)}</p>
-                    <p className="mt-0.5 text-[10px] text-gray-400">
+                    <p data-finance={"content"} className="font-semibold tabular-nums text-gray-100">{formatCurrency(activeMonth.balance)}</p>
+                    <p data-finance={"muted"} className="mt-0.5 text-[10px] text-gray-400">
                       {activeMonth.positionCount} {activeMonth.positionCount === 1 ? 'posição' : 'posições'} · saldo registrado
                     </p>
                   </>

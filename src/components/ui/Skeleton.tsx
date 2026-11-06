@@ -21,6 +21,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
         <>
             {elements.map((i) => (
                 <div
+                    data-appearance-part="skeleton"
                     key={i}
                     className={`animate-pulse bg-slate-700/50 ${circle ? 'rounded-full' : 'rounded-md'} ${className}`}
                     style={{ width, height }}
@@ -31,7 +32,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 };
 
 export const SkeletonCard: React.FC = () => (
-    <div className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-3 relative overflow-hidden h-28 w-full">
+    <div data-appearance-part="card" className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-3 relative overflow-hidden h-28 w-full">
         <div className="flex justify-between items-start pl-2">
             <div className="flex flex-col gap-2 w-1/2">
                 <Skeleton height={20} className="w-full" />

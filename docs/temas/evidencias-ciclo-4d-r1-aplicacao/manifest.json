@@ -1,0 +1,49 @@
+{
+  "archive": "finelo-ciclo-4d-r1-aplicacao-evidencias.zip",
+  "sourceCheckpoint": "d83154e0e90910944b27c15576ce94642295a151",
+  "checks": [
+    {
+      "files": 765,
+      "uniqueObjects": 485,
+      "indexSHA256": "14c5f5717ede6ca24ef0ae8b5ec8405fac82f09367d99e96f31fda86c1ce1631",
+      "archiveSHA256": "12d8c7fa215cbb828eb0dd251898e12f0683371a0f08fc1dc731d10d26126456",
+      "bytes": 8250113,
+      "CRC": true,
+      "allSHA256": true
+    },
+    {
+      "files": 765,
+      "uniqueObjects": 485,
+      "indexSHA256": "14c5f5717ede6ca24ef0ae8b5ec8405fac82f09367d99e96f31fda86c1ce1631",
+      "archiveSHA256": "12d8c7fa215cbb828eb0dd251898e12f0683371a0f08fc1dc731d10d26126456",
+      "bytes": 8250113,
+      "CRC": true,
+      "allSHA256": true
+    }
+  ],
+  "images": [
+    {
+      "file": "applied-final-msedge-legacy-to-current-light-tabs-dirty-waiting-1.png",
+      "bytes": 55178,
+      "sha256": "63ab1a49b5fb17384b36d790571005389a8789f87efec4aaf85b37fa7607883c"
+    },
+    {
+      "file": "applied-final-msedge-legacy-to-current-light-tabs-dirty-1.png",
+      "bytes": 58218,
+      "sha256": "07888047593f9418e3cf63f700a459cefde7717bfc3c849bfcdd1199fdd93397"
+    },
+    {
+      "file": "applied-final-chrome-legacy-to-current-light-tabs-pending-waiting-1.png",
+      "bytes": 54313,
+      "sha256": "b0e60d55c6c925eab446cc185143b4baab809ab241312b14c06d5ead4928ae3e"
+    },
+    {
+      "file": "applied-final-chrome-legacy-to-current-light-tabs-pending-1.png",
+      "bytes": 58218,
+      "sha256": "07888047593f9418e3cf63f700a459cefde7717bfc3c849bfcdd1199fdd93397"
+    }
+  ],
+  "pngBytes": 225927,
+  "productChangeApplied": true,
+  "overallVerdict": "NO-GO"
+}

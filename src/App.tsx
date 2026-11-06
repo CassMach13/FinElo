@@ -21,6 +21,7 @@ import { AppLock } from './components/auth/AppLock';
 import { AuthLoadingScreen, ProtectedRoute } from './components/auth/ProtectedRoute';
 import ReloadPrompt from './components/pwa/ReloadPrompt';
 import { GlobalDialog } from './components/ui/GlobalDialog';
+import AppearanceSessionSync from './components/appearance/AppearanceSessionSync';
 
 const AppContent: React.FC = () => {
   const acquisitionLocation = useLocation();
@@ -199,7 +200,7 @@ const AppContent: React.FC = () => {
       {/* MainLayout reads /pricing from the URL to open the in-app pricing view. */}
       <Route path="/pricing" element={user ? <Navigate to="/app?view=pricing" replace /> : <LandingPage />} />
       <Route element={<ProtectedRoute isAuthReady={isAuthReady} user={user} />}>
-        <Route path="/app" element={<MainLayout />} />
+        <Route path="/app" element={<MainLayout key={user?.id} />} />
         <Route path="/dashboard" element={<Navigate to="/app" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -212,6 +213,7 @@ const App: React.FC = () => (
     <AppLock>
       <AppContent />
     </AppLock>
+    <AppearanceSessionSync />
     <GlobalDialog />
     <ReloadPrompt />
     <Analytics />

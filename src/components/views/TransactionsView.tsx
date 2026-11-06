@@ -1,4 +1,5 @@
 import { DEFAULT_CARD_PAYMENT_KEYWORDS, DEFAULT_CARD_CREDIT_KEYWORDS } from '../../services/accountCardEconomics';
+import '../appearance/financial.css';
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore, BACKGROUND_SYNC_MIN_INTERVAL_MS } from '../../hooks/useAppStore';
@@ -669,41 +670,41 @@ const TransactionsView: React.FC = () => {
               ? 'Lançamento manual'
               : String(tx.Origem || '');
           return (
-            <li
+            <li data-finance="inset divider"
               key={tx.ID_Transacao}
               className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3"
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
-                <span className="text-xs text-gray-400 tabular-nums font-medium">{dateBr}</span>
-                <span
+                <span data-finance="muted" className="text-xs text-gray-400 tabular-nums font-medium">{dateBr}</span>
+                <span data-finance={role === 'compra' ? 'danger-chip' : role === 'estorno' ? 'success-chip' : role === 'pagamento' ? 'info-chip' : 'inset divider muted'}
                   className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase shrink-0 ${competenceLedgerRoleClass[role]}`}
                 >
                   {competenceLedgerRoleLabel[role]}
                 </span>
               </div>
-              <p className="text-sm font-semibold text-white leading-snug break-words">
+              <p data-finance="content" className="text-sm font-semibold text-white leading-snug break-words">
                 {tx.Nome_Fantasia || tx.Descricao_Original || '—'}
               </p>
-              <p
+              <p data-finance={Number(tx.Valor || 0) < 0 ? 'negative' : Number(tx.Valor || 0) > 0 ? 'positive' : 'content'}
                 className={`text-lg font-black tabular-nums mt-1 ${getCurrencyColorClass(Number(tx.Valor || 0))}`}
               >
                 {formatCurrencySigned(Number(tx.Valor || 0), { showPlusForPositive: true })}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1 break-all leading-snug">
+              <p data-finance="muted" className="text-[11px] text-gray-500 mt-1 break-all leading-snug">
                 {origin}
                 {tx.Parcela_Atual && tx.Total_Parcelas
                   ? ` · parcela ${tx.Parcela_Atual}/${tx.Total_Parcelas}`
                   : ''}
               </p>
               {appliedReferenceBR ? (
-                <p className="text-[11px] text-sky-200/90 mt-2 rounded-md border border-sky-500/25 bg-sky-500/10 px-2.5 py-2 leading-snug">
+                <p data-finance="info-panel info" className="text-[11px] text-sky-200/90 mt-2 rounded-md border border-sky-500/25 bg-sky-500/10 px-2.5 py-2 leading-snug">
                   Este pagamento está no extrato de {displayedReferenceMonth.slice(5, 7)}/
                   {displayedReferenceMonth.slice(0, 4)}, mas quita a fatura anterior de{' '}
                   <span className="font-bold tabular-nums">{appliedReferenceBR}</span>.
                 </p>
               ) : null}
               {splitNote ? (
-                <p className="text-[11px] text-sky-200/90 mt-2 rounded-md border border-sky-500/25 bg-sky-500/10 px-2.5 py-2 leading-snug">
+                <p data-finance="info-panel info" className="text-[11px] text-sky-200/90 mt-2 rounded-md border border-sky-500/25 bg-sky-500/10 px-2.5 py-2 leading-snug">
                   Pagamento feito depois do vencimento da fatura anterior: {splitNote}
                 </p>
               ) : null}
@@ -733,25 +734,25 @@ const TransactionsView: React.FC = () => {
   const renderCompetenceBreakdownDetails = useCallback(
     (card: CompetenceHistoryCard) => (
       <div className="space-y-5 text-sm">
-        <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-300">Pagamentos e saldo</h3>
+        <section data-finance="inset divider" className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
+          <h3 data-finance="muted" className="text-xs font-bold uppercase tracking-wide text-slate-300">Pagamentos e saldo</h3>
           <div className="flex justify-between gap-3 items-baseline">
-            <span className="text-slate-400">Pagamentos registrados</span>
-            <span className="text-emerald-300 font-bold tabular-nums">{formatCurrency(card.totalPayments)}</span>
+            <span data-finance="muted" className="text-slate-400">Pagamentos registrados</span>
+            <span data-finance="positive" className="text-emerald-300 font-bold tabular-nums">{formatCurrency(card.totalPayments)}</span>
           </div>
           {(card.paymentsOnExtracts ?? 0) > 0.005 ? (
-            <p className="text-slate-300 leading-relaxed text-[13px]">
+            <p data-finance="muted" className="text-slate-300 leading-relaxed text-[13px]">
               No extrato desta competência:{' '}
-              <span className="tabular-nums font-semibold text-slate-100">
+              <span data-finance="content" className="tabular-nums font-semibold text-slate-100">
                 {formatCurrency(card.paymentsOnExtracts ?? 0)}
               </span>{' '}
               em linhas de pagamento de fatura. Conforme a data de cada pagamento, parte dele pode quitar a
               fatura anterior; o valor acima já mostra o que ficou nesta fatura.
             </p>
           ) : null}
-          <div className="flex justify-between gap-3 items-baseline border-t border-white/10 pt-3">
-            <span className="text-slate-400">Saldo em aberto</span>
-            <span
+          <div data-finance="divider" className="flex justify-between gap-3 items-baseline border-t border-white/10 pt-3">
+            <span data-finance="muted" className="text-slate-400">Saldo em aberto</span>
+            <span data-finance={(card.openBalance <= 0.005 ? "muted" : "warning")}
               className={`font-bold tabular-nums ${
                 card.openBalance <= 0.005 ? 'text-slate-400' : 'text-amber-300'
               }`}
@@ -765,19 +766,19 @@ const TransactionsView: React.FC = () => {
           (card.priorDifferenceApplied ?? 0) > 0.005 ||
           card.creditCarriedForward > 0.005 ||
           (card.directedManualRefundTotal ?? 0) > 0.005) && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-300">Ajustes automáticos</h3>
+          <section data-finance="inset divider" className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
+            <h3 data-finance="muted" className="text-xs font-bold uppercase tracking-wide text-slate-300">Ajustes automáticos</h3>
             {card.priorCreditApplied > 0.005 ? (
-              <p className="text-slate-300 leading-relaxed text-[13px]">
+              <p data-finance="muted" className="text-slate-300 leading-relaxed text-[13px]">
                 Abatimento com crédito da competência anterior:{' '}
-                <span className="tabular-nums font-semibold text-violet-200">
+                <span data-finance="info" className="tabular-nums font-semibold text-violet-200">
                   {formatCurrency(card.priorCreditApplied)}
                 </span>
                 {card.openBalanceBeforeCarry > card.openBalance + 0.005 ? (
                   <>
                     {' '}
                     (saldo antes do abatimento:{' '}
-                    <span className="tabular-nums text-slate-200">
+                    <span data-finance="content" className="tabular-nums text-slate-200">
                       {formatCurrency(card.openBalanceBeforeCarry)}
                     </span>
                     )
@@ -786,26 +787,26 @@ const TransactionsView: React.FC = () => {
               </p>
             ) : null}
             {(card.priorDifferenceApplied ?? 0) > 0.005 ? (
-              <p className="text-slate-300 leading-relaxed text-[13px]">
+              <p data-finance="muted" className="text-slate-300 leading-relaxed text-[13px]">
                 Abatido com a diferença de faturas anteriores (pagamentos um pouco acima do valor,
                 como centavos de IOF):{' '}
-                <span className="tabular-nums font-semibold text-violet-200">
+                <span data-finance="info" className="tabular-nums font-semibold text-violet-200">
                   {formatCurrency(card.priorDifferenceApplied ?? 0)}
                 </span>
               </p>
             ) : null}
             {card.creditCarriedForward > 0.005 ? (
-              <p className="text-slate-300 leading-relaxed text-[13px]">
+              <p data-finance="muted" className="text-slate-300 leading-relaxed text-[13px]">
                 Crédito remanescente para competências seguintes:{' '}
-                <span className="tabular-nums font-semibold text-emerald-200">
+                <span data-finance="positive" className="tabular-nums font-semibold text-emerald-200">
                   {formatCurrency(card.creditCarriedForward)}
                 </span>
               </p>
             ) : null}
             {(card.directedManualRefundTotal ?? 0) > 0.005 ? (
-              <p className="text-violet-200/95 leading-relaxed text-[13px] rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
-                <span className="font-semibold text-violet-100">Estorno manual</span> de{' '}
-                <span className="tabular-nums font-semibold text-violet-50">
+              <p data-finance="info-panel info" className="text-violet-200/95 leading-relaxed text-[13px] rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5">
+                <span data-finance="info" className="font-semibold text-violet-100">Estorno manual</span> de{' '}
+                <span data-finance="info" className="tabular-nums font-semibold text-violet-50">
                   {formatCurrency(card.directedManualRefundTotal ?? 0)}
                 </span>{' '}
                 nesta competência — já descontado do total da fatura (não consta no extrato importado).
@@ -815,18 +816,18 @@ const TransactionsView: React.FC = () => {
         )}
 
         {card.openBalance > 0.005 && !card.userConfirmedPaid ? (
-          <section className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3.5 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-amber-200">Confirmação</h3>
-            <p className="text-amber-50/95 leading-relaxed text-[13px]">
+          <section data-finance="warning-panel" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3.5 space-y-3">
+            <h3 data-finance="warning" className="text-xs font-bold uppercase tracking-wide text-amber-200">Confirmação</h3>
+            <p data-finance="warning" className="text-amber-50/95 leading-relaxed text-[13px]">
               Saldo em aberto inteiro:{' '}
               <span className="tabular-nums font-semibold">{formatCurrency(card.openBalance)}</span>
               . Use esta confirmação somente se o saldo em aberto já foi pago fora do FinElo.
             </p>
-            <p className="text-amber-50/95 leading-relaxed text-[13px]">
+            <p data-finance="warning" className="text-amber-50/95 leading-relaxed text-[13px]">
               Ela zera o saldo desta competência e pode liberar o limite do cartão. Não cria lançamento
               nem movimenta conta.
             </p>
-            <p className="text-amber-50/95 leading-relaxed text-[13px]">
+            <p data-finance="warning" className="text-amber-50/95 leading-relaxed text-[13px]">
               Para registrar de qual conta saiu o dinheiro, use Pagar. Você pode Desfazer a confirmação depois.
             </p>
             <Button
@@ -840,10 +841,10 @@ const TransactionsView: React.FC = () => {
         ) : null}
 
         {card.userConfirmedPaid && (card.userConfirmedAmount ?? 0) > 0.005 ? (
-          <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
-            <p className="text-emerald-100 leading-relaxed text-[13px]">
+          <section data-finance="success-panel" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
+            <p data-finance="positive" className="text-emerald-100 leading-relaxed text-[13px]">
               Você confirmou que{' '}
-              <span className="tabular-nums font-semibold text-emerald-50">
+              <span data-finance="positive" className="tabular-nums font-semibold text-emerald-50">
                 {formatCurrency(card.userConfirmedAmount ?? 0)}
               </span>{' '}
               já estava quitado no banco
@@ -851,7 +852,7 @@ const TransactionsView: React.FC = () => {
                 ? ` (${new Date(card.userConfirmedAt).toLocaleDateString('pt-BR')})`
                 : ''}
               .{' '}
-              <button
+              <button data-finance="positive"
                 type="button"
                 className="underline text-emerald-300 hover:text-emerald-200 font-medium"
                 onClick={() => void handleUndoCompetenceResidualPaid(card)}
@@ -861,7 +862,7 @@ const TransactionsView: React.FC = () => {
             </p>
             {card.userConfirmedAppliedAmount != null &&
             (card.userConfirmedAmount ?? 0) - card.userConfirmedAppliedAmount > 0.005 ? (
-              <p className="mt-2 text-emerald-100/85 leading-relaxed text-[13px]">
+              <p data-finance="positive" className="mt-2 text-emerald-100/85 leading-relaxed text-[13px]">
                 Os pagamentos registrados já cobrem{' '}
                 <span className="tabular-nums font-semibold">
                   {formatCurrency((card.userConfirmedAmount ?? 0) - card.userConfirmedAppliedAmount)}
@@ -884,15 +885,15 @@ const TransactionsView: React.FC = () => {
         ) : null}
 
         {card.files.length === 0 && card.totalPayments > 0.005 ? (
-          <p className="text-slate-300 leading-relaxed text-[13px] px-1">
+          <p data-finance="muted" className="text-slate-300 leading-relaxed text-[13px] px-1">
             Pagamento vindo do extrato do mês seguinte (competência anterior). Sem CSV neste mês, não há total de
             fatura para calcular crédito — o valor não é repassado automaticamente.
           </p>
         ) : null}
 
         {card.files.length > 0 ? (
-          <section className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-300">
+          <section data-finance="inset divider" className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 space-y-3">
+            <h3 data-finance="muted" className="text-xs font-bold uppercase tracking-wide text-slate-300">
               {card.files.length === 1 ? 'Fonte da fatura' : `${card.files.length} fontes nesta competência`}
             </h3>
             <ul className="space-y-3">
@@ -903,11 +904,11 @@ const TransactionsView: React.FC = () => {
                     ? f.totalDebits
                     : Math.max(0, f.statementTotal);
                 return (
-                  <li
+                  <li data-finance="inset divider"
                     key={f.fileName}
                     className="rounded-lg border border-white/10 bg-black/25 px-3 py-2.5 space-y-2"
                   >
-                    <p
+                    <p data-finance={(f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? "info" : "content")}
                       className={`break-all font-semibold text-[13px] ${
                         f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? 'text-violet-200' : 'text-slate-100'
                       }`}
@@ -915,30 +916,30 @@ const TransactionsView: React.FC = () => {
                       {f.fileName === MANUAL_COMPETENCE_FILE_LABEL ? 'Lançamentos manuais' : f.fileName}
                     </p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[13px]">
-                      <span className="text-slate-400">Lançamentos</span>
-                      <span className="text-slate-100 tabular-nums text-right">{f.transactionCount}</span>
+                      <span data-finance="muted" className="text-slate-400">Lançamentos</span>
+                      <span data-finance="content" className="text-slate-100 tabular-nums text-right">{f.transactionCount}</span>
                       {debits > 0.005 ? (
                         <>
-                          <span className="text-slate-400">Compras</span>
-                          <span className="text-slate-100 tabular-nums text-right">{formatCurrency(debits)}</span>
+                          <span data-finance="muted" className="text-slate-400">Compras</span>
+                          <span data-finance="content" className="text-slate-100 tabular-nums text-right">{formatCurrency(debits)}</span>
                         </>
                       ) : null}
                       {refunds > 0.005 ? (
                         <>
-                          <span className="text-slate-400">Estornos</span>
-                          <span className="text-emerald-300 tabular-nums text-right">
+                          <span data-finance="muted" className="text-slate-400">Estornos</span>
+                          <span data-finance="positive" className="text-emerald-300 tabular-nums text-right">
                             − {formatCurrency(refunds)}
                           </span>
                         </>
                       ) : null}
-                      <span className="text-slate-400">Líquido</span>
-                      <span className="text-rose-300 tabular-nums font-medium text-right">
+                      <span data-finance="muted" className="text-slate-400">Líquido</span>
+                      <span data-finance="negative" className="text-rose-300 tabular-nums font-medium text-right">
                         {formatCurrency(f.statementTotal)}
                       </span>
                       {f.totalPayments > 0.005 ? (
                         <>
-                          <span className="text-slate-400">Pagamentos</span>
-                          <span className="text-emerald-300 tabular-nums text-right">
+                          <span data-finance="muted" className="text-slate-400">Pagamentos</span>
+                          <span data-finance="positive" className="text-emerald-300 tabular-nums text-right">
                             {formatCurrency(f.totalPayments)}
                           </span>
                         </>
@@ -951,8 +952,8 @@ const TransactionsView: React.FC = () => {
           </section>
         ) : null}
 
-        <p className="text-[13px] text-slate-400 leading-relaxed px-1 border-t border-white/10 pt-4">
-          <span className="text-slate-300 font-medium">Como lemos os números:</span> o total da fatura é compras menos
+        <p data-finance="divider muted" className="text-[13px] text-slate-400 leading-relaxed px-1 border-t border-white/10 pt-4">
+          <span data-finance="muted" className="text-slate-300 font-medium">Como lemos os números:</span> o total da fatura é compras menos
           estornos; os pagamentos abatem o saldo em aberto. No extrato XP, pagamentos do mês seguinte podem quitar a
           competência anterior.
         </p>
@@ -976,30 +977,30 @@ const TransactionsView: React.FC = () => {
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-start gap-2">
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">
+              <span data-finance="muted" className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">
                 Competência
               </span>
-              <span className="text-lg font-black text-white leading-tight tabular-nums">
+              <span data-finance="content" className="text-lg font-black text-white leading-tight tabular-nums">
                 {card.competenceBR}
               </span>
-              <span className="text-[11px] text-slate-400 tabular-nums">Venc.: {card.vencimentoBR}</span>
+              <span data-finance="muted" className="text-[11px] text-slate-400 tabular-nums">Venc.: {card.vencimentoBR}</span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 shrink-0">
+            <span data-finance="muted" className="text-[10px] font-bold uppercase tracking-wide text-gray-400 shrink-0">
               {competenceCardStatusLabel(card)}
             </span>
           </div>
           {ledger.length > 0 ? (
-            <button
+            <button data-finance="info-panel hover"
               type="button"
               onClick={() => setCompetenceLedgerModalCard(card)}
               className="w-full rounded-xl border-2 border-teal-400/50 bg-gradient-to-br from-teal-500/25 via-teal-500/10 to-slate-900/50 shadow-lg shadow-teal-950/30 text-left hover:bg-teal-500/15 active:scale-[0.99] transition-all"
             >
               <span className="flex items-center gap-3 px-3.5 py-3.5">
-                <span
+                <span data-finance="info-panel"
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-400/20 border border-teal-300/35"
                   aria-hidden
                 >
-                  <svg
+                  <svg data-finance="info"
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5 text-teal-200"
                     fill="none"
@@ -1015,21 +1016,21 @@ const TransactionsView: React.FC = () => {
                   </svg>
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                  <span data-finance="info" className="block text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
                     Auditoria da fatura
                   </span>
-                  <span className="block text-sm font-bold text-white leading-snug mt-0.5">
+                  <span data-finance="content" className="block text-sm font-bold text-white leading-snug mt-0.5">
                     Ver lançamentos desta fatura
                   </span>
-                  <span className="block text-[10px] text-teal-100/75 mt-0.5 leading-snug">
+                  <span data-finance="info" className="block text-[10px] text-teal-100/75 mt-0.5 leading-snug">
                     Abre em tela cheia para conferir no celular
                   </span>
                 </span>
                 <span className="flex flex-col items-end shrink-0 gap-1">
-                  <span className="rounded-full bg-teal-300 px-3 py-1 text-sm font-black text-slate-900 tabular-nums shadow-sm">
+                  <span data-finance="info-panel" className="rounded-full bg-teal-300 px-3 py-1 text-sm font-black text-slate-900 tabular-nums shadow-sm">
                     {ledger.length}
                   </span>
-                  <span className="text-[10px] font-bold text-teal-200/90">Abrir →</span>
+                  <span data-finance="info" className="text-[10px] font-bold text-teal-200/90">Abrir →</span>
                 </span>
               </span>
             </button>
@@ -1038,26 +1039,26 @@ const TransactionsView: React.FC = () => {
             card.totalRefunds > 0.005 ||
             card.statementTotal > 0.005 ||
             competenceCardHasExtendedBreakdown(card)) && (
-            <div className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1.5">
-              <p className="text-[9px] text-slate-400 uppercase font-semibold tracking-wide">
+            <div data-finance="inset divider" className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 space-y-1.5">
+              <p data-finance="muted" className="text-[9px] text-slate-400 uppercase font-semibold tracking-wide">
                 Composição da fatura
               </p>
               {card.totalDebits > 0.005 ? (
                 <div className="flex justify-between items-baseline gap-2 text-[11px]">
-                  <span className="text-slate-300">Compras e encargos</span>
-                  <span className="text-white tabular-nums font-medium">{formatCurrency(card.totalDebits)}</span>
+                  <span data-finance="muted" className="text-slate-300">Compras e encargos</span>
+                  <span data-finance="content" className="text-white tabular-nums font-medium">{formatCurrency(card.totalDebits)}</span>
                 </div>
               ) : null}
               {card.totalRefunds > 0.005 ? (
                 <div className="flex justify-between items-baseline gap-2 text-[11px]">
-                  <span className="text-slate-300">Estornos e créditos</span>
-                  <span className="text-emerald-300 tabular-nums font-medium">
+                  <span data-finance="muted" className="text-slate-300">Estornos e créditos</span>
+                  <span data-finance="positive" className="text-emerald-300 tabular-nums font-medium">
                     − {formatCurrency(card.totalRefunds)}
                   </span>
                 </div>
               ) : null}
               {competenceCardHasExtendedBreakdown(card) ? (
-                <button
+                <button data-finance="divider info"
                   type="button"
                   onClick={() => setCompetenceBreakdownModalCard(card)}
                   className="w-full mt-1.5 pt-1.5 border-t border-white/10 text-left text-[11px] font-medium text-slate-300 hover:text-teal-200 transition-colors"
@@ -1068,13 +1069,13 @@ const TransactionsView: React.FC = () => {
             </div>
           )}
           <div className="flex justify-between items-baseline gap-2 flex-wrap">
-            <span className="text-[10px] text-slate-400 uppercase font-semibold">Total da fatura</span>
-            <span className="text-xl font-black text-rose-300 tabular-nums">
+            <span data-finance="muted" className="text-[10px] text-slate-400 uppercase font-semibold">Total da fatura</span>
+            <span data-finance="negative" className="text-xl font-black text-rose-300 tabular-nums">
               {formatCurrency(card.statementTotal)}
             </span>
           </div>
           {card.openBalance > 0.005 && !card.userConfirmedPaid ? (
-            <button
+            <button data-finance="warning"
               type="button"
               onClick={() => setCompetenceBreakdownModalCard(card)}
               className="text-[10px] text-amber-200/90 hover:text-amber-100 text-left leading-snug underline-offset-2 hover:underline"
@@ -3291,12 +3292,12 @@ const TransactionsView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold text-light">Transações</h1>
+          <h1 data-finance="content" className="text-3xl font-bold text-light">Transações</h1>
           <TourButton currentView="transactions" />
         </div>
         <div id="transactions-actions" className="flex flex-wrap gap-2 w-full sm:w-auto">
           <div className="w-40">
-            <Select value="" onChange={handleExportChange}>
+            <Select aria-label="Formato de exportação" value="" onChange={handleExportChange}>
               <option value="" disabled>Exportar...</option>
               <option value="csv">CSV</option>
               <option value="excel">Excel</option>
@@ -3309,19 +3310,19 @@ const TransactionsView: React.FC = () => {
       </div>
 
       {accountsWithMissingBank.length > 0 && (
-        <div className="bg-gradient-to-r from-highlight/20 to-accent/10 border border-highlight/30 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in mb-6">
+        <div data-finance="info-panel" className="bg-gradient-to-r from-highlight/20 to-accent/10 border border-highlight/30 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in mb-6">
           <div className="flex items-center gap-3">
-            <div className="bg-highlight/20 p-2 rounded-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-highlight" viewBox="0 0 20 20" fill="currentColor">
+            <div data-finance="info-chip" className="bg-highlight/20 p-2 rounded-lg">
+              <svg data-finance="info" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-highlight" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Identifique seus bancos</p>
-              <p className="text-xs text-gray-400">Personalize seus cards com os logos oficiais para uma visualização mais rápida.</p>
+              <p data-finance="content" className="text-sm font-semibold text-white">Identifique seus bancos</p>
+              <p data-finance="muted" className="text-xs text-gray-400">Personalize seus cards com os logos oficiais para uma visualização mais rápida.</p>
             </div>
           </div>
-          <button 
+          <button data-finance="action"
             onClick={() => {
               const firstAccount = accountsWithMissingBank[0];
               setEditingTransaction(null);
@@ -3352,7 +3353,7 @@ const TransactionsView: React.FC = () => {
           />
         ) : (
           <Card className="!overflow-visible z-40 relative !p-4 sm:!p-5">
-          <button
+          <button data-finance="hover"
             type="button"
             className="w-full flex items-center justify-between gap-3 text-left rounded-xl hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors -mx-1 px-1 py-0.5"
             onClick={toggleFiltersPanel}
@@ -3360,16 +3361,16 @@ const TransactionsView: React.FC = () => {
             aria-controls="transactions-filters-body"
           >
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white tracking-tight">Filtros</h2>
+              <h2 data-finance="content" className="text-lg font-bold text-white tracking-tight">Filtros</h2>
               {!filtersPanelExpanded ? (
-                <p className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">
+                <p data-finance="muted" className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">
                   {filtersCollapsedSummary}
                 </p>
               ) : (
-                <p className="text-[10px] text-slate-500 mt-0.5 lg:hidden">Toque para recolher</p>
+                <p data-finance="muted" className="text-[10px] text-slate-500 mt-0.5 lg:hidden">Toque para recolher</p>
               )}
             </div>
-            <span className="shrink-0 flex flex-col items-center gap-0.5 text-slate-400">
+            <span data-finance="muted" className="shrink-0 flex flex-col items-center gap-0.5 text-slate-400">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className={`h-5 w-5 transition-transform duration-200 ${filtersPanelExpanded ? 'rotate-180' : ''}`}
@@ -3392,10 +3393,10 @@ const TransactionsView: React.FC = () => {
             className={`space-y-4 ${filtersPanelExpanded ? 'mt-4 block' : 'hidden'}`}
           >
             <div className="flex flex-col gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Visualização</p>
+              <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Visualização</p>
               <div className="flex flex-wrap gap-2">
                 {(['operation', 'commitments', 'all'] as const).map((scope) => (
-                  <button
+                  <button data-finance={transactionFilters.viewScope === scope ? "secondary selected" : "secondary"}
                     key={scope}
                     type="button"
                     onClick={() => handleViewScope(scope)}
@@ -3409,18 +3410,18 @@ const TransactionsView: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p data-finance="muted" className="text-xs text-slate-300 leading-relaxed">
                 {VIEW_SCOPE_HINTS[transactionFilters.viewScope]}
               </p>
             </div>
 
             {familyOwnerContext.showAttribution ? (
               <div className="flex flex-col gap-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                   Responsável
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <button data-finance={transactionFilters.ownerUserId === "" ? "secondary selected" : "secondary"}
                     type="button"
                     onClick={() => handleOwnerFilter('')}
                     className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors border ${
@@ -3432,7 +3433,7 @@ const TransactionsView: React.FC = () => {
                     Todos
                   </button>
                   {familyOwnerContext.owners.map((owner) => (
-                    <button
+                    <button data-finance={transactionFilters.ownerUserId === owner.userId ? "secondary selected" : "secondary"}
                       key={owner.userId}
                       type="button"
                       onClick={() => handleOwnerFilter(owner.userId)}
@@ -3451,8 +3452,8 @@ const TransactionsView: React.FC = () => {
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Período</p>
-                <span className="text-xs text-slate-400 tabular-nums">{periodSummary}</span>
+                <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Período</p>
+                <span data-finance="muted" className="text-xs text-slate-400 tabular-nums">{periodSummary}</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {(
@@ -3463,7 +3464,7 @@ const TransactionsView: React.FC = () => {
                     ['all', 'Tudo'],
                   ] as const
                 ).map(([preset, label]) => (
-                  <button
+                  <button data-finance={((preset === "all" && historyViewActive) || (transactionFilters.periodPreset === preset && !historyViewActive)) ? "secondary selected" : "secondary"}
                     key={preset}
                     type="button"
                     disabled={historyViewActive && preset !== 'all'}
@@ -3493,14 +3494,14 @@ const TransactionsView: React.FC = () => {
                   <option value="Pagamento">Pagamento</option>
                 </Select>
               </div>
-              <p className="text-xs text-slate-500 pb-1 sm:pb-2">
+              <p data-finance="muted" className="text-xs text-slate-500 pb-1 sm:pb-2">
                 {transactionFilters.dateField === 'Data'
                   ? 'Padrão para acompanhar gastos do mês (ex.: cartão no ciclo aberto).'
                   : 'Útil para conferir o que saiu da conta no período.'}
               </p>
             </div>
 
-            <button
+            <button data-finance="link"
               type="button"
               className="lg:hidden text-xs font-semibold text-accent hover:text-accent/80"
               onClick={() => setShowAdvancedFilters((v) => !v)}
@@ -3587,7 +3588,7 @@ const TransactionsView: React.FC = () => {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
+        <button data-finance={recurrencesOpen ? "secondary selected" : "secondary"}
           type="button"
           id="transactions-recurrences-toggle"
           aria-expanded={recurrencesOpen}
@@ -3617,15 +3618,15 @@ const TransactionsView: React.FC = () => {
       )}
 
       {unassignedTransactionCount > 0 && (
-        <div
+        <div data-finance="warning-panel"
           className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3"
           role="status"
         >
           <div>
-            <p className="text-sm font-bold text-amber-200">
+            <p data-finance="warning" className="text-sm font-bold text-amber-200">
               {unassignedTransactionCount} lançamento{unassignedTransactionCount === 1 ? '' : 's'} sem conta
             </p>
-            <p className="text-xs text-amber-100/70 mt-0.5">
+            <p data-finance="warning" className="text-xs text-amber-100/70 mt-0.5">
               Os dados continuam no histórico, mas não entram em saldos filtrados por conta.
             </p>
           </div>
@@ -3639,14 +3640,14 @@ const TransactionsView: React.FC = () => {
         {regularBalanceAccounts.length > 0 && (
           <section aria-labelledby="accounts-regular-heading">
             <div className="flex items-center gap-3 mb-4">
-              <h2
+              <h2 data-finance="muted"
                 id="accounts-regular-heading"
                 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 shrink-0"
               >
                 Contas e cartões benefício
               </h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
-              <span className="text-[10px] text-slate-600 font-bold tabular-nums">{regularBalanceAccounts.length}</span>
+              <div data-finance="line" className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+              <span data-finance="muted" className="text-[10px] text-slate-600 font-bold tabular-nums">{regularBalanceAccounts.length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {regularBalanceAccounts.map(renderBalanceAccountCard)}
@@ -3656,14 +3657,14 @@ const TransactionsView: React.FC = () => {
         {creditBalanceAccounts.length > 0 && (
           <section aria-labelledby="accounts-credit-heading">
             <div className="flex items-center gap-3 mb-4">
-              <h2
+              <h2 data-finance="info"
                 id="accounts-credit-heading"
                 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-300/80 shrink-0"
               >
                 Cartões de crédito
               </h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/20 to-transparent" />
-              <span className="text-[10px] text-slate-600 font-bold tabular-nums">{creditBalanceAccounts.length}</span>
+              <div data-finance="line" className="flex-1 h-px bg-gradient-to-r from-indigo-500/20 to-transparent" />
+              <span data-finance="muted" className="text-[10px] text-slate-600 font-bold tabular-nums">{creditBalanceAccounts.length}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-start">
               {creditBalanceAccounts.map(renderBalanceAccountCard)}
@@ -3696,9 +3697,9 @@ const TransactionsView: React.FC = () => {
       />
 
       <div id="transactions-cards" className="block lg:hidden space-y-3 mb-6">
-        <div className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-secondary/80 px-3 py-2.5">
+        <div data-finance="surface divider content" className="flex flex-col gap-2 rounded-lg border border-slate-700/60 bg-secondary/80 px-3 py-2.5">
           {!selectionMode ? (
-            <button
+            <button data-finance="link"
               type="button"
               onClick={() => setSelectionMode(true)}
               className="self-end text-xs font-semibold text-accent hover:text-sky-300"
@@ -3708,11 +3709,11 @@ const TransactionsView: React.FC = () => {
           ) : (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-slate-300">
-                  <span className="font-semibold text-white">{selectedManualCount}</span> selecionado
+                <span data-finance="muted" className="text-xs text-slate-300">
+                  <span data-finance="content" className="font-semibold text-white">{selectedManualCount}</span> selecionado
                   {selectedManualCount !== 1 ? 's' : ''}
                 </span>
-                <button
+                <button data-finance="muted hover"
                   type="button"
                   onClick={exitSelectionMode}
                   className="text-xs font-semibold text-slate-400 hover:text-white"
@@ -3721,7 +3722,7 @@ const TransactionsView: React.FC = () => {
                 </button>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <button
+                <button data-finance="link"
                   type="button"
                   onClick={selectManualOnPage}
                   disabled={manualPaginatedTransactions.length === 0 || allManualPageSelected}
@@ -3730,7 +3731,7 @@ const TransactionsView: React.FC = () => {
                   Página
                 </button>
                 {manualFilteredTransactions.length > manualPaginatedTransactions.length ? (
-                  <button
+                  <button data-finance="link"
                     type="button"
                     onClick={selectAllManualFiltered}
                     disabled={allManualFilteredSelected}
@@ -3739,7 +3740,7 @@ const TransactionsView: React.FC = () => {
                     Todos ({manualFilteredTransactions.length})
                   </button>
                 ) : null}
-                <button
+                <button data-finance="muted hover"
                   type="button"
                   onClick={clearManualSelection}
                   disabled={selectedManualCount === 0}
@@ -3747,7 +3748,7 @@ const TransactionsView: React.FC = () => {
                 >
                   Limpar
                 </button>
-                <button
+                <button data-finance="negative hover"
                   type="button"
                   disabled={selectedManualCount === 0}
                   onClick={() => void handleBulkDeleteManual()}
@@ -3761,10 +3762,10 @@ const TransactionsView: React.FC = () => {
         </div>
 
         {/* Mobile Sort Controls */}
-        <div className="flex justify-between items-center bg-secondary p-3 rounded-lg border border-slate-700/50 mb-4 gap-2">
-          <span className="text-sm text-slate-200 font-medium whitespace-nowrap">Ordenar por:</span>
+        <div data-finance="surface divider content" className="flex justify-between items-center bg-secondary p-3 rounded-lg border border-slate-700/50 mb-4 gap-2">
+          <span data-finance="content" className="text-sm text-slate-200 font-medium whitespace-nowrap">Ordenar por:</span>
           <div className="flex items-center gap-2 w-full justify-end">
-            <select
+            <select data-finance="control" aria-label="Itens por página"
               value={sortConfig.key}
               onChange={(e) => requestSort(e.target.value as keyof Transaction)}
               className="bg-primary/50 border border-slate-700 rounded text-white text-sm px-3 py-1.5 outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none pr-8 cursor-pointer max-w-[170px]"
@@ -3776,7 +3777,7 @@ const TransactionsView: React.FC = () => {
               <option value="Nome_Fantasia">Nome/Estabelec.</option>
               <option value="Categoria">Categoria</option>
             </select>
-            <button
+            <button data-finance="secondary"
               onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}
               className="p-1.5 bg-primary/50 border border-slate-700 rounded text-slate-200 hover:text-white"
             >
@@ -3805,16 +3806,16 @@ const TransactionsView: React.FC = () => {
           const identity = identityFor(t);
 
           const mobileCardBody = (
-            <div
+            <div data-finance={`surface content ${staleRetainedIds.has(t.ID_Transacao) ? "retained" : ""}`}
               className={`bg-secondary p-4 flex flex-col gap-3 relative overflow-hidden h-full ${
                 selectionMode && manual && isSelected ? 'ring-2 ring-accent ring-inset' : ''
               } ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}
             >
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
+              <div data-finance={t.Tipo === "Renda" ? "positive-line" : t.Tipo === "Despesa" ? "negative-line" : "info-line"} className={`absolute left-0 top-0 bottom-0 w-1 ${t.Tipo === 'Renda' ? 'bg-accent' : t.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`}></div>
 
               <div className="flex justify-between items-start pl-2 pr-2 gap-3">
                 {selectionMode && manual ? (
-                  <input
+                  <input data-finance="choice"
                     type="checkbox"
                     checked={isSelected}
                     disabled={!selectable}
@@ -3827,10 +3828,10 @@ const TransactionsView: React.FC = () => {
 
                 <div className="flex flex-1 justify-between items-start min-w-0">
                   <div className="flex flex-col gap-1 overflow-hidden pr-2 min-w-0">
-                    <span className="font-semibold text-white truncate text-base leading-tight">
+                    <span data-finance="content" className="font-semibold text-white truncate text-base leading-tight">
                       {t.Nome_Fantasia || t.Descricao || 'Sem Nome'}
                     </span>
-                    <span className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
+                    <span data-finance="muted" className="text-xs text-slate-200 truncate flex items-center gap-1 flex-wrap">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
                       {t.Categoria}
                       {familyOwnerContext.showAttribution ? (() => {
@@ -3842,7 +3843,7 @@ const TransactionsView: React.FC = () => {
                         ) : null;
                       })() : null}
                     </span>
-                    <span className="text-xs text-slate-200 truncate flex items-center gap-1">
+                    <span data-finance="muted" className="text-xs text-slate-200 truncate flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                       {t.ID_Conta ? accountsMap.get(t.ID_Conta) || 'Conta Desconhecida' : 'Sem conta'}
                     </span>
@@ -3850,19 +3851,19 @@ const TransactionsView: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col items-end z-10 shrink-0">
-                    <span className={`font-bold text-lg leading-none ${getValueColor(t.Valor)}`}>
+                    <span data-finance={`value ${t.Valor < 0 ? "negative" : t.Valor > 0 ? "positive" : "content"}`} className={`font-bold text-lg leading-none ${getValueColor(t.Valor)}`}>
                       {formatCurrency(t.Valor)}
                     </span>
                     <div className="flex flex-col items-end gap-0.5 mt-1">
-                      <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
+                      <span data-finance="muted" className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
                         Compra: {t.Data ? t.Data.split('T')[0].split('-').reverse().join('/') : '-'}
                       </span>
-                      <span className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
+                      <span data-finance="muted" className="text-[9px] text-slate-300 uppercase font-medium tracking-wide">
                         Pgto: {t.Data_Pagamento ? t.Data_Pagamento.split('T')[0].split('-').reverse().join('/') : '-'}
                       </span>
                     </div>
                     {t.Total_Parcelas && t.Total_Parcelas > 1 && (
-                      <span className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
+                      <span data-finance="info-chip" className="text-[9px] bg-slate-800 text-highlight px-1.5 py-0.5 rounded-full mt-1 border border-highlight/30">
                         {t.Parcela_Atual || 1}/{t.Total_Parcelas}
                       </span>
                     )}
@@ -3879,7 +3880,7 @@ const TransactionsView: React.FC = () => {
 
           if (selectionMode) {
             return (
-              <div
+              <div data-finance={`surface divider ${selectable ? "" : "readonly-row"}`}
                 key={t.ID_Transacao}
                 className={`rounded-xl shadow-md border border-slate-700/50 bg-[#1e293b] ${
                   selectable ? 'cursor-pointer active:scale-[0.99]' : 'opacity-75'
@@ -3944,24 +3945,24 @@ const TransactionsView: React.FC = () => {
           </div>
         )}
         {!showBlockingLoader && paginatedDisplayTransactions.length === 0 && (
-          <div className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
-            <p className="text-slate-300">Nenhuma transação encontrada.</p>
+          <div data-finance="surface divider content" className="bg-secondary p-8 rounded-xl text-center border border-slate-700/50">
+            <p data-finance="muted" className="text-slate-300">Nenhuma transação encontrada.</p>
           </div>
         )}
       </div>
 
-      <div id="transactions-table" className="hidden lg:block bg-secondary rounded-lg shadow-lg overflow-hidden">
+      <div data-finance="surface divider content" id="transactions-table" className="hidden lg:block bg-secondary rounded-lg shadow-lg overflow-hidden">
         {selectionMode ? (
-          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-700/80 bg-slate-800/50 px-3 py-2 text-xs">
-            <span className="text-slate-300 mr-auto">
-              <span className="font-semibold text-white">{selectedManualCount}</span> selecionado
+          <div data-finance="inset divider muted" className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-700/80 bg-slate-800/50 px-3 py-2 text-xs">
+            <span data-finance="muted" className="text-slate-300 mr-auto">
+              <span data-finance="content" className="font-semibold text-white">{selectedManualCount}</span> selecionado
               {selectedManualCount !== 1 ? 's' : ''}
               {manualFilteredTransactions.length > 0 ? (
-                <span className="text-slate-500"> · {manualFilteredTransactions.length} manual
+                <span data-finance="muted" className="text-slate-500"> · {manualFilteredTransactions.length} manual
                   {manualFilteredTransactions.length !== 1 ? 'is' : ''} nos filtros</span>
               ) : null}
             </span>
-            <button
+            <button data-finance="link"
               type="button"
               onClick={selectManualOnPage}
               disabled={manualPaginatedTransactions.length === 0 || allManualPageSelected}
@@ -3970,7 +3971,7 @@ const TransactionsView: React.FC = () => {
               Página atual
             </button>
             {manualFilteredTransactions.length > manualPaginatedTransactions.length ? (
-              <button
+              <button data-finance="link"
                 type="button"
                 onClick={selectAllManualFiltered}
                 disabled={allManualFilteredSelected}
@@ -3979,7 +3980,7 @@ const TransactionsView: React.FC = () => {
                 Todos filtrados ({manualFilteredTransactions.length})
               </button>
             ) : null}
-            <button
+            <button data-finance="muted hover"
               type="button"
               onClick={clearManualSelection}
               disabled={selectedManualCount === 0}
@@ -3987,7 +3988,7 @@ const TransactionsView: React.FC = () => {
             >
               Limpar
             </button>
-            <button
+            <button data-finance="negative hover"
               type="button"
               disabled={selectedManualCount === 0}
               onClick={() => void handleBulkDeleteManual()}
@@ -3995,7 +3996,7 @@ const TransactionsView: React.FC = () => {
             >
               Excluir selecionados
             </button>
-            <button
+            <button data-finance="muted hover"
               type="button"
               onClick={exitSelectionMode}
               className="font-semibold text-slate-400 hover:text-white"
@@ -4005,8 +4006,8 @@ const TransactionsView: React.FC = () => {
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="min-w-[800px] sm:min-w-full divide-y divide-primary table-fixed">
-            <thead className="bg-slate-700">
+          <table data-finance="divided" className="min-w-[800px] sm:min-w-full divide-y divide-primary table-fixed">
+            <thead data-finance="head" className="bg-slate-700">
               <tr>{[
                 { key: 'Data', label: 'Data', width: 'w-24' },
                 { key: 'Data_Pagamento', label: 'Pagamento', width: 'w-24' },
@@ -4023,7 +4024,7 @@ const TransactionsView: React.FC = () => {
                   ? [{
                       key: 'select',
                       label: (
-                        <input
+                        <input data-finance="choice"
                           type="checkbox"
                           checked={allManualPageSelected}
                           onChange={(e) => (e.target.checked ? selectManualOnPage() : deselectManualOnPage())}
@@ -4039,11 +4040,11 @@ const TransactionsView: React.FC = () => {
                 {
                   key: 'Acoes',
                   label: selectionMode ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Seleção</span>
+                    <span data-finance="info" className="text-[10px] font-bold uppercase tracking-wider text-accent">Seleção</span>
                   ) : (
                     <div className="flex flex-col items-end gap-1 leading-tight">
                       <span>Ações</span>
-                      <button
+                      <button data-finance="link"
                         type="button"
                         onClick={() => setSelectionMode(true)}
                         className="text-[10px] font-semibold normal-case tracking-normal text-accent hover:text-sky-300 whitespace-nowrap"
@@ -4056,7 +4057,7 @@ const TransactionsView: React.FC = () => {
                   width: selectionMode ? 'w-16' : 'w-28',
                 },
               ].map(({ key, label, align, width }) => (
-                <th key={key} scope="col" className={`px-2 py-3 text-${align || 'left'} text-xs font-medium text-gray-300 uppercase tracking-wider ${width}`}>
+                <th data-finance="muted" key={key} scope="col" className={`px-2 py-3 text-${align || 'left'} text-xs font-medium text-gray-300 uppercase tracking-wider ${width}`}>
                   {key !== 'Acoes' && key !== 'Parcelas' && key !== 'ID_Conta' && key !== 'owner' && key !== 'select' ? <button className={`w-full h-full flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'}`} onClick={() => requestSort(key as keyof Transaction)}>
                     {label}{getSortIndicator(key)}
                   </button> : <span className={`flex ${align === 'right' ? 'justify-end' : (align === 'center' ? 'justify-center' : 'justify-start')}`}>{label}</span>}
@@ -4064,11 +4065,11 @@ const TransactionsView: React.FC = () => {
               ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-primary relative">
+            <tbody data-finance="divided" className="divide-y divide-primary relative">
               {transactionListItems.map((item, itemIndex) => {
                 if (item.type === 'header') {
                   return (
-                    <tr key={`group-desktop-${item.profile.userId}-${itemIndex}`} className="bg-slate-800/70">
+                    <tr data-finance="head" key={`group-desktop-${item.profile.userId}-${itemIndex}`} className="bg-slate-800/70">
                       <td colSpan={desktopTableColumnCount} className="px-3 py-2">
                         <TransactionOwnerGroupHeader
                           profile={item.profile}
@@ -4087,7 +4088,7 @@ const TransactionsView: React.FC = () => {
                 const identity = identityFor(t);
                 const paymentLocked = isInvoicePaymentLeg(t, paymentAccountLookup) ? INVOICE_PAYMENT_LOCKED_FIELDS : undefined;
                 return (
-                <tr key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''} ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}>
+                <tr data-finance={`row ${selectionMode && manual && isSelected ? "selected" : ""} ${staleRetainedIds.has(t.ID_Transacao) ? "retained" : ""}`} key={t.ID_Transacao} className={`hover:bg-primary ${selectionMode && manual && isSelected ? 'bg-accent/10' : ''} ${staleRetainedIds.has(t.ID_Transacao) ? 'opacity-60' : ''}`}>
                   <EditableCell key={`${t.ID_Transacao}-Data-${t.Data}`} transaction={t} lockedFields={paymentLocked} field="Data" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-Data_Pagamento-${t.Data_Pagamento}`} transaction={t} lockedFields={paymentLocked} field="Data_Pagamento" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="date" className="w-24 text-xs" />
                   <EditableCell key={`${t.ID_Transacao}-ID_Conta-${t.ID_Conta}`} transaction={t} lockedFields={paymentLocked} field="ID_Conta" onUpdate={handleInlineUpdate} nonEditableFields={nonEditableImportedFields} type="select" options={accounts.filter(a => !a.is_archived || a.id === t.ID_Conta).map(a => a.id)} displayMap={accountsMap} className="w-28 text-xs truncate" />
@@ -4129,7 +4130,7 @@ const TransactionsView: React.FC = () => {
                   {selectionMode ? (
                     <td className="px-2 py-4 w-10 text-center align-middle">
                       {manual ? (
-                        <input
+                        <input data-finance="choice"
                           type="checkbox"
                           checked={isSelected}
                           disabled={!selectable}
@@ -4148,7 +4149,7 @@ const TransactionsView: React.FC = () => {
                       ) : null}
                       {manual && (
                         <div className="flex items-center gap-2">
-                          <button 
+                          <button data-finance="link"
                             onClick={() => {
                               setEditingTransaction(t);
                               setNewTransactionModalOpen(true);
@@ -4160,7 +4161,7 @@ const TransactionsView: React.FC = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
                           </button>
-                          <button 
+                          <button data-finance="negative hover"
                             onClick={async () => { if (await confirmManualDeletion(t)) deleteTransaction(t.ID_Transacao) }} 
                             className="text-danger hover:text-red-400"
                             title="Excluir Transação"
@@ -4172,7 +4173,7 @@ const TransactionsView: React.FC = () => {
                         </div>
                       )}
                       {!manual && (
-                        <button
+                        <button data-finance="negative hover"
                           onClick={() => {
                             prepareImportedBatchDeletion(t);
                           }}
@@ -4193,42 +4194,42 @@ const TransactionsView: React.FC = () => {
             </tbody>
           </table>
           {showBlockingLoader && (
-            <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div data-finance="loading-overlay" className="absolute inset-0 bg-primary/80 backdrop-blur-sm flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-slate-700 border-t-highlight rounded-full animate-spin"></div>
-                <p className="text-sm text-highlight font-medium tracking-widest uppercase">Carregando...</p>
+                <div data-finance="spinner" className="w-12 h-12 border-4 border-slate-700 border-t-highlight rounded-full animate-spin"></div>
+                <p data-finance="info" className="text-sm text-highlight font-medium tracking-widest uppercase">Carregando...</p>
               </div>
             </div>
           )}
           {!showBlockingLoader && paginatedDisplayTransactions.length === 0 && (
-            <p className="text-center text-gray-400 py-8">Nenhuma transação encontrada.</p>
+            <p data-finance="muted" className="text-center text-gray-400 py-8">Nenhuma transação encontrada.</p>
           )}
         </div>
       </div>
 
-      <div className="bg-slate-800 p-4 rounded-lg shadow-inner mb-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm border border-slate-700">
+      <div data-finance="surface divider content" className="bg-slate-800 p-4 rounded-lg shadow-inner mb-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm border border-slate-700">
         <div className="flex items-center gap-2">
-          <span className="text-slate-200 uppercase tracking-wider font-semibold text-xs">Calculadora da Página</span>
-          <span className="text-slate-500">|</span>
-          <span className="text-slate-300 text-xs">Somando {paginatedTransactions.length} itens visíveis</span>
+          <span data-finance="content" className="text-slate-200 uppercase tracking-wider font-semibold text-xs">Calculadora da Página</span>
+          <span data-finance="muted" className="text-slate-500">|</span>
+          <span data-finance="muted" className="text-slate-300 text-xs">Somando {paginatedTransactions.length} itens visíveis</span>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className="text-[10px] text-slate-300 uppercase">Entradas</p>
-            <p className="text-accent font-bold">
+            <p data-finance="muted" className="text-[10px] text-slate-300 uppercase">Entradas</p>
+            <p data-finance="positive" className="text-accent font-bold">
               {formatCurrency(paginatedTransactions.reduce((acc, t) => acc + (t.Valor > 0 ? t.Valor : 0), 0))}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-300 uppercase">Saídas</p>
-            <p className="text-danger font-bold">
+            <p data-finance="muted" className="text-[10px] text-slate-300 uppercase">Saídas</p>
+            <p data-finance="negative" className="text-danger font-bold">
               {formatCurrency(Math.abs(paginatedTransactions.reduce((acc, t) => acc + (t.Valor < 0 ? t.Valor : 0), 0)))}
             </p>
           </div>
-          <div className="h-8 w-px bg-slate-600 mx-2"></div>
+          <div data-finance="line" className="h-8 w-px bg-slate-600 mx-2"></div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-300 uppercase">Líquido (Sobra)</p>
-            <p className={`font-bold text-lg ${getValueColor(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}`}>
+            <p data-finance="muted" className="text-[10px] text-slate-300 uppercase">Líquido (Sobra)</p>
+            <p data-finance={paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0) < 0 ? "negative" : paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0) > 0 ? "positive" : "content"} className={`font-bold text-lg ${getValueColor(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}`}>
               {formatCurrency(paginatedTransactions.reduce((acc, t) => acc + t.Valor, 0))}
             </p>
           </div>
@@ -4236,14 +4237,14 @@ const TransactionsView: React.FC = () => {
       </div>
 
       {staleRetainedIds.size > 0 ? (
-        <div
+        <div data-finance="surface divider content"
           role="status"
           className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-slate-600 bg-slate-800/95 px-4 py-2 text-xs text-slate-200 shadow-lg"
         >
           <span>
             {staleRetainedIds.size} categorizada{staleRetainedIds.size !== 1 ? 's' : ''} fora do filtro
           </span>
-          <button
+          <button data-finance="link"
             type="button"
             onClick={releaseRetainedRows}
             className="font-semibold text-accent hover:text-sky-300"
@@ -4316,16 +4317,16 @@ const TransactionsView: React.FC = () => {
             )}
           </div>
           {statementHistoryLoading ? (
-            <div className="py-10 text-center text-gray-400">
+            <div data-finance="muted" className="py-10 text-center text-gray-400">
               <div className="inline-flex items-center gap-2">
-                <span className="h-4 w-4 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin" />
+                <span data-finance="divider" className="h-4 w-4 rounded-full border-2 border-gray-300/70 border-t-transparent animate-spin" />
                 <span className="animate-pulse">Carregando histórico...</span>
               </div>
             </div>
           ) : statementHistoryError ? (
-            <div className="py-6 text-center text-red-300">{statementHistoryError}</div>
+            <div data-finance="negative" className="py-6 text-center text-red-300">{statementHistoryError}</div>
           ) : statementHistoryRows.length === 0 ? (
-            <div className="py-8 text-center text-gray-400">Nenhuma fatura encontrada para esta conta.</div>
+            <div data-finance="muted" className="py-8 text-center text-gray-400">Nenhuma fatura encontrada para esta conta.</div>
           ) : (
             <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
               {statementHistoryRows.map((statement, index, rows) => {
@@ -4371,18 +4372,18 @@ const TransactionsView: React.FC = () => {
                       ? 'text-amber-300 bg-amber-500/15 border-amber-500/25'
                       : 'text-sky-300 bg-sky-500/15 border-sky-500/25';
                 return (
-                  <div key={statement.id} className="border border-slate-700 rounded-xl bg-slate-900/40 p-3">
+                  <div data-finance="inset divider" key={statement.id} className="border border-slate-700 rounded-xl bg-slate-900/40 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-white font-semibold">
+                        <p data-finance="content" className="text-white font-semibold">
                           {formatStatementReferencePtBr(statement, statement.items, statementHistoryAccount)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${statusColor}`}>
+                        <span data-finance={displayStatus === 'paid' ? 'success-chip' : displayStatus === 'partial' ? 'warning-chip' : 'info-chip'} className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${statusColor}`}>
                           {statusToPtBr(displayStatus)}
                         </span>
-                        <button
+                        <button data-finance="info"
                           type="button"
                           className="text-xs text-sky-300 hover:text-sky-200 font-bold"
                           onClick={() => setExpandedStatementId((prev) => (prev === statement.id ? null : statement.id))}
@@ -4394,17 +4395,17 @@ const TransactionsView: React.FC = () => {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
                       <div>
-                        <p className="text-gray-500">Total da Fatura</p>
-                        <p className="text-white font-semibold">{formatCurrency(netInvoiceTotal)}</p>
+                        <p data-finance="muted" className="text-gray-500">Total da Fatura</p>
+                        <p data-finance="content" className="text-white font-semibold">{formatCurrency(netInvoiceTotal)}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Créditos</p>
-                        <p className="text-emerald-300 font-semibold">{formatCurrency(Number(statement.total_credits || 0))}</p>
+                        <p data-finance="muted" className="text-gray-500">Créditos</p>
+                        <p data-finance="positive" className="text-emerald-300 font-semibold">{formatCurrency(Number(statement.total_credits || 0))}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500 inline-flex items-center gap-1">
+                        <p data-finance="muted" className="text-gray-500 inline-flex items-center gap-1">
                           Pagamento da Fatura Anterior
-                          <button
+                          <button data-finance="divider muted"
                             type="button"
                             className="text-[10px] text-gray-400 border border-slate-600 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center leading-none hover:text-white hover:border-slate-400"
                             onClick={() => setPaymentInfoOpenFor((prev) => (prev === statement.id ? null : statement.id))}
@@ -4414,68 +4415,68 @@ const TransactionsView: React.FC = () => {
                           </button>
                         </p>
                         {paymentInfoOpenFor === statement.id && (
-                          <p className="mt-1 text-[11px] text-sky-200 bg-slate-900/80 border border-slate-700 rounded px-2 py-1 max-w-[320px]">
+                          <p data-finance="inset divider info" className="mt-1 text-[11px] text-sky-200 bg-slate-900/80 border border-slate-700 rounded px-2 py-1 max-w-[320px]">
                             Esse valor representa o pagamento do Total da Fatura do card abaixo.
                           </p>
                         )}
-                        <p className="text-amber-300 font-semibold">{formatCurrency(paymentPreviousDisplay)}</p>
+                        <p data-finance="warning" className="text-amber-300 font-semibold">{formatCurrency(paymentPreviousDisplay)}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Saldo aberto</p>
-                        <p className="text-rose-300 font-semibold">{formatCurrency(displayOpenAmount)}</p>
+                        <p data-finance="muted" className="text-gray-500">Saldo aberto</p>
+                        <p data-finance="negative" className="text-rose-300 font-semibold">{formatCurrency(displayOpenAmount)}</p>
                       </div>
                     </div>
                     {isSmallClosingAdjustment && (
-                      <p className="mt-2 text-[11px] text-amber-300">
+                      <p data-finance="warning" className="mt-2 text-[11px] text-amber-300">
                         Ajuste de fechamento do emissor: {formatCurrencySigned(adjustmentDelta, { showPlusForPositive: true })}.
                       </p>
                     )}
                     {statement.chargeDiffFromFiles !== 0 && (
-                      <p className="mt-1 text-[11px] text-amber-300">
+                      <p data-finance="warning" className="mt-1 text-[11px] text-amber-300">
                         Auditoria de arquivos: diferença de {formatCurrency(Math.abs(statement.chargeDiffFromFiles))} no Total da Fatura
                         ({statement.chargeDiffFromFiles > 0 ? 'faltando no card' : 'excedente no card'}).
                       </p>
                     )}
-                    <div className="mt-2 rounded border border-slate-700/70 bg-slate-900/40 px-2 py-1.5">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-400">Auditoria por lote</p>
-                      <p className="text-[11px] text-gray-300">
-                        Total da Fatura: <span className="text-sky-200">{totalSourceOrigin}</span>
+                    <div data-finance="inset divider" className="mt-2 rounded border border-slate-700/70 bg-slate-900/40 px-2 py-1.5">
+                      <p data-finance="muted" className="text-[10px] uppercase tracking-wide text-gray-400">Auditoria por lote</p>
+                      <p data-finance="muted" className="text-[11px] text-gray-300">
+                        Total da Fatura: <span data-finance="info" className="text-sky-200">{totalSourceOrigin}</span>
                       </p>
-                      <p className="text-[11px] text-gray-300">
-                        Arquivo(s) da Fatura: <span className="text-sky-200">{totalSourceFiles.length > 0 ? totalSourceFiles.join(' | ') : 'Não identificado'}</span>
+                      <p data-finance="muted" className="text-[11px] text-gray-300">
+                        Arquivo(s) da Fatura: <span data-finance="info" className="text-sky-200">{totalSourceFiles.length > 0 ? totalSourceFiles.join(' | ') : 'Não identificado'}</span>
                       </p>
-                      <p className="text-[11px] text-gray-300">
-                        Pagamento da Fatura Anterior: <span className="text-amber-200">{paymentSourceOrigin}</span>
+                      <p data-finance="muted" className="text-[11px] text-gray-300">
+                        Pagamento da Fatura Anterior: <span data-finance="warning" className="text-amber-200">{paymentSourceOrigin}</span>
                       </p>
-                      <p className="text-[11px] text-gray-300">
-                        Arquivo(s) do Pagamento: <span className="text-amber-200">{paymentSourceFiles.length > 0 ? paymentSourceFiles.join(' | ') : 'Não identificado'}</span>
+                      <p data-finance="muted" className="text-[11px] text-gray-300">
+                        Arquivo(s) do Pagamento: <span data-finance="warning" className="text-amber-200">{paymentSourceFiles.length > 0 ? paymentSourceFiles.join(' | ') : 'Não identificado'}</span>
                       </p>
                       {hasSourceInconsistency && (
-                        <p className="text-[11px] text-amber-300 mt-1">
+                        <p data-finance="warning" className="text-[11px] text-amber-300 mt-1">
                           Inconsistência confirmada: esta auditoria encontrou múltiplos arquivos vinculados no mesmo cálculo.
                         </p>
                       )}
                       {statement.unmatchedFileItems.length > 0 && (
-                        <p className="text-[11px] text-amber-300 mt-1">
+                        <p data-finance="warning" className="text-[11px] text-amber-300 mt-1">
                           Itens do(s) arquivo(s) não vinculados ao card: {statement.unmatchedFileItems.length}.
                         </p>
                       )}
                     </div>
 
                     {isExpanded && (
-                      <div className="mt-3 border-t border-slate-800 pt-3">
+                      <div data-finance="divider" className="mt-3 border-t border-slate-800 pt-3">
                         {statement.items.length === 0 ? (
-                          <p className="text-xs text-gray-500">Sem itens detalhados nesta fatura.</p>
+                          <p data-finance="muted" className="text-xs text-gray-500">Sem itens detalhados nesta fatura.</p>
                         ) : (
                           <div className="space-y-1">
                             {statement.unmatchedFileItems.length > 0 && (
-                              <div className="mb-2 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-2">
-                                <p className="text-[11px] font-semibold text-amber-300 mb-1">
+                              <div data-finance="warning-panel" className="mb-2 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-2">
+                                <p data-finance="warning" className="text-[11px] font-semibold text-amber-300 mb-1">
                                   Auditoria detalhada: itens do arquivo que não entraram neste card
                                 </p>
                                 <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                                   {statement.unmatchedFileItems.slice(0, 30).map((item) => (
-                                    <div key={`unmatched-${item.id}`} className="text-[11px] text-amber-100 flex items-center justify-between gap-2">
+                                    <div data-finance="warning" key={`unmatched-${item.id}`} className="text-[11px] text-amber-100 flex items-center justify-between gap-2">
                                       <span className="truncate">
                                         {item.postedDate ? new Date(`${item.postedDate}T00:00:00`).toLocaleDateString('pt-BR') : '—'} • {item.description} • {item.sourceFile}
                                       </span>
@@ -4490,14 +4491,14 @@ const TransactionsView: React.FC = () => {
                               const typeColor = isCreditItem ? 'text-emerald-300' : 'text-rose-300';
                               const amountColor = isCreditItem ? 'text-emerald-300' : 'text-rose-300';
                               return (
-                              <div key={item.id} className="flex items-center justify-between text-xs bg-slate-800/50 rounded px-2 py-1">
+                              <div data-finance="inset" key={item.id} className="flex items-center justify-between text-xs bg-slate-800/50 rounded px-2 py-1">
                                 <div className="flex flex-col">
-                                  <span className={`font-semibold ${typeColor}`}>{item.description || 'Sem descrição'}</span>
-                                  <span className="text-[11px] text-gray-500">
+                                  <span data-finance={isCreditItem ? 'positive' : 'negative'} className={`font-semibold ${typeColor}`}>{item.description || 'Sem descrição'}</span>
+                                  <span data-finance="muted" className="text-[11px] text-gray-500">
                                     {item.posted_date ? new Date(`${item.posted_date}T00:00:00`).toLocaleDateString('pt-BR') : '—'} • {itemTypeToPtBr(item.item_type)}
                                   </span>
                                 </div>
-                                <span className={`font-semibold ${amountColor}`}>{formatCurrency(Number(item.amount || 0))}</span>
+                                <span data-finance={isCreditItem ? 'positive' : 'negative'} className={`font-semibold ${amountColor}`}>{formatCurrency(Number(item.amount || 0))}</span>
                               </div>
                             )})}
                           </div>
@@ -4513,7 +4514,7 @@ const TransactionsView: React.FC = () => {
       )}
 
       {false && isLotModalOpen && statementHistoryAccount && (
-        <Modal
+        <Modal manageFocus
           isOpen={isLotModalOpen}
           onClose={() => { if (!isSavingLot) { setLotModalOpen(false); setSelectedLot(null); } }}
           title={`Classificar Lotes - ${statementHistoryAccount.Nome_Conta}`}
@@ -4534,22 +4535,22 @@ const TransactionsView: React.FC = () => {
           {!selectedLot ? (
             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
               {cardImportLots.length === 0 ? (
-                <p className="text-sm text-gray-400">Nenhum lote encontrado para classificação.</p>
+                <p data-finance="muted" className="text-sm text-gray-400">Nenhum lote encontrado para classificação.</p>
               ) : (
                 cardImportLots.map((lot) => (
-                  <div key={lot.originKey} className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 flex items-center justify-between gap-3">
+                  <div data-finance="inset divider" key={lot.originKey} className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-white">{lot.origin}</p>
-                      <p className="text-xs text-gray-400">
+                      <p data-finance="content" className="text-sm font-semibold text-white">{lot.origin}</p>
+                      <p data-finance="muted" className="text-xs text-gray-400">
                         Competência: {lot.referenceLabel || '—'} • Vencimento: {lot.dueDate ? new Date(`${lot.dueDate}T00:00:00`).toLocaleDateString('pt-BR') : '—'} • Itens: {lot.count}
                       </p>
                       {lot.origins.length > 1 && (
-                        <p className="text-[11px] text-gray-500">
+                        <p data-finance="muted" className="text-[11px] text-gray-500">
                           Variações de origem consolidadas: {lot.origins.length}
                         </p>
                       )}
                     </div>
-                    <button
+                    <button data-finance={(lot.classified ? "positive hover" : "warning hover")}
                       type="button"
                       className={`text-xs font-bold px-2 py-1 rounded border ${lot.classified
                         ? 'border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/10'
@@ -4565,9 +4566,9 @@ const TransactionsView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
-                <p className="text-sm text-white font-semibold">{selectedLot.origin}</p>
-                <p className="text-xs text-gray-400">Preencha os dados do lote no padrão brasileiro (DD/MM/AAAA).</p>
+              <div data-finance="inset divider" className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p data-finance="content" className="text-sm text-white font-semibold">{selectedLot.origin}</p>
+                <p data-finance="muted" className="text-xs text-gray-400">Preencha os dados do lote no padrão brasileiro (DD/MM/AAAA).</p>
               </div>
               <Input
                 label="Mês de referência da fatura"
@@ -4583,20 +4584,20 @@ const TransactionsView: React.FC = () => {
                 onChange={(e) => setLotDueDate(e.target.value)}
                 helpText="Será exibida no histórico como DD/MM/AAAA."
               />
-              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
-                <p className="text-sm font-semibold text-white mb-2">Classificação manual dos lançamentos deste lote</p>
-                <p className="text-xs text-gray-400 mb-3">
+              <div data-finance="inset divider" className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p data-finance="content" className="text-sm font-semibold text-white mb-2">Classificação manual dos lançamentos deste lote</p>
+                <p data-finance="muted" className="text-xs text-gray-400 mb-3">
                   Classifique somente as entradas do cartão. Use Pagamento de Fatura ou Estorno/Reembolso.
                 </p>
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {lotTransactionRows.length === 0 ? (
-                    <p className="text-xs text-gray-500">Nenhuma entrada identificada neste lote para classificação manual.</p>
+                    <p data-finance="muted" className="text-xs text-gray-500">Nenhuma entrada identificada neste lote para classificação manual.</p>
                   ) : (
                     lotTransactionRows.map((row, idx) => (
-                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center text-xs bg-slate-800/60 rounded px-2 py-1.5">
-                        <div className="col-span-3 text-gray-300">{row.date ? new Date(`${row.date}T00:00:00`).toLocaleDateString('pt-BR') : '—'}</div>
-                        <div className="col-span-5 text-gray-100 truncate">{row.description}</div>
-                        <div className={`col-span-2 font-semibold ${row.amount < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
+                      <div data-finance="inset" key={row.id} className="grid grid-cols-12 gap-2 items-center text-xs bg-slate-800/60 rounded px-2 py-1.5">
+                        <div data-finance="muted" className="col-span-3 text-gray-300">{row.date ? new Date(`${row.date}T00:00:00`).toLocaleDateString('pt-BR') : '—'}</div>
+                        <div data-finance="content" className="col-span-5 text-gray-100 truncate">{row.description}</div>
+                        <div data-finance={(row.amount < 0 ? "negative" : "positive")} className={`col-span-2 font-semibold ${row.amount < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
                           {formatCurrency(Math.abs(row.amount))}
                         </div>
                         <div className="col-span-2">
@@ -4624,7 +4625,7 @@ const TransactionsView: React.FC = () => {
       )}
 
       {false && isClassifierModalOpen && (
-        <Modal
+        <Modal manageFocus
           isOpen={isClassifierModalOpen}
           onClose={() => { if (!isSavingClassifier) setClassifierModalOpen(false); }}
           title="Classificação de Lançamentos"
@@ -4641,14 +4642,14 @@ const TransactionsView: React.FC = () => {
           }
         >
           <div className="space-y-4">
-            <p className="text-xs text-gray-300">
+            <p data-finance="muted" className="text-xs text-gray-300">
               Defina os termos que identificam automaticamente o que é pagamento da fatura anterior e o que é crédito/estorno.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
-                <p className="text-sm font-semibold text-white mb-2">Termos de pagamento da fatura anterior</p>
-                <textarea
+              <div data-finance="inset divider" className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p data-finance="content" className="text-sm font-semibold text-white mb-2">Termos de pagamento da fatura anterior</p>
+                <textarea data-finance="control"
                   value={paymentKeywordsInput}
                   onChange={(e) => setPaymentKeywordsInput(e.target.value)}
                   rows={7}
@@ -4656,9 +4657,9 @@ const TransactionsView: React.FC = () => {
                   placeholder="Um termo por linha (ex.: pagamentos válidos normais)"
                 />
               </div>
-              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
-                <p className="text-sm font-semibold text-white mb-2">Termos de crédito/estorno</p>
-                <textarea
+              <div data-finance="inset divider" className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <p data-finance="content" className="text-sm font-semibold text-white mb-2">Termos de crédito/estorno</p>
+                <textarea data-finance="control"
                   value={creditKeywordsInput}
                   onChange={(e) => setCreditKeywordsInput(e.target.value)}
                   rows={7}
@@ -4668,19 +4669,19 @@ const TransactionsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-sky-200 mb-2">
+            <div data-finance="info-panel" className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+              <p data-finance="info" className="text-xs font-semibold uppercase tracking-wide text-sky-200 mb-2">
                 Preview de impacto (1-2 faturas)
               </p>
               {classifierPreview.length === 0 ? (
-                <p className="text-xs text-gray-400">Abra o histórico de um cartão para visualizar o impacto antes de sincronizar.</p>
+                <p data-finance="muted" className="text-xs text-gray-400">Abra o histórico de um cartão para visualizar o impacto antes de sincronizar.</p>
               ) : (
                 <div className="space-y-2">
                   {classifierPreview.map((row) => (
-                    <div key={row.statementId} className="text-xs text-gray-200 rounded border border-slate-700/70 bg-slate-900/40 px-2 py-1.5">
-                      <p className="font-semibold text-white">{row.label}</p>
+                    <div data-finance="inset divider content" key={row.statementId} className="text-xs text-gray-200 rounded border border-slate-700/70 bg-slate-900/40 px-2 py-1.5">
+                      <p data-finance="content" className="font-semibold text-white">{row.label}</p>
                       <p>
-                        Reclassificações potenciais: <span className="text-amber-300 font-semibold">{row.changed}</span> de {row.total} lançamento(s).
+                        Reclassificações potenciais: <span data-finance="warning" className="text-amber-300 font-semibold">{row.changed}</span> de {row.total} lançamento(s).
                       </p>
                     </div>
                   ))}
@@ -4688,7 +4689,7 @@ const TransactionsView: React.FC = () => {
               )}
             </div>
 
-            <p className="text-[11px] text-amber-300">
+            <p data-finance="warning" className="text-[11px] text-amber-300">
               Após salvar, clique em "Sincronizar histórico" para recalcular as faturas com as novas regras.
             </p>
           </div>
@@ -4764,7 +4765,7 @@ const TransactionsView: React.FC = () => {
         filterAccountId={creditInvoiceCyclesAccountId}
       />
 
-      <Modal
+      <Modal manageFocus
         isOpen={motorInvoiceHistoryOpen}
         onClose={() => {
           setMotorInvoiceHistoryOpen(false);
@@ -4777,10 +4778,10 @@ const TransactionsView: React.FC = () => {
         overlayClassName="z-[55]"
         className="max-w-2xl"
       >
-        <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+        <p data-finance="muted" className="text-xs text-gray-400 mb-3 leading-relaxed">
           Toque em um mês no gráfico para ver a fatura. Use{' '}
-          <span className="text-gray-300 font-medium">Auditoria da fatura</span> para conferir lançamentos linha a linha
-          ou <span className="text-gray-300 font-medium">Pagamentos, saldo e fontes</span> para o fechamento completo.
+          <span data-finance="muted" className="text-gray-300 font-medium">Auditoria da fatura</span> para conferir lançamentos linha a linha
+          ou <span data-finance="muted" className="text-gray-300 font-medium">Pagamentos, saldo e fontes</span> para o fechamento completo.
         </p>
         {motorInvoiceHistoryAccount && showAdjustCompetenceByFile ? (
           <div className="mb-4">
@@ -4793,7 +4794,7 @@ const TransactionsView: React.FC = () => {
               Ajustar competências por arquivo
             </Button>
             {!cardEngineEnabled ? (
-              <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
+              <p data-finance="muted" className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
                 Define o mês de cada extrato no histórico (competência e vencimento). Necessário quando o import não
                 gravou competência automaticamente.
               </p>
@@ -4801,28 +4802,28 @@ const TransactionsView: React.FC = () => {
           </div>
         ) : null}
         {motorInvoiceError ? (
-          <div className="py-6 text-center text-red-300 text-sm">{motorInvoiceError}</div>
+          <div data-finance="negative" className="py-6 text-center text-red-300 text-sm">{motorInvoiceError}</div>
         ) : motorInvoiceLoading && motorInvoiceCompetenceCards.length === 0 ? (
-          <div className="py-10 flex items-center justify-center gap-2 text-gray-400">
-            <span className="h-4 w-4 rounded-full border-2 border-gray-400/70 border-t-transparent animate-spin" />
+          <div data-finance="muted" className="py-10 flex items-center justify-center gap-2 text-gray-400">
+            <span data-finance="divider" className="h-4 w-4 rounded-full border-2 border-gray-400/70 border-t-transparent animate-spin" />
             <span>Carregando faturas…</span>
           </div>
         ) : motorInvoiceCompetenceCards.length === 0 ? (
-          <div className="py-8 text-center text-gray-400 text-sm">
+          <div data-finance="muted" className="py-8 text-center text-gray-400 text-sm">
             Nenhuma fatura encontrada para este cartão. Importe um extrato, lance compras manualmente (com data de
             pagamento/vencimento) ou ajuste competências por arquivo.
           </div>
         ) : (
           <div className="relative">
             {motorInvoiceLoading ? (
-              <div
+              <div data-finance="inset"
                 className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl bg-[#0d0d12]/80 backdrop-blur-[1px]"
                 role="status"
                 aria-live="polite"
                 aria-busy="true"
               >
                 <span className="h-5 w-5 rounded-full border-2 border-violet-400/80 border-t-transparent animate-spin" />
-                <span className="text-xs text-gray-300">Atualizando histórico…</span>
+                <span data-finance="muted" className="text-xs text-gray-300">Atualizando histórico…</span>
               </div>
             ) : null}
             <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
@@ -4832,7 +4833,7 @@ const TransactionsView: React.FC = () => {
                 onSelect={setSelectedCompetenceRef}
               />
               {selectedCompetenceCard ? (
-                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                <div data-finance="inset divider" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
                   {renderCompetenceHistoryCardPanel(selectedCompetenceCard)}
                 </div>
               ) : null}
@@ -4841,7 +4842,7 @@ const TransactionsView: React.FC = () => {
         )}
       </Modal>
 
-      <Modal
+      <Modal manageFocus
         isOpen={competenceLedgerModalCard !== null}
         onClose={() => setCompetenceLedgerModalCard(null)}
         overlayClassName="z-[60] p-2 sm:p-4"
@@ -4859,24 +4860,24 @@ const TransactionsView: React.FC = () => {
       >
         {competenceLedgerModalCard && motorInvoiceHistoryAccount ? (
           <div className="space-y-4">
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 space-y-1.5 text-xs">
+            <div data-finance="inset divider" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 space-y-1.5 text-xs">
               <div className="flex justify-between gap-2">
-                <span className="text-gray-500">Cartão</span>
-                <span className="text-gray-200 font-medium text-right">{motorInvoiceHistoryAccount.Nome_Conta}</span>
+                <span data-finance="muted" className="text-gray-500">Cartão</span>
+                <span data-finance="content" className="text-gray-200 font-medium text-right">{motorInvoiceHistoryAccount.Nome_Conta}</span>
               </div>
               <div className="flex justify-between gap-2">
-                <span className="text-gray-500">Vencimento</span>
-                <span className="text-gray-200 tabular-nums">{competenceLedgerModalCard.vencimentoBR}</span>
+                <span data-finance="muted" className="text-gray-500">Vencimento</span>
+                <span data-finance="content" className="text-gray-200 tabular-nums">{competenceLedgerModalCard.vencimentoBR}</span>
               </div>
               <div className="flex justify-between gap-2">
-                <span className="text-gray-500">Total da fatura</span>
-                <span className="text-rose-300 font-bold tabular-nums">
+                <span data-finance="muted" className="text-gray-500">Total da fatura</span>
+                <span data-finance="negative" className="text-rose-300 font-bold tabular-nums">
                   {formatCurrency(competenceLedgerModalCard.statementTotal)}
                 </span>
               </div>
               <div className="flex justify-between gap-2">
-                <span className="text-gray-500">Itens listados</span>
-                <span className="text-teal-200 font-bold tabular-nums">
+                <span data-finance="muted" className="text-gray-500">Itens listados</span>
+                <span data-finance="info" className="text-teal-200 font-bold tabular-nums">
                   {(competenceLedgerByRef.get(competenceLedgerModalCard.referenceMonth) ?? []).length}
                 </span>
               </div>
@@ -4889,7 +4890,7 @@ const TransactionsView: React.FC = () => {
         ) : null}
       </Modal>
 
-      <Modal
+      <Modal manageFocus
         isOpen={competenceBreakdownModalCard !== null}
         onClose={() => setCompetenceBreakdownModalCard(null)}
         overlayClassName="z-[60] p-2 sm:p-4"
@@ -4914,8 +4915,8 @@ const TransactionsView: React.FC = () => {
       </Modal>
 
       {payInvoiceModal.open && payInvoiceModal.loading && payInvoiceModal.account && (
-        <Modal isOpen={true} onClose={closePayInvoiceModal} title="Pagar fatura do cartão" className="max-w-lg">
-          <p className="text-sm text-gray-400 text-center py-6">Carregando faturas em aberto…</p>
+        <Modal manageFocus isOpen={true} onClose={closePayInvoiceModal} title="Pagar fatura do cartão" className="max-w-lg">
+          <p data-finance="muted" className="text-sm text-gray-400 text-center py-6">Carregando faturas em aberto…</p>
         </Modal>
       )}
 
@@ -4945,16 +4946,16 @@ const TransactionsView: React.FC = () => {
       />
 
       {deleteConfirmation && (
-        <Modal
+        <Modal manageFocus
           isOpen={true}
           onClose={() => setDeleteConfirmation(null)}
           title="Confirmar Exclusão"
           className="max-w-lg"
         >
           <div className="space-y-4">
-            <p className="text-gray-300">Você está tentando excluir uma transação que faz parte de um lote importado. O que você gostaria de fazer?</p>
+            <p data-finance="muted" className="text-gray-300">Você está tentando excluir uma transação que faz parte de um lote importado. O que você gostaria de fazer?</p>
             {atomicImportEnabled && !deleteConfirmation.exactTraceability && (
-              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+              <p data-finance="warning-panel" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
                 Este histórico não possui IDs suficientes para identificar o lote com segurança. A exclusão do lote inteiro está bloqueada; a linha isolada ainda pode ser excluída e permanecerá visível como excluída na auditoria.
               </p>
             )}
@@ -4978,7 +4979,7 @@ const TransactionsView: React.FC = () => {
       )}
 
       {reconciliacaoAberta && reconciliacaoHabilitada && (
-        <Modal
+        <Modal manageFocus
           /* A chave remonta o fluxo inteiro quando muda a conta ou a competencia:
              sem isso o modal reaproveitaria o estado da abertura anterior e
              poderia exibir a competencia errada. */
@@ -5037,7 +5038,7 @@ const TransactionsView: React.FC = () => {
       )}
 
       {/* Mobile Floating Action Button (FAB) relative to the screen */}
-      <button
+      <button data-finance="action"
         onClick={() => {
           setEditingTransaction(null);
           setPredefinedTransaction(null);
@@ -5160,14 +5161,14 @@ const EditableCell: React.FC<EditableCellProps> = ({
     const align = isValueColumn ? 'text-right' : 'text-left';
     // Usa break-word para quebrar entre palavras, não no meio delas.
     const whitespaceClass = (field === 'Nome_Fantasia' || field === 'Categoria') ? 'whitespace-normal break-word' : 'whitespace-nowrap';
-    return <td className={`px-2 py-3 text-sm font-semibold border-r border-slate-800 last:border-r-0 ${valueColor} ${align} ${whitespaceClass} ${className}`}>{cellContent()}</td>;
+    return <td data-finance={`divider ${field === "Valor" ? transaction.Valor < 0 ? "negative" : transaction.Valor > 0 ? "positive" : "content" : field === "Parcela_Atual" ? "content" : "muted"}`} className={`px-2 py-3 text-sm font-semibold border-r border-slate-800 last:border-r-0 ${valueColor} ${align} ${whitespaceClass} ${className}`}>{cellContent()}</td>;
   }
 
   if (isEditing) {
     if (type === 'select') {
       return (
-        <td className="p-0 border-r border-slate-800 last:border-r-0">
-          <Select 
+        <td data-finance="divider" className="p-0 border-r border-slate-800 last:border-r-0">
+          <Select data-finance="inset" aria-label={`Editar ${field}`}
             value={value as string} 
             onChange={e => {
               if (e.target.value === 'ADD_NEW_CATEGORY') {
@@ -5188,7 +5189,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
               .map(opt => <option key={opt} value={opt}>{displayMap ? displayMap.get(opt) : opt}</option>)
             }
             {field === 'Categoria' && (
-              <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">+ Adicionar Categoria</option>
+              <option data-finance="info" value="ADD_NEW_CATEGORY" className="text-highlight font-bold">+ Adicionar Categoria</option>
             )}
           </Select>
         </td>
@@ -5199,7 +5200,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
       : type === 'installments' ? `${transaction.Parcela_Atual || ''}/${transaction.Total_Parcelas || ''}`
         : value as string;
 
-    return <td className="p-0 border-r border-slate-800 last:border-r-0"><Input type={type === 'date' ? 'date' : 'text'} value={inputValue} onChange={e => setValue(e.target.value)} onBlur={handleSave} onKeyDown={handleKeyDown} autoFocus className="w-full h-full bg-slate-800 border-highlight !rounded-none text-center" /></td>;
+    return <td data-finance="divider" className="p-0 border-r border-slate-800 last:border-r-0"><Input data-finance="inset" aria-label={`Editar ${field}`} type={type === 'date' ? 'date' : 'text'} value={inputValue} onChange={e => setValue(e.target.value)} onBlur={handleSave} onKeyDown={handleKeyDown} autoFocus className="w-full h-full bg-slate-800 border-highlight !rounded-none text-center" /></td>;
   }
 
   const categoryColor = field === 'Categoria' && categoryTypeMap.has(value as string) ? categoryTypeColorMap[categoryTypeMap.get(value as string)!] : '';
@@ -5207,11 +5208,14 @@ const EditableCell: React.FC<EditableCellProps> = ({
   const align = field === 'Valor' ? 'text-right' : (field === 'Parcela_Atual' ? 'text-center' : 'text-left');
 
   return (
-    <td
+    <td data-finance="divider"
+      tabIndex={0}
+      aria-label={`${cellContent()}. Editar ${field} de ${transaction.Nome_Fantasia || 'lançamento'}`}
+      onKeyDown={event => { if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setIsEditing(true); } }}
       className="p-0 cursor-pointer border-r border-slate-800 last:border-r-0"
       onClick={() => setIsEditing(true)}
     >
-      <div
+      <div data-finance={`editable ${field === "Valor" ? (value as number) < 0 ? "negative" : (value as number) > 0 ? "positive" : "content" : field === "Categoria" && categoryTypeMap.has(value as string) ? categoryTypeMap.get(value as string) === "Renda" ? "positive" : categoryTypeMap.get(value as string) === "Despesa" ? "negative" : "info" : "content"}`}
         className={`relative group px-2 py-3 text-sm font-semibold border-b border-dotted ${isEditable ? 'border-slate-600 hover:border-highlight' : 'border-transparent'} ${align} ${categoryColor} ${valueColor} ${className} ${(field === 'Nome_Fantasia' || field === 'Categoria') ? 'whitespace-normal break-word' : 'whitespace-nowrap'}`}
         title={
           field === 'Nome_Fantasia' &&
@@ -5224,7 +5228,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
         <span>{cellContent()}</span>
         {badge ? <span className="ml-2 inline-flex align-middle">{badge}</span> : null}
         {field === 'Nome_Fantasia' && transaction.Origem !== 'manual' && onRuleCreation && (
-          <button
+          <button data-finance="secondary rule-action"
             onClick={(e) => { e.stopPropagation(); onRuleCreation(transaction); }}
             className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-700 text-slate-400 hover:bg-highlight hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
             title="Criar regra de mapeamento"
@@ -5260,10 +5264,10 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   totalRecords,
 }) => {
   return (
-    <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-slate-200 px-4 py-3 bg-secondary rounded-lg gap-4">
+    <div data-finance="surface divider content" className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-slate-200 px-4 py-3 bg-secondary rounded-lg gap-4">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <span>Mostrar</span>
-        <select
+        <select data-finance="control" aria-label="Itens por página"
           value={itemsPerPage}
           onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(p => 1); }}
           className="bg-primary/50 border border-slate-700 rounded text-white px-2 py-1 outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none pr-8 cursor-pointer"

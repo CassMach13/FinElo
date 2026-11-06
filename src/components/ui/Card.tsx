@@ -9,7 +9,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const Card: React.FC<CardProps> = ({ children, className = '', title, ...props }) => {
   return (
-    <div className={`
+    <div data-appearance-part="card" className={`
       relative overflow-hidden
       bg-secondary/30 backdrop-blur-md 
       border border-white/5 
@@ -20,11 +20,11 @@ const Card: React.FC<CardProps> = ({ children, className = '', title, ...props }
       ${className}
     `} {...props}>
       {/* Subtle shine effect */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
+      <div data-appearance-part="card-shine" className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
 
       {title && (
         <div className="mb-6 flex items-center justify-between print:break-after-avoid">
-          <h2 className="text-xl font-bold text-white tracking-tight">{title}</h2>
+          <h2 data-appearance-part="title" className="text-xl font-bold text-white tracking-tight">{title}</h2>
         </div>
       )}
       {children}

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useId } from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -7,7 +7,9 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   helpText?: string;
 }
 
-const Input: React.FC<InputProps> = ({ className = '', label, id, error, helpText, ...props }) => {
+const Input: React.FC<InputProps> = ({ className = '', label, id: providedId, error, helpText, 'aria-describedby': describedBy, ...props }) => {
+  const generatedId = useId();
+  const id = providedId ?? generatedId;
   // Estado de erro vs Estado normal
   const borderColor = error 
     ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' 
@@ -16,13 +18,17 @@ const Input: React.FC<InputProps> = ({ className = '', label, id, error, helpTex
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-slate-400 mb-1 ml-1">
+        <label data-appearance-part="muted" htmlFor={id} className="block text-sm font-medium text-slate-400 mb-1 ml-1">
           {label}
         </label>
       )}
       <div className="relative">
         <input
           id={id}
+          data-appearance-part="control"
+          data-appearance-invalid={error ? 'true' : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={[describedBy, error ? id + '-error' : helpText ? id + '-help' : null].filter(Boolean).join(' ') || undefined}
           className={`
             w-full 
             bg-slate-950/60 
@@ -42,8 +48,8 @@ const Input: React.FC<InputProps> = ({ className = '', label, id, error, helpTex
           {...props}
         />
       </div>
-      {helpText && !error && <p className="mt-1.5 ml-1 text-xs text-slate-400">{helpText}</p>}
-      {error && <p className="mt-1.5 ml-1 text-xs text-red-400 font-medium animate-pulse">{error}</p>}
+      {helpText && !error && <p id={id + '-help'} data-appearance-part="muted" className="mt-1.5 ml-1 text-xs text-slate-400">{helpText}</p>}
+      {error && <p id={id + '-error'} data-appearance-part="error" className="mt-1.5 ml-1 text-xs text-red-400 font-medium animate-pulse">{error}</p>}
     </div>
   );
 };
