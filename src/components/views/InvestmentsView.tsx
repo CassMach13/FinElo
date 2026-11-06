@@ -389,13 +389,13 @@ const InvestmentsView: React.FC = () => {
                 </div>
 
                 <div data-finance={"divider surface"} className="flex items-center gap-4 bg-secondary border border-slate-700/50 rounded-xl p-1 shadow-lg">
-                    <button data-finance={"content inset secondary"} onClick={handlePrevMonth} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-gray-400 hover:text-white">
+                    <button data-finance={"content inset secondary"} aria-label="Mês anterior" onClick={handlePrevMonth} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-gray-400 hover:text-white">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <div data-finance={"content"} className="w-36 text-center font-medium capitalize select-none text-white">
                         {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                     </div>
-                    <button data-finance={"content inset secondary"} onClick={handleNextMonth} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-gray-400 hover:text-white">
+                    <button data-finance={"content inset secondary"} aria-label="Próximo mês" onClick={handleNextMonth} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-gray-400 hover:text-white">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                 </div>
@@ -485,7 +485,7 @@ const InvestmentsView: React.FC = () => {
                     <div className="flex gap-3 relative">
                         {!viewingOther && uniqueInstitutions.length > 0 && (
                             <div data-finance="investment-menu" className="relative group/clearBtn">
-                                <button data-finance={"negative divider inset secondary"} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 border border-slate-700/50 px-4 py-2 rounded-lg font-medium transition-colors">
+                                <button aria-label="Limpar Importação" data-finance={"negative divider inset secondary"} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-red-400 hover:text-red-300 border border-slate-700/50 px-4 py-2 rounded-lg font-medium transition-colors">
                                     <svg data-finance={"investment-opaque"} className="w-5 h-5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     <span className="hidden sm:inline">Limpar Importação</span>
                                 </button>
@@ -507,7 +507,7 @@ const InvestmentsView: React.FC = () => {
                             </div>
                         )}
                         {!viewingOther && (
-                            <button data-finance={"content divider inset secondary"}
+                            <button aria-label="Importar Planilha" data-finance={"content divider inset secondary"}
                                 onClick={() => setIsImportModalOpen(true)}
                                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700/50 px-4 py-2 rounded-lg font-medium transition-colors"
                             >
@@ -516,7 +516,7 @@ const InvestmentsView: React.FC = () => {
                             </button>
                         )}
                         {!viewingOther && (
-                            <button data-finance={"content action"}
+                            <button aria-label="Adicionar" data-finance={"content action"}
                                 onClick={() => { setEditingInvestment(null); setIsModalOpen(true); }}
                                 className="flex items-center gap-2 bg-highlight hover:bg-highlight-hover text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-highlight/20"
                             >

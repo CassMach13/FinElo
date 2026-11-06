@@ -1,0 +1,74 @@
+{
+  "captures": 904,
+  "lightSamples": 37148,
+  "lightDistinctSamples": 1348,
+  "lightMinText": 4.936,
+  "lightMinEssential": 3.567,
+  "themeZeroWorkChecks": 904,
+  "failures": [],
+  "financialComparisons": 656,
+  "darkComparisons": 424,
+  "exactRasters": 422,
+  "noise": [
+    {
+      "state": "v2-1440-archive-saved",
+      "variant": "reviewed",
+      "computedDifferences": [],
+      "pass": true,
+      "raster": {
+        "exact": false,
+        "different_pixels": 20,
+        "maximum_channel_delta": 1,
+        "pixel_limit": 486,
+        "classification": "bounded rasterization noise; content, geometry and computed colors checked independently"
+      }
+    },
+    {
+      "state": "v2-1440-edit",
+      "variant": "reviewed",
+      "computedDifferences": [],
+      "pass": true,
+      "raster": {
+        "exact": false,
+        "different_pixels": 10,
+        "maximum_channel_delta": 1,
+        "pixel_limit": 476,
+        "classification": "bounded rasterization noise; content, geometry and computed colors checked independently"
+      }
+    }
+  ],
+  "PDFs": 16,
+  "PDFpages": 68,
+  "tests": {
+    "localFull": {
+      "tests": 3356,
+      "files": 207,
+      "pass": true
+    },
+    "focal": {
+      "tests": 526,
+      "files": 31,
+      "pass": true
+    },
+    "finalMetadata": {
+      "tests": 206,
+      "files": 12,
+      "pass": true
+    },
+    "typeKnown": 14,
+    "typeNew": 0,
+    "PWAentries": 49
+  },
+  "checkpoint": "d39ecd3521bcc4d113a0c7450acd305c8cb66f42",
+  "codeCI": {
+    "run": 42146424373,
+    "pass": true,
+    "tests": 3336,
+    "passedFiles": 206,
+    "skippedTests": 1,
+    "skippedFiles": 1
+  },
+  "sourceSeals": 160,
+  "ASTconsumers": 25,
+  "sessionEntryContract": true
+}

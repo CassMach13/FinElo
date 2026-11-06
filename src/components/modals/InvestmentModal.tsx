@@ -294,7 +294,7 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                     </fieldset>
 
                     <div className="pt-2 flex justify-end gap-3">
-                        <button data-finance-close="" aria-label="Fechar" data-finance={"content secondary"}
+                        <button data-finance-close="" data-finance={"content secondary"}
                             type="button"
                             onClick={onClose}
                             disabled={isSubmitting}

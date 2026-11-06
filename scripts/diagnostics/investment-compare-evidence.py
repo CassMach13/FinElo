@@ -14,6 +14,11 @@ for key,r in data.items():
  if r['variant']=='light':
   aa.extend(dict(row,key=key)for row in r['audit']['rows'])
   failures.extend({'key':key,'kind':'AA','row':row}for row in r['audit']['rows']if not row['pass'])
+ if r['variant']=='dark' and key.removesuffix('-dark')+'-main' not in data:
+  actual=data.get(key.removesuffix('-dark')+'-light')
+  if actual is not None:
+   equal=r['financial']==actual['financial'];financial.append({'state':key.removesuffix('-dark'),'variant':'light versus dark (keyboard state)','pass':equal,'sha256':digest(actual['financial'])})
+   if not equal:failures.append({'key':key,'kind':'financial','variant':'light versus dark'})
  if r['variant']!='main':continue
  group=key.removesuffix('-main')
  for v in ['reviewed','dark','light']:

@@ -111,7 +111,7 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                 </select>
                             </div>
 
-                            <div role="button" tabIndex={0} aria-label="Selecionar arquivo mensal de investimentos" data-finance={"divider inset investment-file-trigger"}
+                            <div role="button" tabIndex={0} aria-labelledby="investment-import-upload-label" aria-describedby="investment-import-format-hint" data-finance={"divider inset investment-file-trigger"}
                                 className="border-2 border-dashed border-slate-600 rounded-xl p-8 hover:border-highlight/50 hover:bg-slate-800/30 transition-all text-center cursor-pointer group"
                                 onClick={() => fileInputRef.current?.click()}
                             >
@@ -128,8 +128,8 @@ const InvestmentImportModal: React.FC<InvestmentImportModalProps> = ({
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                     </svg>
                                 </div>
-                                <p data-finance={"content"} className="text-white font-medium mb-1">Clique para selecionar ou arraste o arquivo MENSAL da {selectedInstitution}</p>
-                                <p data-finance={"muted"} className="text-gray-400 text-sm">Formato suportado: .xlsx (Excel)</p>
+                                <p id="investment-import-upload-label" data-finance={"content"} className="text-white font-medium mb-1">Clique para selecionar ou arraste o arquivo MENSAL da {selectedInstitution}</p>
+                                <p id="investment-import-format-hint" data-finance={"muted"} className="text-gray-400 text-sm">Formato suportado: .xlsx (Excel)</p>
 
                                 {isParsing && (
                                     <div data-finance={"info"} className="mt-4 flex items-center justify-center gap-2 text-highlight">

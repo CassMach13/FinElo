@@ -168,7 +168,7 @@ const ClassifyInvestmentModal: React.FC<ClassifyInvestmentModalProps> = ({
             )}
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <button data-finance-close="" aria-label="Fechar" data-finance={"content divider inset secondary"} type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
+            <button data-finance-close="" data-finance={"content divider inset secondary"} type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
             {active.length > 0 && (
               <button data-finance={"content action"} type="submit" disabled={!canSave} className="rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:bg-highlight-hover disabled:cursor-not-allowed disabled:opacity-50">
                 {busy ? 'Salvando…' : saveLabel}

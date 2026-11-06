@@ -70,7 +70,7 @@ const PortfolioFormModal: React.FC<PortfolioFormModalProps> = ({ isOpen, ownerUs
           {error && <p data-finance={"negative danger-chip"} role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
         </div>
         <div data-finance={"divider"} className="flex flex-col-reverse gap-2 border-t border-slate-700/50 px-5 py-4 sm:flex-row sm:justify-end">
-          <button data-finance-close="" aria-label="Fechar" data-finance={"content divider inset secondary"} type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
+          <button data-finance-close="" data-finance={"content divider inset secondary"} type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
           <button data-finance={"content action"} type="submit" disabled={isSubmitting || !trimmed || unchanged} className="rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:bg-highlight-hover disabled:cursor-not-allowed disabled:opacity-50">
             {isSubmitting ? 'Salvando…' : isRename ? 'Salvar nome' : 'Criar carteira'}
           </button>
