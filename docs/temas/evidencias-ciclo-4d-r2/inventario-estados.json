@@ -1,0 +1,1160 @@
+[
+  {
+    "file": "src/App.tsx",
+    "hits": [
+      {
+        "line": 23,
+        "text": "import { GlobalDialog } from './components/ui/GlobalDialog';"
+      },
+      {
+        "line": 217,
+        "text": "<GlobalDialog />"
+      }
+    ]
+  },
+  {
+    "file": "src/services/accountCardEconomics.ts",
+    "hits": [
+      {
+        "line": 32,
+        "text": "confirmations: number;"
+      },
+      {
+        "line": 42,
+        "text": "userPaymentConfirmations?: Array<{ referenceMonth: string; settledAmount: number; confirmedAt: string }>;"
+      },
+      {
+        "line": 52,
+        "text": "userPaymentConfirmations = [], reconciliationResolutions = {} } = input;"
+      },
+      {
+        "line": 68,
+        "text": "if (userPaymentConfirmations.some((c) => !Number.isFinite(c.settledAmount) || c.settledAmount < 0 || !toDateOnlyIso(c.confirmedAt))) {"
+      },
+      {
+        "line": 71,
+        "text": "if (userPaymentConfirmations.some((c) => toDateOnlyIso(c.confirmedAt) > asOf)) issues.add('future_settlement');"
+      },
+      {
+        "line": 82,
+        "text": "accountId: account.id, account, accounts, transactions, importLogs: accountLogs, rules, userPaymentConfirmations,"
+      },
+      {
+        "line": 108,
+        "text": "competences: cards.length, confirmations: userPaymentConfirmations.length,"
+      }
+    ]
+  },
+  {
+    "file": "src/services/cardServerProjection.ts",
+    "hits": [
+      {
+        "line": 6,
+        "text": "paymentConfirmationInputsFromRows,"
+      },
+      {
+        "line": 7,
+        "text": "type PaymentConfirmationRow,"
+      },
+      {
+        "line": 27,
+        "text": "confirmacoes: ReadonlyArray<PaymentConfirmationRow>;"
+      },
+      {
+        "line": 40,
+        "text": "userPaymentConfirmations: paymentConfirmationInputsFromRows(input.confirmacoes),"
+      }
+    ]
+  },
+  {
+    "file": "src/services/competenceInvoiceUserConfirmations.ts",
+    "hits": [
+      {
+        "line": 7,
+        "text": "const STORAGE_KEY = 'finelo_competence_payment_confirmations_v1';"
+      },
+      {
+        "line": 8,
+        "text": "const MIGRATED_FLAG_KEY = 'finelo_competence_payment_confirmations_db_migrated_v1';"
+      },
+      {
+        "line": 9,
+        "text": "const TABLE = 'credit_card_competence_payment_confirmations';"
+      },
+      {
+        "line": 11,
+        "text": "export interface CompetencePaymentConfirmation {"
+      },
+      {
+        "line": 28,
+        "text": "function rowToConfirmation(row: DbRow): CompetencePaymentConfirmation {"
+      },
+      {
+        "line": 38,
+        "text": "function readLegacyLocal(): CompetencePaymentConfirmation[] {"
+      },
+      {
+        "line": 41,
+        "text": "return raw ? (JSON.parse(raw) as CompetencePaymentConfirmation[]) : [];"
+      },
+      {
+        "line": 65,
+        "text": "console.warn('[competencePaymentConfirmations] Falha ao migrar legado:', error.message);"
+      },
+      {
+        "line": 75,
+        "text": "export async function listCompetencePaymentConfirmations("
+      },
+      {
+        "line": 78,
+        "text": "): Promise<CompetencePaymentConfirmation[]> {"
+      },
+      {
+        "line": 89,
+        "text": "console.error('[competencePaymentConfirmations] list:', error.message);"
+      },
+      {
+        "line": 93,
+        "text": "return (data || []).map((row) => rowToConfirmation(row as DbRow));"
+      },
+      {
+        "line": 97,
+        "text": "export async function listCompetencePaymentConfirmationsForUser("
+      },
+      {
+        "line": 100,
+        "text": "): Promise<CompetencePaymentConfirmation[]> {"
+      },
+      {
+        "line": 116,
+        "text": "console.error('[competencePaymentConfirmations] listForUser:', error.message);"
+      },
+      {
+        "line": 120,
+        "text": "return (data || []).map((row) => rowToConfirmation(row as DbRow));"
+      },
+      {
+        "line": 123,
+        "text": "export async function saveCompetencePaymentConfirmation("
+      },
+      {
+        "line": 124,
+        "text": "entry: CompetencePaymentConfirmation"
+      },
+      {
+        "line": 138,
+        "text": "console.error('[competencePaymentConfirmations] save:', error.message);"
+      },
+      {
+        "line": 143,
+        "text": "export async function removeCompetencePaymentConfirmation("
+      },
+      {
+        "line": 156,
+        "text": "console.error('[competencePaymentConfirmations] remove:', error.message);"
+      },
+      {
+        "line": 167,
+        "text": "export function applyCompetenceUserPaymentConfirmations("
+      },
+      {
+        "line": 169,
+        "text": "confirmations: CompetencePaymentConfirmation[]"
+      },
+      {
+        "line": 171,
+        "text": "if (confirmations.length === 0) return cards;"
+      },
+      {
+        "line": 173,
+        "text": "const byRef = new Map(confirmations.map((c) => [c.referenceMonth.trim(), c]));"
+      },
+      {
+        "line": 196,
+        "text": "/** Read-only path: preserves local confirmations without migrating or writing storage/database. */"
+      },
+      {
+        "line": 197,
+        "text": "export async function listCompetencePaymentConfirmationsReadOnly("
+      },
+      {
+        "line": 199,
+        "text": "): Promise<Array<CompetencePaymentConfirmation & { source: 'database' | 'legacy_local' }>> {"
+      },
+      {
+        "line": 208,
+        "text": "const merged = new Map<string, CompetencePaymentConfirmation & { source: 'database' | 'legacy_local' }>();"
+      },
+      {
+        "line": 209,
+        "text": "const key = (c: CompetencePaymentConfirmation) => c.userId + '|' + c.accountId + '|' + c.referenceMonth;"
+      },
+      {
+        "line": 214,
+        "text": "const c = rowToConfirmation(row);"
+      }
+    ]
+  },
+  {
+    "file": "src/services/creditCardManualMotorSync.ts",
+    "hits": [
+      {
+        "line": 195,
+        "text": "userPaymentConfirmations?: Array<{"
+      },
+      {
+        "line": 210,
+        "text": "userPaymentConfirmations: params.userPaymentConfirmations,"
+      }
+    ]
+  },
+  {
+    "file": "src/services/creditCardRebuildFromImportHistoryService.ts",
+    "hits": [
+      {
+        "line": 805,
+        "text": "userPaymentConfirmations?: Array<{ referenceMonth: string; settledAmount: number; confirmedAt: string }>;"
+      },
+      {
+        "line": 815,
+        "text": "userPaymentConfirmations = [],"
+      },
+      {
+        "line": 983,
+        "text": "userPaymentConfirmations.map((c) => [c.referenceMonth.trim(), c])"
+      }
+    ]
+  },
+  {
+    "file": "src/services/currentCardEconomicInputs.ts",
+    "hits": [
+      {
+        "line": 2,
+        "text": "import { listCompetencePaymentConfirmationsReadOnly } from './competenceInvoiceUserConfirmations';"
+      },
+      {
+        "line": 11,
+        "text": "if (!ids.length) return { confirmations: [], resolutions: {} };"
+      },
+      {
+        "line": 12,
+        "text": "const [confirmations, rows] = await Promise.all(["
+      },
+      {
+        "line": 13,
+        "text": "listCompetencePaymentConfirmationsReadOnly(cards),"
+      },
+      {
+        "line": 21,
+        "text": "return { confirmations, resolutions: groupActiveCardResolutions(rows) };"
+      }
+    ]
+  },
+  {
+    "file": "src/hooks/useCurrentNetWorth.ts",
+    "hits": [
+      {
+        "line": 44,
+        "text": "userPaymentConfirmations: sources.cardInputs.confirmations.filter((c) => c.accountId === account.id),"
+      }
+    ]
+  },
+  {
+    "file": "src/domain/credit-card/reconciliationRows.ts",
+    "hits": [
+      {
+        "line": 113,
+        "text": "export interface PaymentConfirmationRow {"
+      },
+      {
+        "line": 119,
+        "text": "export function paymentConfirmationInputsFromRows(rows: readonly PaymentConfirmationRow[]) {"
+      }
+    ]
+  },
+  {
+    "file": "src/domain/credit-card/twoLedgerBalance.ts",
+    "hits": [
+      {
+        "line": 110,
+        "text": "/** Confirmações `confirmation_type = 'amount'`: valor reconhecido como pago. */"
+      },
+      {
+        "line": 111,
+        "text": "amountConfirmationCents?: number;"
+      },
+      {
+        "line": 323,
+        "text": "int(input.observedPaymentCents) + int(input.amountConfirmationCents);"
+      }
+    ]
+  },
+  {
+    "file": "src/domain/appearance/session.ts",
+    "hits": [
+      {
+        "line": 24,
+        "text": "const channel = new BroadcastChannel(APPEARANCE_CHANNEL);"
+      },
+      {
+        "line": 27,
+        "text": "} catch { /* Focus/online/Auth events also reconcile when BroadcastChannel is unavailable. */ }"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/AuthView.tsx",
+    "hits": [
+      {
+        "line": 15,
+        "text": "const [loading, setLoading] = useState(false);"
+      },
+      {
+        "line": 46,
+        "text": "setError(null); setMessage(null); setLoading(true);"
+      },
+      {
+        "line": 55,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 60,
+        "text": "setError(null); setMessage(null); setLoading(true);"
+      },
+      {
+        "line": 65,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 71,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 112,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 118,
+        "text": "setError(null); setMessage(null); setLoading(true);"
+      },
+      {
+        "line": 124,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 129,
+        "text": "setLoading(true);"
+      },
+      {
+        "line": 133,
+        "text": "setLoading(false);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/HelpView.tsx",
+    "hits": [
+      {
+        "line": 36,
+        "text": "const [isLoading, setIsLoading] = useState(false);"
+      },
+      {
+        "line": 86,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 103,
+        "text": "setIsLoading(false);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/ImportView.tsx",
+    "hits": [
+      {
+        "line": 120,
+        "text": "const [isLoading, setIsLoading] = useState(false);"
+      },
+      {
+        "line": 128,
+        "text": "const [pendingInstallmentSuggestions, setPendingInstallmentSuggestions] = useState<{"
+      },
+      {
+        "line": 135,
+        "text": "setPendingInstallmentSuggestions({ sugestoes, resolver: resolve });"
+      },
+      {
+        "line": 175,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 177,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 280,
+        "text": "const [isLoadingConnections, setIsLoadingConnections] = useState(false);"
+      },
+      {
+        "line": 294,
+        "text": "setIsLoadingConnections(true);"
+      },
+      {
+        "line": 298,
+        "text": ".finally(() => setIsLoadingConnections(false));"
+      },
+      {
+        "line": 528,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 559,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 579,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 584,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 595,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 710,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 724,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 739,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 808,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 929,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 1786,
+        "text": "pendingInstallmentSuggestions && ("
+      },
+      {
+        "line": 1788,
+        "text": "sugestoes={pendingInstallmentSuggestions.sugestoes}"
+      },
+      {
+        "line": 1790,
+        "text": "const { resolver } = pendingInstallmentSuggestions;"
+      },
+      {
+        "line": 1791,
+        "text": "setPendingInstallmentSuggestions(null);"
+      },
+      {
+        "line": 1795,
+        "text": "const { resolver } = pendingInstallmentSuggestions;"
+      },
+      {
+        "line": 1796,
+        "text": "setPendingInstallmentSuggestions(null);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/InvestmentsView.tsx",
+    "hits": [
+      {
+        "line": 90,
+        "text": "const [isLoading, setIsLoading] = useState(true);"
+      },
+      {
+        "line": 125,
+        "text": "onLoading: (loading) => setIsLoading(loading),"
+      },
+      {
+        "line": 277,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 285,
+        "text": "setIsLoading(false);"
+      },
+      {
+        "line": 311,
+        "text": "setIsLoading(true);"
+      },
+      {
+        "line": 325,
+        "text": "setIsLoading(false);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/SettingsView.tsx",
+    "hits": [
+      {
+        "line": 50,
+        "text": "const [loadingMembers, setLoadingMembers] = useState(false);"
+      },
+      {
+        "line": 84,
+        "text": "setLoadingMembers(true);"
+      },
+      {
+        "line": 97,
+        "text": "setLoadingMembers(false);"
+      },
+      {
+        "line": 369,
+        "text": "const confirmationMessage = `Esta ação moverá somente os lançamentos vinculados a este lote específico.\\n\\nArquivo: ${reassignTargetLog.file_name}\\nImportado em: ${importDateLabel}\\nDestino: ${accountName}\\n\\nO"
+      },
+      {
+        "line": 371,
+        "text": "confirmationMessage,"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/TransactionsView.tsx",
+    "hits": [
+      {
+        "line": 82,
+        "text": "listCompetencePaymentConfirmations,"
+      },
+      {
+        "line": 83,
+        "text": "listCompetencePaymentConfirmationsForUser,"
+      },
+      {
+        "line": 84,
+        "text": "removeCompetencePaymentConfirmation,"
+      },
+      {
+        "line": 85,
+        "text": "saveCompetencePaymentConfirmation,"
+      },
+      {
+        "line": 86,
+        "text": "type CompetencePaymentConfirmation,"
+      },
+      {
+        "line": 87,
+        "text": "} from '../../services/competenceInvoiceUserConfirmations';"
+      },
+      {
+        "line": 123,
+        "text": "paidInvoiceConfirmationDialog,"
+      },
+      {
+        "line": 124,
+        "text": "undoPaidInvoiceConfirmationDialog,"
+      },
+      {
+        "line": 125,
+        "text": "} from '../transactions/paidInvoiceConfirmationCopy';"
+      },
+      {
+        "line": 297,
+        "text": "const [deleteConfirmation, setDeleteConfirmation] = useState<{"
+      },
+      {
+        "line": 351,
+        "text": "const [paymentConfirmationsByAccount, setPaymentConfirmationsByAccount] = useState<"
+      },
+      {
+        "line": 352,
+        "text": "Map<string, CompetencePaymentConfirmation[]>"
+      },
+      {
+        "line": 354,
+        "text": "const [paymentConfirmationsReady, setPaymentConfirmationsReady] = useState(false);"
+      },
+      {
+        "line": 364,
+        "text": "setDeleteConfirmation({"
+      },
+      {
+        "line": 425,
+        "text": "const userPaymentConfirmations = ownerUserId"
+      },
+      {
+        "line": 426,
+        "text": "? await listCompetencePaymentConfirmations(ownerUserId, account.id)"
+      },
+      {
+        "line": 434,
+        "text": "userPaymentConfirmations,"
+      },
+      {
+        "line": 527,
+        "text": "const dialog = paidInvoiceConfirmationDialog(amount, card.competenceBR);"
+      },
+      {
+        "line": 537,
+        "text": "await saveCompetencePaymentConfirmation({"
+      },
+      {
+        "line": 567,
+        "text": "const dialog = undoPaidInvoiceConfirmationDialog(card.userConfirmedAmount ?? 0, card.competenceBR);"
+      },
+      {
+        "line": 577,
+        "text": "await removeCompetencePaymentConfirmation("
+      },
+      {
+        "line": 1871,
+        "text": "setIsSavingLot(true);"
+      },
+      {
+        "line": 1919,
+        "text": "setIsSavingLot(false);"
+      },
+      {
+        "line": 1933,
+        "text": "setIsSavingClassifier(true);"
+      },
+      {
+        "line": 1949,
+        "text": "setIsSavingClassifier(false);"
+      },
+      {
+        "line": 2116,
+        "text": "const [isSavingLot, setIsSavingLot] = useState(false);"
+      },
+      {
+        "line": 2126,
+        "text": "const [isSavingClassifier, setIsSavingClassifier] = useState(false);"
+      },
+      {
+        "line": 2194,
+        "text": "setPaymentConfirmationsByAccount(new Map());"
+      },
+      {
+        "line": 2195,
+        "text": "setPaymentConfirmationsReady(true);"
+      },
+      {
+        "line": 2208,
+        "text": "setPaymentConfirmationsReady(false);"
+      },
+      {
+        "line": 2212,
+        "text": "const map = new Map<string, CompetencePaymentConfirmation[]>();"
+      },
+      {
+        "line": 2214,
+        "text": "const rows = await listCompetencePaymentConfirmationsForUser("
+      },
+      {
+        "line": 2225,
+        "text": "if (!cancelled) setPaymentConfirmationsByAccount(map);"
+      },
+      {
+        "line": 2229,
+        "text": "if (!cancelled) setPaymentConfirmationsReady(true);"
+      },
+      {
+        "line": 2242,
+        "text": "const paymentConfirmationsRef = useRef(paymentConfirmationsByAccount);"
+      },
+      {
+        "line": 2243,
+        "text": "paymentConfirmationsRef.current = paymentConfirmationsByAccount;"
+      },
+      {
+        "line": 2444,
+        "text": "const confs = paymentConfirmationsRef.current.get(accountId)?.map((c) => ({"
+      },
+      {
+        "line": 2456,
+        "text": "userPaymentConfirmations: confs,"
+      },
+      {
+        "line": 2553,
+        "text": "if (!paymentConfirmationsReady) return false;"
+      },
+      {
+        "line": 2563,
+        "text": "paymentConfirmationsReady,"
+      },
+      {
+        "line": 2570,
+        "text": "const paymentConfs = paymentConfirmationsByAccount.get(account.id)?.map((c) => ({"
+      },
+      {
+        "line": 2587,
+        "text": "userPaymentConfirmations: paymentConfs,"
+      },
+      {
+        "line": 2659,
+        "text": "paymentConfirmationsByAccount,"
+      },
+      {
+        "line": 4519,
+        "text": "onClose={() => { if (!isSavingLot) { setLotModalOpen(false); setSelectedLot(null); } }}"
+      },
+      {
+        "line": 4525,
+        "text": "<Button variant=\"secondary\" onClick={() => setSelectedLot(null)} disabled={isSavingLot}>"
+      },
+      {
+        "line": 4528,
+        "text": "<Button onClick={handleSaveLotClassification} disabled={isSavingLot || !lotReferenceMonth || !lotDueDate}>"
+      },
+      {
+        "line": 4529,
+        "text": "{isSavingLot ? 'Salvando...' : 'Salvar classificação'}"
+      },
+      {
+        "line": 4630,
+        "text": "onClose={() => { if (!isSavingClassifier) setClassifierModalOpen(false); }}"
+      },
+      {
+        "line": 4635,
+        "text": "<Button variant=\"secondary\" onClick={() => setClassifierModalOpen(false)} disabled={isSavingClassifier}>"
+      },
+      {
+        "line": 4638,
+        "text": "<Button onClick={handleSaveClassifierRules} disabled={isSavingClassifier}>"
+      },
+      {
+        "line": 4639,
+        "text": "{isSavingClassifier ? 'Salvando...' : 'Salvar regras'}"
+      },
+      {
+        "line": 4948,
+        "text": "{deleteConfirmation && ("
+      },
+      {
+        "line": 4951,
+        "text": "onClose={() => setDeleteConfirmation(null)}"
+      },
+      {
+        "line": 4957,
+        "text": "{atomicImportEnabled && !deleteConfirmation.exactTraceability && ("
+      },
+      {
+        "line": 4963,
+        "text": "<Button variant=\"secondary\" onClick={async () => { await deleteTransaction(deleteConfirmation.transactionId); setDeleteConfirmation(null); }}>"
+      },
+      {
+        "line": 4968,
+        "text": "disabled={atomicImportEnabled && !deleteConfirmation.exactTraceability}"
+      },
+      {
+        "line": 4970,
+        "text": "await deleteImportedBatchByTransaction(deleteConfirmation.transactionId);"
+      },
+      {
+        "line": 4971,
+        "text": "setDeleteConfirmation(null);"
+      },
+      {
+        "line": 4974,
+        "text": "Excluir o Lote Inteiro ({deleteConfirmation.count} transações de \"{deleteConfirmation.origin}\")"
+      }
+    ]
+  },
+  {
+    "file": "src/components/views/UpdatePasswordView.tsx",
+    "hits": [
+      {
+        "line": 13,
+        "text": "const [loading, setLoading] = useState(false);"
+      },
+      {
+        "line": 31,
+        "text": "setLoading(true);"
+      },
+      {
+        "line": 44,
+        "text": "setLoading(false);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/ui/GlobalDialog.tsx",
+    "hits": [
+      {
+        "line": 6,
+        "text": "export const GlobalDialog: React.FC<{ dialogStore?: typeof useDialogStore }> = ({ dialogStore = useDialogStore }) => {"
+      }
+    ]
+  },
+  {
+    "file": "src/components/transactions/accountBalanceCardMetrics.ts",
+    "hits": [
+      {
+        "line": 21,
+        "text": "export type CompetencePaymentConfirmationInput = {"
+      },
+      {
+        "line": 33,
+        "text": "userPaymentConfirmations?: CompetencePaymentConfirmationInput[];"
+      },
+      {
+        "line": 69,
+        "text": "userPaymentConfirmations,"
+      },
+      {
+        "line": 274,
+        "text": "userPaymentConfirmations,"
+      }
+    ]
+  },
+  {
+    "file": "src/components/transactions/paidInvoiceConfirmationCopy.ts",
+    "hits": [
+      {
+        "line": 4,
+        "text": "export function paidInvoiceConfirmationDialog(amount: number, competenceBR: string) {"
+      },
+      {
+        "line": 18,
+        "text": "export function undoPaidInvoiceConfirmationDialog(amount: number, competenceBR: string) {"
+      }
+    ]
+  },
+  {
+    "file": "src/components/modals/InvestmentImportModal.tsx",
+    "hits": [
+      {
+        "line": 57,
+        "text": "const isImporting = state.status === 'importing';"
+      },
+      {
+        "line": 91,
+        "text": "<button data-finance-close=\"\" aria-label=\"Fechar\" data-finance={\"content secondary\"} onClick={handleClose} className=\"text-gray-400 hover:text-white transition-colors\" disabled={isImporting || isParsing}>"
+      },
+      {
+        "line": 273,
+        "text": "disabled={isImporting || isParsing}"
+      },
+      {
+        "line": 282,
+        "text": "disabled={isImporting || !canConfirm}"
+      },
+      {
+        "line": 285,
+        "text": "{isImporting ? ("
+      }
+    ]
+  },
+  {
+    "file": "src/components/modals/InvestmentModal.tsx",
+    "hits": [
+      {
+        "line": 46,
+        "text": "const [isSubmitting, setIsSubmitting] = useState(false);"
+      },
+      {
+        "line": 99,
+        "text": "setIsSubmitting(true);"
+      },
+      {
+        "line": 128,
+        "text": "setIsSubmitting(false);"
+      },
+      {
+        "line": 150,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 300,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 307,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 310,
+        "text": "{isSubmitting ? 'Salvando...' : 'Salvar'}"
+      }
+    ]
+  },
+  {
+    "file": "src/components/modals/InviteMemberModal.tsx",
+    "hits": [
+      {
+        "line": 16,
+        "text": "const [loading, setLoading] = useState(false);"
+      },
+      {
+        "line": 21,
+        "text": "setLoading(true);"
+      },
+      {
+        "line": 29,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 36,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 43,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 49,
+        "text": "setLoading(false);"
+      },
+      {
+        "line": 71,
+        "text": "setLoading(false);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/modals/NewTransactionModal.tsx",
+    "hits": [
+      {
+        "line": 90,
+        "text": "const [isSaving, setIsSaving] = useState(false);"
+      },
+      {
+        "line": 506,
+        "text": "if (Object.keys(paymentErrors).length > 0 || isSaving) return;"
+      },
+      {
+        "line": 507,
+        "text": "setIsSaving(true);"
+      },
+      {
+        "line": 516,
+        "text": "setIsSaving(false);"
+      },
+      {
+        "line": 528,
+        "text": "if (Object.keys(importedErrors).length > 0 || isSaving) return;"
+      },
+      {
+        "line": 530,
+        "text": "setIsSaving(true);"
+      },
+      {
+        "line": 542,
+        "text": "setIsSaving(false);"
+      },
+      {
+        "line": 547,
+        "text": "if (!validate() || isSaving) return;"
+      },
+      {
+        "line": 610,
+        "text": "setIsSaving(true);"
+      },
+      {
+        "line": 630,
+        "text": "setIsSaving(false);"
+      },
+      {
+        "line": 643,
+        "text": "setIsSaving(false);"
+      },
+      {
+        "line": 707,
+        "text": "setIsSaving(false);"
+      },
+      {
+        "line": 775,
+        "text": "isSaving ||"
+      },
+      {
+        "line": 792,
+        "text": "{isSaving"
+      },
+      {
+        "line": 1047,
+        "text": "disabled={competenceLoading || isSaving}"
+      }
+    ]
+  },
+  {
+    "file": "src/components/modals/PayCreditCardInvoiceModal.tsx",
+    "hits": [
+      {
+        "line": 82,
+        "text": "const [isSubmitting, setIsSubmitting] = useState(false);"
+      },
+      {
+        "line": 165,
+        "text": "setIsSubmitting(true);"
+      },
+      {
+        "line": 178,
+        "text": "setIsSubmitting(false);"
+      },
+      {
+        "line": 187,
+        "text": "onClose={() => (isSubmitting ? undefined : onClose())}"
+      },
+      {
+        "line": 192,
+        "text": "<Button variant=\"secondary\" onClick={onClose} disabled={isSubmitting}>"
+      },
+      {
+        "line": 198,
+        "text": "disabled={isSubmitting || openCards.length === 0 || !referenceMonth || fundingAccounts.length === 0}"
+      },
+      {
+        "line": 200,
+        "text": "{isSubmitting ? 'Registrando…' : 'Registrar pagamento'}"
+      },
+      {
+        "line": 234,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 270,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 302,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 326,
+        "text": "disabled={isSubmitting}"
+      },
+      {
+        "line": 340,
+        "text": "disabled={isSubmitting}"
+      }
+    ]
+  },
+  {
+    "file": "src/components/modals/TermsModal.tsx",
+    "hits": [
+      {
+        "line": 137,
+        "text": "const [loading, setLoading] = useState(false);"
+      },
+      {
+        "line": 179,
+        "text": "setLoading(true);"
+      },
+      {
+        "line": 198,
+        "text": "if (mounted.current) setLoading(false);"
+      }
+    ]
+  },
+  {
+    "file": "src/components/investments/ClassifyInvestmentModal.tsx",
+    "hits": [
+      {
+        "line": 8,
+        "text": "import { structureErrorMessage, unclassifyConfirmation } from './portfolioMessages';"
+      },
+      {
+        "line": 93,
+        "text": "const ok = await appConfirm(unclassifyConfirmation(productLabel, current.name), 'Remover da carteira', 'Remover', 'warning');"
+      }
+    ]
+  },
+  {
+    "file": "src/components/investments/PortfolioFormModal.tsx",
+    "hits": [
+      {
+        "line": 22,
+        "text": "const [isSubmitting, setIsSubmitting] = useState(false);"
+      },
+      {
+        "line": 29,
+        "text": "setIsSubmitting(false);"
+      },
+      {
+        "line": 39,
+        "text": "if (isSubmitting || !trimmed || unchanged) return;"
+      },
+      {
+        "line": 40,
+        "text": "setIsSubmitting(true);"
+      },
+      {
+        "line": 47,
+        "text": "setIsSubmitting(false);"
+      },
+      {
+        "line": 74,
+        "text": "<button data-finance={\"content action\"} type=\"submit\" disabled={isSubmitting || !trimmed || unchanged} className=\"rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:bg-highlight-hover disabl"
+      },
+      {
+        "line": 75,
+        "text": "{isSubmitting ? 'Salvando…' : isRename ? 'Salvar nome' : 'Criar carteira'}"
+      }
+    ]
+  },
+  {
+    "file": "src/components/investments/PortfolioManagerDrawer.tsx",
+    "hits": [
+      {
+        "line": 12,
+        "text": "import { archiveConfirmation, positionsLabel, structureErrorMessage } from './portfolioMessages';"
+      },
+      {
+        "line": 64,
+        "text": "const ok = await appConfirm(archiveConfirmation(portfolio.name, positionsThisMonth, monthLabel), 'Arquivar carteira', 'Arquivar', 'warning');"
+      }
+    ]
+  },
+  {
+    "file": "src/components/investments/portfolioMessages.ts",
+    "hits": [
+      {
+        "line": 7,
+        "text": "export function archiveConfirmation(name: string, positionsThisMonth: number, monthLabel: string): string {"
+      },
+      {
+        "line": 19,
+        "text": "export function unclassifyConfirmation(productLabel: string, portfolioName: string): string {"
+      }
+    ]
+  },
+  {
+    "file": "src/components/dashboard/CurrentNetWorthCard.tsx",
+    "hits": [
+      {
+        "line": 112,
+        "text": "{card.origin.confirmations > 0 ? ' Inclui confirmações de pagamento.' : ''}"
+      }
+    ]
+  },
+  {
+    "file": "src/components/appearance/AppearanceReference.tsx",
+    "hits": [
+      {
+        "line": 13,
+        "text": "import { GlobalDialog } from '../ui/GlobalDialog';"
+      },
+      {
+        "line": 137,
+        "text": "<GlobalDialog dialogStore={referenceDialogs} />"
+      }
+    ]
+  },
+  {
+    "file": "src/components/appearance/AppearanceSessionSync.tsx",
+    "hits": [
+      {
+        "line": 32,
+        "text": "let channel: BroadcastChannel | undefined;"
+      },
+      {
+        "line": 34,
+        "text": "channel = new BroadcastChannel(APPEARANCE_CHANNEL);"
+      }
+    ]
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "archive": "finelo-ciclo-4d-r2-evidencias.zip",
+  "sourceBase": "11e58ddcd4dc68978cbea401e4c13a72c87fbc7a",
+  "checks": [
+    {
+      "files": 738,
+      "uniqueObjects": 481,
+      "indexSHA256": "c469d8849a907022606f3b23ea117475a7560b0851afa5f52c513f07351b01b1",
+      "archiveSHA256": "969b23124052e3a22bfeef0eefeec8985a352d4341da2354f84e6b9078de0648",
+      "bytes": 8104927,
+      "CRC": true,
+      "allSHA256": true
+    },
+    {
+      "files": 738,
+      "uniqueObjects": 481,
+      "indexSHA256": "c469d8849a907022606f3b23ea117475a7560b0851afa5f52c513f07351b01b1",
+      "archiveSHA256": "969b23124052e3a22bfeef0eefeec8985a352d4341da2354f84e6b9078de0648",
+      "bytes": 8104927,
+      "CRC": true,
+      "allSHA256": true
+    }
+  ],
+  "images": [
+    {
+      "path": "r2-boundary-chrome-original-before.png",
+      "bytes": 55216,
+      "sha256": "b0fa30bffe40b20e853a0ccd08d06368bea40c11382d533b02fde7bf5da9dafe"
+    },
+    {
+      "path": "r2-boundary-chrome-original-after.png",
+      "bytes": 76086,
+      "sha256": "1f23f5e7842de62852c26e743fc315630580ef229e962e5371a3031fbe966a91"
+    }
+  ],
+  "pngBytes": 131302,
+  "verdict": "NO-GO",
+  "productChanged": false
+}
