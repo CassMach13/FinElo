@@ -1,0 +1,66 @@
+{
+  "archive": "finelo-ciclo-4d-evidencias.zip",
+  "sourceCheckpoint": "b6929e4bbe7457575122c6dd765dfbc7c9e08f9a",
+  "verdict": "NO-GO; partial local verification only",
+  "checks": [
+    {
+      "files": 1382,
+      "uniqueObjects": 882,
+      "indexSHA256": "b514534939f04240827dc7809365a1f99e97330132dd464f62c6dd78f6a9c4a4",
+      "archiveSHA256": "69925a0cfc868c0b924bf99d9378417a1b9961894a8107f39e82ec914e180bf4",
+      "bytes": 17566332,
+      "CRC": true,
+      "allSHA256": true
+    },
+    {
+      "files": 1382,
+      "uniqueObjects": 882,
+      "indexSHA256": "b514534939f04240827dc7809365a1f99e97330132dd464f62c6dd78f6a9c4a4",
+      "archiveSHA256": "69925a0cfc868c0b924bf99d9378417a1b9961894a8107f39e82ec914e180bf4",
+      "bytes": 17566332,
+      "CRC": true,
+      "allSHA256": true
+    }
+  ],
+  "images": [
+    {
+      "file": "edge-1440-dark-0-dashboard.png",
+      "bytes": 161615,
+      "sha256": "2c434e2cf54be0f87b869549848e4ee2664e408f4c8f9c71f7b0f491316083c5"
+    },
+    {
+      "file": "edge-1440-light-0-dashboard.png",
+      "bytes": 166993,
+      "sha256": "f4a9946cdfa56137889085e319c112769105fb228ccdd06defb6507bb6917f9c"
+    },
+    {
+      "file": "edge-390-dark-3-investments.png",
+      "bytes": 53730,
+      "sha256": "7ce9fcaad62e411fcb50169d7e3a068302f655b1d07867b3e51335b4c71e9234"
+    },
+    {
+      "file": "edge-390-light-3-investments.png",
+      "bytes": 53382,
+      "sha256": "f367dfa52139e0a52b6859314c85480050cea9350c8b7dea7924553d4024ff02"
+    },
+    {
+      "file": "auth-edge-modal-focus-restoration.png",
+      "bytes": 91317,
+      "sha256": "c09ab8e722736545e82d532fd52fa92f7a614e5e8f823230d1531d171a6f8446"
+    },
+    {
+      "file": "pwa-failure.png",
+      "bytes": 78016,
+      "sha256": "036021259a109b219a562ffcba976e457d764c93958ced7790efae4b3b8dd1ec"
+    }
+  ],
+  "pngBytes": 605053,
+  "excluded": [
+    "private invoices",
+    "environment files",
+    "credentials",
+    "browser profiles",
+    "dependency binaries",
+    "raw test logs"
+  ]
+}

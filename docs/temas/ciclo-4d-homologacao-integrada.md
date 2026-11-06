@@ -139,7 +139,7 @@ O ledger bruto e os resultados financeiros das 128 comparações não mudaram. O
 | Risco / severidade | Reprodução / atribuição | Situação e decisão |
 | --- | --- | --- |
 | Feedback essencial após reversão recusada/timeouts de conciliação — **alta** | Documentado no 3D; não reexecutado remotamente nem corrigido | **Bloqueia piloto** até correção autorizada ou decisão formal que elimine resultado incerto; antiguidade não elimina critério NO-GO |
-| Erro na primeira carga de Investimentos V2 — **alta** | Pendência 4B, gate V2 desligado no ensaio integrado | NOT TESTED nesse caminho; o legado HTTP 503 mostrou mensagem e “Tentar novamente” no revisado e atual. Esse PASS não resolve V2 |
+| Erro na primeira carga de Investimentos — **alta** | Pendência 4B; condição exata de primeira carga do validador anterior não reexecutada | NOT TESTED na condição histórica exata; o HTTP 503 do percurso legado integrado mostrou mensagem e “Tentar novamente” no revisado e atual. Esse PASS restrito não encerra a pendência 4B |
 | Atualização PWA A→B — **alta** | FAIL local descrito acima; origem não isolada | Resolver/reproduzir em ambiente autorizado antes de aprovar atualização/piloto |
 | Firefox LockManager SDK — **média/alta** | Mesmo erro inicial no revisado e atual, HTTP sintético | FAIL local de compatibilidade; investigar remoto sem atualizar SDK silenciosamente |
 | Navegação sem nome acessível em paisagem — **média** | 844×390, quatro motores, classes/estrutura NavItem não mudaram | Legado; exige correção específica/decisão de risco |
@@ -167,12 +167,14 @@ Resultados de navegação/contraste em `navigation-validation.json`; sessão fin
 
 Evidências compactas e manifesto: [evidencias-ciclo-4d](evidencias-ciclo-4d/README.md). O pacote externo contém os frames completos, resultados, PDFs, exportações, fontes congeladas e scripts, com índice por SHA-256 e objetos deduplicados. Arquivos privados de faturas, credenciais, perfis de navegador e dependências temporárias ficam excluídos. Pacotes 3A–4C preservados. Os hashes e a dupla verificação estão no manifesto compacto.
 
+Pacote final: **17.566.332 bytes; 1.382 caminhos / 882 objetos**. SHA-256 `69925a0cfc868c0b924bf99d9378417a1b9961894a8107f39e82ec914e180bf4`; índice `b514534939f04240827dc7809365a1f99e97330132dd464f62c6dd78f6a9c4a4`. As duas verificações completas de CRC e todos os hashes deram resultados idênticos. Seis imagens versionadas: **605.053 bytes**. Fontes de produto no checkpoint `b6929e4bbe7457575122c6dd765dfbc7c9e08f9a`; o fechamento acrescenta documentação e empacotamento.
+
 Roteiro executável por operador: [ciclo-4d-roteiro-manual.md](ciclo-4d-roteiro-manual.md), com plataformas, passos, resultados esperados e campos de evidência. Para liberar um **piloto QA restrito**, exigir cumulativamente:
 
 1. Staging autorizado com commit exato, backend comprovadamente isolado, contas A/B e papéis já elegíveis, sem ampliar coorte e com acesso seguro.
 2. Executar os 16 casos de Auth remotamente; investigar Firefox e comprovar isolamento de respostas tardias, Termos, abas e preferência confirmada.
 3. Isolar o FAIL de atualização PWA e executar instalação, atualização, cache anterior, logout/login e reinstalação em aparelhos reais, inclusive offline/reconexão.
-4. Deliberar/corrigir em escopo próprio os riscos de feedback financeiro essencial e V2, acessibilidade de paisagem/movimento e demais pendências aplicáveis. Interromper diante de qualquer critério NO-GO do pedido.
+4. Deliberar/corrigir em escopo próprio os riscos de feedback financeiro essencial e primeira carga de Investimentos, acessibilidade de paisagem/movimento e demais pendências aplicáveis. Interromper diante de qualquer critério NO-GO do pedido.
 5. Preencher Safari/iPhone, Android/Chrome, desktop, zoom nativo e leitor de tela; repetir dados/temas/print sem divergências e obter autorização explícita para o piloto.
 
 Rollback visual: manter a flag desligada e retirar a entrada diagnóstica do uso; nenhum schema exige rollback. Não reverter as correções de privacidade autorizadas no 4C. Não iniciar piloto, merge ou deploy automaticamente a partir deste relatório.
