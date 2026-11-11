@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useId } from 'react';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   children: React.ReactNode;
@@ -8,12 +8,18 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   helpText?: string;
 }
 
-const Select: React.FC<SelectProps> = ({ className, children, label, id, error, helpText, ...props }) => {
+const Select: React.FC<SelectProps> = ({ className, children, label, id: providedId, error, helpText, 'aria-describedby': describedBy, ...props }) => {
+  const generatedId = useId();
+  const id = providedId ?? generatedId;
   const errorClasses = error ? 'border-danger focus:ring-danger' : 'border-slate-600 focus:ring-highlight';
 
   const selectElement = (
     <select
       id={id}
+      data-appearance-part="control"
+      data-appearance-invalid={error ? 'true' : undefined}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={[describedBy, (label || helpText) && error ? id + '-error' : helpText ? id + '-help' : null].filter(Boolean).join(' ') || undefined}
       className={`w-full bg-primary border rounded-md px-3 py-2 text-light placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent appearance-none ${errorClasses} ${className}`}
       style={{
         backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
@@ -30,10 +36,10 @@ const Select: React.FC<SelectProps> = ({ className, children, label, id, error, 
 
   return (
     label || helpText ? <div>
-      {label && <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-1">{label}</label>}
+      {label && <label data-appearance-part="muted" htmlFor={id} className="block text-sm font-medium text-gray-300 mb-1">{label}</label>}
       {selectElement}
-      {helpText && <p className="mt-1 text-xs text-gray-400">{helpText}</p>}
-      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+      {helpText && <p id={id + '-help'} data-appearance-part="muted" className="mt-1 text-xs text-gray-400">{helpText}</p>}
+      {error && <p id={id + '-error'} data-appearance-part="error" className="mt-1 text-xs text-danger">{error}</p>}
     </div> : selectElement
   );
 };

@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import Card from '../ui/Card';
 import { InformationCircleIcon } from '../ui/icons';
@@ -38,23 +39,23 @@ const SummaryBlock: React.FC<{
   current: number;
   change: MonthlyChangeSide;
 }> = ({ label, tone, previousLabel, currentLabel, previous, current, change }) => (
-  <div className="min-w-0 rounded-xl border border-white/5 bg-black/20 p-3 sm:p-4">
-    <p className={`text-[11px] font-bold uppercase tracking-wide ${tone}`}>{label}</p>
+  <div data-finance="divider inset" className="min-w-0 rounded-xl border border-white/5 bg-black/20 p-3 sm:p-4">
+    <p data-finance={tone === 'text-accent' ? 'positive' : 'negative'} className={`text-[11px] font-bold uppercase tracking-wide ${tone}`}>{label}</p>
     <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
-      <span className="text-sm text-gray-400" title={previousLabel}>
+      <span data-finance="muted" className="text-sm text-gray-400" title={previousLabel}>
         {formatCurrency(previous)}
       </span>
-      <span className="text-gray-500" aria-label="para">
+      <span data-finance="muted" className="text-gray-500" aria-label="para">
         →
       </span>
-      <span className="text-lg font-bold text-white" title={currentLabel}>
+      <span data-finance="content" className="text-lg font-bold text-white" title={currentLabel}>
         {formatCurrency(current)}
       </span>
     </div>
-    <p className="mt-1 text-xs text-gray-400">
+    <p data-finance="muted" className="mt-1 text-xs text-gray-400">
       {previousLabel} → {currentLabel} ·{' '}
-      <span className="font-semibold tabular-nums text-gray-200">{formatChangePercent(change.percentage)}</span>
-      {change.percentage === null && <span className="text-gray-500"> (sem base no mês anterior)</span>}
+      <span data-finance="content" className="font-semibold tabular-nums text-gray-200">{formatChangePercent(change.percentage)}</span>
+      {change.percentage === null && <span data-finance="muted" className="text-gray-500"> (sem base no mês anterior)</span>}
     </p>
   </div>
 );
@@ -66,12 +67,12 @@ const CategoryRow: React.FC<{ change: CategoryChange; previousLabel: string; cur
 }) => (
   <li className="flex items-start justify-between gap-3 py-2">
     <div className="min-w-0">
-      <p className="break-words text-sm font-medium text-gray-100">{change.category || 'Sem categoria'}</p>
-      <p className="mt-0.5 break-words text-xs tabular-nums text-gray-400">
+      <p data-finance="content" className="break-words text-sm font-medium text-gray-100">{change.category || 'Sem categoria'}</p>
+      <p data-finance="muted" className="mt-0.5 break-words text-xs tabular-nums text-gray-400">
         {previousLabel} {formatCurrency(change.previousAmount)} → {currentLabel} {formatCurrency(change.currentAmount)}
       </p>
     </div>
-    <span
+    <span data-finance={(change.delta > 0 ? "negative" : "positive")}
       className={`shrink-0 text-sm font-bold tabular-nums ${change.delta > 0 ? 'text-danger' : 'text-accent'}`}
       aria-label={`${change.delta > 0 ? 'Aumento' : 'Redução'} de ${formatCurrency(Math.abs(change.delta))}`}
     >
@@ -84,7 +85,7 @@ const MonthlyChangeCard: React.FC<{ model: MonthlyChange }> = ({ model }) => {
   if (!model.eligible) {
     return (
       <Card title={MONTHLY_CHANGE_TITLE} id="dashboard-monthly-change">
-        <p className="-mt-3 text-sm text-gray-400">{MONTHLY_CHANGE_EMPTY}</p>
+        <p data-finance="muted" className="-mt-3 text-sm text-gray-400">{MONTHLY_CHANGE_EMPTY}</p>
       </Card>
     );
   }
@@ -101,8 +102,8 @@ const MonthlyChangeCard: React.FC<{ model: MonthlyChange }> = ({ model }) => {
   return (
     <Card title={MONTHLY_CHANGE_TITLE} id="dashboard-monthly-change">
       <div className="-mt-3 mb-5 space-y-1">
-        <p className="text-sm text-gray-400">{MONTHLY_CHANGE_SUBTITLE}</p>
-        <p className="text-sm font-semibold text-gray-200">
+        <p data-finance="muted" className="text-sm text-gray-400">{MONTHLY_CHANGE_SUBTITLE}</p>
+        <p data-finance="content" className="text-sm font-semibold text-gray-200">
           {curLabel} × {prevLabel}
         </p>
       </div>
@@ -129,12 +130,12 @@ const MonthlyChangeCard: React.FC<{ model: MonthlyChange }> = ({ model }) => {
       </div>
 
       <div className="mt-5">
-        <h3 className="text-sm font-semibold text-gray-200">O que mais mudou nas saídas</h3>
+        <h3 data-finance="content" className="text-sm font-semibold text-gray-200">O que mais mudou nas saídas</h3>
         {model.categoryChanges.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">{MONTHLY_CHANGE_NO_CATEGORY_CHANGE}</p>
+          <p data-finance="muted" className="mt-2 text-sm text-gray-400">{MONTHLY_CHANGE_NO_CATEGORY_CHANGE}</p>
         ) : (
           <>
-            <p className="text-xs text-gray-500">Categorias com maior variação registrada</p>
+            <p data-finance="muted" className="text-xs text-gray-500">Categorias com maior variação registrada</p>
             <ul className="mt-1 divide-y divide-white/5">
               {model.categoryChanges.map((c) => (
                 <CategoryRow key={c.category} change={c} previousLabel={prevLabel} currentLabel={curLabel} />
@@ -144,12 +145,12 @@ const MonthlyChangeCard: React.FC<{ model: MonthlyChange }> = ({ model }) => {
         )}
       </div>
 
-      <div className="mt-5 rounded-xl border border-white/5 bg-black/20 p-3 sm:p-4 print:break-inside-avoid">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Leitura do FinElo</p>
-        <p className="mt-1 break-words text-sm text-gray-200">{reading.text}</p>
+      <div data-finance="divider inset" className="mt-5 rounded-xl border border-white/5 bg-black/20 p-3 sm:p-4 print:break-inside-avoid">
+        <p data-finance="muted" className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Leitura do FinElo</p>
+        <p data-finance="content" className="mt-1 break-words text-sm text-gray-200">{reading.text}</p>
       </div>
 
-      <p className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-gray-500">
+      <p data-finance="muted" className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-gray-500">
         <InformationCircleIcon className="mt-px h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 break-words">{MONTHLY_CHANGE_NOTE}</span>
       </p>

@@ -1,3 +1,4 @@
+import '../appearance/financial.css';
 import { useMemo, useState } from 'react';
 import {
   describeDelta,
@@ -88,8 +89,8 @@ export function ReconciliationResolutionModal({
   if (opcoes.length === 0) {
     return (
       <div role="dialog" aria-label="Conciliação" className="p-4">
-        <p className="text-sm text-slate-300">{descricao.resumo}</p>
-        <button type="button" onClick={onCancel} className="mt-4 px-3 py-1.5 rounded bg-slate-700 text-slate-100">
+        <p data-finance="muted" className="text-sm text-slate-300">{descricao.resumo}</p>
+        <button data-finance="secondary" type="button" onClick={onCancel} className="mt-4 px-3 py-1.5 rounded bg-slate-700 text-slate-100">
           Fechar
         </button>
       </div>
@@ -100,38 +101,39 @@ export function ReconciliationResolutionModal({
   if (escolhida) {
     return (
       <div role="dialog" aria-label="Confirmar esta resolução" className="p-4 flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-slate-100">Confirmar esta resolução</h2>
+        <h2 data-finance="content" className="text-base font-semibold text-slate-100">Confirmar esta resolução</h2>
 
         <dl className="text-sm flex flex-col gap-1.5">
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-400">Competência</dt>
-            <dd className="text-slate-100 font-medium tabular-nums">{rotulo}</dd>
+            <dt data-finance="muted" className="text-slate-400">Competência</dt>
+            <dd data-finance="content" className="text-slate-100 font-medium tabular-nums">{rotulo}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-400">Diferença</dt>
-            <dd className="text-slate-100 font-medium tabular-nums">
+            <dt data-finance="muted" className="text-slate-400">Diferença</dt>
+            <dd data-finance="content" className="text-slate-100 font-medium tabular-nums">
               {descricao.sinal === 'negativa' ? '−' : '+'}
               {money(unresolvedDeltaCents)}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-400">Classificação</dt>
-            <dd className="text-slate-100 font-medium text-right">{escolhida.label}</dd>
+            <dt data-finance="muted" className="text-slate-400">Classificação</dt>
+            <dd data-finance="content" className="text-slate-100 font-medium text-right">{escolhida.label}</dd>
           </div>
           {escolhida.requiresAuthoritativeTotal && (
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">Valor oficial</dt>
-              <dd className="text-slate-100 font-medium tabular-nums">{money(oficialCents)}</dd>
+              <dt data-finance="muted" className="text-slate-400">Valor oficial</dt>
+              <dd data-finance="content" className="text-slate-100 font-medium tabular-nums">{money(oficialCents)}</dd>
             </div>
           )}
         </dl>
 
-        <p className="text-sm text-amber-200/90 bg-amber-500/10 border border-amber-400/30 rounded p-3">
+        <p data-finance="warning-panel" className="text-sm text-amber-200/90 bg-amber-500/10 border border-amber-400/30 rounded p-3">
           {escolhida.consequence}
         </p>
 
         {aviso && (
           <p
+            data-finance="info-panel"
             role="status"
             className="text-sm text-sky-200/90 bg-sky-500/10 border border-sky-400/30 rounded p-3"
           >
@@ -141,6 +143,7 @@ export function ReconciliationResolutionModal({
 
         <div className="flex gap-2 justify-end">
           <button
+            data-finance="secondary"
             type="button"
             disabled={busy}
             onClick={() => setEscolhida(null)}
@@ -149,6 +152,7 @@ export function ReconciliationResolutionModal({
             Voltar
           </button>
           <button
+            data-finance="action"
             type="button"
             disabled={!oficialValido || busy}
             onClick={() =>
@@ -176,34 +180,36 @@ export function ReconciliationResolutionModal({
   return (
     <div role="dialog" aria-label="Conciliar diferença" className="p-4 flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-slate-100">
+        <h2 data-finance="content" className="text-base font-semibold text-slate-100">
           Conciliar diferença — {rotulo}
         </h2>
-        <p className="text-sm text-slate-400">{descricao.resumo}</p>
+        <p data-finance="muted" className="text-sm text-slate-400">{descricao.resumo}</p>
       </div>
 
       <ul className="flex flex-col gap-2">
         {opcoes.map((opcao) => (
           <li key={opcao.kind}>
             <button
+              data-finance="inset divider hover"
               type="button"
               onClick={() => setEscolhida(opcao)}
               className="w-full text-left rounded border border-white/10 bg-white/5 hover:bg-white/10 p-3 flex flex-col gap-1"
             >
-              <span className="text-sm font-medium text-slate-100">{opcao.label}</span>
-              <span className="text-xs text-slate-400">{opcao.consequence}</span>
+              <span data-finance="content" className="text-sm font-medium text-slate-100">{opcao.label}</span>
+              <span data-finance="muted" className="text-xs text-slate-400">{opcao.consequence}</span>
             </button>
           </li>
         ))}
       </ul>
 
       {/* Campos do valor oficial ficam sempre visíveis para quem escolher essa via. */}
-      <div className="flex flex-col gap-2 border-t border-white/10 pt-3">
-        <label className="text-xs uppercase tracking-wide text-slate-400" htmlFor="total-oficial">
+      <div data-finance="divider" className="flex flex-col gap-2 border-t border-white/10 pt-3">
+        <label data-finance="muted" className="text-xs uppercase tracking-wide text-slate-400" htmlFor="total-oficial">
           Valor oficial da fatura, se for informar
         </label>
         <div className="flex gap-2">
           <input
+            data-finance="control"
             id="total-oficial"
             inputMode="decimal"
             value={totalOficial}
@@ -212,6 +218,7 @@ export function ReconciliationResolutionModal({
             className="flex-1 rounded bg-slate-800 border border-white/10 px-2 py-1.5 text-sm text-slate-100"
           />
           <select
+            data-finance="control"
             aria-label="Procedência do valor oficial"
             value={fonte}
             onChange={(e) => setFonte(e.target.value as AuthoritativeSource)}
@@ -227,7 +234,7 @@ export function ReconciliationResolutionModal({
       </div>
 
       <div className="flex justify-end">
-        <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded bg-slate-700 text-slate-100">
+        <button data-finance="secondary" type="button" onClick={onCancel} className="px-3 py-1.5 rounded bg-slate-700 text-slate-100">
           Cancelar
         </button>
       </div>

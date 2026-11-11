@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import "../appearance/financial.css";
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -32,36 +33,36 @@ const SaveConfigModal: React.FC<SaveConfigModalProps> = ({ onClose, existingConf
     };
 
     return (
-        <Modal isOpen={true} onClose={onClose} title="Salvar Mapeamento" footer={
+        <Modal manageFocus isOpen={true} onClose={onClose} title="Salvar Mapeamento" footer={
             <div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={onClose}>Não Salvar</Button>
                 <Button onClick={handleSave}>Salvar Configuração</Button>
             </div>
         }>
             <div className="space-y-4">
-                <p className="text-gray-300 text-sm">Como você gostaria de salvar este padrão de colunas?</p>
+                <p data-finance="muted" className="text-gray-300 text-sm">Como você gostaria de salvar este padrão de colunas?</p>
                 <div className="flex gap-4 mb-4">
                     <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="mode" checked={mode === 'new'} onChange={() => setMode('new')} className="text-highlight focus:ring-highlight" />
-                        <span className="text-white">Criar Nova</span>
+                        <input data-finance="choice" type="radio" name="mode" checked={mode === 'new'} onChange={() => setMode('new')} className="text-highlight focus:ring-highlight" />
+                        <span data-finance="content" className="text-white">Criar Nova</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="mode" checked={mode === 'existing'} onChange={() => setMode('existing')} className="text-highlight focus:ring-highlight" />
-                        <span className="text-white">Atualizar Existente</span>
+                        <input data-finance="choice" type="radio" name="mode" checked={mode === 'existing'} onChange={() => setMode('existing')} className="text-highlight focus:ring-highlight" />
+                        <span data-finance="content" className="text-white">Atualizar Existente</span>
                     </label>
                 </div>
                 {mode === 'new' ? (
                     <Input label="Nome da Nova Configuração" placeholder="Ex: Nubank, Boleto XP..." value={newName} onChange={e => setNewName(e.target.value)} />
                 ) : (
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Selecione a Configuração</label>
-                        <select className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-highlight focus:border-transparent outline-none transition-all" value={selectedConfigId} onChange={e => setSelectedConfigId(e.target.value)}>
+                        <label data-finance="muted" className="block text-sm font-medium text-gray-300 mb-1">Selecione a Configuração</label>
+                        <select data-finance="control" aria-label="Selecione a Configuração" className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-highlight focus:border-transparent outline-none transition-all" value={selectedConfigId} onChange={e => setSelectedConfigId(e.target.value)}>
                             <option value="">Selecione...</option>
                             {existingConfigs.map(c => (
                                 <option key={c.id} value={c.id}>{c.Nome_Fonte}</option>
                             ))}
                         </select>
-                        <p className="text-xs text-yellow-400 mt-2">⚠️ Isso substituirá as configurações de colunas anteriores para esta fonte.</p>
+                        <p data-finance="warning" className="text-xs text-yellow-400 mt-2">⚠️ Isso substituirá as configurações de colunas anteriores para esta fonte.</p>
                     </div>
                 )}
             </div>

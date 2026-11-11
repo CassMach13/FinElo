@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 
 interface PeriodCompareColumnsProps {
@@ -15,14 +16,14 @@ export const PeriodCompareCell: React.FC<{
   children: React.ReactNode;
   variant?: 'primary' | 'compare';
 }> = ({ label, children, variant = 'primary' }) => (
-  <div
+  <div data-finance={(variant === 'primary' ? "" : "divider inset")}
     className={`flex flex-col min-w-0 h-full rounded-xl px-4 py-3 ${
       variant === 'primary'
         ? 'bg-accent/[0.07] border border-accent/25'
         : 'bg-black/30 border border-white/10'
     }`}
   >
-    <p
+    <p data-finance={(variant === 'primary' ? "positive" : "muted")}
       className={`text-[10px] font-bold uppercase tracking-wide mb-2 truncate ${
         variant === 'primary' ? 'text-accent' : 'text-slate-400'
       }`}
@@ -51,7 +52,7 @@ const PeriodCompareColumns: React.FC<PeriodCompareColumnsProps> = ({
         {compare}
       </PeriodCompareCell>
     </div>
-    {footer ? <div className="mt-3 pt-2 border-t border-white/5">{footer}</div> : null}
+    {footer ? <div data-finance="divider" className="mt-3 pt-2 border-t border-white/5">{footer}</div> : null}
   </div>
 );
 

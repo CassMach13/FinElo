@@ -55,8 +55,10 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ value, max, expectedPacing, c
   const barColor = resolveProgressBarColor(value, max, { expectedPacing, color });
 
   return (
-    <div className="w-full bg-primary rounded-full h-2.5">
+    <div data-appearance-part="progress-track" className="w-full bg-primary rounded-full h-2.5">
       <div
+        data-appearance-part="progress-fill"
+        data-appearance-tone={barColor === 'bg-danger' ? 'danger' : barColor === 'bg-yellow-500' ? 'warning' : barColor === 'bg-accent' || barColor === 'bg-green-500' ? 'success' : barColor === 'bg-highlight' ? 'info' : undefined}
         className={`${barColor} h-2.5 rounded-full transition-all duration-500`}
         style={{ width: `${clampedPercentage}%` }}
       ></div>

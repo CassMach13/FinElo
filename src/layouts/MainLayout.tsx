@@ -1,3 +1,4 @@
+import RemainingAppearanceBridge from '../components/appearance/RemainingAppearanceBridge';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../hooks/useAppStore';
 import DashboardView from '../components/views/DashboardView';
@@ -24,6 +25,7 @@ import { NavItem } from '../components/ui/NavItem';
 import UserAccountWidget from '../components/views/UserAccountWidget';
 import InstallPWA from '../components/pwa/InstallPWA';
 import TermsModal from '../components/modals/TermsModal';
+import AuthenticatedShell from './AuthenticatedShell';
 
 export default function MainLayout() {
     // Initialize view from URL if present
@@ -79,7 +81,7 @@ export default function MainLayout() {
         dashboard: <DashboardView />,
         import: <ImportView />,
         transactions: <TransactionsView />,
-        investments: <InvestmentsView />,
+        investments: <InvestmentsView key={user?.id} />,
         goals: <GoalsView />,
         settings: <SettingsView />,
         help: <HelpView />,
@@ -103,11 +105,10 @@ export default function MainLayout() {
     }, [currentView, setCurrentView]);
 
     return (
-        <div id="main-layout" className="flex flex-col h-screen bg-primary text-light overflow-hidden">
-            {/* Cabeçalho Mobile - Visível apenas em telas menores que LG */}
-            <header className="lg:hidden no-print flex items-center justify-between px-4 py-3 bg-secondary border-b border-white/5 z-50">
+        <AuthenticatedShell
+            header={<>
                 <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-slate-800/50 border border-slate-700/50">
+                    <div data-appearance-part="brand-frame" className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-slate-800/50 border border-slate-700/50">
                         <img src="/logo/Image_fx.png" alt="FinElo Logo" className="h-full w-full object-cover transform scale-150" />
                     </div>
                     <span className="text-lg font-bold">FinElo</span>
@@ -119,13 +120,11 @@ export default function MainLayout() {
                     adminBadgeCount={adminBadgeCount}
                     isAdmin={isAdmin}
                 />
-            </header>
-
-            <div className="flex-1 flex flex-col landscape:max-lg:flex-row lg:flex-row overflow-hidden">
-                <nav className="no-print flex landscape:max-lg:flex-col lg:flex-col justify-around landscape:max-lg:justify-start lg:justify-start landscape:max-lg:p-2 lg:p-4 bg-secondary w-full landscape:max-lg:w-20 lg:w-64 max-w-full lg:max-w-[256px] space-y-0 landscape:max-lg:space-y-4 lg:space-y-2 order-last landscape:max-lg:order-first lg:order-first border-t landscape:max-lg:border-t-0 lg:border-t-0 border-r border-slate-800/50">
+            </>}
+            navigation={<>
                     {/* Desktop Logo - Hidden on mobile */}
                     <div className="hidden lg:flex items-center gap-3 mb-6 px-3">
-                        <div className="h-10 w-10 rounded-xl overflow-hidden flex items-center justify-center bg-slate-800/50 border border-slate-700/50">
+                        <div data-appearance-part="brand-frame" className="h-10 w-10 rounded-xl overflow-hidden flex items-center justify-center bg-slate-800/50 border border-slate-700/50">
                             <img src="/logo/Image_fx.png" alt="FinElo Logo" className="h-full w-full object-cover transform scale-150" />
                         </div>
                         <h1 className="text-xl font-bold">FinElo</h1>
@@ -140,12 +139,14 @@ export default function MainLayout() {
                         <NavItem id="nav-settings" view="settings" label="Configurações" icon={<SettingsIcon />} isActive={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
                     </div>
 
-                    <div className="hidden lg:flex flex-col border-t border-slate-700/50 mt-2 pt-2">
+                    <div data-appearance-part="divider" className="hidden lg:flex flex-col border-t border-slate-700/50 mt-2 pt-2">
                         <button
+                            data-appearance-part="nav-item"
+                            data-appearance-active={currentView === 'pricing'}
                             onClick={() => setCurrentView('pricing')}
                             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors mb-2 ${currentView === 'pricing' ? 'bg-highlight/20 text-highlight' : 'text-gray-400 hover:text-white hover:bg-slate-800'}`}
                         >
-                            <div className={`h-5 w-5 flex-shrink-0 border border-current rounded-full flex items-center justify-center text-[10px] font-bold ${isPremium ? 'text-amber-400 border-amber-400' : ''}`}>
+                            <div data-finance="warning" className={`h-5 w-5 flex-shrink-0 border border-current rounded-full flex items-center justify-center text-[10px] font-bold ${isPremium ? 'text-amber-400 border-amber-400' : ''}`}>
                                 {isPremium ? '★' : '💎'}
                             </div>
                             <span className="font-semibold text-xs xl:text-sm truncate">
@@ -189,12 +190,11 @@ export default function MainLayout() {
                             isAdmin={isAdmin}
                         />
                     </div>
-                </nav >
-                <main id="main-content" className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-                    {viewMap[currentView] || viewMap.dashboard}
-                </main>
-            </div>
-            <TermsModal />
-        </div >
+            </>}
+            overlays={<TermsModal />}
+        >
+            <RemainingAppearanceBridge view={currentView} />
+            {viewMap[currentView] || viewMap.dashboard}
+        </AuthenticatedShell>
     );
 }

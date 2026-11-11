@@ -1,0 +1,37 @@
+{
+  "base": "6f7a94b11286843d073295cc2be4e3c7601ea531",
+  "additionalPresentationAttributes": [
+    "id",
+    "htmlFor",
+    "ref",
+    "aria-labelledby",
+    "aria-modal",
+    "aria-disabled",
+    "aria-pressed",
+    "autoFocus"
+  ],
+  "additionalPresentationComponents": [
+    "ImportFeedback"
+  ],
+  "files": {
+    "src/components/views/ImportView.tsx": "f51cd9d5368b4d0f80e5d7249726324aef78b173b32378911bc069ced01e7913",
+    "src/components/modals/OpenFinanceReviewModal.tsx": "2f8bd347edfd69e4e783cc98b0b7fc8c78f9300de5545f683570b62365430c6c",
+    "src/components/modals/SaveConfigModal.tsx": "b744f9f65edb0e32a5be631a1dd81f5ba5f7a1ad65aae766c8d8901c79d7fed6",
+    "src/components/modals/ImportDetailsModal.tsx": "29ff25e3520568673bbce193f88b1c68d943af7c91dab1830037e384e6889e2f",
+    "src/components/onboarding/ImportSuccessPanel.tsx": "1b0fc42f39ed61a16e31d5297a351c9536350aec04fb3b952252da58c61e383f",
+    "src/components/views/SettingsView.tsx": "c89c72ffc58a0d01dce8e368038a16baf157875289c8137f060d1e9ffca2f92b"
+  },
+  "financialSources": {
+    "src/services/parserService.ts": "1961219d1d6e2d55ef1250557cc54dcd81e1f687880b465bad5f2898eb8317f1",
+    "src/services/openFinanceService.ts": "50e8f07953068702618dd861f3141fb0530eabf42c05c55e7f0ccd07c66e5cf8",
+    "src/services/importHistoryService.ts": "4d74c827b84932843fe8c6e647c87ef312fd97793a8fae3f8d5a6db14c038ddd",
+    "src/hooks/useAppStore.ts": "02987d46eaf30682bf91bf0348800f737b7eee179201d82dac522cfeffd17e15",
+    "src/domain/installments/installmentSuggestions.ts": "279bfa6e824ae0511bef4d58ce33cc5d5c6172ca08bd99b4f234fbac2e2d0f3d",
+    "src/utils/cardImportReference.ts": "fc246b7652674da9ba2c4b900647797cfa5a497a08de655a358482a51cd52486",
+    "src/utils/cardImportCycleMetadata.ts": "f61bca1c6cd9fe6c133a34c787575d533edd487d919a004a6bd18617909d03d0",
+    "src/utils/importBatchIntegrity.ts": "6e86dc72efa122d381164ef23823c6c87eca6cab1f1a5c63163a5db766e46938",
+    "src/services/parsers/nativeBankParsers.ts": "cd14aec2841ee991f52b29484d113211506823558dd95e7b75bcfd6dc8d4883a",
+    "src/services/parsers/ofxParser.ts": "1e8b7eed46912db637b947b5a50a3bf33b07232254540b070a86f01299d095a4",
+    "src/services/parsers/xpInvestmentParser.ts": "18ca930ae3e4dcb392c701fda856d11cda1674f8cbe0756e9634e8716cb007fd"
+  }
+}

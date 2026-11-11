@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useState } from 'react';
 import type { FinancialGoal } from '../../types';
 import Modal from '../ui/Modal';
@@ -58,7 +59,7 @@ const UpdateGoalValueModal: React.FC<Props> = ({ goal, onClose, onSave }) => {
       }
     >
       <form id="goal-value-form" onSubmit={submit} className="space-y-3" noValidate>
-        <p className="break-words text-sm text-gray-300">{goal.name}</p>
+        <p data-finance="content" className="break-words text-sm text-gray-300">{goal.name}</p>
         <Input
           id="goal-current-value"
           label="Quanto você tem hoje para este objetivo? (R$)"
@@ -68,7 +69,7 @@ const UpdateGoalValueModal: React.FC<Props> = ({ goal, onClose, onSave }) => {
           error={error}
           autoFocus
         />
-        <p className="text-xs text-gray-500">
+        <p data-finance="muted" className="text-xs text-gray-500">
           Informe o total que você já separou. O FinElo não movimenta suas contas.
         </p>
       </form>

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { appAlert } from './useDialogStore';
-import { supabase } from '../supabaseClient';
+import { appAlert, useDialogStore } from './useDialogStore';
+import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
+import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
+import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
 import {
   Transaction,
   Category,
@@ -302,6 +304,7 @@ interface AppState {
   setUser: (user: User | null) => void;
   refreshAtomicImportEligibility: () => Promise<boolean>;
   updateUserPreferences: (preferences: Partial<User['user_metadata']>) => Promise<void>;
+  syncAppearancePreferences: () => Promise<void>;
   signOut: () => Promise<void>;
 
   // Novas ações para buscar dados do Supabase
@@ -561,6 +564,10 @@ let transactionsFetchGeneration = 0;
 // Invalida trabalho de bens em voo mesmo em A → logout/B → A. Refresh de token do mesmo usuário não invalida.
 let assetSessionGeneration = 0;
 let assetsFetchGeneration = 0;
+const appearanceSaves = new Set<string>();
+const metadataWrites = new Map<string, Promise<void>>();
+let appearanceRevision = 0;
+let confirmedAppearance: { id: string; theme: 'dark' | 'light' | 'system' } | undefined;
 const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
   const userId = get().user?.id;
   const generation = assetSessionGeneration;
@@ -599,6 +606,13 @@ const EMPTY_USER_SCOPED_DATA: Partial<AppState> = {
   assets: [],
   pendingInvites: [],
   subscription: null,
+  goals: [],
+  goalsStatus: 'idle',
+  goalsUserId: null,
+  supportTickets: [],
+  adminMetrics: null,
+  helpIntent: null,
+  isLoading: false,
 };
 
 const switched = (state: Pick<AppState, 'user'>, next: { id?: string } | null) =>
@@ -702,7 +716,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Filtros de Transação
   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
   setUser: (user) => {
-    if (get().user?.id !== user?.id) assetSessionGeneration += 1;
+    if (get().user?.id !== user?.id) {
+      // Cancelar uma confirmação nunca autoriza a operação da sessão anterior.
+      useDialogStore.getState().closeDialog(false);
+      useDialogStore.setState({ options: null });
+      assetSessionGeneration += 1;
+      appearanceRevision += 1;
+      confirmedAppearance = undefined;
+      if (user && isAppearancePilotEnabled(user)) {
+        const theme = readConfirmedAppearance(user.id);
+        if (theme) confirmedAppearance = { id: user.id, theme };
+      }
+    }
+    // SDK events may carry metadata cached before the last successful PUT.
+    // Only a fresh, account-bound getUser response may replace a confirmed theme.
+    if (user && isAppearancePilotEnabled(user) && confirmedAppearance?.id === user.id) {
+      user = { ...user, user_metadata: { ...user.user_metadata, [APPEARANCE_THEME_KEY]: confirmedAppearance.theme } };
+    }
     const isAdmin = user?.email?.toLowerCase().trim() === 'cassiomq@gmail.com';
     set((state) => ({
       user,
@@ -733,28 +763,87 @@ export const useAppStore = create<AppState>((set, get) => ({
     return enabled;
   },
   
+  syncAppearancePreferences: async () => {
+    const user = get().user;
+    if (!user || !isAppearancePilotEnabled(user) || appearanceSaves.has(user.id)) return;
+    const isCurrentSession = captureAssetSession(get);
+    const revision = ++appearanceRevision;
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || session?.user.id !== user.id || !isCurrentSession()) return;
+      // Explicit JWT binds the read too, without replacing the SDK's current session.
+      const result = await supabase.auth.getUser(session.access_token);
+      if (result.error || result.data.user?.id !== user.id || !isCurrentSession() || revision !== appearanceRevision) return;
+      const value = result.data.user.user_metadata[APPEARANCE_THEME_KEY];
+      const theme = isAppearanceTheme(value) ? value : 'dark';
+      confirmedAppearance = { id: user.id, theme };
+      cacheConfirmedAppearance(user.id, theme);
+      const currentUser = get().user!;
+      set({ user: { ...currentUser, user_metadata: { ...currentUser.user_metadata, [APPEARANCE_THEME_KEY]: theme } } });
+    } catch { /* Offline: keep the last confirmed preference; retry on online/focus/Auth. */ }
+  },
+
   updateUserPreferences: async (preferences) => {
     const { user } = get();
+    if (Object.hasOwn(preferences, APPEARANCE_THEME_KEY)) {
+      const theme = preferences[APPEARANCE_THEME_KEY];
+      if (!user || !isAppearancePilotEnabled(user) || !isAppearanceTheme(theme) || Object.keys(preferences).length !== 1) {
+        throw new Error('Preferência de aparência indisponível.');
+      }
+      if (appearanceSaves.has(user.id)) throw new Error('A aparência já está sendo salva.');
+      appearanceSaves.add(user.id);
+      appearanceRevision += 1;
+      const isCurrentSession = captureAssetSession(get);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || session?.user.id !== user.id || !isCurrentSession()) {
+          throw new Error('A sessão mudou antes de salvar a aparência.');
+        }
+        // Vincula a escrita a esta conta mesmo se o SDK trocar de sessão durante a requisição.
+        await persistAppearanceTheme(session.access_token, theme);
+        if (isCurrentSession()) {
+          appearanceRevision += 1;
+          confirmedAppearance = { id: user.id, theme };
+          cacheConfirmedAppearance(user.id, theme);
+          const currentUser = get().user!;
+          set({ user: { ...currentUser, user_metadata: { ...currentUser.user_metadata, [APPEARANCE_THEME_KEY]: theme } } });
+        }
+        signalAppearanceChange(isCurrentSession());
+      } finally {
+        appearanceSaves.delete(user.id);
+      }
+      return;
+    }
     if (!user) return;
+    const isCurrentSession = captureAssetSession(get);
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || session?.user.id !== user.id || !isCurrentSession()) return;
     
     // Update local state optimistically
+    const currentUser = get().user!;
     const updatedUser = {
-      ...user,
+      ...currentUser,
       user_metadata: {
-        ...user.user_metadata,
+        ...currentUser.user_metadata,
         ...preferences
       }
     };
     get().setUser(updatedUser as User);
 
-    // Persist to Supabase Auth
-    const { error } = await supabase.auth.updateUser({
-      data: preferences
+    // A late SDK updateUser response can restore its captured session after another login.
+    // Bind metadata writes to the initiating bearer without mutating the global SDK cache.
+    const previous = metadataWrites.get(user.id) ?? Promise.resolve();
+    const saving = previous.catch(() => undefined).then(async () => {
+      if (isCurrentSession()) await persistUserMetadata(session.access_token, preferences);
     });
-    
-    if (error) {
+    metadataWrites.set(user.id, saving);
+    try {
+      await saving;
+    } catch (error) {
       console.error('Error updating user preferences:', error);
-      // Optional: rollback state if needed
+      // Preserve the existing optimistic-state/error behavior for the same account.
+    } finally {
+      if (metadataWrites.get(user.id) === saving) metadataWrites.delete(user.id);
     }
   },
 
@@ -3279,13 +3368,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Admin Metrics
   fetchAdminMetrics: async () => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return;
     const { data: { user } } = await supabase.auth.getUser();
     // Apenas tenta buscar se houver usúario e for o admin
-    if (!user || user.email !== 'cassiomq@gmail.com') return;
+    if (!user || !isCurrentSession() || user.id !== get().user?.id || user.email !== 'cassiomq@gmail.com') return;
 
     set({ isLoading: true });
     // Chama a function segura via RPC
     const { data, error } = await supabase.rpc('get_admin_metrics');
+    if (!isCurrentSession()) return;
     if (error) {
       console.error('Erro ao buscar métricas de administrador:', error);
       set({ isLoading: false });
@@ -3523,24 +3615,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Support Tickets
   fetchSupportTickets: async () => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user || !isCurrentSession() || user.id !== get().user?.id) return;
     const { data, error } = await supabase
       .from('support_tickets')
       .select('*, messages:support_messages(*)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
+    if (!isCurrentSession()) return;
     if (error) console.error('Erro ao buscar chamados:', error);
     else set({ supportTickets: data as any }); // Cast needed due to complex join
   },
 
   fetchAllTickets: async () => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return;
     const { data, error } = await supabase
       .from('support_tickets')
       .select('*, messages:support_messages(*)')
       .order('created_at', { ascending: false });
 
+    if (!isCurrentSession()) return;
     if (error) console.error('Erro ao buscar todos os chamados:', error);
     else set({ supportTickets: data as any });
   },
@@ -3781,8 +3879,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createGoal: async (input) => {
+    const isCurrentSession = captureAssetSession(get);
+    if (!isCurrentSession()) return false;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    if (!user || !isCurrentSession() || user.id !== get().user?.id) return false;
     const { data, error } = await supabase
       .from('financial_goals')
       .insert([{
@@ -3793,6 +3893,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         target_date: input.target_date,
       }])
       .select();
+    if (!isCurrentSession()) return false;
     if (error || !data?.[0]) {
       console.error('Erro ao criar objetivo:', error);
       await appAlert('Não foi possível salvar o objetivo. Tente novamente.', 'Objetivos', 'danger');

@@ -1,3 +1,4 @@
+import './components/appearance/remaining.css';
 import React, { useState } from 'react';
 import { User } from '@supabase/supabase-js'; 
 
@@ -46,7 +47,7 @@ const Avatar: React.FC<AvatarProps> = ({ user, className = 'h-10 w-10' }) => {
   }
 
   return (
-    <div style={{ backgroundColor: generateColor(user.id) }} className={`flex items-center justify-center rounded-full font-bold text-white ${className}`}>
+    <div data-finance="remaining-avatar" style={{ backgroundColor: generateColor(user.id) }} className={`flex items-center justify-center rounded-full font-bold text-white ${className}`}>
       {getInitials()}
     </div>
   );

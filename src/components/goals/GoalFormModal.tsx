@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useState } from 'react';
 import type { FinancialGoal } from '../../types';
 import Modal from '../ui/Modal';
@@ -61,7 +62,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
   };
 
   return (
-    <Modal
+    <Modal manageFocus
       isOpen
       onClose={onClose}
       title={isEdit ? 'Editar objetivo' : 'Novo objetivo'}
@@ -85,7 +86,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
           onChange={(e) => setName(e.target.value)}
           placeholder="Ex.: Reserva de emergência"
           error={errors.name}
-          autoFocus
+          autoFocus={false}
         />
         <Input
           id="goal-target"
@@ -118,7 +119,7 @@ const GoalFormModal: React.FC<Props> = ({ goal, today, onClose, onSave }) => {
           helpText="Com um prazo, mostramos quanto guardar por mês. Sem prazo, mostramos só o progresso."
         />
         {isEdit && (
-          <p className="text-xs text-gray-500">
+          <p data-finance="muted" className="text-xs text-gray-500">
             Para mudar quanto você já tem, use &quot;Atualizar valor&quot; no card do objetivo.
           </p>
         )}

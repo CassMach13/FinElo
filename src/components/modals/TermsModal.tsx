@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import '../appearance/remaining.css';
+import React, { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
-import { supabase } from '../../supabaseClient';
+import { persistUserMetadata, supabase } from '../../supabaseClient';
 import { useAppStore } from '../../hooks/useAppStore';
 
 // Versioning - Change this to force re-acceptance
@@ -135,6 +136,9 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen: controlledIsOpen, onClo
     const [internalIsOpen, setInternalIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [hasRead, setHasRead] = useState(false);
+    // The account-keyed shell owns this consent dialog and its pending return.
+    const mounted = useRef(true);
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
     // Determine effective open state
     // If controlledIsOpen is undefined, we use internal state (Automatic mode)
@@ -175,27 +179,30 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen: controlledIsOpen, onClo
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.updateUser({
-                data: { terms_accepted_version: CURRENT_TERMS_VERSION }
-            });
-
+            const { data: { session }, error } = await supabase.auth.getSession();
             if (error) throw error;
+            if (!mounted.current || session?.user.id !== user.id || useAppStore.getState().user?.id !== user.id) return;
+            await persistUserMetadata(session.access_token, { terms_accepted_version: CURRENT_TERMS_VERSION });
+            if (!mounted.current || useAppStore.getState().user?.id !== user.id) return;
+            const currentUser = useAppStore.getState().user!;
+            useAppStore.getState().setUser({ ...currentUser, user_metadata: { ...currentUser.user_metadata, terms_accepted_version: CURRENT_TERMS_VERSION } });
 
             // Success
             setInternalIsOpen(false);
 
         } catch (err: any) {
+            if (!mounted.current) return;
             console.error('Error accepting terms:', err);
             alert('Erro ao aceitar os termos. Por favor, tente novamente.');
         } finally {
-            setLoading(false);
+            if (mounted.current) setLoading(false);
         }
     };
 
     if (!isModalOpen) return null;
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={isModalOpen}
             onClose={() => {
                 if (isReadOnly && onClose) onClose();
@@ -206,7 +213,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen: controlledIsOpen, onClo
             className="max-w-4xl h-[90vh]"
             footer={
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full gap-4">
-                    <p className="text-xs text-gray-400">
+                    <p data-finance="muted" className="text-xs text-gray-400">
                         {isReadOnly ? '' : 'Você precisa ler até o final para aceitar.'}
                     </p>
                     <Button
@@ -219,7 +226,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen: controlledIsOpen, onClo
                 </div>
             }
         >
-            <div
+            <div data-finance="content inset divider" tabIndex={0} role="region" aria-label="Texto dos Termos e Condições"
                 className="text-gray-300 space-y-4 text-justify pr-2 overflow-y-auto max-h-[60vh] border border-slate-700/50 p-4 rounded bg-slate-800/20"
                 onScroll={handleScroll}
             >

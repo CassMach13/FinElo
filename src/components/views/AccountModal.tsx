@@ -96,7 +96,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
 
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={true}
             onClose={onClose}
             title={account ? 'Editar Conta' : 'Nova Conta'}
@@ -134,8 +134,8 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
                     </Select>
                     ) : (
                     <div className="flex flex-col justify-end pb-1">
-                        <span className="text-xs font-medium text-gray-400 mb-1.5">Banco/Instituição</span>
-                        <div className="h-[42px] flex items-center gap-2 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-100/90 text-sm">
+                        <span data-finance="muted" className="text-xs font-medium text-gray-400 mb-1.5">Banco/Instituição</span>
+                        <div data-finance="success-panel" className="h-[42px] flex items-center gap-2 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-100/90 text-sm">
                             <span className="text-lg leading-none" aria-hidden>💵</span>
                             <span>Sem vínculo bancário</span>
                         </div>
@@ -145,8 +145,8 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
 
                 {/* Campos exclusivos de Cartão de Crédito */}
                 {isCartaoCredito && (
-                    <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 space-y-3">
-                        <p className="text-indigo-300 text-sm font-semibold flex items-center gap-2">
+                    <div data-finance="info-panel" className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 space-y-3">
+                        <p data-finance="info" className="text-indigo-300 text-sm font-semibold flex items-center gap-2">
                             💳 Configurações do Cartão de Crédito
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -171,7 +171,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
                                     onChange={handleChange}
                                     placeholder="Opcional"
                                 />
-                                <p className="text-[10px] text-amber-400/70 mt-1">
+                                <p data-finance="warning" className="text-[10px] text-amber-400/70 mt-1">
                                     ⚠️ Alguns cartões variam. Se for o seu caso, deixe em branco.
                                 </p>
                             </div>
@@ -186,7 +186,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
                                 placeholder="Ex: 10"
                             />
                         </div>
-                        <p className="text-indigo-200/60 text-xs">
+                        <p data-finance="info" className="text-indigo-200/60 text-xs">
                             Sem data de fechamento, o FinElo usa o 1º do mês como início do ciclo. Com ela configurada, a fatura atual é calculada com mais precisão.
                         </p>
                     </div>
@@ -205,7 +205,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
                             onChange={handleChange}
                             required
                         />
-                        <button type="button" onClick={() => setBalanceMode('initial')} className="text-xs text-cyan-400 hover:underline mt-2">Ou informar um saldo/gasto inicial em outra data</button>
+                        <button data-finance="link" type="button" onClick={() => setBalanceMode('initial')} className="text-xs text-cyan-400 hover:underline mt-2">Ou informar um saldo/gasto inicial em outra data</button>
                     </div>
                 ) : (
                     <div>
@@ -219,15 +219,15 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, onClose, onSave, o
                             required 
                         />
                         <Input label="Data do Saldo/Gasto Inicial" name="dataSaldoInicial" type="date" value={formState.dataSaldoInicial} onChange={handleChange} required className="mt-4" />
-                        {!account && <button type="button" onClick={() => setBalanceMode('current')} className="text-xs text-cyan-400 hover:underline mt-2">Voltar para informar o limite utilizado hoje</button>}
+                        {!account && <button data-finance="link" type="button" onClick={() => setBalanceMode('current')} className="text-xs text-cyan-400 hover:underline mt-2">Voltar para informar o limite utilizado hoje</button>}
                     </div>
                 )}
                 
-                <div className="mt-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3 items-start">
+                <div data-finance="warning-panel" className="mt-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3 items-start">
                     <span className="text-xl leading-none">💡</span>
                     <div>
-                        <p className="text-amber-300 font-semibold text-sm mb-0.5">Dica de Ouro para Conciliação</p>
-                        <p className="text-amber-200/80 text-xs leading-relaxed mt-1">
+                        <p data-finance="warning" className="text-amber-300 font-semibold text-sm mb-0.5">Dica de Ouro para Conciliação</p>
+                        <p data-finance="warning" className="text-amber-200/80 text-xs leading-relaxed mt-1">
                             Se você planeja importar faturas ou extratos passados, é <strong>altamente recomendável</strong> que a Data do Saldo Inicial seja programada para o <strong>dia anterior</strong> à primeira transação que você pretende importar.
                         </p>
                     </div>

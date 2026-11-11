@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ updateUser: vi.fn(async () => ({ error: null })) }));
-vi.mock('../../src/supabaseClient', () => ({ supabase: { auth: { updateUser: mocks.updateUser } } }));
+const mocks = vi.hoisted(() => ({ persistUserMetadata: vi.fn(async () => undefined) }));
+vi.mock('../../src/supabaseClient', () => ({ persistUserMetadata: mocks.persistUserMetadata, supabase: { auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' }, access_token: 'synthetic-session-u1' } }, error: null }) } } }));
 
 import { useAppStore } from '../../src/hooks/useAppStore';
 import FirstStepsCard from '../../src/components/onboarding/FirstStepsCard';
@@ -125,9 +125,7 @@ describe('Primeiros passos — dispensar e retomar (só preferência de exibiç�
     await useAppStore.getState().updateUserPreferences(dismissPatch());
     expect(get().visible).toBe(false);
     expect(get().canResume).toBe(true);
-    expect(mocks.updateUser).toHaveBeenCalledWith({
-      data: expect.objectContaining({ [ONBOARDING_META_KEYS.dismissedAt]: expect.any(String), onboarding_version: 1 }),
-    });
+    expect(mocks.persistUserMetadata).toHaveBeenCalledWith('synthetic-session-u1', expect.objectContaining({ [ONBOARDING_META_KEYS.dismissedAt]: expect.any(String), onboarding_version: 1 }));
 
     await useAppStore.getState().updateUserPreferences(resumePatch());
     expect(get().visible).toBe(true);

@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { computeAnnualChangePercent, type AnnualEvolutionMonth } from '../../utils/annualEvolution';
 import { formatCurrency } from '../../utils/formatters';
@@ -189,17 +190,17 @@ export function monthChangePercent(month: AnnualEvolutionMonth, kind: 'income' |
 
 const PeriodDash: React.FC<{ dashed?: boolean }> = ({ dashed }) => (
   <svg width="14" height="4" aria-hidden="true" className="shrink-0">
-    <line x1="1" y1="2" x2="13" y2="2" stroke="#cbd5e1" strokeWidth="1.4" strokeLinecap="round" strokeDasharray={dashed ? '2.5 2.5' : undefined} />
+    <line data-finance="chart-period-line" x1="1" y1="2" x2="13" y2="2" stroke="#cbd5e1" strokeWidth="1.4" strokeLinecap="round" strokeDasharray={dashed ? '2.5 2.5' : undefined} />
   </svg>
 );
 
 const TooltipRow: React.FC<{ label: string; color: string; month: AnnualEvolutionMonth; keyName: SeriesKey }> = ({ label, color, month, keyName }) => (
   <div className="flex items-center justify-between gap-2">
-    <dt className="flex items-center gap-1.5 text-gray-400">
-      <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+    <dt data-finance="muted" className="flex items-center gap-1.5 text-gray-400">
+      <span data-finance={`chart-dot chart-${keyName}`} aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
       {label}
     </dt>
-    <dd className={seriesHasData(month, keyName) ? 'font-semibold text-gray-100' : 'font-normal text-gray-500'}>
+    <dd data-finance={(seriesHasData(month, keyName) ? "content" : "muted")} className={seriesHasData(month, keyName) ? 'font-semibold text-gray-100' : 'font-normal text-gray-500'}>
       {seriesValueLabel(month, keyName)}
     </dd>
   </div>
@@ -213,10 +214,10 @@ export const MonthTooltipBody: React.FC<{
   const incomeChange = monthChangePercent(activeMonth, 'income');
   return (
     <>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] capitalize text-white">
+      <p data-finance="content" className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] capitalize text-white">
         {MONTH_LONG[activeMonth.month - 1]}
       </p>
-      <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">
+      <p data-finance="muted" className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">
         <PeriodDash />
         Ano atual · {currentYear}
       </p>
@@ -224,8 +225,8 @@ export const MonthTooltipBody: React.FC<{
         <TooltipRow label="Entradas" color={CHART_COLORS.incomeCurrent} month={activeMonth} keyName="incomeCurrent" />
         <TooltipRow label="Saídas" color={CHART_COLORS.expenseCurrent} month={activeMonth} keyName="expenseCurrent" />
       </dl>
-      <div style={{ opacity: 0.72 }} data-tooltip-previous="">
-        <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">
+      <div data-finance="dashboard-opaque" style={{ opacity: 0.72 }} data-tooltip-previous="">
+        <p data-finance="muted" className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500">
           <PeriodDash dashed />
           Ano anterior · {previousYear}
         </p>
@@ -235,9 +236,9 @@ export const MonthTooltipBody: React.FC<{
         </dl>
       </div>
       {incomeChange !== null && (
-        <p className="mt-2 flex items-center justify-between border-t border-white/5 pt-2 text-[10px] text-gray-400">
+        <p data-finance="muted divider" className="mt-2 flex items-center justify-between border-t border-white/5 pt-2 text-[10px] text-gray-400">
           <span>Variação das entradas</span>
-          <span className="font-semibold tabular-nums text-gray-200">{formatPercentChange(incomeChange)}</span>
+          <span data-finance="content" className="font-semibold tabular-nums text-gray-200">{formatPercentChange(incomeChange)}</span>
         </p>
       )}
     </>
@@ -252,7 +253,7 @@ const LegendLine: React.FC<{ color: string; dashed?: boolean; glow?: boolean }> 
     className={`shrink-0${glow ? ' min-[761px]:[filter:drop-shadow(0_0_3px_var(--glow))]' : ''}`}
     style={glow ? ({ '--glow': `${color}33` } as React.CSSProperties) : undefined}
   >
-    <line
+    <line data-finance={color === CHART_COLORS.incomeCurrent ? 'chart-legend chart-incomeCurrent' : color === CHART_COLORS.expenseCurrent ? 'chart-legend chart-expenseCurrent' : 'chart-period-line'}
       x1="1"
       y1="4"
       x2="19"
@@ -271,13 +272,13 @@ const LegendLine: React.FC<{ color: string; dashed?: boolean; glow?: boolean }> 
  * títulos dos grupos. Mobile: caixa compacta, sem os títulos.
  */
 export const ChartLegend: React.FC<{ currentYear: number; previousYear: number }> = ({ currentYear, previousYear }) => (
-  <div
+  <div data-finance="muted divider dashboard-legend"
     className="mt-3 flex w-full flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-lg border border-white/[0.07] bg-[rgba(12,18,29,.28)] px-2.5 py-[9px] text-[11px] text-gray-300 min-[761px]:mt-0 min-[761px]:w-auto min-[761px]:rounded-none min-[761px]:border-0 min-[761px]:bg-transparent min-[761px]:p-0"
     role="list"
     aria-label="Legenda do gráfico"
   >
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1" role="listitem">
-      <span className="hidden text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500 min-[761px]:inline">Métrica</span>
+      <span data-finance="muted" className="hidden text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500 min-[761px]:inline">Métrica</span>
       <span className="flex items-center gap-1.5">
         <LegendLine color={CHART_COLORS.incomeCurrent} glow />
         Entradas
@@ -287,9 +288,9 @@ export const ChartLegend: React.FC<{ currentYear: number; previousYear: number }
         Saídas
       </span>
     </div>
-    <span aria-hidden="true" className="hidden h-4 w-px bg-white/10 min-[761px]:block" />
+    <span data-finance="inset" aria-hidden="true" className="hidden h-4 w-px bg-white/10 min-[761px]:block" />
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1" role="listitem">
-      <span className="hidden text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500 min-[761px]:inline">Período</span>
+      <span data-finance="muted" className="hidden text-[9px] font-bold uppercase tracking-[0.14em] text-gray-500 min-[761px]:inline">Período</span>
       <span className="flex items-center gap-1.5">
         <LegendLine color="#cbd5e1" />
         {currentYear}
@@ -387,13 +388,13 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
     <div className="mt-[19px] min-w-0 min-[761px]:mt-[22px]">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-0 min-[761px]:gap-y-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Gráfico</p>
-          <h4 className="text-sm font-semibold text-gray-100">Comparativo mensal</h4>
+          <p data-finance="muted" className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Gráfico</p>
+          <h4 data-finance="content" className="text-sm font-semibold text-gray-100">Comparativo mensal</h4>
         </div>
         <ChartLegend currentYear={currentYear} previousYear={previousYear} />
       </div>
 
-      <div ref={wrapRef} className="relative w-full min-w-0" onMouseLeave={() => setActive(null)}>
+      <div ref={wrapRef} className="relative w-full min-w-0" onMouseLeave={() => { if (!wrapRef.current?.contains(document.activeElement)) setActive(null); }}>
         <svg
           width={width}
           height={height}
@@ -404,14 +405,14 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
         >
           <defs>
             <linearGradient id={`ae-inc-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={CHART_COLORS.incomeCurrent} stopOpacity="0.22" />
-              <stop offset="70%" stopColor={CHART_COLORS.incomeCurrent} stopOpacity="0.025" />
-              <stop offset="100%" stopColor={CHART_COLORS.incomeCurrent} stopOpacity="0" />
+              <stop data-finance="chart-stop chart-incomeCurrent" offset="0%" stopColor={CHART_COLORS.incomeCurrent} stopOpacity="0.22" />
+              <stop data-finance="chart-stop chart-incomeCurrent" offset="70%" stopColor={CHART_COLORS.incomeCurrent} stopOpacity="0.025" />
+              <stop data-finance="chart-stop chart-incomeCurrent" offset="100%" stopColor={CHART_COLORS.incomeCurrent} stopOpacity="0" />
             </linearGradient>
             <linearGradient id={`ae-exp-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={CHART_COLORS.expenseCurrent} stopOpacity="0.16" />
-              <stop offset="70%" stopColor={CHART_COLORS.expenseCurrent} stopOpacity="0.02" />
-              <stop offset="100%" stopColor={CHART_COLORS.expenseCurrent} stopOpacity="0" />
+              <stop data-finance="chart-stop chart-expenseCurrent" offset="0%" stopColor={CHART_COLORS.expenseCurrent} stopOpacity="0.16" />
+              <stop data-finance="chart-stop chart-expenseCurrent" offset="70%" stopColor={CHART_COLORS.expenseCurrent} stopOpacity="0.02" />
+              <stop data-finance="chart-stop chart-expenseCurrent" offset="100%" stopColor={CHART_COLORS.expenseCurrent} stopOpacity="0" />
             </linearGradient>
             {/* userSpaceOnUse: linhas horizontais têm bbox de altura zero e o blur seria cortado */}
             <filter id={`ae-blur-${uid}`} filterUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
@@ -421,7 +422,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
 
           {ticks.map((tick) => (
             <g key={tick}>
-              <line
+              <line data-finance="chart-grid"
                 x1={PAD.left}
                 x2={width - PAD.right}
                 y1={y(tick)}
@@ -429,7 +430,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
                 stroke="rgba(148, 163, 184, 0.075)"
                 strokeWidth="1"
               />
-              <text x={PAD.left - 8} y={y(tick) + 3.5} textAnchor="end" className="fill-gray-500 tabular-nums" fontSize="10">
+              <text data-finance="chart-label" x={PAD.left - 8} y={y(tick) + 3.5} textAnchor="end" className="fill-gray-500 tabular-nums" fontSize="10">
                 {compactBRL(tick)}
               </text>
             </g>
@@ -437,7 +438,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
 
           {months.map((m, i) =>
             i % labelEvery === 0 ? (
-              <text key={m.month} x={x(i)} y={height - 8} textAnchor="middle" className="fill-gray-500" fontSize="10">
+              <text data-finance="chart-label" key={m.month} x={x(i)} y={height - 8} textAnchor="middle" className="fill-gray-500" fontSize="10">
                 {MONTH_SHORT[m.month - 1]}
               </text>
             ) : null
@@ -451,7 +452,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
 
           {/* brilho: cópia desfocada atrás das linhas atuais */}
           {currentSeries.map((s) => (
-            <path
+            <path data-finance={`chart-glow chart-${s.key}`}
               key={`glow-${s.key}`}
               d={path(s.key)}
               fill="none"
@@ -467,7 +468,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
           ))}
 
           {previousSeries.map((s) => (
-            <path
+            <path data-finance={`chart-line chart-${s.key}`}
               key={s.key}
               d={path(s.key)}
               fill="none"
@@ -482,7 +483,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
           ))}
 
           {currentSeries.map((s) => (
-            <path
+            <path data-finance={`chart-line chart-${s.key}`}
               key={s.key}
               d={path(s.key)}
               fill="none"
@@ -495,7 +496,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
 
           {activeMonth && active !== null && (
             <g aria-hidden="true">
-              <line
+              <line data-finance="chart-cursor"
                 x1={x(active)}
                 x2={x(active)}
                 y1={PAD.top}
@@ -506,18 +507,18 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
               />
               {previousSeries.map((s) =>
                 seriesHasData(activeMonth, s.key) ? (
-                  <g key={`m-${s.key}`} opacity="0.66">
-                    <circle cx={x(active)} cy={y(activeMonth[s.key])} r="5.5" fill={s.color} opacity="0.15" />
-                    <circle cx={x(active)} cy={y(activeMonth[s.key])} r="3" fill={SURFACE} stroke={s.color} strokeWidth="1.5" />
+                  <g data-finance="chart-prior-markers" key={`m-${s.key}`} opacity="0.66">
+                    <circle data-finance={`chart-fill chart-${s.key}`} cx={x(active)} cy={y(activeMonth[s.key])} r="5.5" fill={s.color} opacity="0.15" />
+                    <circle data-finance={`chart-marker chart-${s.key}`} cx={x(active)} cy={y(activeMonth[s.key])} r="3" fill={SURFACE} stroke={s.color} strokeWidth="1.5" />
                   </g>
                 ) : null
               )}
               {currentSeries.map((s) =>
                 seriesHasData(activeMonth, s.key) ? (
                   <g key={`m-${s.key}`}>
-                    <circle cx={x(active)} cy={y(activeMonth[s.key])} r="9" fill={s.color} opacity="0.28" filter={`url(#ae-blur-${uid})`} />
-                    <circle cx={x(active)} cy={y(activeMonth[s.key])} r="7" fill={s.color} opacity="0.15" />
-                    <circle cx={x(active)} cy={y(activeMonth[s.key])} r="4" fill={SURFACE} stroke={s.color} strokeWidth="2" />
+                    <circle data-finance={`chart-fill chart-${s.key}`} cx={x(active)} cy={y(activeMonth[s.key])} r="9" fill={s.color} opacity="0.28" filter={`url(#ae-blur-${uid})`} />
+                    <circle data-finance={`chart-fill chart-${s.key}`} cx={x(active)} cy={y(activeMonth[s.key])} r="7" fill={s.color} opacity="0.15" />
+                    <circle data-finance={`chart-marker chart-${s.key}`} cx={x(active)} cy={y(activeMonth[s.key])} r="4" fill={SURFACE} stroke={s.color} strokeWidth="2" />
                   </g>
                 ) : null
               )}
@@ -527,7 +528,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
           {months.map((m, i) => {
             const slot = n === 1 ? innerW : innerW / (n - 1);
             return (
-              <rect
+              <rect data-finance="chart-focus" onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setActive(cur=>cur===i?null:i);}else if(event.key==='Escape'){event.preventDefault();setActive(null);}}}
                 key={m.month}
                 x={x(i) - slot / 2}
                 y={PAD.top}
@@ -549,7 +550,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
 
         {/* picos (só desktop; no mobile o espaço é do gráfico) */}
         {peaks.map((p) => (
-          <span
+          <span data-finance="content divider dashboard-painted"
             key={p.key}
             data-peak-label={p.key}
             className="pointer-events-none absolute hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-400/[0.14] py-1 pl-[15px] pr-[7px] text-[8px] font-semibold leading-none text-gray-200 min-[761px]:block"
@@ -560,7 +561,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
               boxShadow: '0 6px 16px rgba(0,0,0,.16)',
             }}
           >
-            <span
+            <span data-finance={`chart-dot chart-${p.key}Current`}
               aria-hidden="true"
               className="absolute left-[6px] top-1/2 h-1 w-1 -translate-y-1/2 rounded-full"
               style={{ backgroundColor: p.color, boxShadow: `0 0 6px ${p.color}` }}
@@ -570,7 +571,7 @@ const AnnualEvolutionChart: React.FC<Props> = ({ months, currentYear, previousYe
         ))}
 
         {activeMonth && (
-          <div
+          <div data-finance="content dashboard-painted dashboard-chart-tooltip"
             role="status"
             className="pointer-events-none absolute z-10 rounded-xl border text-xs backdrop-blur-[10px]"
             style={{

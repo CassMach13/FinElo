@@ -1,0 +1,335 @@
+/* Semantic adapters preserve legacy dark classes and print contracts.
+   Light is scoped to the authenticated pilot and its overlays. */
+:root {
+  --appearance-canvas: 26 32 44;
+  --appearance-surface: 45 55 72;
+  --appearance-raised: 45 55 72;
+  --appearance-content: 247 250 252;
+  --appearance-muted: 148 163 184;
+  --appearance-placeholder: 100 116 139;
+  --appearance-divider: 71 85 105;
+  --appearance-control: 2 6 23;
+  --appearance-control-border: 71 85 105;
+  --appearance-hover: 51 65 85;
+  --appearance-focus: 56 189 248;
+  --appearance-selected: 22 78 99;
+  --appearance-disabled: 51 65 85;
+  --appearance-on-disabled: 203 213 225;
+  --appearance-action: 8 145 178;
+  --appearance-action-end: 37 99 235;
+  --appearance-action-hover: 6 182 212;
+  --appearance-action-hover-end: 59 130 246;
+  --appearance-on-action: 255 255 255;
+  --appearance-success: 110 231 183;
+  --appearance-success-surface: 6 78 59;
+  --appearance-warning: 252 211 77;
+  --appearance-warning-surface: 69 26 3;
+  --appearance-danger: 248 113 113;
+  --appearance-danger-surface: 69 10 10;
+  --appearance-info: 147 197 253;
+  --appearance-info-surface: 23 37 84;
+  --appearance-positive: 52 211 153;
+  --appearance-negative: 251 113 133;
+  --appearance-chart-1: 56 178 172;
+  --appearance-chart-2: 66 153 225;
+  --appearance-chart-3: 167 139 250;
+  --appearance-chart-4: 251 191 36;
+  --appearance-chart-5: 248 113 113;
+  --appearance-scrim: 0 0 0;
+}
+
+@media screen {
+[data-finelo-theme="light"] {
+  --appearance-canvas: 245 247 250;
+  --appearance-surface: 255 255 255;
+  --appearance-raised: 255 255 255;
+  --appearance-content: 23 35 52;
+  --appearance-muted: 82 97 117;
+  --appearance-placeholder: 93 107 125;
+  --appearance-divider: 216 224 232;
+  --appearance-control: 255 255 255;
+  --appearance-control-border: 107 122 138;
+  --appearance-hover: 237 242 247;
+  --appearance-focus: 29 78 216;
+  --appearance-selected: 219 234 254;
+  --appearance-disabled: 226 232 240;
+  --appearance-on-disabled: 82 97 117;
+  --appearance-action: 14 116 144;
+  --appearance-action-end: 29 78 216;
+  --appearance-action-hover: 21 94 117;
+  --appearance-action-hover-end: 30 64 175;
+  --appearance-on-action: 255 255 255;
+  --appearance-success: 22 101 52;
+  --appearance-success-surface: 236 253 243;
+  --appearance-warning: 133 77 14;
+  --appearance-warning-surface: 255 251 235;
+  --appearance-danger: 180 35 24;
+  --appearance-danger-surface: 254 243 242;
+  --appearance-info: 30 64 175;
+  --appearance-info-surface: 239 246 255;
+  --appearance-positive: 22 101 52;
+  --appearance-negative: 180 35 24;
+  --appearance-chart-1: 15 118 110;
+  --appearance-chart-2: 29 78 216;
+  --appearance-chart-3: 126 34 206;
+  --appearance-chart-4: 146 64 14;
+  --appearance-chart-5: 185 28 28;
+  --appearance-scrim: 15 23 42;
+}
+
+  [data-finelo-theme="light"] {
+    color-scheme: light;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="card"] {
+    background-color: rgb(var(--appearance-surface));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="card-shine"] {
+    background-image: linear-gradient(to right, transparent, rgb(var(--appearance-divider)), transparent);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="title"] {
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="muted"] {
+    color: rgb(var(--appearance-muted));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="error"] {
+    color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="scrim"] {
+    background-color: rgb(var(--appearance-scrim) / 0.48);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="modal"] {
+    background-color: rgb(var(--appearance-raised));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="divider"] {
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"] {
+    background-color: rgb(var(--appearance-control));
+    border-color: rgb(var(--appearance-control-border));
+    color: rgb(var(--appearance-content));
+    color-scheme: light;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"]::placeholder {
+    color: rgb(var(--appearance-placeholder));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-invalid="true"] {
+    border-color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"]::-webkit-calendar-picker-indicator,
+  [data-finelo-theme="light"] [data-appearance-part="control"]::-webkit-calendar-picker-indicator:hover {
+    filter: none;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="button"] {
+    color: rgb(var(--appearance-content));
+    border-color: rgb(var(--appearance-control-border));
+    background-color: rgb(var(--appearance-surface));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="button"]:not(:disabled):hover {
+    background-color: rgb(var(--appearance-hover));
+    color: rgb(var(--appearance-content));
+    border-color: rgb(var(--appearance-control-border));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="primary"] {
+    color: rgb(var(--appearance-on-action));
+    background-image: linear-gradient(to right, rgb(var(--appearance-action)), rgb(var(--appearance-action-end)));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="primary"]:not(:disabled):hover {
+    color: rgb(var(--appearance-on-action));
+    background-image: linear-gradient(to right, rgb(var(--appearance-action-hover)), rgb(var(--appearance-action-hover-end)));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="control"], [data-appearance-part="button"]):focus-visible {
+    outline: 2px solid rgb(var(--appearance-focus));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="control"], [data-appearance-part="button"]):disabled {
+    background: rgb(var(--appearance-disabled));
+    color: rgb(var(--appearance-on-disabled));
+    opacity: 1;
+  }
+
+  [data-finelo-theme="light"] ::selection {
+    background-color: rgb(var(--appearance-selected));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="shell"] {
+    background-color: rgb(var(--appearance-canvas));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="shell-header"], [data-appearance-part="shell-nav"], [data-appearance-part="brand-frame"], [data-appearance-part="menu"], [data-appearance-part="dialog"], [data-appearance-part="tooltip"]) {
+    background-color: rgb(var(--appearance-raised));
+    border-color: rgb(var(--appearance-divider));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="tooltip-arrow"] {
+    border-top-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="tooltip-trigger"] > svg {
+    color: rgb(var(--appearance-muted));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="nav-item"], [data-appearance-part="menu-item"], [data-appearance-part="icon-button"]) {
+    color: rgb(var(--appearance-muted));
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="nav-item"], [data-appearance-part="menu-item"], [data-appearance-part="menu-danger"], [data-appearance-part="icon-button"]):hover {
+    background-color: rgb(var(--appearance-hover));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="nav-item"][data-appearance-active="true"] {
+    background-color: rgb(var(--appearance-action));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="nav-item"][data-appearance-active="true"] > [data-finance~="warning"] {
+    color: inherit;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="menu-danger"] {
+    color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="badge"] {
+    background-color: rgb(var(--appearance-danger));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="summary-label"] {
+    color: rgb(var(--appearance-muted));
+    opacity: 1;
+  }
+
+  [data-finelo-theme="light"] [data-appearance-component="summary"] {
+    --appearance-tone: var(--appearance-content);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="accent"],
+  [data-finelo-theme="light"] [data-appearance-tone="success"] {
+    --appearance-tone: var(--appearance-success);
+    --appearance-tone-surface: var(--appearance-success-surface);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="danger"] {
+    --appearance-tone: var(--appearance-danger);
+    --appearance-tone-surface: var(--appearance-danger-surface);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="warning"] {
+    --appearance-tone: var(--appearance-warning);
+    --appearance-tone-surface: var(--appearance-warning-surface);
+  }
+
+  [data-finelo-theme="light"] [data-appearance-tone="info"] {
+    --appearance-tone: var(--appearance-info);
+    --appearance-tone-surface: var(--appearance-info-surface);
+  }
+
+  [data-finelo-theme="light"] :is([data-appearance-part="summary-value"], [data-appearance-part="summary-icon"]) {
+    color: rgb(var(--appearance-tone));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="summary-icon"] {
+    background-image: none;
+    background-color: rgb(var(--appearance-hover));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="delta"] { color: rgb(var(--appearance-muted)); }
+  [data-finelo-theme="light"] [data-appearance-part="delta"][data-appearance-tone="positive"] { color: rgb(var(--appearance-positive)); }
+  [data-finelo-theme="light"] [data-appearance-part="delta"][data-appearance-tone="negative"] { color: rgb(var(--appearance-negative)); }
+  [data-finelo-theme="light"] [data-appearance-part="skeleton"] { background-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-appearance-part="progress-track"] { background-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-appearance-part="progress-fill"][data-appearance-tone] { background-color: rgb(var(--appearance-tone)); }
+
+  [data-finelo-theme="light"] [data-appearance-part="dialog-header"] {
+    color: rgb(var(--appearance-tone));
+    background-color: rgb(var(--appearance-tone-surface));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="state-icon"] > svg { color: inherit; }
+  [data-finelo-theme="light"] [data-appearance-part="dialog-footer"] {
+    background-color: rgb(var(--appearance-hover));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="ghost"],
+  [data-finelo-theme="light"] [data-appearance-variant="outline"] { background-color: transparent; }
+
+  [data-finelo-theme="light"] [data-appearance-variant="accent"] {
+    background-color: rgb(var(--appearance-success));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="danger"] {
+    background-color: rgb(var(--appearance-danger));
+    color: rgb(var(--appearance-on-action));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="accent"]:not(:disabled):hover {
+    background-color: rgb(var(--appearance-success-surface));
+    color: rgb(var(--appearance-success));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-variant="danger"]:not(:disabled):hover {
+    background-color: rgb(var(--appearance-danger-surface));
+    color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] :is(button, input, select, a, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--appearance-focus));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  [data-finelo-theme="light"] :is(input[type="checkbox"], input[type="radio"]) {
+    accent-color: rgb(var(--appearance-action));
+    color-scheme: light;
+  }
+
+  /* Explicit states outrank legacy Tailwind hover/focus utilities regardless of stylesheet order. */
+  [data-finelo-theme="light"] [data-appearance-part="control"]:not(:disabled):is(:hover, :focus) {
+    background-color: rgb(var(--appearance-control));
+    border-color: rgb(var(--appearance-control-border));
+    color: rgb(var(--appearance-content));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="control"][data-appearance-invalid="true"]:not(:disabled):is(:hover, :focus) {
+    border-color: rgb(var(--appearance-danger));
+  }
+
+  [data-finelo-theme="light"] [data-appearance-part="card"]:hover {
+    background-color: rgb(var(--appearance-surface));
+    border-color: rgb(var(--appearance-divider));
+  }
+
+  /* Fading foreground information would reduce its contrast halfway through a pulse. */
+  [data-finelo-theme="light"] :is([data-appearance-part="error"], [data-appearance-part="badge"]) {
+    animation: none;
+  }
+}

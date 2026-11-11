@@ -89,7 +89,7 @@ describe('zero verdadeiro × sem dados no componente', () => {
     month(4, { incomeCurrent: 120, expenseCurrent: 60 }),
   ];
   const html = render(months);
-  const currentIncome = new RegExp(`<path d="([^"]*)" fill="none" stroke="${CHART_COLORS.incomeCurrent}" stroke-width="2.65"`).exec(html)![1];
+  const currentIncome = new RegExp(`<path(?=[^>]* fill="none")(?=[^>]* stroke="${CHART_COLORS.incomeCurrent}")(?=[^>]* stroke-width="2.65")[^>]* d="([^"]*)"`).exec(html)![1];
 
   it('zero COM dados continua ponto válido; zero SEM dados abre buraco (dois M)', () => {
     expect(currentIncome.match(/M/g)).toHaveLength(2);
@@ -346,7 +346,7 @@ describe('fidelidade Figma — gráfico integrado, legenda, opacidades, traço e
   });
 
   it('F. legenda: caixa compacta no mobile (com borda e fundo) e solta no desktop; títulos só no desktop', () => {
-    const legend = /<div class="([^"]*)" role="list" aria-label="Legenda do gráfico">/.exec(html)![1];
+    const legend = /<div\b[^>]* class="([^"]*)" role="list" aria-label="Legenda do gráfico">/.exec(html)![1];
     expect(legend).toMatch(/\brounded-lg\b/);
     expect(legend).toMatch(/\bborder\b/);
     expect(legend).toContain('bg-[rgba(12,18,29,.28)]');
@@ -355,8 +355,8 @@ describe('fidelidade Figma — gráfico integrado, legenda, opacidades, traço e
     expect(legend).toContain('min-[761px]:bg-transparent');
     expect(legend).toContain('min-[761px]:p-0');
     expect(legend).toContain('min-[761px]:rounded-none');
-    expect(html).toMatch(/<span class="hidden [^"]*min-\[761px\]:inline">Métrica<\/span>/);
-    expect(html).toMatch(/<span class="hidden [^"]*min-\[761px\]:inline">Período<\/span>/);
+    expect(html).toMatch(/<span\b[^>]* class="hidden [^"]*min-\[761px\]:inline">Métrica<\/span>/);
+    expect(html).toMatch(/<span\b[^>]* class="hidden [^"]*min-\[761px\]:inline">Período<\/span>/);
   });
 
   it('F2. swatches de Entradas/Saídas com brilho discreto (só desktop)', () => {

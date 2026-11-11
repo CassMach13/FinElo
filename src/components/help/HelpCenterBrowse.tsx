@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -41,7 +42,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-cyan-500/25 text-cyan-100 rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
+      <mark data-finance="info info-panel" className="bg-cyan-500/25 text-cyan-100 rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
       {text.slice(idx + q.length)}
     </>
   );
@@ -63,7 +64,7 @@ function TopicCard({
   const section = getSectionMeta(topic.section);
 
   return (
-    <div
+    <div data-finance="info-panel divider"
       id={`help-topic-${topic.id}`}
       className={`rounded-xl border transition-colors scroll-mt-4 ${
         expanded ? 'border-cyan-500/35 bg-cyan-950/15' : 'border-white/10 bg-white/[0.02] hover:border-white/20'
@@ -71,27 +72,29 @@ function TopicCard({
     >
       <button
         type="button"
+        aria-expanded={expanded}
+        aria-controls={`help-topic-body-${topic.id}`}
         onClick={onToggle}
         className="w-full text-left px-4 py-3 flex items-start gap-3"
       >
-        <span className="text-cyan-400 text-lg leading-none mt-0.5 shrink-0">{expanded ? '−' : '+'}</span>
+        <span data-finance="info" className="text-cyan-400 text-lg leading-none mt-0.5 shrink-0">{expanded ? '−' : '+'}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded">
+            <span data-finance="muted inset" className="text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded">
               {section.shortLabel}
             </span>
             {topic.featured ? (
-              <span className="text-[10px] font-bold uppercase text-cyan-400/90">Destaque</span>
+              <span data-finance="info" className="text-[10px] font-bold uppercase text-cyan-400/90">Destaque</span>
             ) : null}
           </div>
-          <h3 className="font-semibold text-slate-200 text-sm leading-snug">
+          <h3 data-finance="content" className="font-semibold text-slate-200 text-sm leading-snug">
             {highlightMatch(topic.title, query)}
           </h3>
         </div>
       </button>
       {expanded ? (
-        <div className="px-4 pb-4 pt-0 sm:ml-8 space-y-3">
-          <p className="text-sm text-slate-400 leading-relaxed">{topic.answer}</p>
+        <div id={`help-topic-body-${topic.id}`} className="px-4 pb-4 pt-0 sm:ml-8 space-y-3">
+          <p data-finance="muted" className="text-sm text-slate-400 leading-relaxed">{topic.answer}</p>
           {topic.article ? <HelpArticleContent article={topic.article} /> : null}
           {topic.action && topic.action !== 'none' ? (
             <Button
@@ -123,7 +126,7 @@ function CreditCardGuidePanel({
   guideRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div
+    <div data-finance="info-panel"
       id="help-credit-card-guide"
       ref={guideRef}
       className={`rounded-xl border transition-colors ${
@@ -132,20 +135,22 @@ function CreditCardGuidePanel({
     >
       <button
         type="button"
+        aria-expanded={expanded}
+        aria-controls="help-credit-card-guide-body"
         onClick={onToggle}
         className="w-full text-left px-4 py-4 flex items-start gap-3"
       >
-        <span className="text-cyan-400 text-lg leading-none mt-0.5 shrink-0">{expanded ? '−' : '+'}</span>
+        <span data-finance="info" className="text-cyan-400 text-lg leading-none mt-0.5 shrink-0">{expanded ? '−' : '+'}</span>
         <div className="min-w-0 flex-1">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-400/90">Guia completo</span>
-          <h3 className="font-bold text-slate-100 text-base mt-1">Cartão de crédito no FinElo</h3>
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+          <span data-finance="info" className="text-[10px] font-bold uppercase tracking-wide text-cyan-400/90">Guia completo</span>
+          <h3 data-finance="content" className="font-bold text-slate-100 text-base mt-1">Cartão de crédito no FinElo</h3>
+          <p data-finance="muted" className="text-xs text-slate-500 mt-1 leading-relaxed">
             Importação, Manual ou Misto — encontre sua rotina e os cuidados para conferir a fatura.
           </p>
         </div>
       </button>
       {expanded ? (
-        <div className="px-4 pb-4 border-t border-white/10">
+        <div id="help-credit-card-guide-body" data-finance="divider" className="px-4 pb-4 border-t border-white/10">
           <CreditCardHelpGuide embedded />
         </div>
       ) : null}
@@ -218,8 +223,8 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
 
   return (
     <div className="space-y-5 max-w-4xl">
-      <Card className="border-cyan-500/20 bg-slate-900/40 p-4 sm:p-5">
-        <label htmlFor="help-search-input" className="block text-sm font-medium text-slate-300 mb-2">
+      <Card data-finance="inset" className="border-cyan-500/20 bg-slate-900/40 p-4 sm:p-5">
+        <label data-finance="content" htmlFor="help-search-input" className="block text-sm font-medium text-slate-300 mb-2">
           Buscar na Central de Ajuda
         </label>
         <div className="relative">
@@ -233,7 +238,7 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
             autoComplete="off"
           />
           {query ? (
-            <button
+            <button data-finance="muted"
               type="button"
               onClick={() => setQuery('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs font-bold"
@@ -242,19 +247,19 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
               Limpar
             </button>
           ) : (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" aria-hidden>
+            <span data-finance="muted" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" aria-hidden>
               ⌕
             </span>
           )}
         </div>
-        <p className="text-xs text-slate-500 mt-2">
+        <p data-finance="muted" className="text-xs text-slate-500 mt-2">
           Digite uma ou mais palavras. Ex.: &quot;cartão fatura&quot; encontra tópicos que mencionam ambas.
         </p>
         {!isSearching ? (
           <div className="flex flex-wrap gap-2 mt-3">
-            <span className="text-[10px] text-slate-500 uppercase font-bold w-full">Sugestões:</span>
+            <span data-finance="muted" className="text-[10px] text-slate-500 uppercase font-bold w-full">Sugestões:</span>
             {HELP_SEARCH_SUGGESTIONS.map((term) => (
-              <button
+              <button data-finance="muted divider"
                 key={term}
                 type="button"
                 onClick={() => setQuery(term)}
@@ -265,7 +270,7 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
             ))}
           </div>
         ) : (
-          <p className="text-xs text-cyan-400/90 mt-3">
+          <p data-finance="info" className="text-xs text-cyan-400/90 mt-3">
             {resultCount === 0
               ? 'Nenhum tópico encontrado. Tente outra palavra ou abra um chamado.'
               : `${resultCount} tópico${resultCount === 1 ? '' : 's'} encontrado${resultCount === 1 ? '' : 's'}`}
@@ -275,11 +280,11 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
 
       {!isSearching ? (
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">
+          <p data-finance="muted" className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">
             Filtrar por área do sistema
           </p>
           <div className="flex flex-wrap gap-2">
-            <button
+            <button data-finance="remaining-dynamic"
               type="button"
               onClick={() => setSectionFilter('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -291,7 +296,7 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
               Todos
             </button>
             {HELP_SECTIONS.map((sec) => (
-              <button
+              <button data-finance="remaining-dynamic"
                 key={sec.id}
                 type="button"
                 onClick={() => setSectionFilter(sec.id)}
@@ -307,14 +312,14 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
             ))}
           </div>
           {sectionFilter !== 'all' ? (
-            <p className="text-xs text-slate-500 mt-2">{getSectionMeta(sectionFilter).description}</p>
+            <p data-finance="muted" className="text-xs text-slate-500 mt-2">{getSectionMeta(sectionFilter).description}</p>
           ) : null}
         </div>
       ) : null}
 
       {resultCount === 0 ? (
         <Card className="text-center py-10">
-          <p className="text-slate-400 mb-4">Não achamos tópicos com essa busca.</p>
+          <p data-finance="muted" className="text-slate-400 mb-4">Não achamos tópicos com essa busca.</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button variant="outline" onClick={() => setQuery('')}>
               Limpar busca
@@ -348,10 +353,10 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
         <div className="space-y-8">
           {grouped.map(({ section, topics }) => (
             <section key={section.id} id={`help-section-${section.id}`}>
-              <div className="flex items-center justify-between gap-3 mb-3 border-b border-white/10 pb-2">
+              <div data-finance="divider" className="flex items-center justify-between gap-3 mb-3 border-b border-white/10 pb-2">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-200">{section.label}</h2>
-                  <p className="text-xs text-slate-500">{section.description}</p>
+                  <h2 data-finance="content" className="text-lg font-bold text-slate-200">{section.label}</h2>
+                  <p data-finance="muted" className="text-xs text-slate-500">{section.description}</p>
                 </div>
                 {section.appView ? (
                   <Button
@@ -388,9 +393,9 @@ const HelpCenterBrowse: React.FC<HelpCenterBrowseProps> = ({ onOpenSupport, init
         </div>
       )}
 
-      <div className="bg-gradient-to-r from-purple-900/20 to-cyan-900/20 p-6 rounded-2xl border border-white/5 text-center">
+      <div data-finance="surface divider" className="bg-gradient-to-r from-purple-900/20 to-cyan-900/20 p-6 rounded-2xl border border-white/5 text-center">
         <h3 className="font-bold text-xl mb-2">Não encontrou o que procura?</h3>
-        <p className="text-slate-400 mb-4 text-sm">
+        <p data-finance="muted" className="text-slate-400 mb-4 text-sm">
           Expanda o guia de cartão em Transações ou fale com nossa equipe.
         </p>
         <div className="flex flex-wrap justify-center gap-2">

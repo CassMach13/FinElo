@@ -386,8 +386,8 @@ describe('AnnualEvolutionCard — renderização', () => {
     }
     expect(html).toContain('stroke-dasharray');
     // redesign: 2 linhas atuais (2.65, sólidas) + 2 anteriores (1.3, tracejadas) + 2 brilhos atrás das atuais
-    expect(html.match(/<path d="M[^"]*" fill="none" stroke="#(49d2c7|ff7673)" stroke-width="2.65"/g)?.length).toBe(2);
-    expect(html.match(/<path d="M[^"]*" fill="none" stroke="#(6dcec8|ff9794)" stroke-width="1.3" stroke-dasharray="3.5 5"/g)?.length).toBe(2);
+    expect(html.match(/<path\b[^>]* d="M[^"]*" fill="none" stroke="#(49d2c7|ff7673)" stroke-width="2.65"/g)?.length).toBe(2);
+    expect(html.match(/<path\b[^>]* d="M[^"]*" fill="none" stroke="#(6dcec8|ff9794)" stroke-width="1.3" stroke-dasharray="3.5 5"/g)?.length).toBe(2);
   });
 
   it('sem NaN, Infinity ou linguagem de diagnóstico', () => {
@@ -539,7 +539,7 @@ describe('Evolução anual — "sem dados" é diferente de zero', () => {
     React.createElement(AnnualEvolutionChart, { months: model().months, currentYear: 2026, previousYear: 2025 })
   );
   const pathOf = (color: string, width: string) =>
-    new RegExp(`<path d="([^"]*)" fill="none" stroke="${color}" stroke-width="${width}"`).exec(html)![1];
+    new RegExp(`<path(?=[^>]* fill="none")(?=[^>]* stroke="${color}")(?=[^>]* stroke-width="${width}")[^>]* d="([^"]*)"`).exec(html)![1];
   const paths = [pathOf('#6dcec8', '1.3'), pathOf('#ff9794', '1.3'), pathOf('#49d2c7', '2.65'), pathOf('#ff7673', '2.65')];
 
   it('F. a linha do ano anterior termina em janeiro, não cruza fevereiro e recomeça em março', () => {

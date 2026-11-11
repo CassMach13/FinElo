@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 import React, { useEffect, useState } from 'react';
 import type { InvestmentHolding, InvestmentPortfolio } from '../../types';
 import { appConfirm } from '../../hooks/useDialogStore';
@@ -77,73 +78,73 @@ const PortfolioManagerDrawer: React.FC<PortfolioManagerDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="portfolio-manager-title">
-      <div className="flex h-full w-full max-w-md flex-col border-l border-slate-700/50 bg-secondary shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-700/50 px-5 py-4">
+    <div data-finance={"overlay investment-dialog"} className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="portfolio-manager-title">
+      <div data-finance={"divider surface"} className="flex h-full w-full max-w-md flex-col border-l border-slate-700/50 bg-secondary shadow-2xl">
+        <div data-finance={"divider"} className="flex items-start justify-between gap-3 border-b border-slate-700/50 px-5 py-4">
           <div className="min-w-0">
-            <h2 id="portfolio-manager-title" className="truncate text-lg font-semibold text-white" title={portfolio.name}>{portfolio.name}</h2>
-            <p className="text-xs text-gray-400">
+            <h2 data-finance={"content"} id="portfolio-manager-title" className="truncate text-lg font-semibold text-white" title={portfolio.name}>{portfolio.name}</h2>
+            <p data-finance={"muted"} className="text-xs text-gray-400">
               Proprietário: <span data-owner-label="">{ownerLabel}</span> · {positionsLabel(positionsThisMonth)} em {monthLabel}
-              {archived && <span className="ml-2 rounded bg-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-gray-300">Arquivada</span>}
+              {archived && <span data-finance={"muted inset"} className="ml-2 rounded bg-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-gray-300">Arquivada</span>}
             </p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-lg p-1.5 text-gray-400 hover:bg-slate-700 hover:text-white">
+          <button data-finance-close="" data-finance={"content inset secondary"} type="button" onClick={onClose} aria-label="Fechar" className="rounded-lg p-1.5 text-gray-400 hover:bg-slate-700 hover:text-white">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">
-          {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+          {error && <p data-finance={"negative danger-chip"} role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
           <section className="space-y-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Carteira</h3>
+            <h3 data-finance={"muted"} className="text-sm font-semibold uppercase tracking-wide text-gray-400">Carteira</h3>
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={busy} onClick={onRename} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-slate-700/60 disabled:opacity-50">Renomear</button>
+              <button data-finance={"content divider inset secondary"} type="button" disabled={busy} onClick={onRename} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-slate-700/60 disabled:opacity-50">Renomear</button>
               {archived ? (
-                <button type="button" disabled={busy} onClick={() => run(() => unarchivePortfolio(portfolio.id), `Carteira "${portfolio.name}" desarquivada.`)} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-slate-700/60 disabled:opacity-50">Desarquivar</button>
+                <button data-finance={"content divider inset secondary"} type="button" disabled={busy} onClick={() => run(() => unarchivePortfolio(portfolio.id), `Carteira "${portfolio.name}" desarquivada.`)} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-slate-700/60 disabled:opacity-50">Desarquivar</button>
               ) : (
-                <button type="button" disabled={busy} onClick={handleArchive} className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-sm text-amber-300 hover:bg-amber-500/10 disabled:opacity-50">Arquivar</button>
+                <button data-finance={"warning warning-panel secondary"} type="button" disabled={busy} onClick={handleArchive} className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-sm text-amber-300 hover:bg-amber-500/10 disabled:opacity-50">Arquivar</button>
               )}
             </div>
-            {archived && <p className="text-xs text-gray-400">Arquivada: mantém as posições já classificadas e não recebe novas.</p>}
+            {archived && <p data-finance={"muted"} className="text-xs text-gray-400">Arquivada: mantém as posições já classificadas e não recebe novas.</p>}
           </section>
 
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Ativos</h3>
-                <p className="text-xs text-gray-500">Identificam o mesmo investimento ao longo dos meses. Instituição e tipo são opcionais.</p>
+                <h3 data-finance={"muted"} className="text-sm font-semibold uppercase tracking-wide text-gray-400">Ativos</h3>
+                <p data-finance={"muted"} className="text-xs text-gray-500">Identificam o mesmo investimento ao longo dos meses. Instituição e tipo são opcionais.</p>
               </div>
               {!archived && !draft && (
-                <button type="button" disabled={busy} onClick={() => setDraft(EMPTY_DRAFT)} className="shrink-0 rounded-lg bg-highlight px-3 py-1.5 text-sm font-medium text-white hover:bg-highlight-hover disabled:opacity-50">Novo ativo</button>
+                <button data-finance={"content action"} type="button" disabled={busy} onClick={() => setDraft(EMPTY_DRAFT)} className="shrink-0 rounded-lg bg-highlight px-3 py-1.5 text-sm font-medium text-white hover:bg-highlight-hover disabled:opacity-50">Novo ativo</button>
               )}
             </div>
 
             {draft && (
-              <form onSubmit={handleSaveHolding} className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-800/40 p-3">
-                <input aria-label="Nome do ativo" autoFocus value={draft.displayName} maxLength={HOLDING_NAME_MAX} onChange={(e) => setDraft({ ...draft, displayName: e.target.value })} placeholder="Nome (ex.: CDB Banco X 2027)" className={input} />
+              <form data-finance={"divider inset"} onSubmit={handleSaveHolding} className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-800/40 p-3">
+                <input data-finance={"content control divider"} aria-label="Nome do ativo" autoFocus value={draft.displayName} maxLength={HOLDING_NAME_MAX} onChange={(e) => setDraft({ ...draft, displayName: e.target.value })} placeholder="Nome (ex.: CDB Banco X 2027)" className={input} />
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <input aria-label="Instituição (opcional)" value={draft.institutionRef} maxLength={HOLDING_NAME_MAX} onChange={(e) => setDraft({ ...draft, institutionRef: e.target.value })} placeholder="Instituição (opcional)" className={input} />
-                  <input aria-label="Tipo de produto (opcional)" value={draft.productTypeRef} maxLength={HOLDING_NAME_MAX} onChange={(e) => setDraft({ ...draft, productTypeRef: e.target.value })} placeholder="Tipo (opcional)" className={input} />
+                  <input data-finance={"content control divider"} aria-label="Instituição (opcional)" value={draft.institutionRef} maxLength={HOLDING_NAME_MAX} onChange={(e) => setDraft({ ...draft, institutionRef: e.target.value })} placeholder="Instituição (opcional)" className={input} />
+                  <input data-finance={"content control divider"} aria-label="Tipo de produto (opcional)" value={draft.productTypeRef} maxLength={HOLDING_NAME_MAX} onChange={(e) => setDraft({ ...draft, productTypeRef: e.target.value })} placeholder="Tipo (opcional)" className={input} />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setDraft(null)} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
-                  <button type="submit" disabled={busy || !draft.displayName.trim()} className="rounded-lg bg-highlight px-3 py-1.5 text-sm font-medium text-white hover:bg-highlight-hover disabled:opacity-50">{busy ? 'Salvando…' : 'Salvar'}</button>
+                  <button data-finance={"content divider inset secondary"} type="button" onClick={() => setDraft(null)} className="rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
+                  <button data-finance={"content action"} type="submit" disabled={busy || !draft.displayName.trim()} className="rounded-lg bg-highlight px-3 py-1.5 text-sm font-medium text-white hover:bg-highlight-hover disabled:opacity-50">{busy ? 'Salvando…' : 'Salvar'}</button>
                 </div>
               </form>
             )}
 
             {holdings.length === 0 ? (
-              <p data-holdings-empty="" className="rounded-lg border border-dashed border-slate-600/70 px-3 py-3 text-sm text-gray-400">Nenhum ativo nesta carteira. Ativos são opcionais: dá para classificar posições só na carteira.</p>
+              <p data-finance={"muted divider"} data-holdings-empty="" className="rounded-lg border border-dashed border-slate-600/70 px-3 py-3 text-sm text-gray-400">Nenhum ativo nesta carteira. Ativos são opcionais: dá para classificar posições só na carteira.</p>
             ) : (
-              <ul className="divide-y divide-slate-700/50 rounded-xl border border-slate-700/50">
+              <ul data-finance={"divided divider"} className="divide-y divide-slate-700/50 rounded-xl border border-slate-700/50">
                 {holdings.map((h) => (
                   <li key={h.id} className="flex items-center justify-between gap-3 px-3 py-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm text-white" title={h.display_name}>{h.display_name}</p>
-                      <p className="truncate text-xs text-gray-500">{[h.institution_ref, h.product_type_ref].filter(Boolean).join(' · ') || '—'}</p>
+                      <p data-finance={"content"} className="truncate text-sm text-white" title={h.display_name}>{h.display_name}</p>
+                      <p data-finance={"muted"} className="truncate text-xs text-gray-500">{[h.institution_ref, h.product_type_ref].filter(Boolean).join(' · ') || '—'}</p>
                     </div>
-                    <button
+                    <button data-finance={"info inset secondary"}
                       type="button"
                       disabled={busy}
                       onClick={() => setDraft({ id: h.id, displayName: h.display_name, institutionRef: h.institution_ref ?? '', productTypeRef: h.product_type_ref ?? '' })}

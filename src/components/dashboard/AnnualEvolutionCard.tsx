@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import Card from '../ui/Card';
 import { InformationCircleIcon } from '../ui/icons';
@@ -38,13 +39,13 @@ const SummaryBlock: React.FC<{
   current: number;
   percent: number | null;
 }> = ({ label, color, previousYear, currentYear, previous, current, percent }) => (
-  <div
+  <div data-finance="inset divider"
     data-summary-metric=""
     className="relative grid min-w-0 grid-cols-1 gap-x-[18px] gap-y-[7px] overflow-hidden rounded-[13px] border border-slate-400/[0.12] bg-[rgba(12,18,29,.48)] px-[17px] pb-[14px] pt-[15px] sm:grid-cols-[minmax(0,1fr)_auto]"
   >
-    <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5" style={{ backgroundColor: color }} />
-    <p className="col-span-full flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-300">
-      <span
+    <span data-finance={label === 'Entradas' ? 'chart-dot chart-incomeCurrent' : 'chart-dot chart-expenseCurrent'} aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5" style={{ backgroundColor: color }} />
+    <p data-finance="muted" className="col-span-full flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-gray-300">
+      <span data-finance={label === 'Entradas' ? 'chart-dot chart-incomeCurrent' : 'chart-dot chart-expenseCurrent'}
         aria-hidden="true"
         className="h-[5px] w-[5px] rounded-full"
         style={{ backgroundColor: color, boxShadow: `0 0 0 3px ${color}21` }}
@@ -53,8 +54,8 @@ const SummaryBlock: React.FC<{
     </p>
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-[clamp(14px,3vw,36px)] gap-y-2">
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-gray-400 tabular-nums">{currentYear}</p>
-        <p
+        <p data-finance="muted" className="text-[11px] font-semibold text-gray-400 tabular-nums">{currentYear}</p>
+        <p data-finance="content"
           className="break-words text-[length:clamp(17px,1.55vw,21px)] font-bold leading-tight text-white tabular-nums"
           title={String(currentYear)}
         >
@@ -62,27 +63,27 @@ const SummaryBlock: React.FC<{
         </p>
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] text-gray-500 tabular-nums">vs. {previousYear}</p>
-        <p className="break-words text-sm text-gray-300 tabular-nums" title={String(previousYear)}>
+        <p data-finance="muted" className="text-[11px] text-gray-500 tabular-nums">vs. {previousYear}</p>
+        <p data-finance="muted" className="break-words text-sm text-gray-300 tabular-nums" title={String(previousYear)}>
           {formatCurrency(previous)}
         </p>
       </div>
     </div>
-    <p
+    <p data-finance={label === 'Entradas' ? 'dashboard-income-text' : 'dashboard-expense-text'}
       data-metric-change=""
       className="flex flex-wrap items-center gap-[5px] text-xs tabular-nums sm:self-end sm:justify-end"
       style={{ color: percent === null ? undefined : color }}
     >
       {percent === null ? (
         <>
-          <span className="font-semibold text-gray-300">—</span>
-          <span className="text-gray-500">(sem base no ano anterior)</span>
+          <span data-finance="muted" className="font-semibold text-gray-300">—</span>
+          <span data-finance="muted" className="text-gray-500">(sem base no ano anterior)</span>
         </>
       ) : (
         <>
           <TrendIcon up={percent >= 0} />
           <span className="font-semibold">{formatPercentChange(percent)}</span>
-          <span className="text-gray-500">no período</span>
+          <span data-finance="muted" className="text-gray-500">no período</span>
         </>
       )}
     </p>
@@ -91,7 +92,7 @@ const SummaryBlock: React.FC<{
 
 const SparkIcon: React.FC = () => (
   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M8 1.5 9.6 6.4 14.5 8 9.6 9.6 8 14.5 6.4 9.6 1.5 8 6.4 6.4 8 1.5Z" fill="#49d2c7" />
+    <path data-finance="chart-fill chart-incomeCurrent" d="M8 1.5 9.6 6.4 14.5 8 9.6 9.6 8 14.5 6.4 9.6 1.5 8 6.4 6.4 8 1.5Z" fill="#49d2c7" />
   </svg>
 );
 
@@ -100,7 +101,7 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
     if (model.reason === 'no_complete_month') return null;
     return (
       <Card title={ANNUAL_EVOLUTION_TITLE} id="dashboard-annual-evolution">
-        <p className="-mt-3 text-sm text-gray-400">
+        <p data-finance="muted" className="-mt-3 text-sm text-gray-400">
           A comparação anual aparece quando há pelo menos {MIN_PAIRED_MONTHS} meses completos com lançamentos
           registrados nos dois anos. Por enquanto, {model.pairedMonths.length}{' '}
           {model.pairedMonths.length === 1 ? 'mês atende' : 'meses atendem'} a esse critério.
@@ -118,17 +119,17 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
   return (
     <Card title={ANNUAL_EVOLUTION_TITLE} id="dashboard-annual-evolution">
       <div className="-mt-3 mb-5 space-y-1">
-        <p className="text-sm text-gray-400">{ANNUAL_EVOLUTION_SUBTITLE}</p>
-        <p className="text-sm font-semibold text-gray-200">{period}</p>
+        <p data-finance="muted" className="text-sm text-gray-400">{ANNUAL_EVOLUTION_SUBTITLE}</p>
+        <p data-finance="content" className="text-sm font-semibold text-gray-200">{period}</p>
         {partialBasis && (
-          <p className="text-xs text-gray-500">
+          <p data-finance="muted" className="text-xs text-gray-500">
             Os totais consideram os {model.pairedMonths.length} meses com lançamentos nos dois anos (
             {model.pairedMonths.map((m) => MONTH_SHORT[m - 1]).join(', ')}).
           </p>
         )}
       </div>
 
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Resumo</p>
+      <p data-finance="muted" className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">Resumo</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SummaryBlock
           label="Entradas"
@@ -154,14 +155,14 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
         <AnnualEvolutionChart months={model.months} currentYear={model.currentYear} previousYear={model.previousYear} />
       </div>
 
-      <div
+      <div data-finance="dashboard-reading"
         className="mt-[13px] flex items-start gap-3 rounded-[2px_10px_10px_2px] border-l-2 px-3.5 py-3 print:break-inside-avoid"
         style={{
           borderLeftColor: '#3bc6be',
           background: 'linear-gradient(90deg, rgba(59,198,190,.075), rgba(12,18,29,.30) 55%)',
         }}
       >
-        <span
+        <span data-finance="dashboard-reading-icon"
           aria-hidden="true"
           className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: 'rgba(59,198,190,.10)' }}
@@ -169,12 +170,12 @@ const AnnualEvolutionCard: React.FC<{ model: AnnualEvolution }> = ({ model }) =>
           <SparkIcon />
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Leitura do FinElo</p>
-          <p className="mt-1 break-words text-sm text-gray-200">{reading.text}</p>
+          <p data-finance="muted" className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Leitura do FinElo</p>
+          <p data-finance="content" className="mt-1 break-words text-sm text-gray-200">{reading.text}</p>
         </div>
       </div>
 
-      <p className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-gray-500">
+      <p data-finance="muted" className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-gray-500">
         <InformationCircleIcon className="mt-px h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 break-words">{ANNUAL_EVOLUTION_DISCLAIMER}</span>
       </p>

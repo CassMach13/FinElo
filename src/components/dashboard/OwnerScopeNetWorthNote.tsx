@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import type { OwnerInvestmentSummary } from '../../domain/investments/ownerInvestmentTotals';
@@ -21,7 +22,7 @@ const OwnerScopeNetWorthNote: React.FC<{
 }> = ({ scopeLabel, status, summary, ownerLabel }) => {
   if (status === 'error') {
     return (
-      <p data-networth-note="error" role="alert" className="text-xs text-amber-200">
+      <p data-finance="warning" data-networth-note="error" role="alert" className="text-xs text-amber-200">
         Patrimônio de {scopeLabel}: não foi possível carregar os investimentos; o total abaixo não os inclui.
       </p>
     );
@@ -29,16 +30,16 @@ const OwnerScopeNetWorthNote: React.FC<{
   if (status !== 'ready' || !summary) return null;
   const withPositions = summary.byOwner.filter((o) => o.monthKey && o.positions > 0);
   return (
-    <div data-networth-note={summary.mixedMonths ? 'mixed' : 'single'} className="space-y-1 text-xs text-gray-400">
+    <div data-finance="muted" data-networth-note={summary.mixedMonths ? 'mixed' : 'single'} className="space-y-1 text-xs text-gray-400">
       <p>
-        Patrimônio de <strong className="text-gray-200">{scopeLabel}</strong>
+        Patrimônio de <strong data-finance="content" className="text-gray-200">{scopeLabel}</strong>
         {withPositions.length > 0 && !summary.mixedMonths && (
           <> · investimentos com posição de {formatReferenceMonth(summary.monthKeys[0])}</>
         )}
         {withPositions.length === 0 && <> · sem posição de investimentos registrada até o período</>}
       </p>
       {summary.mixedMonths && (
-        <p className="text-amber-200/90">
+        <p data-finance="warning" className="text-amber-200/90">
           Investimentos com meses de referência diferentes (é a última posição de cada proprietário, não uma fotografia do
           mesmo mês):{' '}
           {withPositions

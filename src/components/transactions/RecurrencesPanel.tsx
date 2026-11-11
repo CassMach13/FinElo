@@ -41,19 +41,19 @@ const RecurrencesPanel: React.FC<Props> = ({
   const hidden = candidates.length - RECURRENCES_VISIBLE_COUNT;
 
   return (
-    <section
+    <section data-finance="surface divider"
       id="transactions-recurrences"
       aria-labelledby="recurrences-heading"
       className="mb-6 min-w-0 rounded-2xl border border-white/5 bg-secondary/30 p-4 shadow-xl sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="recurrences-heading" className="text-lg font-bold text-white">
+          <h2 data-finance="content" id="recurrences-heading" className="text-lg font-bold text-white">
             {RECURRENCES_TITLE}
           </h2>
-          <p className="mt-1 text-sm text-gray-400">{RECURRENCES_INTRO}</p>
+          <p data-finance="muted" className="mt-1 text-sm text-gray-400">{RECURRENCES_INTRO}</p>
         </div>
-        <button
+        <button data-finance="muted hover"
           type="button"
           onClick={onClose}
           aria-label="Fechar recorrências"
@@ -63,19 +63,19 @@ const RecurrencesPanel: React.FC<Props> = ({
         </button>
       </div>
 
-      <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-gray-500">
+      <p data-finance="muted" className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-gray-500">
         <InformationCircleIcon className="mt-px h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 break-words">{RECURRENCES_DISCLAIMER}</span>
       </p>
 
       {candidates.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-white/5 bg-black/20 p-3">
-          <p className="text-sm text-gray-200">{RECURRENCES_EMPTY}</p>
-          <p className="mt-1 text-xs text-gray-500">{RECURRENCES_EMPTY_HINT}</p>
+        <div data-finance="surface divider" className="mt-4 rounded-xl border border-white/5 bg-black/20 p-3">
+          <p data-finance="content" className="text-sm text-gray-200">{RECURRENCES_EMPTY}</p>
+          <p data-finance="muted" className="mt-1 text-xs text-gray-500">{RECURRENCES_EMPTY_HINT}</p>
         </div>
       ) : (
         <>
-          <ul className="mt-3 divide-y divide-white/5" aria-label={RECURRENCES_TITLE}>
+          <ul data-finance="divided" className="mt-3 divide-y divide-white/5" aria-label={RECURRENCES_TITLE}>
             {visible.map((c) => {
               const usual = describeUsualDay(c.usualDay);
               const owner = getOwnerLabel?.(c.ownerUserId);
@@ -83,16 +83,16 @@ const RecurrencesPanel: React.FC<Props> = ({
                 <li key={`${c.ownerUserId}|${c.normalizedName}`} className="min-w-0 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold text-gray-100">{c.displayName}</p>
-                      <p className="text-xs text-gray-400">Possível recorrência mensal</p>
+                      <p data-finance="content" className="break-words text-sm font-semibold text-gray-100">{c.displayName}</p>
+                      <p data-finance="muted" className="text-xs text-gray-400">Possível recorrência mensal</p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-500">Valor típico</p>
-                      <p className="text-sm font-bold tabular-nums text-white">{formatCurrency(c.typicalAmount)}</p>
+                      <p data-finance="muted" className="text-[11px] uppercase tracking-wide text-gray-500">Valor típico</p>
+                      <p data-finance="content" className="text-sm font-bold tabular-nums text-white">{formatCurrency(c.typicalAmount)}</p>
                     </div>
                   </div>
 
-                  <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+                  <ul data-finance="muted" className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
                     <li>
                       Presente em {c.monthCount} dos últimos {RECURRENCE_WINDOW_MONTHS} meses
                     </li>
@@ -108,7 +108,7 @@ const RecurrencesPanel: React.FC<Props> = ({
 
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {c.hasFutureRegistered && (
-                      <span className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                      <span data-finance="success-chip" className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
                         Já registrada para os próximos meses
                       </span>
                     )}
@@ -126,7 +126,7 @@ const RecurrencesPanel: React.FC<Props> = ({
             })}
           </ul>
           {hidden > 0 && (
-            <button
+            <button data-finance="link"
               type="button"
               aria-expanded={showAll}
               onClick={() => setShowAll((v) => !v)}

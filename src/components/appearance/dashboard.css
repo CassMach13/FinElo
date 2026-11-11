@@ -1,0 +1,55 @@
+@import './financial.css';
+
+/* Dashboard paint only. Legacy classes, SVG coordinates and print remain authoritative. */
+@media screen {
+  [data-finelo-theme="light"] {
+    --dashboard-income: var(--appearance-positive);
+    --dashboard-expense: var(--appearance-negative);
+  }
+  [data-finelo-theme="light"] [data-finance~="investment"] { color: rgb(var(--appearance-chart-3)); }
+  [data-finelo-theme="light"] [data-finance~="investment-panel"] { color: rgb(var(--appearance-chart-3)); background-color: rgb(var(--appearance-chart-3) / .08); border-color: rgb(var(--appearance-chart-3) / .35); }
+  [data-finelo-theme="light"] [data-finance~="investment-line"] { background-color: rgb(var(--appearance-chart-3)); }
+  [data-finelo-theme="light"] [data-finance~="dashboard-opaque"] { opacity: 1 !important; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-painted"] { background: rgb(var(--appearance-surface)) !important; border-color: rgb(var(--appearance-control-border)) !important; box-shadow: 0 8px 24px rgb(var(--appearance-content) / .12) !important; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-reading"] { background: rgb(var(--appearance-info-surface)) !important; border-color: rgb(var(--appearance-info)) !important; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-reading-icon"] { background: rgb(var(--appearance-info) / .1) !important; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-income-text"] { color: rgb(var(--dashboard-income)) !important; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-expense-text"] { color: rgb(var(--dashboard-expense)) !important; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-skeleton"] { background-color: rgb(var(--appearance-disabled)); }
+  [data-finelo-theme="light"] [data-finance~="dashboard-legend"] { background-color: rgb(var(--appearance-hover)); }
+  [data-finelo-theme="light"] [data-finance~="chart-track"] { background: rgb(var(--appearance-hover)); border-color: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="chart-bar"] { background-image: none; opacity: 1; box-shadow: none; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-asset-investment"] { background-image: radial-gradient(rgb(255 255 255 / .3) 1px, transparent 1px); background-size: 4px 4px; }
+  [data-finelo-theme="light"] [data-finance~="dashboard-asset-property"] { background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgb(255 255 255 / .16) 4px 6px); }
+  [data-finelo-theme="light"] [data-finance~="chart-income"] { background-color: rgb(var(--dashboard-income)) !important; border-color: rgb(var(--dashboard-income)); }
+  [data-finelo-theme="light"] [data-finance~="chart-expense"] { background-color: rgb(var(--dashboard-expense)) !important; border-color: rgb(var(--dashboard-expense)); background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgb(255 255 255 / .16) 4px 6px) !important; }
+  [data-finelo-theme="light"] [data-finance~="chart-previous"] { background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / .2) 3px 4px) !important; }
+  [data-finelo-theme="light"] [data-finance~="chart-expense"][data-finance~="chart-previous"] { background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgb(255 255 255 / .16) 4px 6px), repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / .16) 3px 4px) !important; }
+  [data-finelo-theme="light"] [data-finance~="chart-label"] { fill: rgb(var(--appearance-muted)); color: rgb(var(--appearance-muted)); }
+  [data-finelo-theme="light"] [data-finance~="chart-grid"] { stroke: rgb(var(--appearance-divider)); }
+  [data-finelo-theme="light"] [data-finance~="chart-period-line"] { stroke: rgb(var(--appearance-muted)); opacity: 1; }
+  [data-finelo-theme="light"] :is([data-finance~="chart-line"], [data-finance~="chart-marker"], [data-finance~="chart-legend"]):is([data-finance~="chart-incomeCurrent"], [data-finance~="chart-incomePrevious"]) { stroke: rgb(var(--dashboard-income)); opacity: 1; }
+  [data-finelo-theme="light"] :is([data-finance~="chart-line"], [data-finance~="chart-marker"], [data-finance~="chart-legend"]):is([data-finance~="chart-expenseCurrent"], [data-finance~="chart-expensePrevious"]) { stroke: rgb(var(--dashboard-expense)); opacity: 1; }
+  [data-finelo-theme="light"] :is([data-finance~="chart-line"], [data-finance~="chart-legend"])[data-finance~="chart-expenseCurrent"] { stroke-dasharray: 8 2; }
+  [data-finelo-theme="light"] [data-finance~="chart-line"][data-finance~="chart-expensePrevious"] { stroke-dasharray: 1 3; }
+  [data-finelo-theme="light"] [data-finance~="chart-glow"] { opacity: 0 !important; }
+  [data-finelo-theme="light"] [data-finance~="chart-prior-markers"] { opacity: 1; }
+  [data-finelo-theme="light"] [data-finance~="chart-marker"] { fill: rgb(var(--appearance-surface)); }
+  [data-finelo-theme="light"] [data-finance~="chart-fill"]:is([data-finance~="chart-incomeCurrent"], [data-finance~="chart-incomePrevious"]) { fill: rgb(var(--dashboard-income)); }
+  [data-finelo-theme="light"] [data-finance~="chart-fill"]:is([data-finance~="chart-expenseCurrent"], [data-finance~="chart-expensePrevious"]) { fill: rgb(var(--dashboard-expense)); }
+  [data-finelo-theme="light"] [data-finance~="chart-stop"][data-finance~="chart-incomeCurrent"] { stop-color: rgb(var(--dashboard-income)); }
+  [data-finelo-theme="light"] [data-finance~="chart-stop"][data-finance~="chart-expenseCurrent"] { stop-color: rgb(var(--dashboard-expense)); }
+  [data-finelo-theme="light"] [data-finance~="chart-dot"]:is([data-finance~="chart-incomeCurrent"], [data-finance~="chart-incomePrevious"]) { background-color: rgb(var(--dashboard-income)) !important; box-shadow: none !important; }
+  [data-finelo-theme="light"] [data-finance~="chart-dot"]:is([data-finance~="chart-expenseCurrent"], [data-finance~="chart-expensePrevious"]) { background-color: rgb(var(--dashboard-expense)) !important; box-shadow: none !important; }
+  [data-finelo-theme="light"] [data-finance~="chart-cursor"] { stroke: rgb(var(--appearance-focus)); }
+  [data-finelo-theme="light"] [data-finance~="chart-focus"]:focus-visible { stroke: rgb(var(--appearance-focus)); }
+  [data-finelo-theme="light"] :is([data-finance~="dashboard-hint-trigger"], [data-finance~="dashboard-month"]):focus-visible { outline: 2px solid rgb(var(--appearance-focus)); outline-offset: 2px; }
+  /* Existing hover content is also reachable with the keyboard in both themes. */
+  [data-finance~="dashboard-hint-trigger"]:focus-within > [data-finance~="dashboard-hint"] { display: block; }
+  [data-finance~="dashboard-month"]:focus-within > [data-finance~="dashboard-month-tooltip"] { opacity: 1; }
+  [data-finance~="dashboard-hint-trigger"]:is(:hover, :focus-within) > [data-finance~="dashboard-hint"],
+  [data-finance~="dashboard-month"]:is(:hover, :focus-within) > [data-finance~="dashboard-month-tooltip"] { pointer-events: auto; }
+  [data-finance~="dashboard-hint-trigger"][data-finance-hint-dismissed] > [data-finance~="dashboard-hint"] { display: none; }
+  [data-finance~="dashboard-month"][data-finance-hint-dismissed] > [data-finance~="dashboard-month-tooltip"] { opacity: 0; pointer-events: none; }
+  [data-finance~="dashboard-chart-tooltip"] { pointer-events: auto; }
+}

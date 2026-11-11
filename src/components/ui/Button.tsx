@@ -21,7 +21,7 @@ const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', classNam
   };
 
   return (
-    <button className={`${baseClasses} ${variants[variant]} ${className}`} {...props}>
+    <button data-appearance-part="button" data-appearance-variant={variant} className={`${baseClasses} ${variants[variant]} ${className}`} {...props}>
       {children}
     </button>
   );

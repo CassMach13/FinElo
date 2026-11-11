@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -39,9 +40,9 @@ function ValueBlock({
   title?: string;
 }) {
   return (
-    <div className="border-l-2 border-slate-600/80 pl-2.5" title={title}>
-      <span className={blockLabel}>{label}</span>
-      <span className={`block ${valueClassName}`}>{value}</span>
+    <div data-finance={"divider"} className="border-l-2 border-slate-600/80 pl-2.5" title={title}>
+      <span data-finance={"muted"} className={blockLabel}>{label}</span>
+      <span data-finance={"investment-value"} className={`block ${valueClassName}`}>{value}</span>
     </div>
   );
 }
@@ -86,7 +87,7 @@ const InvestmentBalanceDisplay: React.FC<InvestmentBalanceDisplayProps> = ({
       (isContributionHeavy && balance > (appliedFromSheet || 0) * 1.2));
 
   return (
-    <div className={`flex flex-col gap-2.5 min-w-[8.5rem] max-w-[11rem] ${alignClass}`}>
+    <div data-finance={"" + " " + ""} className={`flex flex-col gap-2.5 min-w-[8.5rem] max-w-[11rem] ${alignClass}`}>
       <ValueBlock
         label="Saldo atual"
         value={formatCurrency(balance)}
@@ -113,19 +114,19 @@ const InvestmentBalanceDisplay: React.FC<InvestmentBalanceDisplayProps> = ({
           className="border-l-2 border-emerald-500/50 pl-2.5"
           title="Diferença entre saldo atual e valor aplicado do extrato (produtos com valor aplicado completo)"
         >
-          <span className={blockLabel}>Ganho estimado</span>
-          <span className="text-sm font-medium text-emerald-300 leading-tight">
+          <span data-finance={"muted"} className={blockLabel}>Ganho estimado</span>
+          <span data-finance={"positive"} className="text-sm font-medium text-emerald-300 leading-tight">
             +{formatCurrency(estimatedGain)}
           </span>
         </div>
       ) : null}
 
       {showContributionHint ? (
-        <p
+        <p data-finance={"warning warning-panel"}
           className="text-[10px] leading-snug text-amber-200/95 bg-amber-950/40 border border-amber-500/35 rounded-md px-2 py-1.5 text-left"
           title="A planilha XP não lista cada aporte; saldo menos valor aplicado não é só rendimento."
         >
-          <span className="font-semibold text-amber-100">Atenção:</span> pode incluir aportes não detalhados no extrato.
+          <span data-finance={"warning"} className="font-semibold text-amber-100">Atenção:</span> pode incluir aportes não detalhados no extrato.
         </p>
       ) : null}
     </div>
@@ -138,7 +139,7 @@ export function InvestmentBalanceColumnHeader() {
       className="text-right pr-4 max-w-[11rem] ml-auto"
       title="Saldo atual (posição), valor aplicado na planilha e rendimento bruto quando existir"
     >
-      <span className="block text-sm font-medium text-slate-300">Valores</span>
+      <span data-finance={"muted"} className="block text-sm font-medium text-slate-300">Valores</span>
     </div>
   );
 }
