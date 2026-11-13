@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BUSY_MESSAGE,
   DUPLICATE_WARNING,
+  MAX_UNCERTAIN_ENTRIES,
   createSaveGuard,
   saveGuardFor,
   sessionUncertainMemory,
@@ -127,15 +128,47 @@ describe('submitTransactionSave', () => {
     expect(save).toHaveBeenCalledTimes(2);
   });
 
-  it('conteúdo diferente depois de um incerto não pede confirmação; confirmado encerra a dúvida', async () => {
+  it('A incerto → B confirmado → A de novo: a confirmação de B NÃO encerra a dúvida de A (exige aviso)', async () => {
+    const guard = createSaveGuard();
+    const confirmDuplicate = vi.fn(async () => false);
+    const save = vi.fn<[], Promise<TransactionSaveOutcome>>(async () => UNCERTAIN);
+
+    expect((await submitTransactionSave({ guard, key: 'A', save, confirmDuplicate })).status).toBe('uncertain');
+
+    // B é outro conteúdo: não pede confirmação e é confirmado
+    save.mockResolvedValueOnce(SAVED);
+    expect(await submitTransactionSave({ guard, key: 'B', save, confirmDuplicate })).toEqual(SAVED);
+    expect(confirmDuplicate).not.toHaveBeenCalled();
+
+    // A de novo: a dúvida sobre A continua, então o aviso de duplicidade é exigido (e recusado aqui)
+    expect(guard.isUncertain('A')).toBe(true);
+    expect(await submitTransactionSave({ guard, key: 'A', save, confirmDuplicate })).toEqual({ status: 'declined' });
+    expect(confirmDuplicate).toHaveBeenCalledTimes(1);
+    expect(confirmDuplicate).toHaveBeenCalledWith(DUPLICATE_WARNING);
+    expect(save).toHaveBeenCalledTimes(2); // A uma vez, B uma vez; o reenvio de A não ocorreu
+  });
+
+  it('só a dúvida do lançamento confirmado se encerra: A confirmado limpa A e preserva B', async () => {
     const guard = createSaveGuard();
     const confirmDuplicate = vi.fn(async () => true);
     await submitTransactionSave({ guard, key: 'A', save: async () => UNCERTAIN, confirmDuplicate });
-    const other = await submitTransactionSave({ guard, key: 'B', save: async () => SAVED, confirmDuplicate });
-    expect(other).toEqual(SAVED);
-    expect(confirmDuplicate).not.toHaveBeenCalled();
-    // a dúvida sobre A acabou quando B foi confirmado
+    await submitTransactionSave({ guard, key: 'B', save: async () => UNCERTAIN, confirmDuplicate });
+    expect(guard.isUncertain('A')).toBe(true);
+    expect(guard.isUncertain('B')).toBe(true);
+
+    // o usuário confirma o aviso e A é gravado: a dúvida de A acaba, a de B não
+    expect(await submitTransactionSave({ guard, key: 'A', save: async () => SAVED, confirmDuplicate })).toEqual(SAVED);
+    expect(confirmDuplicate).toHaveBeenCalledTimes(1);
     expect(guard.isUncertain('A')).toBe(false);
+    expect(guard.isUncertain('B')).toBe(true);
+  });
+
+  it('conteúdo sem dúvida anterior não pede confirmação', async () => {
+    const guard = createSaveGuard();
+    const confirmDuplicate = vi.fn(async () => true);
+    await submitTransactionSave({ guard, key: 'A', save: async () => UNCERTAIN, confirmDuplicate });
+    expect(await submitTransactionSave({ guard, key: 'C', save: async () => SAVED, confirmDuplicate })).toEqual(SAVED);
+    expect(confirmDuplicate).not.toHaveBeenCalled();
   });
 
   it('recusa (nada gravado) não marca incerteza: tentar de novo não pede confirmação', async () => {
@@ -152,6 +185,25 @@ describe('submitTransactionSave', () => {
     await submitTransactionSave({ guard, key: null, save: async () => UNCERTAIN, confirmDuplicate });
     await submitTransactionSave({ guard, key: null, save: async () => SAVED, confirmDuplicate });
     expect(confirmDuplicate).not.toHaveBeenCalled();
+  });
+
+  it('a memória é limitada: passando do máximo, a dúvida mais antiga é esquecida', () => {
+    const guard = createSaveGuard();
+    for (let i = 0; i < MAX_UNCERTAIN_ENTRIES + 1; i += 1) guard.markUncertain(`conteudo-${i}`);
+    expect(guard.isUncertain('conteudo-0')).toBe(false);
+    expect(guard.isUncertain('conteudo-1')).toBe(true);
+    expect(guard.isUncertain(`conteudo-${MAX_UNCERTAIN_ENTRIES}`)).toBe(true);
+  });
+
+  it('cada dúvida expira no seu próprio prazo; marcar de novo renova só aquela', () => {
+    let now = 1_000;
+    const guard = createSaveGuard(undefined, () => now);
+    guard.markUncertain('A');
+    now += TRANSACTION_DRAFT_TTL_MS - 10;
+    guard.markUncertain('B');
+    now += 20; // A passou do prazo; B não
+    expect(guard.isUncertain('A')).toBe(false);
+    expect(guard.isUncertain('B')).toBe(true);
   });
 
   it('a lembrança de incerteza expira junto com o rascunho', () => {
@@ -175,7 +227,7 @@ describe('troca de conta — a lembrança de incerteza não atravessa usuários'
     await submitTransactionSave({ guard: saveGuardFor('user-A'), key: 'x', save: async () => UNCERTAIN, confirmDuplicate });
     expect(saveGuardFor('user-A').isUncertain('x')).toBe(true);
     expect(saveGuardFor('user-B').isUncertain('x')).toBe(false);
-    expect(sessionUncertainMemory('user-B').read()).toBeNull();
+    expect(sessionUncertainMemory('user-B').read()).toEqual([]);
     await submitTransactionSave({ guard: saveGuardFor('user-B'), key: 'x', save: async () => SAVED, confirmDuplicate });
     expect(confirmDuplicate).not.toHaveBeenCalled();
   });
@@ -189,10 +241,23 @@ describe('troca de conta — a lembrança de incerteza não atravessa usuários'
     await a;
   });
 
-  it('sobrevive a recarregar a página (sessionStorage), por usuário', () => {
-    const memory = sessionUncertainMemory('user-R');
-    createSaveGuard(memory).markUncertain('k');
-    expect(createSaveGuard(sessionUncertainMemory('user-R')).isUncertain('k')).toBe(true);
-    expect(createSaveGuard(sessionUncertainMemory('user-S')).isUncertain('k')).toBe(false);
+  it('sobrevive a recarregar a página (sessionStorage), por usuário, com várias dúvidas', () => {
+    const guard = createSaveGuard(sessionUncertainMemory('user-R'));
+    guard.markUncertain('A');
+    guard.markUncertain('B');
+    guard.clearUncertain('B');
+    const reloaded = createSaveGuard(sessionUncertainMemory('user-R'));
+    expect(reloaded.isUncertain('A')).toBe(true);
+    expect(reloaded.isUncertain('B')).toBe(false);
+    expect(createSaveGuard(sessionUncertainMemory('user-S')).isUncertain('A')).toBe(false);
+  });
+
+  it('lê o formato anterior (uma única dúvida) sem perder a dúvida', () => {
+    const probe = createSaveGuard(sessionUncertainMemory('user-L'));
+    probe.markUncertain('legado');
+    const [entry] = sessionUncertainMemory('user-L').read();
+    // objeto único, como o formato anterior gravava
+    sessionStorage.setItem('finelo_new_transaction_uncertain_v1:user-L', JSON.stringify(entry));
+    expect(createSaveGuard(sessionUncertainMemory('user-L')).isUncertain('legado')).toBe(true);
   });
 });

@@ -2629,12 +2629,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (error) {
       console.error('Erro ao atualizar transação:', error);
       if (strict) throw error;
-    } else if (data && data.length === 0) {
+    } else if (!data) {
+      // Sem erro e sem linha devolvida: não há prova de que a atualização aconteceu. Não é recusa (o servidor pode
+      // ter gravado), então o modo estrito lança um erro sem código, que o formulário trata como incerto.
+      console.error('Atualização de transação sem confirmação da linha atualizada.');
+      if (strict) throw new Error('Atualização sem confirmação da linha atualizada.');
+    } else if (data.length === 0) {
       // O servidor respondeu sem erro, mas nenhuma linha foi atualizada (removida ou invisível para a sessão).
       // Antes, `updated` ficava indefinido e entrava no store no lugar da linha.
       console.error('Atualização de transação não afetou nenhuma linha.');
       if (strict) throw new NoRowsWrittenError();
-    } else if (data) {
+    } else {
       const updated = data[0] as Transaction;
       set((state) => ({
         transactions: state.transactions.map(t => t.ID_Transacao === ID_Transacao ? updated : t)

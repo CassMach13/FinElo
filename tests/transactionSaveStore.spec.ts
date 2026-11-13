@@ -21,7 +21,7 @@ vi.mock('../src/hooks/useDialogStore', async (importOriginal) => ({
 
 import { useAppStore } from '../src/hooks/useAppStore';
 import { buildManualEntryPayload } from '../src/domain/transactions/manualEntryPayload';
-import { saveNewTransactions, classifyThrownSave } from '../src/utils/transactionSaveOutcome';
+import { saveNewTransactions, classifyThrownSave, UNCERTAIN_MESSAGE } from '../src/utils/transactionSaveOutcome';
 
 const userA = {
   id: 'user-A',
@@ -252,6 +252,17 @@ describe('store.updateTransaction — modo estrito (formulário)', () => {
     expect(useAppStore.getState().transactions.every(Boolean)).toBe(true);
   });
 
+  it('servidor responde sem erro e sem linha (data: null): não é gravação confirmada; incerto, store intacto', async () => {
+    const t = transport();
+    t.onUpdate({ data: null, error: null });
+    const before = useAppStore.getState().transactions;
+    const failure = await useAppStore.getState().updateTransaction(edit, { strict: true }).catch((e) => e);
+    expect(failure).toBeInstanceOf(Error);
+    expect(classifyThrownSave(failure)).toEqual({ status: 'uncertain', message: UNCERTAIN_MESSAGE.edit });
+    expect(t.log.updates).toHaveLength(1); // sem reenvio
+    expect(useAppStore.getState().transactions).toBe(before);
+  });
+
   it('falha de rede: lança sem código (uncertain)', async () => {
     transport().onUpdate({ data: null, error: Object.assign(new Error('TypeError: Failed to fetch'), { code: '' }) });
     const failure = await useAppStore.getState().updateTransaction(edit, { strict: true }).catch((e) => e);
@@ -285,6 +296,13 @@ describe('store.updateTransaction — contrato antigo (sem strict) preservado', 
 
   it('nenhuma linha atualizada: não corrompe mais o store com undefined', async () => {
     transport().onUpdate({ data: [], error: null });
+    const before = useAppStore.getState().transactions;
+    await expect(useAppStore.getState().updateTransaction(edit)).resolves.toBeUndefined();
+    expect(useAppStore.getState().transactions).toBe(before);
+  });
+
+  it('data: null sem erro: continua resolvendo sem tocar o store, como antes', async () => {
+    transport().onUpdate({ data: null, error: null });
     const before = useAppStore.getState().transactions;
     await expect(useAppStore.getState().updateTransaction(edit)).resolves.toBeUndefined();
     expect(useAppStore.getState().transactions).toBe(before);

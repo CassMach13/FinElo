@@ -22,23 +22,40 @@ export type TransactionSubmitResult =
 
 export const UNCERTAIN_STORAGE_KEY = 'finelo_new_transaction_uncertain_v1';
 
-/** Onde a lembrança de "resultado incerto" fica. Guarda só uma impressão digital, nunca o conteúdo. */
+/** Uma dúvida: a impressão digital do conteúdo cujo envio terminou sem resultado confirmado, e quando. */
+export interface UncertainEntry {
+  hash: string;
+  at: number;
+}
+
+/** Quantas dúvidas distintas cada usuário carrega ao mesmo tempo. Passando disso, a mais antiga é esquecida. */
+export const MAX_UNCERTAIN_ENTRIES = 20;
+
+/** Onde a lembrança de "resultado incerto" fica. Guarda só impressões digitais, nunca o conteúdo. */
 export interface UncertainMemory {
-  read(): { hash: string; at: number } | null;
-  write(value: { hash: string; at: number } | null): void;
+  read(): UncertainEntry[];
+  write(entries: UncertainEntry[]): void;
 }
 
 const memoryOnly = (): UncertainMemory => {
-  let value: { hash: string; at: number } | null = null;
+  let entries: UncertainEntry[] = [];
   return {
-    read: () => value,
+    read: () => entries,
     write: (next) => {
-      value = next;
+      entries = next;
     },
   };
 };
 
-/** Sobrevive a recarregar a página, como o rascunho (mesmo prazo). Sem storage, cai para a memória. */
+const isEntry = (value: unknown): value is UncertainEntry =>
+  !!value &&
+  typeof (value as UncertainEntry).hash === 'string' &&
+  typeof (value as UncertainEntry).at === 'number';
+
+/**
+ * Sobrevive a recarregar a página, como o rascunho (mesmo prazo). Sem storage, cai para a memória.
+ * Aceita também o formato anterior (uma única dúvida, sem lista).
+ */
 export const sessionUncertainMemory = (userId: string): UncertainMemory => {
   const fallback = memoryOnly();
   const storageKey = `${UNCERTAIN_STORAGE_KEY}:${userId}`;
@@ -46,15 +63,16 @@ export const sessionUncertainMemory = (userId: string): UncertainMemory => {
     read() {
       try {
         const parsed = JSON.parse(sessionStorage.getItem(storageKey) ?? 'null');
-        return parsed && typeof parsed.hash === 'string' && typeof parsed.at === 'number' ? parsed : null;
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        return list.filter(isEntry);
       } catch {
         return fallback.read();
       }
     },
-    write(value) {
-      fallback.write(value);
+    write(entries) {
+      fallback.write(entries);
       try {
-        if (value) sessionStorage.setItem(storageKey, JSON.stringify(value));
+        if (entries.length > 0) sessionStorage.setItem(storageKey, JSON.stringify(entries));
         else sessionStorage.removeItem(storageKey);
       } catch {
         /* sem storage: vale a memória */
@@ -75,29 +93,35 @@ const fingerprint = (key: string) => {
 
 export interface SaveGuard {
   inflight: boolean;
-  /** O último envio de resultado incerto tem este mesmo conteúdo (e ainda está dentro do prazo)? */
+  /** Este conteúdo tem um envio de resultado incerto ainda dentro do prazo? */
   isUncertain(key: string): boolean;
   markUncertain(key: string): void;
-  /** Algum envio foi confirmado: a dúvida anterior se encerra. */
-  clearUncertain(): void;
+  /** Este conteúdo foi confirmado: só a dúvida DELE se encerra. Confirmar outro lançamento não apaga a dúvida dos demais. */
+  clearUncertain(key: string): void;
 }
 
 export const createSaveGuard = (
   memory: UncertainMemory = memoryOnly(),
   now: () => number = Date.now
-): SaveGuard => ({
-  inflight: false,
-  isUncertain(key) {
-    const stored = memory.read();
-    return !!stored && stored.hash === fingerprint(key) && now() - stored.at <= TRANSACTION_DRAFT_TTL_MS;
-  },
-  markUncertain(key) {
-    memory.write({ hash: fingerprint(key), at: now() });
-  },
-  clearUncertain() {
-    memory.write(null);
-  },
-});
+): SaveGuard => {
+  const live = () => memory.read().filter((entry) => now() - entry.at <= TRANSACTION_DRAFT_TTL_MS);
+  return {
+    inflight: false,
+    isUncertain(key) {
+      const hash = fingerprint(key);
+      return live().some((entry) => entry.hash === hash);
+    },
+    markUncertain(key) {
+      const hash = fingerprint(key);
+      const kept = live().filter((entry) => entry.hash !== hash);
+      memory.write([...kept, { hash, at: now() }].slice(-MAX_UNCERTAIN_ENTRIES));
+    },
+    clearUncertain(key) {
+      const hash = fingerprint(key);
+      memory.write(live().filter((entry) => entry.hash !== hash));
+    },
+  };
+};
 
 const guards = new Map<string, SaveGuard>();
 
@@ -141,7 +165,7 @@ export async function submitTransactionSave(request: TransactionSubmitRequest): 
     }
     if (outcome.status === 'saved') request.onSaved?.();
     if (request.key !== null) {
-      if (outcome.status === 'saved') guard.clearUncertain();
+      if (outcome.status === 'saved') guard.clearUncertain(request.key);
       else if (outcome.status === 'uncertain') guard.markUncertain(request.key);
     }
     return outcome;

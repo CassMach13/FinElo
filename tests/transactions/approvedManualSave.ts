@@ -27,7 +27,7 @@ export const APPROVED_MANUAL_SAVE: Record<string, { before: string; approved: st
   },
   'src/hooks/useAppStore.ts': {
     before: '304a8002d3518d20d3cfb74248bbe84f4a5659bd9c2d9e928a6817bc96742ebb',
-    approved: '1876270c927c078b43bd4614e2823d5a388e9462aef67e6c673760fda8e10421',
+    approved: 'fb6386907cfb703f479a43f36cd13410dc8f44b9204c29a3a8f4a77e44c4889c',
   },
   'src/utils/transactionDraftStorage.ts': {
     before: '23bb2c72c315b5c4e1e7918c132e94d42b473248e2670a5cebf901c36518d2db',
