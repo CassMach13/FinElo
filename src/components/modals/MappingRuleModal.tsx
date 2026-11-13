@@ -75,7 +75,7 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({
     const sortedCategories = [...categories].sort((a, b) => a.Nome_Categoria.localeCompare(b.Nome_Categoria));
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={true}
             onClose={onClose}
             overlayClassName={overlayClassName}
@@ -98,7 +98,7 @@ const MappingRuleModal: React.FC<MappingRuleModalProps> = ({
                         error={errors.text}
                         autoFocus
                     />
-                    <p className="text-xs text-gray-500 mt-1">O sistema buscará este texto nas transações importadas (ignora maiúsculas/minúsculas).</p>
+                    <p data-finance="muted" className="text-xs text-gray-500 mt-1">O sistema buscará este texto nas transações importadas (ignora maiúsculas/minúsculas).</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import type { User } from '@supabase/supabase-js';
 import type { ReactElement } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
@@ -8,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 const AuthLoadingScreen = (): ReactElement => (
-  <div className="flex min-h-screen items-center justify-center bg-[#0B1120] text-sm text-slate-400">
+  <div data-finance="muted remaining-canvas" className="flex min-h-screen items-center justify-center bg-[#0B1120] text-sm text-slate-400">
     Verificando sua sessão...
   </div>
 );

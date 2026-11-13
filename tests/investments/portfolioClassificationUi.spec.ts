@@ -63,14 +63,14 @@ describe('modal de classificação', () => {
     expect(html).toContain('+ Criar ativo novo');
     expect(html).toContain('R$ 1.000,10');
     expect(html).toContain('Classificar não altera saldo, mês nem proprietário.');
-    expect(html).toMatch(/<button type="submit" class="[^"]*">Classificar<\/button>/);
+    expect(html).toMatch(/<button\b[^>]* type="submit" class="[^"]*">Classificar<\/button>/);
     expect(html).not.toContain('Remover da carteira');
   });
 
   it('já classificada: o botão começa desabilitado e há "Remover da carteira"; proprietário visível', () => {
     const html = render({ ownerLabel: 'Ione', investment: inv({ portfolio_id: 'p1' }), portfolios: [pf('p1', 'Longo prazo'), pf('p3', 'Reserva')] });
     expect(html).toContain('Mover ou remover da carteira');
-    expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Salvar<\/button>/);
+    expect(html).toMatch(/<button\b[^>]* type="submit" disabled=""[^>]*>Salvar<\/button>/);
     expect(html).toContain('Remover da carteira');
     expect(html).toContain('Ione');
   });
@@ -131,7 +131,7 @@ describe('feedback do modal quando não há o que salvar (achado do teste no sta
     expect(html).toContain('Sem ativo (atual)');
     expect(html).toContain('data-no-changes');
     expect(html).toContain('Nada para salvar ainda');
-    expect(html).toMatch(/<button type="submit" disabled=""[^>]*>Salvar<\/button>/);
+    expect(html).toMatch(/<button\b[^>]* type="submit" disabled=""[^>]*>Salvar<\/button>/);
   });
 
   it('posição que JÁ tem ativo, na mesma carteira: a opção "Sem ativo" não é oferecida; em outra carteira, sim', () => {

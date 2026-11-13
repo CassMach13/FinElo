@@ -1,3 +1,4 @@
+import '../appearance/financial.css';
 import React, { useEffect, useMemo, useRef } from 'react';
 import type { CompetenceHistoryCard } from '../../services/creditCardRebuildFromImportHistoryService';
 import { formatCurrency } from '../../utils/formatters';
@@ -42,8 +43,8 @@ const CompetenceInvoiceBarChart: React.FC<CompetenceInvoiceBarChartProps> = ({
   if (chartCards.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/25 px-2 py-3 sm:px-3">
-      <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-400 mb-2 px-1">
+    <div data-finance="inset divider" className="rounded-xl border border-white/10 bg-black/25 px-2 py-3 sm:px-3">
+      <p data-finance="muted" className="text-[10px] uppercase tracking-wide font-semibold text-slate-400 mb-2 px-1">
         Evolução das faturas
       </p>
       <div
@@ -58,19 +59,27 @@ const CompetenceInvoiceBarChart: React.FC<CompetenceInvoiceBarChartProps> = ({
           const label = shortCompetenceLabel(card.referenceMonth);
 
           return (
-            <button
+            <button data-finance={isSelected ? 'selected hover card-chart-tab' : 'hover card-chart-tab'}
               key={card.referenceMonth}
               ref={isSelected ? selectedRef : undefined}
               type="button"
               role="tab"
               aria-selected={isSelected}
               aria-label={`Fatura ${card.competenceBR}, ${formatCurrency(amount)}`}
+              onKeyDown={event=>{
+                if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+                event.preventDefault();
+                const tabs=Array.from(event.currentTarget.parentElement?.querySelectorAll('[role="tab"]')??[]) as HTMLButtonElement[];
+                const index=tabs.indexOf(event.currentTarget);
+                const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+                tabs[next]?.focus();tabs[next]?.click();
+              }}
               onClick={() => onSelect(card.referenceMonth)}
               className={`group flex flex-col items-center justify-end shrink-0 w-11 sm:w-12 h-[120px] sm:h-[132px] rounded-lg transition-colors ${
                 isSelected ? 'bg-white/5' : 'hover:bg-white/[0.03]'
               }`}
             >
-              <span
+              <span data-finance={isSelected ? 'content card-chart-value' : 'muted card-chart-value'}
                 className={`shrink-0 text-[9px] tabular-nums opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${
                   isSelected ? 'text-slate-100 opacity-100' : 'text-slate-400'
                 }`}
@@ -78,7 +87,7 @@ const CompetenceInvoiceBarChart: React.FC<CompetenceInvoiceBarChartProps> = ({
                 {amount > 0.005 ? formatCurrency(amount) : '—'}
               </span>
               <div className="flex-1 w-full flex items-end justify-center min-h-0 py-1">
-                <span
+                <span data-finance={isSelected ? 'card-chart-bar card-chart-active-bar' : 'card-chart-bar'}
                   className={`w-7 sm:w-8 rounded-t transition-all duration-300 ${
                     isSelected
                       ? 'bg-slate-100 shadow-[0_0_14px_rgba(226,232,240,0.45)]'
@@ -90,7 +99,7 @@ const CompetenceInvoiceBarChart: React.FC<CompetenceInvoiceBarChartProps> = ({
                   }}
                 />
               </div>
-              <span
+              <span data-finance={isSelected ? 'content' : 'muted'}
                 className={`mt-2 text-[10px] leading-none capitalize truncate w-full text-center ${
                   isSelected ? 'text-white font-bold' : 'text-slate-500'
                 }`}

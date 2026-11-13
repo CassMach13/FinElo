@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React, { useMemo } from 'react';
 import ProgressBar from '../ui/ProgressBar';
 import { Transaction, Category } from '../../types';
@@ -82,7 +83,7 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
     const tone = delta === 0 ? 'text-gray-500' : improved ? 'text-accent' : 'text-danger';
     const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
     return (
-      <p className={`text-[10px] font-semibold mt-1.5 ${tone}`}>
+      <p data-finance={(delta === 0 ? "muted" : (improved ? "positive" : "negative"))} className={`text-[10px] font-semibold mt-1.5 ${tone}`}>
         {arrow} {delta > 0 ? '+' : ''}
         {delta.toFixed(1)} p.p.
       </p>
@@ -112,20 +113,20 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
         : 'text-slate-400';
 
     return (
-      <div
+      <div data-finance={(variant === 'primary' ? "" : "divider inset")}
         className={`rounded-lg px-3 py-2.5 text-right min-w-0 ${
           variant === 'primary' ? 'bg-accent/[0.06] border border-accent/20' : 'bg-black/25 border border-white/8'
         }`}
       >
-        <p
+        <p data-finance={(variant === 'primary' ? "positive" : "muted")}
           className={`text-[9px] font-bold uppercase tracking-wide mb-1 truncate ${
             variant === 'primary' ? 'text-accent' : 'text-slate-400'
           }`}
         >
           {label}
         </p>
-        <p className="font-semibold text-light text-sm tabular-nums">{formatCurrency(amount)}</p>
-        <p className={`text-xs ${pctClass}`}>{formatPercentOfIncome(pct)}</p>
+        <p data-finance="content" className="font-semibold text-light text-sm tabular-nums">{formatCurrency(amount)}</p>
+        <p data-finance={pctClass === "text-danger" ? "negative" : pctClass === "text-yellow-500" ? "warning" : pctClass === "text-green-400" ? "positive" : "muted"} className={`text-xs ${pctClass}`}>{formatPercentOfIncome(pct)}</p>
         {deltaLine}
       </div>
     );
@@ -151,8 +152,8 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
       }`}
     >
       <div>
-        <span className={`font-bold ${titleColor}`}>{title}</span>
-        <span className="block text-xs text-gray-500">{meta}</span>
+        <span data-finance={title === 'Investimentos' ? 'positive' : title === 'Estilo de Vida' ? 'investment' : 'info'} className={`font-bold ${titleColor}`}>{title}</span>
+        <span data-finance="muted" className="block text-xs text-gray-500">{meta}</span>
       </div>
       <div className={compareData ? '' : 'col-span-2'}>
         <ProgressBar value={hasBase ? value : 0} max={hasBase ? income * (targetPct / 100) : 1} color={barColor} />
@@ -172,8 +173,8 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
         </>
       ) : (
         <div className="text-right flex flex-col justify-center">
-          <span className="font-semibold text-light">{formatCurrency(value)}</span>
-          <span className={`text-xs ${pct !== null && pct > targetPct && lowerIsBetter ? 'text-danger' : 'text-gray-400'}`}>
+          <span data-finance="content" className="font-semibold text-light">{formatCurrency(value)}</span>
+          <span data-finance={(pct !== null && pct > targetPct && lowerIsBetter ? "negative" : "muted")} className={`text-xs ${pct !== null && pct > targetPct && lowerIsBetter ? 'text-danger' : 'text-gray-400'}`}>
             {formatPercentOfIncome(pct)}
           </span>
         </div>
@@ -223,15 +224,15 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
       )}
 
       {!hasBase && (
-        <p className="text-center text-xs text-gray-500 mt-2">
+        <p data-finance="muted" className="text-center text-xs text-gray-500 mt-2">
           Sem renda no período para calcular os percentuais do método 50-30-20.
         </p>
       )}
 
       {hasBase && ((pctEssentials ?? 0) + (pctLifestyle ?? 0) + (pctSavings ?? 0)) > 100.5 && (
-        <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+        <div data-finance="divider inset" className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
           <div className="flex items-center gap-2 mb-1">
-            <svg
+            <svg data-finance="warning"
               xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5 text-yellow-500"
               viewBox="0 0 20 20"
@@ -243,11 +244,11 @@ const Rule503020Widget: React.FC<Rule503020WidgetProps> = ({
                 clipRule="evenodd"
               />
             </svg>
-            <span className="text-sm font-bold text-yellow-500">
+            <span data-finance="warning" className="text-sm font-bold text-yellow-500">
               Total Utilizado: {((pctEssentials ?? 0) + (pctLifestyle ?? 0) + (pctSavings ?? 0)).toFixed(1)}%
             </span>
           </div>
-          <p className="text-xs text-gray-400">
+          <p data-finance="muted" className="text-xs text-gray-400">
             A soma ultrapassa 100% porque seus gastos + investimentos superaram a renda deste período.
             Isso indica que você utilizou saldo acumulado de meses anteriores.
           </p>

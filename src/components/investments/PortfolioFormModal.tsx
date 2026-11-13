@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 import React, { useEffect, useState } from 'react';
 import type { InvestmentPortfolio } from '../../types';
 import { PORTFOLIO_NAME_MAX, createPortfolio, renamePortfolio } from '../../services/investmentStructureService';
@@ -48,15 +49,15 @@ const PortfolioFormModal: React.FC<PortfolioFormModalProps> = ({ isOpen, ownerUs
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="portfolio-form-title">
-      <form onSubmit={handleSubmit} className="flex w-full max-w-md flex-col rounded-t-2xl border border-slate-700/50 bg-secondary shadow-xl sm:rounded-2xl">
-        <div className="border-b border-slate-700/50 px-5 py-4">
-          <h2 id="portfolio-form-title" className="text-lg font-semibold text-white">{isRename ? 'Renomear carteira' : 'Nova carteira'}</h2>
-          <p className="text-xs text-gray-400">Proprietário: <span data-owner-label="">{ownerLabel}</span></p>
+    <div data-finance={"overlay investment-dialog"} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="portfolio-form-title">
+      <form data-finance={"divider surface"} onSubmit={handleSubmit} className="flex w-full max-w-md flex-col rounded-t-2xl border border-slate-700/50 bg-secondary shadow-xl sm:rounded-2xl">
+        <div data-finance={"divider"} className="border-b border-slate-700/50 px-5 py-4">
+          <h2 data-finance={"content"} id="portfolio-form-title" className="text-lg font-semibold text-white">{isRename ? 'Renomear carteira' : 'Nova carteira'}</h2>
+          <p data-finance={"muted"} className="text-xs text-gray-400">Proprietário: <span data-owner-label="">{ownerLabel}</span></p>
         </div>
         <div className="space-y-2 px-5 py-4">
-          <label htmlFor="portfolio-name" className="block text-sm font-medium text-gray-300">Nome</label>
-          <input
+          <label data-finance={"muted"} htmlFor="portfolio-name" className="block text-sm font-medium text-gray-300">Nome</label>
+          <input data-finance={"content divider inset control"}
             id="portfolio-name"
             autoFocus
             value={name}
@@ -65,12 +66,12 @@ const PortfolioFormModal: React.FC<PortfolioFormModalProps> = ({ isOpen, ownerUs
             placeholder="Ex.: Aposentadoria, Reserva, Viagem"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-white placeholder-gray-500 focus:border-highlight focus:outline-none"
           />
-          <p className="text-right text-[11px] text-gray-500">{trimmed.length}/{PORTFOLIO_NAME_MAX}</p>
-          {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+          <p data-finance={"muted"} className="text-right text-[11px] text-gray-500">{trimmed.length}/{PORTFOLIO_NAME_MAX}</p>
+          {error && <p data-finance={"negative danger-chip"} role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
         </div>
-        <div className="flex flex-col-reverse gap-2 border-t border-slate-700/50 px-5 py-4 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
-          <button type="submit" disabled={isSubmitting || !trimmed || unchanged} className="rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:bg-highlight-hover disabled:cursor-not-allowed disabled:opacity-50">
+        <div data-finance={"divider"} className="flex flex-col-reverse gap-2 border-t border-slate-700/50 px-5 py-4 sm:flex-row sm:justify-end">
+          <button data-finance-close="" data-finance={"content divider inset secondary"} type="button" onClick={onClose} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-gray-200 hover:bg-slate-700/60">Cancelar</button>
+          <button data-finance={"content action"} type="submit" disabled={isSubmitting || !trimmed || unchanged} className="rounded-lg bg-highlight px-4 py-2 text-sm font-medium text-white hover:bg-highlight-hover disabled:cursor-not-allowed disabled:opacity-50">
             {isSubmitting ? 'Salvando…' : isRename ? 'Salvar nome' : 'Criar carteira'}
           </button>
         </div>

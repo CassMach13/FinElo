@@ -1,3 +1,4 @@
+import '../appearance/investments.css';
 
 import React, { useState } from 'react';
 import { Asset } from '../../types';
@@ -129,11 +130,11 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
                 />
 
                 {/* Debt Mode Selector */}
-                <div className="space-y-3 pt-4 border-t border-slate-700/50">
-                    <p className="text-sm font-semibold text-slate-300">Situação de Pagamento</p>
+                <div data-finance={"divider"} className="space-y-3 pt-4 border-t border-slate-700/50">
+                    <p data-finance={"muted"} className="text-sm font-semibold text-slate-300">Situação de Pagamento</p>
                     <div className="grid grid-cols-3 gap-2">
                         {debtModeOptions.map(opt => (
-                            <button
+                            <button data-finance={"secondary" + " " + (debtMode === opt.value ? "content info-panel secondary" : "muted divider inset secondary") + " " + "secondary"}
                                 key={opt.value}
                                 type="button"
                                 onClick={() => setDebtMode(opt.value)}
@@ -145,7 +146,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
                             >
                                 <span className="text-xl">{opt.icon}</span>
                                 <span className="text-xs font-bold">{opt.label}</span>
-                                <span className="text-[10px] text-slate-500 leading-tight">{opt.desc}</span>
+                                <span data-finance={"muted"} className="text-[10px] text-slate-500 leading-tight">{opt.desc}</span>
                             </button>
                         ))}
                     </div>
@@ -153,7 +154,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
 
                 {/* Shared fields for financing and consortium */}
                 {debtMode !== 'none' && (
-                    <div className="space-y-4 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 animate-fade-in">
+                    <div data-finance={"divider inset"} className="space-y-4 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 animate-fade-in">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <Input
                                 label="Saldo Devedor Atual (R$)"
@@ -199,7 +200,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
 
                         {/* Rate fields specific to each mode */}
                         {debtMode === 'financing' && (
-                            <div className="p-3 bg-blue-900/20 border border-blue-700/30 rounded-xl">
+                            <div data-finance={"info-panel"} className="p-3 bg-blue-900/20 border border-blue-700/30 rounded-xl">
                                 <Input
                                     label="Taxa de Juros Mensal (%)"
                                     type="number"
@@ -208,14 +209,14 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
                                     onChange={(e) => setMonthlyInterestRate(e.target.value)}
                                     placeholder="Ex: 0.89 para 0,89% ao mês"
                                 />
-                                <p className="text-xs text-blue-300/70 mt-2">
+                                <p data-finance={"info"} className="text-xs text-blue-300/70 mt-2">
                                     💡 Usado para calcular o custo exato dos juros pagos vs. principal quitado (Tabela Price).
                                 </p>
                             </div>
                         )}
 
                         {debtMode === 'consortium' && (
-                            <div className="p-3 bg-purple-900/20 border border-purple-700/30 rounded-xl">
+                            <div data-finance={"investment-panel"} className="p-3 bg-purple-900/20 border border-purple-700/30 rounded-xl">
                                 <Input
                                     label="Taxa Administrativa Total (%)"
                                     type="number"
@@ -224,7 +225,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
                                     onChange={(e) => setConsortiumAdminRate(e.target.value)}
                                     placeholder="Ex: 20 para 20% do valor total"
                                 />
-                                <p className="text-xs text-purple-300/70 mt-2">
+                                <p data-finance={"investment-tone"} className="text-xs text-purple-300/70 mt-2">
                                     💡 A taxa adm. é distribuída ao longo das parcelas para mostrar o custo real do consórcio.
                                 </p>
                             </div>
@@ -232,7 +233,7 @@ const AssetModal: React.FC<AssetModalProps> = ({ asset, onClose, onSave }) => {
                     </div>
                 )}
 
-                <div className="p-3 bg-amber-900/20 border border-amber-700/30 rounded text-amber-200 text-xs">
+                <div data-finance={"warning warning-panel"} className="p-3 bg-amber-900/20 border border-amber-700/30 rounded text-amber-200 text-xs">
                     <strong>Dica:</strong> Para carros e imóveis, use o valor de mercado atual (ex: Tabela FIPE) para um patrimônio mais preciso.
                 </div>
             </form>

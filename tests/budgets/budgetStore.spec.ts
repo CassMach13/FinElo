@@ -77,7 +77,7 @@ vi.mock('../../src/supabaseClient', () => {
     },
   };
 });
-vi.mock('../../src/hooks/useDialogStore', () => ({ appAlert: mocks.alert, appConfirm: vi.fn() }));
+vi.mock('../../src/hooks/useDialogStore', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../src/hooks/useDialogStore')>()), appAlert: mocks.alert, appConfirm: vi.fn() }));
 
 import { useAppStore } from '../../src/hooks/useAppStore';
 

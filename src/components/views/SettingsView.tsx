@@ -1,5 +1,8 @@
+import '../appearance/remaining.css';
+import '../appearance/investments.css';
 ﻿
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import '../appearance/financial.css';
 import Card from '../ui/Card';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert, appConfirm } from '../../hooks/useDialogStore';
@@ -19,6 +22,7 @@ import AssetModal from '../modals/AssetModal';
 import AssetDetailModal from '../modals/AssetDetailModal';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
 import { TourButton } from '../TourButton';
+import AppearanceSettings from '../appearance/AppearanceSettings';
 import { formatCurrency, getCurrencyColorClass, getCurrencyBgClass } from '../../utils/formatters';
 import {
     buildImportLogAlerts,
@@ -578,11 +582,12 @@ const SettingsView: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <h1 className="text-3xl font-bold text-light">Configurações</h1>
+                <h1 data-finance="content" className="text-3xl font-bold text-light">Configurações</h1>
                 <TourButton currentView="settings" />
             </div>
 
             <div className="space-y-6">
+                <AppearanceSettings />
                 {/* 1. Gerenciar Configurações de Importação */}
                 <div id="settings-configs" className="lg:col-span-2">
                     <CrudCard<ImportConfig>
@@ -590,8 +595,8 @@ const SettingsView: React.FC = () => {
                         data={importConfigs} headers={['Fonte', 'Tipo']}
                         renderRow={(item: ImportConfig) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Nome_Fonte}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-gray-400">{importConfigTypeMap[item.Tipo_Fonte]}</td>
                             </>
                         )}
                         onAdd={openNewImportConfigModal}
@@ -630,12 +635,12 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo', 'Saldo Inicial']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white flex items-center gap-2">
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white flex items-center gap-2">
                                     {item.Nome_Conta}
-                                    {item.is_archived && <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
+                                    {item.is_archived && <span data-finance="warning warning-panel" className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider" title="Conta arquivada e oculta dos painéis">📦 Arquivada</span>}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${item.is_archived ? 'text-gray-500 line-through' : getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 font-medium lowercase italic">{item.Tipo_Conta}</td>
+                                <td data-finance={"investment-equity"} className={`px-4 py-4 whitespace-nowrap text-sm font-semibold ${item.is_archived ? 'text-gray-500 line-through' : getCurrencyColorClass(item.Saldo_Inicial, 'text-accent')}`}>
                                     {formatCurrency(item.Saldo_Inicial)}
                                 </td>
                             </>
@@ -643,7 +648,7 @@ const SettingsView: React.FC = () => {
                         onAdd={() => { setEditingAccount(null); setAccountModalOpen(true); }}
                         onEdit={(item) => { setEditingAccount(item); setAccountModalOpen(true); }}
                         renderExtraActions={(item) => (
-                            <button className="text-orange-400 hover:text-orange-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2" onClick={async () => {
+                            <button data-finance="warning" className="text-orange-400 hover:text-orange-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2" onClick={async () => {
                                 if (await appConfirm(item.is_archived ? 'Deseja desarquivar esta conta?' : 'Deseja arquivar esta conta? O histórico será mantido, mas ela não aparecerá mais nos resumos.', item.is_archived ? 'Desarquivar' : 'Arquivar Conta', item.is_archived ? 'Desarquivar' : 'Arquivar', 'warning')) {
                                     const { archiveAccount } = useAppStore.getState();
                                     await archiveAccount(item.id, !item.is_archived);
@@ -680,21 +685,21 @@ const SettingsView: React.FC = () => {
                             const alerts = buildImportLogAlerts(item, importAlertContext);
                             return (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-300 font-medium">
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.file_name}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-xs text-gray-300 font-medium">
                                     {importLogAccountLabelMap.get(item.id) || 'Não associada'}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-xs text-gray-400">{new Date(item.import_date).toLocaleString()}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-300">{item.total_transactions}</td>
+                                <td data-finance="positive" className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-accent">{item.imported_count}</td>
+                                <td data-finance="negative" className="px-4 py-4 whitespace-nowrap text-sm text-center font-bold text-danger">{item.ignored_count}</td>
                                 <td className="px-4 py-3 align-top text-center">
                                     {alerts.badges.length === 0 ? (
-                                        <span className="text-sm text-slate-500" title="Nenhum alerta detectado por heurística">—</span>
+                                        <span data-finance="muted" className="text-sm text-slate-500" title="Nenhum alerta detectado por heurística">—</span>
                                     ) : (
                                         <div className="flex flex-wrap gap-1 justify-center max-w-[240px] mx-auto">
                                             {alerts.badges.map((b, i) => (
-                                                <span
+                                                <span data-finance={alerts.level === "error" ? "danger-chip" : "warning-chip"}
                                                     key={`${item.id}-${i}`}
                                                     title={b}
                                                     className={
@@ -754,7 +759,7 @@ const SettingsView: React.FC = () => {
                             }
                         }}
                         renderExtraActions={(item) => (
-                            <button
+                            <button data-finance="warning"
                                 className="text-amber-400 hover:text-amber-300 transition-colors font-semibold p-1 lg:px-0 lg:py-0 lg:ml-2"
                                 onClick={() => openReassignModal(item)}
                                 title="Corrigir conta desta importação"
@@ -768,11 +773,11 @@ const SettingsView: React.FC = () => {
                         hideEditButton={false}
                         editLabel="Exibir"
                         footer={
-                            <div className="mt-4 border-t border-slate-700 pt-4 space-y-3">
-                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <div data-finance="divider" className="mt-4 border-t border-slate-700 pt-4 space-y-3">
+                                <p data-finance="muted" className="text-[11px] text-slate-500 leading-relaxed">
                                     O histórico de faturas do cartão é calculado pelas transações importadas. Use as ações abaixo
                                     só para corrigir metadados do histórico ou recuperar importações antigas — competências e
-                                    saldos residuais são ajustados em <span className="text-slate-400">Transações</span>.
+                                    saldos residuais são ajustados em <span data-finance="muted" className="text-slate-400">Transações</span>.
                                 </p>
                                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                                 <Button
@@ -813,33 +818,33 @@ const SettingsView: React.FC = () => {
                             <>
                                 <td className="px-4 py-4 text-sm">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
-                                        <span className="font-medium text-white">{item.Nome_Categoria}</span>
+                                        <div data-finance="danger-chip" className={`w-2 h-2 rounded-full ${item.Tipo === 'Renda' ? 'bg-accent' : item.Tipo === 'Despesa' ? 'bg-danger' : 'bg-highlight'}`} />
+                                        <span data-finance="content" className="font-medium text-white">{item.Nome_Categoria}</span>
                                     </div>
                                 </td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
+                                <td data-finance="remaining-dynamic" className={`px-4 py-4 whitespace-nowrap text-xs font-bold uppercase tracking-wider ${categoryTypeColorMap[item.Tipo]}`}>
                                     {item.Tipo === 'Renda' ? 'Entrada' : item.Tipo === 'Despesa' ? 'Saída' : 'Movimentação'}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                     {item.is_investment ? (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                        <span data-finance="positive success-panel" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                             Sim
                                         </span>
                                     ) : (
-                                        <span className="text-gray-600 font-medium">Não</span>
+                                        <span data-finance="muted" className="text-gray-600 font-medium">Não</span>
                                     )}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                                     {!item.is_investment && (item.Tipo === 'Despesa' || item.Tipo === 'Ambos') ? (
                                         item.is_essential ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                            <span data-finance="info info-panel" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                                                 Sim
                                             </span>
                                         ) : (
-                                            <span className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
+                                            <span data-finance="muted" className="text-gray-600 font-medium text-xs uppercase tracking-tight">Opcional</span>
                                         )
                                     ) : (
-                                        <span className="text-gray-700">-</span>
+                                        <span data-finance="muted" className="text-gray-700">-</span>
                                     )}
                                 </td>
                             </>
@@ -854,10 +859,10 @@ const SettingsView: React.FC = () => {
 
                 {/* 5. Gerenciar Orçamentos */}
                 <div id="settings-budgets">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] p-4">
+                    <div data-finance="success-panel" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] p-4">
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">Orçamento mensal</p>
-                            <p className="text-xs text-gray-400">
+                            <p data-finance="content" className="text-sm font-semibold text-white">Orçamento mensal</p>
+                            <p data-finance="muted" className="text-xs text-gray-400">
                                 Defina limites para cada mês e copie do mês anterior. Este editor anual funciona como padrão quando não há um orçamento específico para o mês.
                             </p>
                         </div>
@@ -878,7 +883,7 @@ const SettingsView: React.FC = () => {
                         renderRow={(item: Budget) => (
                             <>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm">{item.Categoria}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{formatCurrency(item.Valor_Limite_Mensal)}</td>
+                                <td data-finance="positive" className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-accent">{formatCurrency(item.Valor_Limite_Mensal)}</td>
                             </>
                         )}
                         onAdd={openNewBudgetModal}
@@ -887,18 +892,18 @@ const SettingsView: React.FC = () => {
                         searchKeys={['Categoria', 'Valor_Limite_Mensal']}
                         searchPlaceholder="Buscar por categoria ou limite..."
                         extraHeader={
-                            <div className="flex items-center justify-center gap-4 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                <button
+                            <div data-finance="inset divider" className="flex items-center justify-center gap-4 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                <button data-finance="muted remaining-hover"
                                     onClick={() => setSelectedBudgetYear(prev => prev - 1)}
                                     className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                                     title="Ano Anterior"
                                 >
                                     <ChevronLeftIcon className="w-5 h-5" />
                                 </button>
-                                <span className="text-lg font-bold text-white min-w-[80px] text-center">
+                                <span data-finance="content" className="text-lg font-bold text-white min-w-[80px] text-center">
                                     {selectedBudgetYear}
                                 </span>
-                                <button
+                                <button data-finance="muted remaining-hover"
                                     onClick={() => setSelectedBudgetYear(prev => prev + 1)}
                                     className="p-1 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                                     title="Próximo Ano"
@@ -918,21 +923,21 @@ const SettingsView: React.FC = () => {
                         headers={['Nome', 'Tipo / Status', 'Valor Bruto', 'Dívida', 'P. Líquido (Equity)']}
                         renderRow={(item) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
+                                <td data-finance={"content"} className="px-4 py-4 whitespace-nowrap text-sm font-bold text-white">{item.name}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm">
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-gray-400 font-medium">
+                                        <span data-finance={"muted"} className="text-gray-400 font-medium">
                                             {item.type === 'car' ? 'Veículo' : item.type === 'property' ? 'Imóvel' : 'Outro'}
                                         </span>
                                         {item.is_financed && (
                                             <div className="flex items-center gap-2">
-                                                <div className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
-                                                    <div
+                                                <div data-finance={"inset"} className="w-16 h-1.5 bg-slate-700/50 rounded-full overflow-hidden" title={`${item.paid_installments || 0}/${item.total_installments || 0} parcelas`}>
+                                                    <div data-finance={"info-line"}
                                                         className="h-full bg-highlight shadow-[0_0_8px_rgba(0,195,255,0.5)]"
                                                         style={{ width: `${((item.paid_installments || 0) / (item.total_installments || 1)) * 100}%` }}
                                                     ></div>
                                                 </div>
-                                                <span className={`text-[9px] font-black uppercase tracking-tighter shadow-sm ${
+                                                <span data-finance={"" + " " + (item.financing_type === 'consortium' ? "investment-tone" : "info") + " " + ""} className={`text-[9px] font-black uppercase tracking-tighter shadow-sm ${
                                                     item.financing_type === 'consortium' ? 'text-purple-400' : 'text-highlight'
                                                 }`}>
                                                     {item.financing_type === 'consortium' ? '🔄 Consórcio' : '🏦 Financiado'}
@@ -941,17 +946,17 @@ const SettingsView: React.FC = () => {
                                         )}
                                     </div>
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
+                                <td data-finance={"muted"} className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
                                     {formatCurrency(item.value)}
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
+                                <td data-finance={"negative"} className="px-4 py-4 whitespace-nowrap text-sm text-danger font-bold">
                                     {item.is_financed ? (
                                         formatCurrency(item.remaining_balance || 0)
                                     ) : (
-                                        <span className="text-gray-700">-</span>
+                                        <span data-finance={"muted"} className="text-gray-700">-</span>
                                     )}
                                 </td>
-                                <td className={`px-4 py-4 whitespace-nowrap text-sm font-black ${getCurrencyColorClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))} ${getCurrencyBgClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}`}>
+                                <td data-finance={"investment-equity"} className={`px-4 py-4 whitespace-nowrap text-sm font-black ${getCurrencyColorClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))} ${getCurrencyBgClass(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}`}>
                                     {formatCurrency(item.value - (item.is_financed ? (item.remaining_balance || 0) : 0))}
                                 </td>
                             </>
@@ -961,7 +966,7 @@ const SettingsView: React.FC = () => {
                         renderExtraActions={(item) => {
                             if (!item.is_financed && !item.financing_type) return null;
                             return (
-                                <button
+                                <button data-finance={"info info-panel secondary"}
                                     className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-highlight/10 text-highlight hover:bg-highlight/20 border border-highlight/30 hover:border-highlight/60 transition-all"
                                     onClick={() => { setViewingAsset(item); setAssetDetailModalOpen(true); }}
                                     title="Ver detalhes do financiamento / consórcio"
@@ -987,9 +992,9 @@ const SettingsView: React.FC = () => {
                         data={mappingRules} headers={['Texto na Descrição', 'Nome Sugerido', 'Categoria Sugerida']}
                         renderRow={(item: MappingRule) => (
                             <>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Texto_Contido_Descricao}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">{item.Nome_Fantasia_Sugerido}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-highlight font-semibold">{item.Categoria_Sugerida}</td>
+                                <td data-finance="content" className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">{item.Texto_Contido_Descricao}</td>
+                                <td data-finance="muted" className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">{item.Nome_Fantasia_Sugerido}</td>
+                                <td data-finance="info" className="px-4 py-4 whitespace-nowrap text-sm text-highlight font-semibold">{item.Categoria_Sugerida}</td>
                             </>
                         )}
                         onAdd={openNewMappingRuleModal}
@@ -998,7 +1003,7 @@ const SettingsView: React.FC = () => {
                         searchKeys={['Texto_Contido_Descricao', 'Nome_Fantasia_Sugerido', 'Categoria_Sugerida']}
                         searchPlaceholder="Buscar por texto, nome ou categoria..."
                         footer={
-                            <div className="mt-4 border-t border-slate-700 pt-4 flex gap-4">
+                            <div data-finance="divider" className="mt-4 border-t border-slate-700 pt-4 flex gap-4">
                                 <Button
                                     variant="secondary"
                                     onClick={async () => {
@@ -1041,8 +1046,8 @@ const SettingsView: React.FC = () => {
                     <Card className="flex flex-col">
                         <div className="flex justify-between items-center mb-4">
                             <div className='flex items-center gap-2'>
-                                <h2 className="text-xl font-bold text-light">Plano Família (Compartilhamento)</h2>
-                                <span className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full border border-accent/50">Novo</span>
+                                <h2 data-finance="content" className="text-xl font-bold text-light">Plano Família (Compartilhamento)</h2>
+                                <span data-finance="positive success-panel" className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full border border-accent/50">Novo</span>
                             </div>
                             {isPremium ? (
                                 <Button onClick={() => setInviteModalOpen(true)}>Adicionar Familiar</Button>
@@ -1053,12 +1058,12 @@ const SettingsView: React.FC = () => {
                             )}
                         </div>
 
-                        <div className="bg-primary rounded-lg border border-slate-700 p-4">
+                        <div data-finance="inset divider" className="bg-primary rounded-lg border border-slate-700 p-4">
                             {familyMembers.length === 0 ? (
-                                <div className="text-center text-gray-400 py-4">
+                                <div data-finance="muted" className="text-center text-gray-400 py-4">
                                     <p>Nenhum membro adicionado ainda.</p>
                                     <p className="text-sm mt-1">Convide alguém para ver e editar suas finanças em conjunto.</p>
-                                    <p className="text-xs mt-2 text-gray-500">O convidado precisa aceitar o vínculo (banner no Dashboard ou botão aqui). Com status Aceito, ambos veem as transações um do outro.</p>
+                                    <p data-finance="muted" className="text-xs mt-2 text-gray-500">O convidado precisa aceitar o vínculo (banner no Dashboard ou botão aqui). Com status Aceito, ambos veem as transações um do outro.</p>
                                 </div>
                             ) : (
                                 <ul className="space-y-2">
@@ -1077,11 +1082,11 @@ const SettingsView: React.FC = () => {
                                         const nicknameKey = otherEmail ? normalizeFamilyMemberEmail(otherEmail) : '';
 
                                         return (
-                                            <li key={member.id} className="bg-slate-800 p-3 rounded gap-3 space-y-3">
+                                            <li data-finance="inset" key={member.id} className="bg-slate-800 p-3 rounded gap-3 space-y-3">
                                                 <div className="flex justify-between items-center gap-3">
-                                                <span className="text-sm font-medium text-white min-w-0 truncate">{displayName}</span>
+                                                <span data-finance="content" className="text-sm font-medium text-white min-w-0 truncate">{displayName}</span>
                                                 <div className="flex items-center gap-2 shrink-0">
-                                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${member.status === 'accepted' ? 'text-green-400 bg-green-900/30' :
+                                                    <span data-finance="remaining-dynamic" className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${member.status === 'accepted' ? 'text-green-400 bg-green-900/30' :
                                                         member.status === 'declined' ? 'text-danger bg-red-900/30' :
                                                             'text-yellow-400 bg-yellow-900/30'
                                                         }`}>
@@ -1100,7 +1105,7 @@ const SettingsView: React.FC = () => {
                                                             Aceitar
                                                         </Button>
                                                     )}
-                                                    <button
+                                                    <button data-finance="negative"
                                                         onClick={async () => {
                                                             const msg = isReceivedInvite
                                                                 ? `Sair do plano compartilhado de ${member.owner_email}?`
@@ -1131,7 +1136,7 @@ const SettingsView: React.FC = () => {
                                                 </div>
                                                 </div>
                                                 {otherEmail && nicknameKey ? (
-                                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-1 border-t border-white/5">
+                                                    <div data-finance="divider" className="flex flex-col sm:flex-row sm:items-end gap-2 pt-1 border-t border-white/5">
                                                         <div className="flex-1 min-w-0">
                                                             <Input
                                                                 label="Apelido na auditoria"
@@ -1154,7 +1159,7 @@ const SettingsView: React.FC = () => {
                                                         >
                                                             {savingNicknameEmail === nicknameKey ? 'Salvando…' : 'Salvar apelido'}
                                                         </Button>
-                                                        <p className="text-[10px] text-slate-500 sm:col-span-2">
+                                                        <p data-finance="muted" className="text-[10px] text-slate-500 sm:col-span-2">
                                                             Usado nos chips e agrupamentos em Transações (só para você).
                                                         </p>
                                                     </div>
@@ -1172,7 +1177,7 @@ const SettingsView: React.FC = () => {
                 <div className="lg:col-span-2">
                     <Card className="flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-light">Cartão V2 — Modo Sombra (Divergências)</h2>
+                            <h2 data-finance="content" className="text-xl font-bold text-light">Cartão V2 — Modo Sombra (Divergências)</h2>
                             <div className="flex gap-2">
                                 <Button variant="secondary" onClick={refreshCreditCardShadowDashboard}>
                                     Atualizar
@@ -1183,7 +1188,7 @@ const SettingsView: React.FC = () => {
                             </div>
                         </div>
                         {creditCardShadowDashboard.length === 0 ? (
-                            <p className="text-sm text-gray-400">
+                            <p data-finance="muted" className="text-sm text-gray-400">
                                 Sem dados de comparação ainda. Importe uma fatura de cartão com o shadow mode ativo.
                             </p>
                         ) : (
@@ -1203,34 +1208,34 @@ const SettingsView: React.FC = () => {
                                                 : 'Sem Dados';
 
                                     return (
-                                        <div key={row.accountId} className="rounded-xl border border-slate-700 bg-slate-900/40 p-4">
+                                        <div data-finance="inset divider" key={row.accountId} className="rounded-xl border border-slate-700 bg-slate-900/40 p-4">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <p className="text-sm font-semibold text-white">{row.accountName}</p>
-                                                <span className={`text-[11px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${badgeClass}`}>
+                                                <p data-finance="content" className="text-sm font-semibold text-white">{row.accountName}</p>
+                                                <span data-finance="remaining-dynamic divider" className={`text-[11px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${badgeClass}`}>
                                                     {badgeLabel}
                                                 </span>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3 text-xs">
                                                 <div>
-                                                    <p className="text-gray-400">V1 (fatura líquida)</p>
-                                                    <p className="text-white font-semibold">{formatCurrency(row.v1CurrentGross)}</p>
+                                                    <p data-finance="muted" className="text-gray-400">V1 (fatura líquida)</p>
+                                                    <p data-finance="content" className="text-white font-semibold">{formatCurrency(row.v1CurrentGross)}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-gray-400">V2 (charges)</p>
-                                                    <p className="text-white font-semibold">{formatCurrency(row.v2CurrentGross)}</p>
+                                                    <p data-finance="muted" className="text-gray-400">V2 (charges)</p>
+                                                    <p data-finance="content" className="text-white font-semibold">{formatCurrency(row.v2CurrentGross)}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-gray-400">V2 (fatura líquida)</p>
-                                                    <p className="text-white font-semibold">{formatCurrency(row.v2OpenAmount)}</p>
+                                                    <p data-finance="muted" className="text-gray-400">V2 (fatura líquida)</p>
+                                                    <p data-finance="content" className="text-white font-semibold">{formatCurrency(row.v2OpenAmount)}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-gray-400">Diferença</p>
-                                                    <p className="text-amber-300 font-semibold">
+                                                    <p data-finance="muted" className="text-gray-400">Diferença</p>
+                                                    <p data-finance="warning" className="text-amber-300 font-semibold">
                                                         {formatCurrency(row.absoluteDiff)} ({row.diffPercent.toFixed(2)}%)
                                                     </p>
                                                 </div>
                                             </div>
-                                            <p className="text-[11px] text-gray-500 mt-2">
+                                            <p data-finance="muted" className="text-[11px] text-gray-500 mt-2">
                                                 Última origem analisada: {row.lastOrigin || '—'}
                                             </p>
                                         </div>
@@ -1245,26 +1250,26 @@ const SettingsView: React.FC = () => {
                 <div className="lg:col-span-2">
                     <Card className="flex flex-col">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-light">Cartão V2 — Auditoria de Reprocessamentos</h2>
+                            <h2 data-finance="content" className="text-xl font-bold text-light">Cartão V2 — Auditoria de Reprocessamentos</h2>
                             <Button variant="secondary" onClick={fetchCreditCardReprocessJobs}>
                                 Atualizar Logs
                             </Button>
                         </div>
                         {creditCardReprocessJobs.length === 0 ? (
-                            <p className="text-sm text-gray-400">Nenhum reprocessamento registrado ainda.</p>
+                            <p data-finance="muted" className="text-sm text-gray-400">Nenhum reprocessamento registrado ainda.</p>
                         ) : (
-                            <div className="overflow-x-auto rounded-xl border border-slate-700">
-                                <table className="min-w-full divide-y divide-slate-800">
-                                    <thead className="bg-slate-800/70">
+                            <div data-finance="divider" className="overflow-x-auto rounded-xl border border-slate-700">
+                                <table data-finance="divided" className="min-w-full divide-y divide-slate-800">
+                                    <thead data-finance="inset" className="bg-slate-800/70">
                                         <tr>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Início</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Conta</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Status</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Resumo</th>
-                                            <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Fim</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Início</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Conta</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Status</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Resumo</th>
+                                            <th data-finance="muted" className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-400">Fim</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-800">
+                                    <tbody data-finance="divided" className="divide-y divide-slate-800">
                                         {creditCardReprocessJobs.map((job) => {
                                             const accountName = accounts.find(a => a.id === job.account_id)?.Nome_Conta || 'Conta desconhecida';
                                             const statusClass =
@@ -1284,20 +1289,20 @@ const SettingsView: React.FC = () => {
 
                                             return (
                                                 <tr key={job.id} className="text-xs">
-                                                    <td className="px-3 py-2 text-gray-300">{new Date(job.started_at).toLocaleString()}</td>
-                                                    <td className="px-3 py-2 text-white font-medium">{accountName}</td>
+                                                    <td data-finance="content" className="px-3 py-2 text-gray-300">{new Date(job.started_at).toLocaleString()}</td>
+                                                    <td data-finance="content" className="px-3 py-2 text-white font-medium">{accountName}</td>
                                                     <td className="px-3 py-2">
-                                                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusClass}`}>
+                                                        <span data-finance="remaining-dynamic" className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusClass}`}>
                                                             {job.status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-3 py-2 text-gray-300">
-                                                        <span className="font-semibold text-cyan-300">{mode}</span>
+                                                    <td data-finance="content" className="px-3 py-2 text-gray-300">
+                                                        <span data-finance="info" className="font-semibold text-cyan-300">{mode}</span>
                                                         {processed !== '-' && <span> • {processed} itens</span>}
                                                         {origin && <span> • {origin}</span>}
                                                         {range && <span> • {range}</span>}
                                                     </td>
-                                                    <td className="px-3 py-2 text-gray-400">
+                                                    <td data-finance="muted" className="px-3 py-2 text-gray-400">
                                                         {job.finished_at ? new Date(job.finished_at).toLocaleString() : '—'}
                                                     </td>
                                                 </tr>
@@ -1339,7 +1344,7 @@ const SettingsView: React.FC = () => {
             )}
 
             {isReassignModalOpen && reassignTargetLog && (
-                <Modal
+                <Modal manageFocus
                     isOpen={isReassignModalOpen}
                     onClose={() => {
                         setIsReassignModalOpen(false);
@@ -1363,8 +1368,8 @@ const SettingsView: React.FC = () => {
                     }
                 >
                     <div className="space-y-4">
-                        <p className="text-sm text-gray-300">
-                            Arquivo: <span className="font-semibold text-white">{reassignTargetLog.file_name}</span>
+                        <p data-finance="muted" className="text-sm text-gray-300">
+                            Arquivo: <span data-finance="content" className="font-semibold text-white">{reassignTargetLog.file_name}</span>
                         </p>
                         <Select
                             label="Mover transações para a conta"
@@ -1378,7 +1383,7 @@ const SettingsView: React.FC = () => {
                                 </option>
                             ))}
                         </Select>
-                        <p className="text-xs text-gray-500">
+                        <p data-finance="muted" className="text-xs text-gray-500">
                             Esta ação atualiza em lote todas as transações com origem igual ao nome deste arquivo.
                         </p>
                     </div>
@@ -1426,7 +1431,7 @@ const SettingsView: React.FC = () => {
                             value={rebuildToDate}
                             onChange={(e) => setRebuildToDate(e.target.value)}
                         />
-                        <p className="text-xs text-gray-500">
+                        <p data-finance="muted" className="text-xs text-gray-500">
                             Esta ação limpa e recalcula os ciclos V2 no intervalo informado, gerando log de auditoria.
                         </p>
                     </div>
@@ -1587,7 +1592,7 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
     return (
         <Card className="flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-light">{title}</h2>
+                <h2 data-finance="content" className="text-xl font-bold text-light">{title}</h2>
                 {!hideAddButton && (
                     <Button onClick={onAdd}>Adicionar Novo</Button>
                 )}
@@ -1595,7 +1600,7 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
             {extraHeader && <div className="mb-4">{extraHeader}</div>}
             {searchKeys.length > 0 && (
                 <div className="mb-4">
-                    <Input
+                    <Input aria-label={searchPlaceholder}
                         type="text"
                         placeholder={searchPlaceholder}
                         value={searchTerm}
@@ -1613,57 +1618,57 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                             {paginatedData.map(item => {
                                 const rowEls = getRowChildren(renderRow(item));
                                 return (
-                                    <div key={item.id} className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-2 relative">
+                                    <div data-finance="inset divider" key={item.id} className="bg-secondary p-4 rounded-xl shadow-md border border-slate-700/50 flex flex-col gap-2 relative">
                                         {headers.map((header, idx) => (
-                                            <div key={header} className="flex justify-between items-center text-sm border-b border-slate-700/30 pb-1 last:border-0 last:pb-0">
-                                                <span className="text-gray-500 font-medium text-xs">{header}</span>
-                                                <span className="text-white font-semibold text-right max-w-[60%] truncate">
+                                            <div data-finance="divider" key={header} className="flex justify-between items-center text-sm border-b border-slate-700/30 pb-1 last:border-0 last:pb-0">
+                                                <span data-finance="muted" className="text-gray-500 font-medium text-xs">{header}</span>
+                                                <span data-finance="content" className="text-white font-semibold text-right max-w-[60%] truncate">
                                                     {/* For mobile layout we extract the inner text of the td */}
                                                     {(rowEls[idx] as any)?.props?.children || String(Object.values(item)[idx + 1] || '-')}
                                                 </span>
                                             </div>
                                         ))}
-                                        <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
+                                        <div data-finance="divider" className="flex justify-end gap-3 mt-2 pt-2 border-t border-slate-700/30">
                                             {renderExtraActions && renderExtraActions(item)}
                                             {!hideEditButton && (
-                                                <button className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
+                                                <button data-finance="info link" className="text-highlight hover:text-sky-300 font-semibold p-1" onClick={() => onEdit(item)}>
                                                     {editLabel}
                                                 </button>
                                             )}
-                                            <button className="text-danger hover:text-red-400 font-semibold p-1" onClick={() => onDelete(item.id)}>
+                                            <button data-finance="negative" className="text-danger hover:text-red-400 font-semibold p-1" onClick={() => onDelete(item.id)}>
                                                 Excluir
                                             </button>
                                         </div>
                                     </div>
                                 );
                             })}
-                            {paginatedData.length === 0 && <p className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
+                            {paginatedData.length === 0 && <p data-finance="muted" className="text-center text-gray-400 py-8">Nenhum item encontrado.</p>}
                         </div>
 
-                        <div className="hidden lg:block bg-primary/30 rounded-xl shadow-2xl border border-white/5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                            <table className="min-w-full divide-y divide-slate-800/50">
-                                <thead className="bg-slate-800/80 backdrop-blur-md">
+                        <div data-finance="inset divider" className="hidden lg:block bg-primary/30 rounded-xl shadow-2xl border border-white/5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                            <table data-finance="divided" className="min-w-full divide-y divide-slate-800/50">
+                                <thead data-finance="head" className="bg-slate-800/80 backdrop-blur-md">
                                     <tr>
-                                        {headers.map(header => <th key={header} scope="col" className="px-4 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">{header}</th>)}
-                                        <th scope="col" className="px-4 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ações</th>
+                                        {headers.map(header => <th data-finance="muted" key={header} scope="col" className="px-4 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">{header}</th>)}
+                                        <th data-finance="muted" scope="col" className="px-4 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800/50">
+                                <tbody data-finance="divided" className="divide-y divide-slate-800/50">
                                     {paginatedData.map(item => (
-                                        <tr key={item.id} className="hover:bg-white/5 transition-colors group">
+                                        <tr data-finance="hover" key={item.id} className="hover:bg-white/5 transition-colors group">
                                             {renderRow(item)}
                                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <div data-finance="readonly-row" className="flex justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
                                                     {renderExtraActions && renderExtraActions(item)}
                                                     {!hideEditButton && (
-                                                        <button 
+                                                        <button data-finance="info link"
                                                             className="text-highlight hover:text-white transition-colors" 
                                                             onClick={() => onEdit(item)}
                                                         >
                                                             {editLabel}
                                                         </button>
                                                     )}
-                                                    <button 
+                                                    <button data-finance="negative"
                                                         className="text-danger hover:text-white transition-colors" 
                                                         onClick={() => onDelete(item.id)}
                                                     >
@@ -1675,13 +1680,13 @@ const CrudCard = <T extends { id: string },>({ title, data, headers, renderRow, 
                                     ))}
                                 </tbody>
                             </table>
-                            {paginatedData.length === 0 && <p className="text-center text-gray-400 py-12">Nenhum item encontrado.</p>}
+                            {paginatedData.length === 0 && <p data-finance="muted" className="text-center text-gray-400 py-12">Nenhum item encontrado.</p>}
                         </div>
                     </div>
-                    <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-400 gap-4">
+                    <div data-finance="muted" className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm text-gray-400 gap-4">
                         <div className="flex flex-wrap items-center justify-center gap-2">
                             <span>Mostrar</span>
-                            <select
+                            <select data-finance="control native-select" aria-label="Itens por página"
                                 value={itemsPerPage}
                                 onChange={handleItemsPerPageChange as any}
                                 className="bg-primary/50 border border-slate-700 rounded text-white px-2 py-1 outline-none focus:border-highlight focus:ring-1 focus:ring-highlight appearance-none pr-8 cursor-pointer"
@@ -1773,7 +1778,7 @@ const BudgetModal: React.FC<BudgetModalProps> = ({ budget, categories, onClose, 
                             <option key={c.id} value={c.Nome_Categoria}>{c.Nome_Categoria}</option>
                         ))}
                     </Select>
-                    {!!budget && <p className="text-xs text-gray-400 mt-1">A categoria não pode ser alterada na edição.</p>}
+                    {!!budget && <p data-finance="muted" className="text-xs text-gray-400 mt-1">A categoria não pode ser alterada na edição.</p>}
                 </div>
                 <Input
                     label="Limite Mensal (R$)"
@@ -1861,7 +1866,7 @@ const ImportConfigModal: React.FC<ImportConfigModalProps> = ({ config, onClose, 
     };
 
     return (
-        <Modal
+        <Modal manageFocus
             isOpen={true}
             onClose={onClose}
             title={config ? 'Editar Configuração' : 'Nova Configuração'}
@@ -1874,8 +1879,8 @@ const ImportConfigModal: React.FC<ImportConfigModalProps> = ({ config, onClose, 
             }
         >
             <form id="import-config-form" onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-md">
-                    <p className="text-sm text-blue-200">
+                <div data-finance="info-panel divider" className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-md">
+                    <p data-finance="info" className="text-sm text-blue-200">
                         ℹ️ <strong>Dica:</strong> Para alterar o mapeamento das colunas (quais campos representam Data, Valor, etc.), faça uma nova importação na aba <strong>Importar Extrato</strong> e escolha "Atualizar Existente" ao final.
                     </p>
                 </div>
@@ -1950,7 +1955,7 @@ const BackupCard: React.FC = () => {
 
     return (
         <Card title="Backup e Restauração" className="mt-6">
-            <p className="text-gray-300 mb-4">Baixe um arquivo de backup com todos os seus dados. Guarde-o em um local seguro.</p>
+            <p data-finance="content" className="text-gray-300 mb-4">Baixe um arquivo de backup com todos os seus dados. Guarde-o em um local seguro.</p>
             <Button onClick={handleDownloadBackup} className="w-full">Baixar Backup Completo</Button>
         </Card>
     );

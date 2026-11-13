@@ -214,7 +214,7 @@ describe('resumo na UI', () => {
     expect(out).toContain('março de 2026');
     expect(out).toContain(VARIATION_DISCLAIMER);
     expect(out).toContain('+R$');
-    expect(out).not.toMatch(/rendeu|rentabilidade de|patrimônio líquido|NaN|Infinity/i);
+    expect(out.replace(/<[^>]*>/g, '')).not.toMatch(/rendeu|rentabilidade de|patrimônio líquido|NaN|Infinity/i);
     expect(out).not.toMatch(/text-(red|green|danger|success)|bg-(red|green)/);
   });
 

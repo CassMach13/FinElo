@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React from 'react';
 import type { HelpArticle, HelpBlock, HelpImage } from '../../data/helpCenterContent';
 
@@ -7,7 +8,7 @@ export function renderEmphasis(text: string): React.ReactNode {
   if (parts.length === 1) return text;
   return parts.map((part, index) =>
     index % 2 === 1 ? (
-      <strong key={index} className="font-semibold text-slate-200">
+      <strong data-finance="content" key={index} className="font-semibold text-slate-200">
         {part}
       </strong>
     ) : (
@@ -21,14 +22,14 @@ export function HelpScreenshot({ image }: { image: HelpImage }) {
   return (
     // Nunca maior que o arquivo: janelas pequenas não ficam esticadas e borradas.
     <figure className="mt-2" style={{ maxWidth: image.width }}>
-      <a
+      <a data-finance="link"
         href={image.src}
         target="_blank"
         rel="noopener noreferrer"
         className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         title="Abrir imagem em tamanho real"
       >
-        <img
+        <img data-finance="inset divider"
           src={image.src}
           alt={image.alt}
           width={image.width}
@@ -39,7 +40,7 @@ export function HelpScreenshot({ image }: { image: HelpImage }) {
         />
       </a>
       {image.caption ? (
-        <figcaption className="text-xs text-slate-500 mt-1.5">{image.caption}</figcaption>
+        <figcaption data-finance="muted" className="text-xs text-slate-500 mt-1.5">{image.caption}</figcaption>
       ) : null}
     </figure>
   );
@@ -47,11 +48,11 @@ export function HelpScreenshot({ image }: { image: HelpImage }) {
 
 const Block: React.FC<{ block: HelpBlock }> = ({ block }) => {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-      <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">{block.title}</h4>
+    <div data-finance="inset divider" className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+      <h4 data-finance="muted" className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">{block.title}</h4>
       <ul className="space-y-1.5 list-disc pl-4 marker:text-slate-600">
         {block.items.map((item, index) => (
-          <li key={index} className="text-sm text-slate-400 leading-relaxed">
+          <li data-finance="muted" key={index} className="text-sm text-slate-400 leading-relaxed">
             {renderEmphasis(item)}
           </li>
         ))}
@@ -69,16 +70,16 @@ const HelpArticleContent: React.FC<{ article: HelpArticle }> = ({ article }) => 
         {article.steps.map((step, index) => (
           <li key={step.title}>
             <div className="flex gap-3">
-              <span
+              <span data-finance="info info-panel"
                 aria-hidden
                 className="shrink-0 w-6 h-6 rounded-full bg-cyan-500/15 text-cyan-300 text-xs font-bold flex items-center justify-center mt-0.5"
               >
                 {index + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-semibold text-slate-200">{step.title}</h4>
+                <h4 data-finance="content" className="text-sm font-semibold text-slate-200">{step.title}</h4>
                 {step.text ? (
-                  <p className="text-sm text-slate-400 leading-relaxed mt-0.5">{renderEmphasis(step.text)}</p>
+                  <p data-finance="muted" className="text-sm text-slate-400 leading-relaxed mt-0.5">{renderEmphasis(step.text)}</p>
                 ) : null}
               </div>
             </div>
@@ -94,9 +95,9 @@ const HelpArticleContent: React.FC<{ article: HelpArticle }> = ({ article }) => 
     ) : null}
 
     {article.result ? (
-      <div className="rounded-lg border border-green-700/40 bg-green-900/10 p-3">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-green-300/90 mb-1">Pronto</h4>
-        <p className="text-sm text-slate-300 leading-relaxed">{renderEmphasis(article.result)}</p>
+      <div data-finance="success-panel" className="rounded-lg border border-green-700/40 bg-green-900/10 p-3">
+        <h4 data-finance="positive" className="text-xs font-bold uppercase tracking-wide text-green-300/90 mb-1">Pronto</h4>
+        <p data-finance="content" className="text-sm text-slate-300 leading-relaxed">{renderEmphasis(article.result)}</p>
         {article.resultImage ? <HelpScreenshot image={article.resultImage} /> : null}
       </div>
     ) : null}

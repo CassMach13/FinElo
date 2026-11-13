@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React, { useMemo } from 'react';
 import { Transaction } from '../../types';
 import { formatCurrency, formatCurrencySigned } from '../../utils/formatters';
@@ -133,7 +134,7 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({
 
   if (chartData.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-gray-500">
+      <div data-finance="muted" className="h-[300px] flex items-center justify-center text-gray-500">
         Nenhum dado encontrado para o período.
       </div>
     );
@@ -156,14 +157,14 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({
     ) => (
       <div className="flex flex-col h-full min-h-[120px]">
         <div className="flex items-end justify-center gap-2 flex-1 min-h-[80px]">
-          <div
+          <div data-finance={'chart-bar chart-income' + (tone === 'compare' ? ' chart-previous' : '')}
             className={`w-8 rounded-t ${
               tone === 'primary' ? 'bg-emerald-500/85' : 'bg-emerald-500/40 border border-emerald-500/20'
             }`}
             style={{ height: `${Math.max(8, (income / summaryMax) * 100)}%` }}
             title={`Receitas: ${formatCurrency(income)}`}
           />
-          <div
+          <div data-finance={'chart-bar chart-expense' + (tone === 'compare' ? ' chart-previous' : '')}
             className={`w-8 rounded-t ${
               tone === 'primary' ? 'bg-rose-500/85' : 'bg-rose-500/40 border border-rose-500/20'
             }`}
@@ -171,7 +172,7 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({
             title={`Despesas: ${formatCurrency(expense)}`}
           />
         </div>
-        <p
+        <p data-finance={(balance >= 0 ? (tone === 'primary' ? "positive" : "muted") : (tone === 'primary' ? "negative" : "negative"))}
           className={`text-xs font-bold text-center mt-2 tabular-nums ${
             balance >= 0
               ? tone === 'primary'
@@ -206,12 +207,12 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({
             'compare'
           )}
           footer={
-            <div className="flex justify-center gap-6 text-[10px] text-gray-500">
+            <div data-finance="muted" className="flex justify-center gap-6 text-[10px] text-gray-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Receitas
+                <span data-finance="chart-bar chart-income" className="w-2 h-2 rounded-full bg-emerald-500" /> Receitas
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-500" /> Despesas
+                <span data-finance="chart-bar chart-expense" className="w-2 h-2 rounded-full bg-rose-500" /> Despesas
               </span>
             </div>
           }
@@ -241,40 +242,40 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({
             compareItem && maxVal > 0 ? (compareItem.Despesa / maxVal) * 100 : 0;
 
           return (
-            <div
+            <div data-finance="dashboard-month" tabIndex={0} role="img" aria-label={`${item.name}: receitas ${formatCurrency(item.Renda)}, despesas ${formatCurrency(item.Despesa)}${compareItem ? `; ${compareLabel}: receitas ${formatCurrency(compareItem.Renda)}, despesas ${formatCurrency(compareItem.Despesa)}` : ''}`}
               key={index}
               className="flex flex-col items-center justify-end h-full flex-1 max-w-[72px] group relative"
             >
-              <div className="absolute -top-24 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs p-3 rounded pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700 flex flex-col gap-1">
-                <span className="font-bold border-b border-slate-700 pb-1 mb-1">{item.name}</span>
-                <span className="text-emerald-400">R: {formatCurrency(item.Renda)}</span>
-                <span className="text-rose-400">D: {formatCurrency(item.Despesa)}</span>
+              <div data-finance="dashboard-month-tooltip dashboard-painted content" className="absolute -top-24 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs p-3 rounded pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700 flex flex-col gap-1">
+                <span data-finance="divider" className="font-bold border-b border-slate-700 pb-1 mb-1">{item.name}</span>
+                <span data-finance="positive" className="text-emerald-400">R: {formatCurrency(item.Renda)}</span>
+                <span data-finance="negative" className="text-rose-400">D: {formatCurrency(item.Despesa)}</span>
                 {compareItem && (
                   <>
-                    <span className="text-slate-400 border-t border-slate-700 pt-1 mt-1">{compareLabel}</span>
-                    <span className="text-emerald-300/80">R: {formatCurrency(compareItem.Renda)}</span>
-                    <span className="text-rose-300/80">D: {formatCurrency(compareItem.Despesa)}</span>
+                    <span data-finance="muted divider" className="text-slate-400 border-t border-slate-700 pt-1 mt-1">{compareLabel}</span>
+                    <span data-finance="positive" className="text-emerald-300/80">R: {formatCurrency(compareItem.Renda)}</span>
+                    <span data-finance="negative" className="text-rose-300/80">D: {formatCurrency(compareItem.Despesa)}</span>
                   </>
                 )}
               </div>
 
               <div className="flex items-end gap-0.5 w-full justify-center h-full">
-                <div
+                <div data-finance="chart-bar chart-income"
                   className="w-full max-w-[14px] bg-emerald-500/80 hover:bg-emerald-400 rounded-t transition-all"
                   style={{ height: `${Math.max(2, incomeHeight)}%` }}
                 />
-                <div
+                <div data-finance="chart-bar chart-expense"
                   className="w-full max-w-[14px] bg-rose-500/80 hover:bg-rose-400 rounded-t transition-all"
                   style={{ height: `${Math.max(2, expenseHeight)}%` }}
                 />
                 {useYearlyPaired && (
                   <>
-                    <div className="w-px h-full bg-white/10 mx-0.5" />
-                    <div
+                    <div data-finance="inset" className="w-px h-full bg-white/10 mx-0.5" />
+                    <div data-finance="chart-bar chart-income chart-previous"
                       className="w-full max-w-[14px] bg-emerald-500/35 border border-emerald-500/25 rounded-t transition-all"
                       style={{ height: `${Math.max(2, compareIncomeHeight)}%` }}
                     />
-                    <div
+                    <div data-finance="chart-bar chart-expense chart-previous"
                       className="w-full max-w-[14px] bg-rose-500/35 border border-rose-500/25 rounded-t transition-all"
                       style={{ height: `${Math.max(2, compareExpenseHeight)}%` }}
                     />
@@ -282,7 +283,7 @@ const MonthlyEvolutionChart: React.FC<ChartProps> = ({
                 )}
               </div>
 
-              <div className="absolute -bottom-6 w-full text-center text-[10px] text-gray-400 truncate px-1">
+              <div data-finance="muted" className="absolute -bottom-6 w-full text-center text-[10px] text-gray-400 truncate px-1">
                 {item.name}
               </div>
             </div>

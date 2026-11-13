@@ -174,17 +174,17 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">
+            <p data-finance="info" className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300/80">
               Localizar lançamentos
             </p>
-            <h2 className="text-lg font-bold text-white tracking-tight mt-1">
+            <h2 data-finance="content" className="text-lg font-bold text-white tracking-tight mt-1">
               Encontre qualquer transação
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p data-finance="muted" className="text-xs text-slate-400 mt-1">
               A busca considera descrição, conta, categoria, arquivo, data e valor.
             </p>
           </div>
-          <div
+          <div data-finance={hiddenCount > 0 ? "warning-panel" : "success-panel"}
             className={`rounded-xl border px-3 py-2 text-sm ${
               hiddenCount > 0
                 ? 'border-amber-400/30 bg-amber-400/10 text-amber-100'
@@ -195,7 +195,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
             <span className="font-bold tabular-nums">{visibleCount}</span> de{' '}
             <span className="font-bold tabular-nums">{totalCount}</span> visíveis
             {hiddenCount > 0 ? (
-              <span className="block text-xs mt-0.5 text-amber-100/75">
+              <span data-finance="warning" className="block text-xs mt-0.5 text-amber-100/75">
                 {hiddenCount} fora da visão atual — os dados não foram apagados.
               </span>
             ) : null}
@@ -214,7 +214,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Período</p>
+            <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Período</p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(periodLabels) as Array<Exclude<TransactionPeriodPreset, 'custom'>>).map((preset) => {
                 const selected =
@@ -222,7 +222,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
                     ? filters.periodPreset === 'all' || filters.viewScope === 'all'
                     : filters.periodPreset === preset && filters.viewScope !== 'all';
                 return (
-                  <button
+                  <button data-finance={selected ? "secondary selected" : "secondary"}
                     key={preset}
                     type="button"
                     onClick={() => selectPeriod(preset)}
@@ -241,12 +241,12 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
           </div>
 
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+            <p data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
               Origem
             </p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(sourceLabels) as TransactionSourceScope[]).map((sourceScope) => (
-                <button
+                <button data-finance={filters.sourceScope === sourceScope ? "secondary selected" : "secondary"}
                   key={sourceScope}
                   type="button"
                   onClick={() => selectSource(sourceScope)}
@@ -260,7 +260,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
                   {sourceLabels[sourceScope]}
                 </button>
               ))}
-              <button
+              <button data-finance={filters.viewScope === "commitments" ? "secondary selected" : "secondary"}
                 type="button"
                 onClick={() =>
                   onChange({ viewScope: filters.viewScope === 'commitments' ? 'operation' : 'commitments' })
@@ -280,11 +280,11 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
 
         {activeChips.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2" aria-label="Filtros ativos">
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            <span data-finance="muted" className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
               Ativos
             </span>
             {activeChips.map((chip) => (
-              <button
+              <button data-finance="secondary"
                 key={chip.key}
                 type="button"
                 onClick={chip.clear}
@@ -292,7 +292,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
                 className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/90 px-2.5 py-1 text-xs text-slate-200 hover:border-cyan-400/50 hover:text-white"
               >
                 {chip.label}
-                <span aria-hidden className="text-slate-400">×</span>
+                <span data-finance="muted" aria-hidden className="text-slate-400">×</span>
               </button>
             ))}
           </div>
@@ -318,7 +318,7 @@ const SmartTransactionFiltersPanel: React.FC<SmartTransactionFiltersPanelProps> 
         </div>
 
         {advancedOpen ? (
-          <div className="border-t border-white/10 pt-4 space-y-4">
+          <div data-finance="divider" className="border-t border-white/10 pt-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
               <Input
                 id="smart-filter-start-date"

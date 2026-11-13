@@ -778,7 +778,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
   return (
     <>
-    <Modal
+    <Modal manageFocus
       isOpen={true}
       onClose={onClose}
       overlayClassName="z-[55]"
@@ -800,13 +800,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     >
       <form id="new-transaction-form" onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         {isInvoicePaymentEdit && (
-          <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90">
+          <p data-finance="warning-panel" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90">
             {INVOICE_PAYMENT_EDIT_GUIDANCE}
           </p>
         )}
         {bankSidePayment && bankSideTargetCard && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
-            <p className="text-xs text-amber-100/90 leading-relaxed">
+          <div data-finance="warning-panel" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+            <p data-finance="warning" className="text-xs text-amber-100/90 leading-relaxed">
               Isto parece o pagamento da fatura de um cartão. Use <strong>Pagar fatura</strong>: o FinElo lança a
               saída desta conta e abate a fatura escolhida juntos.
             </p>
@@ -844,11 +844,11 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                   Ir para Pagar fatura
                 </Button>
               ) : (
-                <p className="text-xs text-gray-300">«Pagar fatura» fica no card do cartão, na tela Transações.</p>
+                <p data-finance="muted" className="text-xs text-gray-300">«Pagar fatura» fica no card do cartão, na tela Transações.</p>
               )}
             </div>
-            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
-              <input
+            <label data-finance="muted" className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+              <input data-finance="choice"
                 type="checkbox"
                 checked={notCardPayment}
                 onChange={(e) => setNotCardPayment(e.target.checked)}
@@ -859,16 +859,16 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           </div>
         )}
         {isImportedEdit && (
-          <p className="rounded-xl border border-slate-600/60 bg-slate-800/60 p-3 text-xs leading-relaxed text-slate-300">
+          <p data-finance="inset divider content" className="rounded-xl border border-slate-600/60 bg-slate-800/60 p-3 text-xs leading-relaxed text-slate-300">
             Lançamento importado do seu banco: aqui você pode alterar a descrição, a categoria, o vínculo com
             patrimônio e a data de pagamento. Valor, data da compra, conta e parcelas vêm do arquivo e ficam
             como foram importados.
           </p>
         )}
         {!initialTransaction && onPayCreditCardInvoice && creditCardAccounts.length > 0 && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-3">
-            <p className="text-xs text-emerald-100/95 leading-relaxed">
-              Quer <strong className="text-white">pagar a fatura</strong> do cartão? Use o fluxo dedicado — você
+          <div data-finance="success-panel" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-3">
+            <p data-finance="positive" className="text-xs text-emerald-100/95 leading-relaxed">
+              Quer <strong data-finance="content" className="text-white">pagar a fatura</strong> do cartão? Use o fluxo dedicado — você
               escolhe a competência e a conta de origem do pagamento.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
@@ -941,12 +941,12 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           leitura do sistema antes de salvar.
         */}
         {showSeparatePaymentDate && isCreditCardAccount && faturaDestinoBR && (
-          <p className="text-[11px] text-cyan-300/80 -mt-2">
+          <p data-finance="info" className="text-[11px] text-cyan-300/80 -mt-2">
             Esta compra irá para a fatura que vence em <strong>{faturaDestinoBR}</strong>.
           </p>
         )}
         {!showSeparatePaymentDate && selectedAccount && (
-          <p className="text-[11px] text-gray-500 -mt-2">
+          <p data-finance="muted" className="text-[11px] text-gray-500 -mt-2">
             Para {selectedAccount.Tipo_Conta === 'Cartão de Crédito' ? 'estornos' : 'débito, alimentação ou dinheiro'},
             a data da compra é a mesma do pagamento.
           </p>
@@ -986,13 +986,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         </div>
 
         {isCreditCardAccount && selectedAccount && (
-          <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-3 space-y-3">
-            <p className="text-xs text-cyan-100/90 leading-relaxed">
-              Conta de <strong className="text-white">cartão de crédito</strong>: escolha o tipo abaixo. Compras usam{' '}
-              <strong className="text-white">Data da Compra</strong> e{' '}
-              <strong className="text-white">Fatura desta compra</strong> (o vencimento da fatura em que ela será
+          <div data-finance="info-panel" className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-3 space-y-3">
+            <p data-finance="info" className="text-xs text-cyan-100/90 leading-relaxed">
+              Conta de <strong data-finance="content" className="text-white">cartão de crédito</strong>: escolha o tipo abaixo. Compras usam{' '}
+              <strong data-finance="content" className="text-white">Data da Compra</strong> e{' '}
+              <strong data-finance="content" className="text-white">Fatura desta compra</strong> (o vencimento da fatura em que ela será
               cobrada); estornos usam só a data da compra e a competência da fatura; pagamentos devem usar{' '}
-              <strong className="text-white">Pagar fatura</strong>.
+              <strong data-finance="content" className="text-white">Pagar fatura</strong>.
             </p>
             <Select
               label="Tipo de lançamento no cartão"
@@ -1012,8 +1012,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </Select>
 
             {showPaymentGuide && !isInvoicePaymentEdit && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 space-y-2">
-                <p className="text-xs text-amber-100/90 leading-relaxed">
+              <div data-finance="warning-panel" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 space-y-2">
+                <p data-finance="warning" className="text-xs text-amber-100/90 leading-relaxed">
                   Pagamento de fatura se registra em <strong>Pagar fatura</strong> (no card do cartão, na tela
                   Transações), onde você escolhe qual fatura está pagando e de qual conta saiu o dinheiro.
                 </p>
@@ -1056,7 +1056,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     </option>
                   ))}
                 </Select>
-                <p className="text-[11px] text-gray-500 leading-relaxed">
+                <p data-finance="muted" className="text-[11px] text-gray-500 leading-relaxed">
                   O estorno reduz o total da fatura na competência escolhida (não usa só a data do
                   lançamento).
                 </p>
@@ -1089,8 +1089,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               + Regra
             </Button>
           </div>
-          <p className="text-[11px] text-slate-400 leading-snug">
-            Use <span className="text-slate-300 font-medium">+ Regra</span> para mapear esta descrição em
+          <p data-finance="muted" className="text-[11px] text-slate-400 leading-snug">
+            Use <span data-finance="muted" className="text-slate-300 font-medium">+ Regra</span> para mapear esta descrição em
             futuras importações (ex.: todo &quot;UBER&quot; vira &quot;Uber Viagem&quot;).
           </p>
         </div>
@@ -1138,7 +1138,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     {c.Nome_Categoria}
                   </option>
                 ))}
-              <option value="ADD_NEW_CATEGORY" className="text-highlight font-bold">
+              <option data-finance="info" value="ADD_NEW_CATEGORY" className="text-highlight font-bold">
                 + Adicionar Categoria
               </option>
             </Select>
@@ -1168,7 +1168,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             placeholder="0,00"
           />
           {isInstallment && transaction.Valor && !isNaN(parseFloat(transaction.Valor)) && (
-            <p className="text-xs text-accent text-right">
+            <p data-finance="positive" className="text-xs text-accent text-right">
               Isso resultará em {recurrenceCount} parcelas de{' '}
               <strong>{formatCurrency(parseFloat(transaction.Valor) / parseFloat(recurrenceCount))}</strong>
             </p>
@@ -1176,7 +1176,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         </div>
 
         {transaction.Tipo === 'Despesa' && assets.length > 0 && (
-          <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 space-y-2">
+          <div data-finance="inset divider content" className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 space-y-2">
             <Select
               label="Vincular a um Patrimônio / Financiamento"
               name="linked_asset_id"
@@ -1193,16 +1193,16 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                   </option>
                 ))}
             </Select>
-            <p className="text-[10px] text-gray-500 italic">
+            <p data-finance="muted" className="text-[10px] text-gray-500 italic">
               * Ao vincular, o valor será abatido automaticamente do saldo devedor do bem.
             </p>
           </div>
         )}
 
         {!(isCreditCardAccount && cardEntryKind === 'refund') && (
-          <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
+          <div data-finance="inset divider content" className="bg-slate-800 p-4 rounded-lg border border-slate-700">
             <div className="flex items-center gap-2 mb-3">
-              <input
+              <input data-finance="choice"
                 type="checkbox"
                 id="isRecurrent"
                 checked={isRecurrent}
@@ -1211,7 +1211,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 {...paymentLock}
                 className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-highlight focus:ring-accent"
               />
-              <label htmlFor="isRecurrent" className="text-sm font-medium text-gray-200 cursor-pointer select-none">
+              <label data-finance="muted" htmlFor="isRecurrent" className="text-sm font-medium text-gray-200 cursor-pointer select-none">
                 Repetir este lançamento?
               </label>
             </div>
@@ -1220,7 +1220,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               <div className="pl-6 space-y-3 animate-fadeIn">
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
+                    <input data-finance="choice"
                       type="radio"
                       name="recurrenceType"
                       value="installments"
@@ -1228,10 +1228,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                       onChange={() => setRecurrenceType('installments')}
                       className="text-highlight focus:ring-accent bg-gray-700 border-gray-600"
                     />
-                    <span className="text-sm text-gray-300">Parcelado (Compra 10x)</span>
+                    <span data-finance="muted" className="text-sm text-gray-300">Parcelado (Compra 10x)</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
+                    <input data-finance="choice"
                       type="radio"
                       name="recurrenceType"
                       value="fixed"
@@ -1239,16 +1239,17 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                       onChange={() => setRecurrenceType('fixed')}
                       className="text-highlight focus:ring-accent bg-gray-700 border-gray-600"
                     />
-                    <span className="text-sm text-gray-300">Fixo Mensal (Recorrente)</span>
+                    <span data-finance="muted" className="text-sm text-gray-300">Fixo Mensal (Recorrente)</span>
                   </label>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">
+                  <span data-finance="muted" className="text-sm text-gray-400">
                     {isInstallment ? 'Número de parcelas:' : 'Repetir por quantos meses?'}
                   </span>
                   <Input
                     type="number"
+                    aria-label={isInstallment ? 'Número de parcelas' : 'Quantidade de meses'}
                     value={recurrenceCount}
                     onChange={(e) => setRecurrenceCount(e.target.value)}
                     min="2"
@@ -1256,10 +1257,10 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     className="w-24 !mb-0"
                     error={errors.Recurrence}
                   />
-                  {isFixed && <span className="text-xs text-gray-500">(Use um número alto para "indefinido")</span>}
+                  {isFixed && <span data-finance="muted" className="text-xs text-gray-500">(Use um número alto para "indefinido")</span>}
                 </div>
 
-                <div className="text-xs text-accent bg-accent/10 p-2 rounded border border-accent/20">
+                <div data-finance="success-panel" className="text-xs text-accent bg-accent/10 p-2 rounded border border-accent/20">
                   {isInstallment
                     ? `O valor total será dividido em ${recurrenceCount}x. Ex: "TV (1/${recurrenceCount})", "TV (2/${recurrenceCount})"...`
                     : `O lançamento será clonado ${recurrenceCount || 0} vezes para os próximos meses.`}

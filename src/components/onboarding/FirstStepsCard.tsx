@@ -1,3 +1,4 @@
+import '../appearance/dashboard.css';
 import React from 'react';
 import Button from '../ui/Button';
 import type { FirstStepId, FirstStepStatus, FirstStepsPhase } from '../../domain/onboarding/firstSteps';
@@ -64,16 +65,16 @@ const FirstStepsCard: React.FC<FirstStepsCardProps> = ({
   const headline = HEADLINE[phase];
 
   return (
-    <section
+    <section data-finance="surface divider"
       id="dashboard-first-steps"
       aria-labelledby="first-steps-title"
       className="bg-gradient-to-r from-secondary to-primary/50 rounded-xl p-6 border border-accent/20 shadow-lg mb-6 space-y-5"
     >
       <div>
-        <h2 id="first-steps-title" className="text-xl font-bold text-light">
+        <h2 data-finance="content" id="first-steps-title" className="text-xl font-bold text-light">
           {headline.title}
         </h2>
-        <p className="text-gray-400 text-sm mt-1">{headline.subtitle}</p>
+        <p data-finance="muted" className="text-gray-400 text-sm mt-1">{headline.subtitle}</p>
       </div>
 
       <ol className="grid gap-3 sm:grid-cols-3">
@@ -81,7 +82,7 @@ const FirstStepsCard: React.FC<FirstStepsCardProps> = ({
           const copy = STEP_COPY[step.id];
           const isActive = step.status === 'active';
           return (
-            <li
+            <li data-finance={(isActive ? "positive-panel" : "divider inset")}
               key={step.id}
               aria-current={isActive ? 'step' : undefined}
               className={`rounded-lg border p-3 ${
@@ -89,10 +90,10 @@ const FirstStepsCard: React.FC<FirstStepsCardProps> = ({
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-light">
+                <span data-finance="content" className="text-sm font-semibold text-light">
                   {index + 1}. {copy.title}
                 </span>
-                <span
+                <span data-finance={(step.status === 'done' ? "positive" : (isActive ? "positive" : "muted"))}
                   className={`text-[10px] font-bold uppercase tracking-wide ${
                     step.status === 'done' ? 'text-success' : isActive ? 'text-accent' : 'text-gray-500'
                   }`}
@@ -101,7 +102,7 @@ const FirstStepsCard: React.FC<FirstStepsCardProps> = ({
                   {STATUS_LABEL[step.status]}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">{copy.description}</p>
+              <p data-finance="muted" className="text-xs text-gray-400 mt-1">{copy.description}</p>
             </li>
           );
         })}
@@ -143,12 +144,12 @@ const FirstStepsCard: React.FC<FirstStepsCardProps> = ({
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {phase === 'start' && (
-          <button type="button" onClick={onHowToDownload} className={linkClass}>
+          <button data-finance="positive" type="button" onClick={onHowToDownload} className={linkClass}>
             Não sabe como baixar seu extrato?
           </button>
         )}
         {phase !== 'view' && (
-          <button type="button" onClick={onDismiss} className={`${linkClass} text-gray-400`}>
+          <button data-finance={["positive","muted"].filter(Boolean).join(' ')} type="button" onClick={onDismiss} className={`${linkClass} text-gray-400`}>
             Agora não
           </button>
         )}

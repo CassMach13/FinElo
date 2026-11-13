@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import '../appearance/remaining.css';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appAlert } from '../../hooks/useDialogStore';
 import {
@@ -28,6 +29,13 @@ const SupportAttachmentLink: React.FC<SupportAttachmentLinkProps> = ({
 }) => {
   const getSupportAttachmentAccess = useAppStore((state) => state.getSupportAttachmentAccess);
   const [isOpening, setIsOpening] = useState(false);
+  // The authenticated shell remounts by account. Only a pending blank window is owned here.
+  const mounted = useRef(true);
+  const pendingWindow = useRef<Window | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; pendingWindow.current?.close(); };
+  }, []);
 
   const legacyUrl = useMemo(() => {
     const value = attachment_url?.trim();
@@ -38,7 +46,7 @@ const SupportAttachmentLink: React.FC<SupportAttachmentLinkProps> = ({
 
   if (!attachment_path && legacyUrl) {
     return (
-      <a
+      <a data-finance="link"
         href={legacyUrl}
         target="_blank"
         rel="noopener noreferrer"
@@ -54,10 +62,12 @@ const SupportAttachmentLink: React.FC<SupportAttachmentLinkProps> = ({
     if (isOpening) return;
     setIsOpening(true);
     const targetWindow = window.open('about:blank', '_blank');
+    pendingWindow.current = targetWindow;
     if (targetWindow) targetWindow.opener = null;
 
     try {
       const access = await getSupportAttachmentAccess({ attachment_path, attachment_url });
+      if (!mounted.current) { targetWindow?.close(); return; }
       if (access.status === 'none') {
         targetWindow?.close();
         return;
@@ -73,14 +83,16 @@ const SupportAttachmentLink: React.FC<SupportAttachmentLinkProps> = ({
       }
     } catch (error) {
       targetWindow?.close();
+      if (!mounted.current) return;
       await appAlert(supportAttachmentUserMessage(error), 'Erro ao abrir anexo', 'danger');
     } finally {
-      setIsOpening(false);
+      pendingWindow.current = null;
+      if (mounted.current) setIsOpening(false);
     }
   };
 
   return (
-    <button
+    <button data-finance="link"
       type="button"
       onClick={handleOpen}
       disabled={isOpening}

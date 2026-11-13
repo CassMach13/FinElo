@@ -1,3 +1,4 @@
+import '../appearance/remaining.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appConfirm } from '../../hooks/useDialogStore';
@@ -79,33 +80,33 @@ export const GoalsPanel: React.FC<GoalsPanelProps> = ({
     <div id="goals-view" className="space-y-6 pb-12">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-white">{GOALS_TITLE}</h1>
-          <p className="text-sm text-gray-400">{GOALS_SUBTITLE}</p>
+          <h1 data-finance="content" className="text-2xl font-bold text-white">{GOALS_TITLE}</h1>
+          <p data-finance="muted" className="text-sm text-gray-400">{GOALS_SUBTITLE}</p>
         </div>
         <Button onClick={() => setModal({ kind: 'create' })} className="shrink-0">
           + Novo objetivo
         </Button>
       </div>
 
-      <p className="flex items-start gap-1.5 text-xs leading-snug text-gray-500">
+      <p data-finance="muted" className="flex items-start gap-1.5 text-xs leading-snug text-gray-500">
         <InformationCircleIcon className="mt-px h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 break-words">{GOALS_MANUAL_NOTE}</span>
       </p>
 
       {status === 'error' && isEmpty ? (
-        <div role="alert" className="rounded-2xl border border-white/5 bg-secondary/30 p-6 text-center">
-          <p className="text-sm text-gray-300">Não foi possível carregar seus objetivos.</p>
+        <div data-finance="surface divider" role="alert" className="rounded-2xl border border-white/5 bg-secondary/30 p-6 text-center">
+          <p data-finance="content" className="text-sm text-gray-300">Não foi possível carregar seus objetivos.</p>
           <Button variant="secondary" className="mt-3" onClick={onRetry}>
             Tentar novamente
           </Button>
         </div>
       ) : (status === 'idle' || status === 'loading') && isEmpty ? (
-        <p className="text-sm text-gray-400" aria-live="polite">
+        <p data-finance="muted" className="text-sm text-gray-400" aria-live="polite">
           Carregando objetivos…
         </p>
       ) : isEmpty ? (
-        <div className="rounded-2xl border border-white/5 bg-secondary/30 p-8 text-center">
-          <p className="mx-auto max-w-sm text-lg font-semibold text-white">{GOALS_EMPTY_TITLE}</p>
+        <div data-finance="surface divider" className="rounded-2xl border border-white/5 bg-secondary/30 p-8 text-center">
+          <p data-finance="content" className="mx-auto max-w-sm text-lg font-semibold text-white">{GOALS_EMPTY_TITLE}</p>
           <Button className="mt-4" onClick={() => setModal({ kind: 'create' })}>
             {GOALS_EMPTY_CTA}
           </Button>
@@ -124,7 +125,7 @@ export const GoalsPanel: React.FC<GoalsPanelProps> = ({
 
           {archived.length > 0 && (
             <section>
-              <button
+              <button data-finance="content"
                 type="button"
                 aria-expanded={showArchived}
                 aria-controls="goals-archived"

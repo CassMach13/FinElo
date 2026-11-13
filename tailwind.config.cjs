@@ -16,6 +16,12 @@ module.exports = {
         light: '#f7fafc',
         'dark-text': '#e2e8f0',
         danger: '#f56565',
+        'theme-canvas': 'rgb(var(--appearance-canvas) / <alpha-value>)',
+        'theme-surface': 'rgb(var(--appearance-surface) / <alpha-value>)',
+        'theme-content': 'rgb(var(--appearance-content) / <alpha-value>)',
+        'theme-muted': 'rgb(var(--appearance-muted) / <alpha-value>)',
+        'theme-divider': 'rgb(var(--appearance-divider) / <alpha-value>)',
+        'theme-focus': 'rgb(var(--appearance-focus) / <alpha-value>)',
       },
       fontFamily: {
         // Landing + futuro app: Plus Jakarta Sans (scoped na landing via font-landing)
