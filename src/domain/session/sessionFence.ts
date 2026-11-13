@@ -1,6 +1,6 @@
 import {
   getActiveSessionUserId,
-  hasPendingOperationFromOtherIdentity,
+  hasPendingOperationFromEarlierSession,
   readBearerIdentity,
 } from './sessionScope';
 
@@ -11,22 +11,29 @@ import {
  * Esta barreira não consegue atribuir a requisição à operação, então aplica duas regras conservadoras sobre o
  * portador (`sub` do JWT):
  *
+ *  R0 — sem identidade ativa, nenhuma credencial de usuário: durante o logout (o SDK ainda guarda o token até o
+ *       servidor responder), antes da inicialização confirmar a sessão e no fluxo de recuperação de senha, a aba não
+ *       exibe ninguém; nada sai com token de usuário. A chave publicável segue (dados públicos).
  *  R1 — identidade: se a aba exibe o usuário X, nenhuma requisição sai com credencial de Y (ex.: outra aba trocou a
  *       sessão compartilhada e esta ainda não processou o evento).
- *  R2 — quarentena de gravação: enquanto houver operação em voo de OUTRA identidade, nenhuma gravação (método
- *       diferente de GET/HEAD/OPTIONS, incluindo RPC) sai com a credencial atual. Assim uma operação iniciada por A
- *       não grava com o token de B; as leituras dela seguem, mas o resultado já é descartado pelo epoch.
+ *  R2 — quarentena de gravação: enquanto houver operação em voo de uma GERAÇÃO de sessão anterior (outra identidade,
+ *       o mesmo usuário antes de um logout/relogin, ou uma ação chamada durante a transição), nenhuma gravação
+ *       (método diferente de GET/HEAD/OPTIONS, incluindo RPC) sai. Assim uma operação antiga não grava nem com o
+ *       token da nova conta nem, em silêncio, na nova sessão do mesmo usuário; as leituras seguem, mas o resultado
+ *       já é descartado pelo epoch.
  *
  * O isolamento definitivo por operação (cliente vinculado a cada sessão) fica para a Etapa 2.
  */
 
 export class SessionFenceError extends Error {
-  readonly code: 'identity_mismatch' | 'cross_identity_write';
+  readonly code: 'no_active_identity' | 'identity_mismatch' | 'stale_session_write';
   constructor(code: SessionFenceError['code']) {
     super(
-      code === 'identity_mismatch'
-        ? 'A sessão desta aba mudou. Atualize a página para continuar.'
-        : 'Há uma operação da sessão anterior em andamento. Tente novamente em instantes.'
+      code === 'no_active_identity'
+        ? 'A sessão foi encerrada. Entre novamente para continuar.'
+        : code === 'identity_mismatch'
+          ? 'A sessão desta aba mudou. Atualize a página para continuar.'
+          : 'Há uma operação da sessão anterior em andamento. Tente novamente em instantes.'
     );
     this.name = 'SessionFenceError';
     this.code = code;
@@ -65,8 +72,9 @@ export function sessionFenceDecision(
   const identity = readBearerIdentity(bearer);
   if (!identity) return null;
   const active = getActiveSessionUserId();
-  if (active && identity.sub !== active) return 'identity_mismatch';
-  if (!SAFE_METHODS.has(method) && hasPendingOperationFromOtherIdentity(identity.sub)) return 'cross_identity_write';
+  if (!active) return 'no_active_identity';
+  if (identity.sub !== active) return 'identity_mismatch';
+  if (!SAFE_METHODS.has(method) && hasPendingOperationFromEarlierSession()) return 'stale_session_write';
   return null;
 }
 

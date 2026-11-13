@@ -8,8 +8,9 @@
  * Uma operação captura um `SessionTicket` ao começar. Ela só pode afetar o estado enquanto o ticket for atual; um
  * ticket de A não volta a valer em A → B → A, porque o epoch já avançou duas vezes.
  *
- * Também registra as operações em voo (por identidade) para a barreira de rede (`sessionFence.ts`), que bloqueia
- * gravações enquanto houver trabalho pendente de OUTRA identidade.
+ * Também registra TODAS as operações em voo (inclusive as iniciadas sem identidade, ex.: no meio de um logout) com
+ * a geração em que começaram. A barreira de rede (`sessionFence.ts`) bloqueia gravações enquanto houver trabalho
+ * pendente de uma geração ANTERIOR — seja de outra identidade (A → B), seja do mesmo usuário (A → B → A, relogin).
  */
 
 export interface SessionTicket {
@@ -20,7 +21,7 @@ export interface SessionTicket {
 }
 
 interface PendingOperation {
-  readonly userId: string;
+  readonly userId: string | null;
   readonly epoch: number;
   readonly label: string;
 }
@@ -109,9 +110,12 @@ export function subscribeSessionEpoch(notify: () => void): () => void {
   return () => epochListeners.delete(notify);
 }
 
-/** Registra uma operação assíncrona da identidade do ticket até ela terminar (sucesso ou falha). */
+/**
+ * Registra uma operação assíncrona da geração do ticket até ela terminar (sucesso ou falha). Tickets sem identidade
+ * também contam: uma ação chamada durante o logout retoma depois, quando o cliente global já pode ser de outro
+ * usuário, e precisa ficar em quarentena como qualquer outra operação da geração encerrada.
+ */
 export function trackSessionOperation<T>(ticket: SessionTicket, promise: Promise<T>, label = 'operation'): Promise<T> {
-  if (!ticket.userId) return promise;
   const entry: PendingOperation = { userId: ticket.userId, epoch: ticket.epoch, label };
   pending.add(entry);
   const done = () => {
@@ -121,9 +125,13 @@ export function trackSessionOperation<T>(ticket: SessionTicket, promise: Promise
   return promise;
 }
 
-/** Há operação em voo de uma identidade diferente de `userId`? (base da quarentena de gravações) */
-export function hasPendingOperationFromOtherIdentity(userId: string): boolean {
-  for (const op of pending) if (op.userId !== userId) return true;
+/**
+ * Há operação em voo iniciada numa geração anterior à atual? (base da quarentena de gravações). Cobre outra
+ * identidade (A → B), a mesma identidade numa nova geração (A → B → A, logout → login, nova instância) e operações
+ * iniciadas sem identidade durante uma transição.
+ */
+export function hasPendingOperationFromEarlierSession(): boolean {
+  for (const op of pending) if (op.epoch !== epoch) return true;
   return false;
 }
 

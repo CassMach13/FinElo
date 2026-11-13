@@ -18,6 +18,10 @@ const h = vi.hoisted(() => ({
   tables: new Map<string, Row[]>(),
   requests: [] as Array<{ method: string; table: string; sub: string | null }>,
   getUserGate: null as null | Promise<void>,
+  /** Segura a resposta do servidor ao logout. */
+  signOutGate: null as null | Promise<void>,
+  /** O servidor não confirma o logout (rede/5xx): como o supabase-js, devolve erro e MANTÉM a sessão. */
+  signOutFails: false,
   failTables: new Set<string>(),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   alert: undefined as any,
@@ -80,9 +84,16 @@ vi.mock('../../src/supabaseClient', async () => {
       },
       getSession: async () => ({ data: { session: h.token && h.authUser ? { access_token: h.token, user: h.authUser } : null }, error: null }),
       signOut: async () => {
+        if (h.signOutGate) await h.signOutGate;
+        if (h.signOutFails) return { error: { message: 'Failed to fetch' } };
         h.token = null;
         h.authUser = null;
         return { error: null };
+      },
+      // Caminho interno do SDK que apaga a sessão guardada (contrato verificado em sessionSignOut.spec.ts).
+      _removeSession: async () => {
+        h.token = null;
+        h.authUser = null;
       },
     },
   };
@@ -142,6 +153,8 @@ beforeEach(() => {
   h.tables.clear();
   h.requests.splice(0);
   h.getUserGate = null;
+  h.signOutGate = null;
+  h.signOutFails = false;
   h.failTables.clear();
   h.alert.mockClear();
   h.cardStatements.mockReset();
@@ -501,5 +514,127 @@ describe('5. nenhuma operação pendente usa credenciais de outro usuário', () 
     const result = await useAppStore.getState().addCategory({ Nome_Categoria: 'De B', Tipo: 'Despesa' } as never);
     expect(result.status).toBe('created');
     expect(h.tables.get('categories')!.find((c) => c.Nome_Categoria === 'De B')?.user_id).toBe(B.id);
+  });
+});
+
+describe('logout pendente e sessão encerrada (homologação do PR #100)', () => {
+  const gateSignOut = () => {
+    let finish!: () => void;
+    h.signOutGate = new Promise<void>((r) => (finish = r));
+    return () => finish();
+  };
+  const gateGetUser = () => {
+    let resume!: () => void;
+    h.getUserGate = new Promise<void>((r) => (resume = r));
+    return () => {
+      h.getUserGate = null;
+      resume();
+    };
+  };
+  const categoryNamed = (name: string) => (h.tables.get('categories') ?? []).filter((c) => c.Nome_Categoria === name);
+
+  it('logout lento: a tela é limpa antes da resposta do servidor', async () => {
+    signInAs(A);
+    await useAppStore.getState().fetchAllData();
+    expect(useAppStore.getState().accounts.length).toBeGreaterThan(0);
+    const finish = gateSignOut();
+    const out = useAppStore.getState().signOut();
+    await flush();
+    const during = useAppStore.getState();
+    expect(during.user).toBeNull();
+    expect(during.accounts).toHaveLength(0);
+    expect(during.transactions).toHaveLength(0);
+    expect(during.categories).toHaveLength(0);
+    expect(during.assets).toHaveLength(0);
+    finish();
+    await out;
+    expect(useAppStore.getState().user).toBeNull();
+  });
+
+  it('logout sem confirmação do servidor: estado limpo e a sessão é esquecida neste dispositivo', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    signInAs(A);
+    await useAppStore.getState().fetchAllData();
+    h.signOutFails = true;
+    await useAppStore.getState().signOut();
+    expect(useAppStore.getState().user).toBeNull();
+    expect(useAppStore.getState().accounts).toHaveLength(0);
+    // Um recarregamento não restauraria A.
+    expect(h.token).toBeNull();
+    expect(h.authUser).toBeNull();
+    err.mockRestore();
+  });
+
+  it('durante o logout pendente nada sai com a credencial de A (ex.: sincronização de foco)', async () => {
+    signInAs(A);
+    await useAppStore.getState().fetchAllData();
+    const finish = gateSignOut();
+    const out = useAppStore.getState().signOut();
+    await flush();
+    const before = h.requests.length;
+    await useAppStore.getState().fetchAccounts();
+    await useAppStore.getState().addCategory({ Nome_Categoria: 'No logout', Tipo: 'Despesa' } as never);
+    expect(h.requests.slice(before).filter((r) => r.sub === A.id)).toEqual([]);
+    expect(useAppStore.getState().accounts).toHaveLength(0);
+    expect(categoryNamed('No logout')).toHaveLength(0);
+    finish();
+    await out;
+  });
+
+  it('operação iniciada durante o logout pendente não grava na conta de B depois do login de B', async () => {
+    signInAs(A);
+    const finish = gateSignOut();
+    const out = useAppStore.getState().signOut();
+    await flush();
+    const resume = gateGetUser();
+    const op = useAppStore.getState().addCategory({ Nome_Categoria: 'Iniciada no logout', Tipo: 'Despesa' } as never);
+    await flush();
+    finish();
+    await out;
+    signInAs(B);
+    resume();
+    const result = await op;
+    expect(result.status).not.toBe('created');
+    expect(categoryNamed('Iniciada no logout')).toHaveLength(0);
+    expect(h.requests.filter((r) => r.method === 'POST' && r.table === 'categories')).toHaveLength(0);
+    // Terminada a operação antiga, B grava normalmente na própria conta.
+    await flush();
+    const own = await useAppStore.getState().addCategory({ Nome_Categoria: 'De B', Tipo: 'Despesa' } as never);
+    expect(own.status).toBe('created');
+    expect(categoryNamed('De B').map((c) => c.user_id)).toEqual([B.id]);
+  });
+
+  it('A → B → A pelo store: gravação da primeira sessão de A não persiste em silêncio na nova sessão de A', async () => {
+    signInAs(A, 'sess-A-1');
+    const resume = gateGetUser();
+    const op = useAppStore.getState().addCategory({ Nome_Categoria: 'Da sessão antiga', Tipo: 'Despesa' } as never);
+    await flush();
+    await useAppStore.getState().signOut();
+    signInAs(B);
+    await useAppStore.getState().signOut();
+    signInAs(A, 'sess-A-2');
+    resume();
+    const result = await op;
+    expect(result.status).not.toBe('created');
+    expect(categoryNamed('Da sessão antiga')).toHaveLength(0);
+    await flush();
+    const fresh = await useAppStore.getState().addCategory({ Nome_Categoria: 'Da sessão nova', Tipo: 'Despesa' } as never);
+    expect(fresh.status).toBe('created');
+    expect(categoryNamed('Da sessão nova').map((c) => c.user_id)).toEqual([A.id]);
+  });
+
+  it('logout → login do mesmo usuário: gravação da sessão encerrada também não persiste', async () => {
+    signInAs(A, 'sess-A-1');
+    const resume = gateGetUser();
+    const op = useAppStore.getState().addCategory({ Nome_Categoria: 'Antes do relogin', Tipo: 'Despesa' } as never);
+    await flush();
+    await useAppStore.getState().signOut();
+    signInAs(A, 'sess-A-2');
+    await useAppStore.getState().fetchCategories();
+    resume();
+    const result = await op;
+    expect(result.status).not.toBe('created');
+    expect(categoryNamed('Antes do relogin')).toHaveLength(0);
+    expect(useAppStore.getState().categories.some((c) => c.Nome_Categoria === 'Antes do relogin')).toBe(false);
   });
 });

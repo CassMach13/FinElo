@@ -2,6 +2,7 @@ import { create, type StateCreator } from 'zustand';
 import { appAlert, useDialogStore } from './useDialogStore';
 import { withSessionCommitFence } from '../domain/session/sessionCommitFence';
 import { captureSession, commitSessionIdentity, endSession, getSessionEpoch, onSessionTransition } from '../domain/session/sessionScope';
+import { signOutAndForgetLocalSession } from '../domain/session/sessionSignOut';
 import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
 import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
 import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
@@ -1949,26 +1950,30 @@ const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => ({
   },
 
   signOut: async () => {
-    // Encerra a geração da sessão ANTES de esperar o servidor: nada em voo grava no estado depois daqui.
+    // Encerra a geração e limpa a tela ANTES de esperar o servidor: um logout lento não deixa os dados à mostra, nada
+    // em voo grava no estado depois daqui, e a barreira de rede recusa credencial de usuário sem identidade ativa.
     endSession();
-    assetSessionGeneration += 1; // invalida antes de esperar a resposta do logout
-    set({ assets: [] });
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Erro ao fazer log-off (mas limpando estado local):', error.message);
-    }
-
+    assetSessionGeneration += 1;
     goalsFetchGeneration += 1; // busca de objetivos em voo não vale mais depois do logout
     economicEventsFetchGeneration += 1; // idem para eventos econômicos (vale mesmo se o mesmo usuário logar de novo)
     transactionsFetchGeneration += 1; // e para o histórico de transações (sessão antiga nunca grava na nova)
-    // Limpa o estado da aplicação SEMPRE, independente do erro no servidor — a MESMA limpeza da troca de identidade
-    // (assinatura, plano, convites, tickets, métricas admin, cartões, filtros), não uma lista paralela.
-    // isLoading: um fetch em voo da sessão que saiu não vai liberar o loading (ele é descartado).
+    // A MESMA limpeza da troca de identidade (assinatura, plano, convites, tickets, métricas admin, cartões, filtros),
+    // não uma lista paralela. isLoading: um fetch em voo da sessão que saiu não vai liberar o loading.
     set((state) => ({
       ...sessionResetState(state),
       user: null,
       initialDataLoadStatus: 'idle',
     }));
+    // Sem confirmação do servidor (rede, 5xx), a sessão é esquecida neste dispositivo mesmo assim.
+    const outcome = await signOutAndForgetLocalSession(supabase.auth);
+    if (outcome.error) {
+      console.error(
+        outcome.localCleared
+          ? 'Log-off sem confirmação do servidor; sessão removida deste dispositivo:'
+          : 'Log-off sem confirmação do servidor e sessão local não removida:',
+        outcome.error
+      );
+    }
     // O redirecionamento será tratado no componente App.tsx
   },
 

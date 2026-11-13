@@ -71,6 +71,18 @@ describe('barreira de rede — decisão', () => {
     expect(sessionFenceDecision(`${URL_BASE}/rest/v1/x`, 'POST', fakeJwt({ role: 'anon' }), URL_BASE)).toBeNull();
     expect(sessionFenceDecision(`${URL_BASE}/rest/v1/x`, 'POST', null, URL_BASE)).toBeNull();
   });
+  it('R0: sem identidade ativa (logout pendente, inicialização, recuperação de senha) nenhuma credencial de usuário sai', () => {
+    for (const path of ['/rest/v1/transactions', '/storage/v1/object/x', '/functions/v1/f']) {
+      expect(sessionFenceDecision(`${URL_BASE}${path}`, 'GET', userJwt('A'), URL_BASE)).toBe('no_active_identity');
+      expect(sessionFenceDecision(`${URL_BASE}${path}`, 'POST', userJwt('A'), URL_BASE)).toBe('no_active_identity');
+      // Chave publicável (dados públicos, ex.: contagem de fundadores) segue.
+      expect(sessionFenceDecision(`${URL_BASE}${path}`, 'GET', ANON, URL_BASE)).toBeNull();
+    }
+    // Auth (logout, recuperação de senha, novo login) nunca é barrado.
+    expect(sessionFenceDecision(`${URL_BASE}/auth/v1/logout`, 'POST', userJwt('A'), URL_BASE)).toBeNull();
+    expect(sessionFenceDecision(`${URL_BASE}/auth/v1/user`, 'PUT', userJwt('A'), URL_BASE)).toBeNull();
+  });
+
   it('R1: a aba exibe A; nada sai com credencial de B (REST, Storage, Functions, leitura ou escrita)', () => {
     commitSessionIdentity('A');
     for (const path of ['/rest/v1/transactions', '/rest/v1/rpc/x', '/storage/v1/object/b/f', '/functions/v1/fn']) {
@@ -151,7 +163,7 @@ describe('barreira de rede — cliente supabase-js real', () => {
     expect((await db.from('items').select('*')).error).toBeNull();
   });
 
-  it('A → B → A: operação da primeira sessão de A grava como A (mesma identidade), nunca como B', async () => {
+  it('A → B → A: operação da primeira sessão de A não grava na nova sessão de A, nem como B', async () => {
     const backend = fakeBackend();
     const db = makeClient(backend);
     commitSessionIdentity('A');
@@ -168,9 +180,25 @@ describe('barreira de rede — cliente supabase-js real', () => {
     commitSessionIdentity('A');
     token = userJwt('A', 'sess-A-2');
     resume();
-    await first;
-    expect(backend.rows.every((r) => r.user_id === 'A')).toBe(true);
-    expect(backend.seen.some((r) => r.sub === 'B' && r.method === 'POST')).toBe(false);
+    const stale = await first;
+    expect(stale.error?.message).toContain('SessionFenceError');
+    expect(backend.rows).toHaveLength(0);
+    expect(backend.seen.some((r) => r.method === 'POST')).toBe(false);
+    // Terminada a operação antiga, a nova sessão de A grava normalmente.
+    await Promise.resolve();
+    expect((await db.from('items').insert([{ name: 'nova' }]).select()).error).toBeNull();
+    expect(backend.rows.map((r) => [r.user_id, r.name])).toEqual([['A', 'nova']]);
+  });
+
+  it('logout pendente: o SDK ainda guarda o token de A, mas nada sai com ele', async () => {
+    const backend = fakeBackend();
+    const db = makeClient(backend);
+    commitSessionIdentity('A');
+    token = userJwt('A');
+    endSession(); // o servidor ainda não respondeu ao logout
+    expect((await db.from('items').select('*')).error?.message).toContain('SessionFenceError');
+    expect((await db.from('items').insert([{ name: 'x' }]).select()).error?.message).toContain('SessionFenceError');
+    expect(backend.seen).toHaveLength(0);
   });
 
   it('sessão expirada / logout: requisições saem anônimas (a RLS nega) e a barreira não as atribui a ninguém', async () => {

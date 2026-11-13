@@ -20,19 +20,20 @@ index a813f10..09432ba 100644
  
        if (_event === 'SIGNED_IN') {
 diff --git a/src/hooks/useAppStore.ts b/src/hooks/useAppStore.ts
-index ecc9570..27dce71 100644
+index ecc9570..c1a4f9f 100644
 --- a/src/hooks/useAppStore.ts
 +++ b/src/hooks/useAppStore.ts
-@@ -1,5 +1,7 @@
+@@ -1,5 +1,8 @@
 -import { create } from 'zustand';
 +import { create, type StateCreator } from 'zustand';
  import { appAlert, useDialogStore } from './useDialogStore';
 +import { withSessionCommitFence } from '../domain/session/sessionCommitFence';
 +import { captureSession, commitSessionIdentity, endSession, getSessionEpoch, onSessionTransition } from '../domain/session/sessionScope';
++import { signOutAndForgetLocalSession } from '../domain/session/sessionSignOut';
  import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
  import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
  import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
-@@ -576,7 +578,9 @@ let confirmedAppearance: { id: string; theme: 'dark' | 'light' | 'system' } | un
+@@ -576,7 +579,9 @@ let confirmedAppearance: { id: string; theme: 'dark' | 'light' | 'system' } | un
  const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
    const userId = get().user?.id;
    const generation = assetSessionGeneration;
@@ -43,7 +44,7 @@ index ecc9570..27dce71 100644
  };
  
  // Avança a cada troca de `transactions` (add/update/delete/importação, e também o snapshot aplicado). Um snapshot
-@@ -588,8 +592,11 @@ export const BACKGROUND_SYNC_MIN_INTERVAL_MS = 30_000;
+@@ -588,8 +593,11 @@ export const BACKGROUND_SYNC_MIN_INTERVAL_MS = 30_000;
  
  // Carga completa em voo (uma por vez) e a recarga final compartilhada por quem pediu durante o voo.
  // Ambas pertencem a UM usuário: a de A nunca é reaproveitada por B nem roda depois da troca.
@@ -57,7 +58,7 @@ index ecc9570..27dce71 100644
  
  // Cada parte da carga que falha (ou fica velha) avança isto; só uma carga sem avanço vira "recente".
  let refreshFailureCount = 0;
-@@ -620,6 +627,36 @@ const EMPTY_USER_SCOPED_DATA: Partial<AppState> = {
+@@ -620,6 +628,36 @@ const EMPTY_USER_SCOPED_DATA: Partial<AppState> = {
    isLoading: false,
  };
  
@@ -94,7 +95,7 @@ index ecc9570..27dce71 100644
  const switched = (state: Pick<AppState, 'user'>, next: { id?: string } | null) =>
    (next?.id ?? null) !== (state.user?.id ?? null);
  
-@@ -668,7 +705,7 @@ async function mutateGoal(
+@@ -668,7 +706,7 @@ async function mutateGoal(
    return true;
  }
  
@@ -103,7 +104,7 @@ index ecc9570..27dce71 100644
    // ... existing code ...
  
    // --- ESTADO INICIAL ---
-@@ -721,6 +758,9 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -721,6 +759,9 @@ export const useAppStore = create<AppState>((set, get) => ({
    // Filtros de Transação
    setTransactionFilters: (filters) => set({ transactionFilters: filters }),
    setUser: (user) => {
@@ -113,7 +114,7 @@ index ecc9570..27dce71 100644
      if (get().user?.id !== user?.id) {
        // Cancelar uma confirmação nunca autoriza a operação da sessão anterior.
        useDialogStore.getState().closeDialog(false);
-@@ -743,7 +783,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -743,7 +784,7 @@ export const useAppStore = create<AppState>((set, get) => ({
        user,
        // Outro usuário: nada do anterior pode aparecer nem contar como "dado utilizável".
        ...((user?.id ?? null) !== (state.user?.id ?? null)
@@ -122,24 +123,28 @@ index ecc9570..27dce71 100644
          : {}),
        initialDataLoadStatus: deriveInitialDataLoadStatusForUser(
          state.initialDataLoadStatus,
-@@ -1909,6 +1949,8 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -1909,62 +1950,49 @@ export const useAppStore = create<AppState>((set, get) => ({
    },
  
    signOut: async () => {
-+    // Encerra a geração da sessão ANTES de esperar o servidor: nada em voo grava no estado depois daqui.
+-    assetSessionGeneration += 1; // invalida antes de esperar a resposta do logout
+-    set({ assets: [] });
+-    const { error } = await supabase.auth.signOut();
+-    if (error) {
+-      console.error('Erro ao fazer log-off (mas limpando estado local):', error.message);
+-    }
+-
++    // Encerra a geração e limpa a tela ANTES de esperar o servidor: um logout lento não deixa os dados à mostra, nada
++    // em voo grava no estado depois daqui, e a barreira de rede recusa credencial de usuário sem identidade ativa.
 +    endSession();
-     assetSessionGeneration += 1; // invalida antes de esperar a resposta do logout
-     set({ assets: [] });
-     const { error } = await supabase.auth.signOut();
-@@ -1919,52 +1961,33 @@ export const useAppStore = create<AppState>((set, get) => ({
++    assetSessionGeneration += 1;
      goalsFetchGeneration += 1; // busca de objetivos em voo não vale mais depois do logout
      economicEventsFetchGeneration += 1; // idem para eventos econômicos (vale mesmo se o mesmo usuário logar de novo)
      transactionsFetchGeneration += 1; // e para o histórico de transações (sessão antiga nunca grava na nova)
 -    // Limpa o estado da aplicação SEMPRE, independente do erro no servidor
 -    set({
-+    // Limpa o estado da aplicação SEMPRE, independente do erro no servidor — a MESMA limpeza da troca de identidade
-+    // (assinatura, plano, convites, tickets, métricas admin, cartões, filtros), não uma lista paralela.
-+    // isLoading: um fetch em voo da sessão que saiu não vai liberar o loading (ele é descartado).
++    // A MESMA limpeza da troca de identidade (assinatura, plano, convites, tickets, métricas admin, cartões, filtros),
++    // não uma lista paralela. isLoading: um fetch em voo da sessão que saiu não vai liberar o loading.
 +    set((state) => ({
 +      ...sessionResetState(state),
        user: null,
@@ -169,6 +174,16 @@ index ecc9570..27dce71 100644
        initialDataLoadStatus: 'idle',
 -    });
 +    }));
++    // Sem confirmação do servidor (rede, 5xx), a sessão é esquecida neste dispositivo mesmo assim.
++    const outcome = await signOutAndForgetLocalSession(supabase.auth);
++    if (outcome.error) {
++      console.error(
++        outcome.localCleared
++          ? 'Log-off sem confirmação do servidor; sessão removida deste dispositivo:'
++          : 'Log-off sem confirmação do servidor e sessão local não removida:',
++        outcome.error
++      );
++    }
      // O redirecionamento será tratado no componente App.tsx
    },
  
@@ -195,7 +210,7 @@ index ecc9570..27dce71 100644
        }
        return allDataTrailing.promise;
      }
-@@ -2014,7 +2037,8 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -2014,7 +2042,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
            }));
          }
@@ -205,7 +220,7 @@ index ecc9570..27dce71 100644
            await appAlert(
              'Não foi possível concluir a atualização. Seus dados anteriores foram preservados e nenhum registro foi apagado.',
              'Atualização incompleta',
-@@ -2025,7 +2049,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -2025,7 +2054,7 @@ export const useAppStore = create<AppState>((set, get) => ({
      })().finally(() => {
        if (allDataRun?.promise === run) allDataRun = null;
      });
@@ -214,7 +229,7 @@ index ecc9570..27dce71 100644
      return run;
    },
  
-@@ -2034,7 +2058,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -2034,7 +2063,7 @@ export const useAppStore = create<AppState>((set, get) => ({
      const userId = state.user?.id;
      if (!userId) return Promise.resolve();
      // Carga em voo do mesmo usuário: reaproveita (foco + visibilidade disparam juntos).
@@ -223,7 +238,7 @@ index ecc9570..27dce71 100644
      const maxAgeMs = options?.maxAgeMs ?? 0;
      const isFresh =
        maxAgeMs > 0 &&
-@@ -4148,7 +4172,28 @@ export const useAppStore = create<AppState>((set, get) => ({
+@@ -4148,7 +4177,28 @@ export const useAppStore = create<AppState>((set, get) => ({
        await get().fetchAllData();
      }
    },

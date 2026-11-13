@@ -5,7 +5,7 @@ import {
   endSession,
   getActiveSessionUserId,
   getSessionEpoch,
-  hasPendingOperationFromOtherIdentity,
+  hasPendingOperationFromEarlierSession,
   observeSessionInstance,
   onSessionTransition,
   pendingSessionOperations,
@@ -99,7 +99,7 @@ describe('geração da sessão (epoch)', () => {
   });
 });
 
-describe('operações em voo por identidade', () => {
+describe('operações em voo por geração', () => {
   it('registra até terminar, inclusive em falha', async () => {
     commitSessionIdentity('A');
     let resolve!: () => void;
@@ -107,21 +107,35 @@ describe('operações em voo por identidade', () => {
     const ok = trackSessionOperation(captureSession(), new Promise<void>((r) => (resolve = r)), 'ok');
     const bad = trackSessionOperation(captureSession(), new Promise<void>((_, r) => (reject = r)), 'bad');
     expect(pendingSessionOperations()).toHaveLength(2);
+    // Na própria geração, nada fica em quarentena.
+    expect(hasPendingOperationFromEarlierSession()).toBe(false);
     commitSessionIdentity('B');
-    expect(hasPendingOperationFromOtherIdentity('B')).toBe(true);
-    expect(hasPendingOperationFromOtherIdentity('A')).toBe(false);
+    expect(hasPendingOperationFromEarlierSession()).toBe(true);
     resolve();
     reject(new Error('x'));
     await ok;
     await expect(bad).rejects.toThrow('x');
     await Promise.resolve();
     expect(pendingSessionOperations()).toHaveLength(0);
-    expect(hasPendingOperationFromOtherIdentity('B')).toBe(false);
+    expect(hasPendingOperationFromEarlierSession()).toBe(false);
   });
 
-  it('operação iniciada sem usuário não é rastreada', () => {
-    trackSessionOperation(captureSession(), new Promise(() => undefined));
-    expect(pendingSessionOperations()).toHaveLength(0);
+  it('o mesmo usuário numa nova geração (logout → login) também deixa a operação antiga em quarentena', () => {
+    commitSessionIdentity('A');
+    trackSessionOperation(captureSession(), new Promise(() => undefined), 'antiga');
+    endSession();
+    commitSessionIdentity('A');
+    expect(hasPendingOperationFromEarlierSession()).toBe(true);
+  });
+
+  it('operação iniciada sem identidade (ex.: durante o logout) é rastreada e fica em quarentena após o próximo login', () => {
+    commitSessionIdentity('A');
+    endSession();
+    trackSessionOperation(captureSession(), new Promise(() => undefined), 'no-logout');
+    expect(pendingSessionOperations()).toEqual([expect.objectContaining({ userId: null, label: 'no-logout' })]);
+    expect(hasPendingOperationFromEarlierSession()).toBe(false);
+    commitSessionIdentity('B');
+    expect(hasPendingOperationFromEarlierSession()).toBe(true);
   });
 });
 
