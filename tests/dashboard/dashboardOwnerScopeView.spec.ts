@@ -91,7 +91,8 @@ describe('Dashboard com escopo: cálculo e escrita', () => {
     expect(view).toContain('viewingOwnData ? scopedAccounts.filter(acc => !acc.bank_id) : []');
     expect(view).toContain('{viewingOwnData && showAssetReviewAlert &&');
     // nada da escrita usa o proprietário da visão
-    for (const w of ['addTransaction(', 'addAccount(', 'updateAccount(', 'addCategory(']) {
+    // A gravação do lançamento é entregue como `add: addTransaction` ao classificador de resultado.
+    for (const w of ['add: addTransaction,', 'addAccount(', 'updateAccount(', 'addCategory(']) {
       const at = view.indexOf(w);
       expect(at).toBeGreaterThan(-1);
       expect(view.slice(Math.max(0, at - 300), at + 200)).not.toMatch(/ownerScope|scopedAccounts|ownerSelection/);

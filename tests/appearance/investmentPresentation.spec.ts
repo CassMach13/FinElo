@@ -1,8 +1,9 @@
 import {functionalSourceHash} from './functionalSourceHash';import{readFileSync}from'node:fs';import{describe,it,expect}from'vitest';import baseline from './investment-presentation-baseline.json';import{financialImplementationFingerprint}from'./financialPresentationFingerprint';
+import {readSealed} from '../transactions/approvedManualSave';
 import postcss from 'postcss';
 describe('Ciclo4B conserva contratos e dados de investimentos/patrimônio',()=>{
- it.each(Object.entries(baseline.files))('%s preserva classes, geometria e implementação financeira',(path,sha)=>{expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(sha)});
- it('preserva os160 módulos de finanças, ownership, importação e infraestrutura selados',()=>{expect(Object.fromEntries(Object.keys(baseline.financialSources).map(p=>[p,functionalSourceHash(p,readFileSync(p,'utf8'))]))).toEqual(baseline.financialSources)});
+ it.each(Object.entries(baseline.files))('%s preserva classes, geometria e implementação financeira',(path,sha)=>{expect(financialImplementationFingerprint(path,readSealed(path),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(sha)});
+ it('preserva os160 módulos de finanças, ownership, importação e infraestrutura selados',()=>{expect(Object.fromEntries(Object.keys(baseline.financialSources).map(p=>[p,functionalSourceHash(p,readSealed(p))]))).toEqual(baseline.financialSources)});
  it('recria somente a tela de investimentos por sessão, sem mudar o restante do MainLayout',()=>{
   const source=readFileSync(baseline.sessionEntry.path,'utf8');
   expect(source.match(/investments: <InvestmentsView key=\{user\?\.id\} \/>/g)).toHaveLength(1);

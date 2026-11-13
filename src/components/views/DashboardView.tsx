@@ -9,6 +9,7 @@ import { autoStartTour } from '../../services/tourService';
 import FirstStepsCard from '../onboarding/FirstStepsCard';
 import { trackProductEvent, trackProductMilestone } from '../../services/productAnalytics';
 import { buildManualEntryPayload } from '../../domain/transactions/manualEntryPayload';
+import { saveNewTransactions, type TransactionSaveOutcome } from '../../utils/transactionSaveOutcome';
 import { dismissPatch, getFirstStepsState, resumePatch, startedPatch } from '../../domain/onboarding/firstSteps';
 import { Category, Transaction, Account } from './../../types';
 import Card from './../ui/Card';
@@ -713,12 +714,19 @@ const DashboardView: React.FC = () => {
 
   const displayName = getFirstName();
 
-  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
+  /** Devolve o resultado classificado; fecha o modal só com gravação confirmada. */
+  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]): Promise<TransactionSaveOutcome> => {
     const payloads = newTransactions.map(buildManualEntryPayload);
-    await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
-    // Só depois de gravar. Nenhum conteúdo do lançamento.
-    void trackProductEvent('manual_transaction_created');
-    setNewTransactionModalOpen(false);
+    const outcome = await saveNewTransactions(payloads, {
+      add: addTransaction,
+      readTransactions: () => useAppStore.getState().transactions,
+    });
+    if (outcome.status === 'saved') {
+      // Só depois de confirmar. Nenhum conteúdo do lançamento.
+      void trackProductEvent('manual_transaction_created');
+      setNewTransactionModalOpen(false);
+    }
+    return outcome;
   };
 
   const handleSaveCategory = async (categoryData: Omit<Category, 'id'>) => {

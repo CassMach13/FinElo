@@ -1,0 +1,545 @@
+diff --git a/src/components/modals/NewTransactionModal.tsx b/src/components/modals/NewTransactionModal.tsx
+index 56603ba..fa5d321 100644
+--- a/src/components/modals/NewTransactionModal.tsx
++++ b/src/components/modals/NewTransactionModal.tsx
+@@ -13,6 +13,8 @@ import {
+   loadTransactionDraft,
+   saveTransactionDraft,
+ } from '../../utils/transactionDraftStorage';
++import type { TransactionSaveOutcome } from '../../utils/transactionSaveOutcome';
++import { saveGuardFor, submitTransactionSave } from '../../utils/transactionSaveFlow';
+ import type { CompetenceHistoryCard } from '../../services/creditCardRebuildFromImportHistoryService';
+ import {
+   buildDirectedPurchaseDescription,
+@@ -35,7 +37,11 @@ import {
+ 
+ interface NewTransactionModalProps {
+   onClose: () => void;
+-  onSave: (transactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => void | Promise<void>;
++  /**
++   * Resolve com o resultado classificado. Só `saved` fecha o modal e apaga o rascunho; recusa e incerteza
++   * mantêm os campos e mostram o aviso aqui dentro. Promise resolvida não significa sucesso.
++   */
++  onSave: (transactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => Promise<TransactionSaveOutcome>;
+   accounts: Account[];
+   categories: Category[];
+   assets: Asset[];
+@@ -52,7 +58,7 @@ interface NewTransactionModalProps {
+   cardCreditKeywords?: string[];
+ }
+ 
+-const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
++const NewTransactionModalForm: React.FC<NewTransactionModalProps> = ({
+   onClose,
+   onSave,
+   accounts,
+@@ -69,6 +75,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+   cardCreditKeywords = [],
+ }) => {
+   const { addMappingRule } = useAppStore();
++  // O rascunho e a lembrança de «resultado incerto» pertencem a esta conta: outra conta no mesmo navegador não os vê.
++  const userId = useAppStore((state) => state.user?.id);
+   const editTransactionId = initialTransaction?.ID_Transacao ?? null;
+   // Importada: só nome, categoria, vínculo e data de pagamento mudam (transactionEditPolicy). O resto
+   // descreve a linha do banco e fica travado aqui, em vez de ser regravado a partir do formulário.
+@@ -88,6 +96,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+ 
+   const [errors, setErrors] = useState<Record<string, string>>({});
+   const [isSaving, setIsSaving] = useState(false);
++  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+   const [cardEntryKind, setCardEntryKind] = useState<CardManualEntryKind | ''>('');
+   const [competenceCards, setCompetenceCards] = useState<CompetenceHistoryCard[]>([]);
+   const [competenceLoading, setCompetenceLoading] = useState(false);
+@@ -244,7 +253,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+   useEffect(() => {
+     if (editTransactionId) return;
+ 
+-    const draft = loadTransactionDraft();
++    const draft = loadTransactionDraft(userId);
+     if (draft) {
+       draftPersistSkipRef.current = false;
+       setTransaction(draft.transaction);
+@@ -271,7 +280,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+     setCardEntryKind('');
+     setRefundReferenceMonth('');
+     setIsRecurrent(false);
+-  }, [editTransactionId]);
++  }, [editTransactionId, userId]);
+ 
+   const persistDraft = useCallback(() => {
+     if (editTransactionId || draftPersistSkipRef.current) return;
+@@ -282,7 +291,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+       transaction.Categoria ||
+       transaction.Tipo;
+     if (!hasContent) return;
+-    saveTransactionDraft({
++    saveTransactionDraft(userId, {
+       transaction,
+       cardEntryKind,
+       refundReferenceMonth,
+@@ -292,6 +301,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+     });
+   }, [
+     editTransactionId,
++    userId,
+     transaction,
+     cardEntryKind,
+     refundReferenceMonth,
+@@ -494,6 +504,35 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+     return Object.keys(newErrors).length === 0;
+   };
+ 
++  /**
++   * Único caminho de gravação do formulário. Um envio por vez (também entre aberturas do modal); um
++   * lançamento novo de resultado incerto só é reenviado com confirmação; nada é reenviado sozinho.
++   * O rascunho só é apagado com gravação confirmada.
++   */
++  const submitSave = async (
++    items: Omit<Transaction, 'ID_Transacao' | 'Origem'>[],
++    key: string | null
++  ) => {
++    setSaveMessage(null);
++    const result = await submitTransactionSave({
++      guard: saveGuardFor(userId),
++      key,
++      confirmDuplicate: (message) =>
++        appConfirm(message, 'Confirmar novo envio', 'Salvar mesmo assim', 'warning', 'Voltar'),
++      save: () => onSave(items),
++      onSaved: () => {
++        if (!editTransactionId) {
++          clearTransactionDraft(userId);
++          draftPersistSkipRef.current = true;
++        }
++      },
++    });
++    if (result.status === 'busy' || result.status === 'refused' || result.status === 'uncertain') {
++      setSaveMessage(result.message);
++    }
++    return result;
++  };
++
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+ 
+@@ -506,12 +545,15 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+       if (Object.keys(paymentErrors).length > 0 || isSaving) return;
+       setIsSaving(true);
+       try {
+-        await onSave([
+-          {
+-            Nome_Fantasia: transaction.Nome_Fantasia.trim(),
+-            Categoria: transaction.Categoria,
+-          } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
+-        ]);
++        await submitSave(
++          [
++            {
++              Nome_Fantasia: transaction.Nome_Fantasia.trim(),
++              Categoria: transaction.Categoria,
++            } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
++          ],
++          null
++        );
+       } finally {
+         setIsSaving(false);
+       }
+@@ -530,14 +572,17 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+       setIsSaving(true);
+       try {
+         const paymentDate = transaction.Data_Pagamento ? parseDateOnlyLocal(transaction.Data_Pagamento) : undefined;
+-        await onSave([
+-          {
+-            Nome_Fantasia: transaction.Nome_Fantasia.trim(),
+-            Categoria: transaction.Categoria,
+-            linked_asset_id: transaction.linked_asset_id || undefined,
+-            Data_Pagamento: paymentDate ?? undefined,
+-          } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
+-        ]);
++        await submitSave(
++          [
++            {
++              Nome_Fantasia: transaction.Nome_Fantasia.trim(),
++              Categoria: transaction.Categoria,
++              linked_asset_id: transaction.linked_asset_id || undefined,
++              Data_Pagamento: paymentDate ?? undefined,
++            } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
++          ],
++          null
++        );
+       } finally {
+         setIsSaving(false);
+       }
+@@ -698,11 +743,23 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+     }
+ 
+     try {
+-      await onSave(transactionsToSave);
+-      if (!editTransactionId) {
+-        clearTransactionDraft();
+-        draftPersistSkipRef.current = true;
+-      }
++      // Edição é idempotente (mesma linha, mesmos campos): sem chave de duplicidade. Lançamento novo, com.
++      const key = editTransactionId
++        ? null
++        : JSON.stringify(
++            transactionsToSave.map((item) => [
++              item.ID_Conta,
++              item.Nome_Fantasia,
++              Math.round(Number(item.Valor) * 100),
++              item.Tipo,
++              item.Categoria,
++              item.Data instanceof Date ? item.Data.getTime() : String(item.Data),
++              item.Data_Pagamento instanceof Date ? item.Data_Pagamento.getTime() : String(item.Data_Pagamento ?? ''),
++              item.Parcela_Atual ?? null,
++              item.Total_Parcelas ?? null,
++            ])
++          );
++      await submitSave(transactionsToSave, key);
+     } finally {
+       setIsSaving(false);
+     }
+@@ -784,17 +841,29 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+       overlayClassName="z-[55]"
+       title={initialTransaction ? 'Editar Lançamento' : 'Adicionar Lançamento'}
+       footer={
+-        <div className="flex justify-end gap-2">
+-          <Button variant="secondary" onClick={onClose}>
+-            Cancelar
+-          </Button>
+-          <Button type="submit" form="new-transaction-form" disabled={submitDisabled}>
+-            {isSaving
+-              ? 'Salvando…'
+-              : isRecurrent
+-                ? `Gerar ${recurrenceCount || '?'} Lançamentos`
+-                : 'Salvar'}
+-          </Button>
++        <div className="space-y-2">
++          {saveMessage && (
++            <p
++              role="alert"
++              data-finance="warning"
++              data-testid="save-message"
++              className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90"
++            >
++              {saveMessage}
++            </p>
++          )}
++          <div className="flex justify-end gap-2">
++            <Button variant="secondary" onClick={onClose}>
++              Cancelar
++            </Button>
++            <Button type="submit" form="new-transaction-form" disabled={submitDisabled}>
++              {isSaving
++                ? 'Salvando…'
++                : isRecurrent
++                  ? `Gerar ${recurrenceCount || '?'} Lançamentos`
++                  : 'Salvar'}
++            </Button>
++          </div>
+         </div>
+       }
+     >
+@@ -1287,4 +1356,13 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+   );
+ };
+ 
++/**
++ * O formulário nasce de novo a cada troca de conta: o que foi digitado por uma conta nunca vira estado
++ * (nem rascunho) de outra.
++ */
++const NewTransactionModal: React.FC<NewTransactionModalProps> = (props) => {
++  const userId = useAppStore((state) => state.user?.id);
++  return <NewTransactionModalForm key={userId ?? 'anonymous'} {...props} />;
++};
++
+ export default NewTransactionModal;
+diff --git a/src/components/views/DashboardView.tsx b/src/components/views/DashboardView.tsx
+index 9503f27..304867b 100644
+--- a/src/components/views/DashboardView.tsx
++++ b/src/components/views/DashboardView.tsx
+@@ -9,6 +9,7 @@ import { autoStartTour } from '../../services/tourService';
+ import FirstStepsCard from '../onboarding/FirstStepsCard';
+ import { trackProductEvent, trackProductMilestone } from '../../services/productAnalytics';
+ import { buildManualEntryPayload } from '../../domain/transactions/manualEntryPayload';
++import { saveNewTransactions, type TransactionSaveOutcome } from '../../utils/transactionSaveOutcome';
+ import { dismissPatch, getFirstStepsState, resumePatch, startedPatch } from '../../domain/onboarding/firstSteps';
+ import { Category, Transaction, Account } from './../../types';
+ import Card from './../ui/Card';
+@@ -713,12 +714,19 @@ const DashboardView: React.FC = () => {
+ 
+   const displayName = getFirstName();
+ 
+-  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
++  /** Devolve o resultado classificado; fecha o modal só com gravação confirmada. */
++  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]): Promise<TransactionSaveOutcome> => {
+     const payloads = newTransactions.map(buildManualEntryPayload);
+-    await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
+-    // Só depois de gravar. Nenhum conteúdo do lançamento.
+-    void trackProductEvent('manual_transaction_created');
+-    setNewTransactionModalOpen(false);
++    const outcome = await saveNewTransactions(payloads, {
++      add: addTransaction,
++      readTransactions: () => useAppStore.getState().transactions,
++    });
++    if (outcome.status === 'saved') {
++      // Só depois de confirmar. Nenhum conteúdo do lançamento.
++      void trackProductEvent('manual_transaction_created');
++      setNewTransactionModalOpen(false);
++    }
++    return outcome;
+   };
+ 
+   const handleSaveCategory = async (categoryData: Omit<Category, 'id'>) => {
+diff --git a/src/components/views/TransactionsView.tsx b/src/components/views/TransactionsView.tsx
+index b4a9fe4..0d4f719 100644
+--- a/src/components/views/TransactionsView.tsx
++++ b/src/components/views/TransactionsView.tsx
+@@ -104,6 +104,7 @@ import { formatInstallmentCell } from '../../domain/installments/installmentDisp
+ import { formatDateCell } from '../../utils/formatDateCell';
+ import { trackProductEvent } from '../../services/productAnalytics';
+ import { buildManualEntryPayload } from '../../domain/transactions/manualEntryPayload';
++import { classifyThrownSave, saveNewTransactions, type TransactionSaveOutcome } from '../../utils/transactionSaveOutcome';
+ import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
+ import { SwipeableItem } from '../ui/SwipeableItem';
+ import { SkeletonCard } from '../ui/Skeleton';
+@@ -3206,21 +3207,24 @@ const TransactionsView: React.FC = () => {
+     setCurrentPage(1);
+   };
+ 
+-  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
+-    try {
+-      const payloads = newTransactions.map(buildManualEntryPayload);
+-      await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
+-      // Só depois de gravar. Nenhum conteúdo do lançamento.
++  /**
++   * Devolve o resultado classificado; o aviso fica com o modal, que mantém os campos e o rascunho.
++   * Fecha o modal só com gravação confirmada.
++   */
++  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]): Promise<TransactionSaveOutcome> => {
++    const payloads = newTransactions.map(buildManualEntryPayload);
++    const outcome = await saveNewTransactions(payloads, {
++      add: addTransaction,
++      readTransactions: () => useAppStore.getState().transactions,
++    });
++    if (outcome.status === 'saved') {
++      // Só depois de confirmar. Nenhum conteúdo do lançamento.
+       void trackProductEvent('manual_transaction_created');
+       setNewTransactionModalOpen(false);
+-    } catch (err) {
+-      console.error('Erro ao salvar lançamento manual:', err);
+-      await appAlert(
+-        'Não foi possível salvar o lançamento. Tente novamente.',
+-        'Erro ao salvar',
+-        'error'
+-      );
++    } else {
++      console.error('Lançamento manual não confirmado:', outcome.status);
+     }
++    return outcome;
+   };
+ 
+   const openNewMappingRuleModal = (transaction: Transaction) => {
+@@ -4703,20 +4707,29 @@ const TransactionsView: React.FC = () => {
+             setEditingTransaction(null);
+             setPredefinedTransaction(null);
+           }}
+-          onSave={async (newTransactions) => {
++          onSave={async (newTransactions): Promise<TransactionSaveOutcome> => {
+             if (editingTransaction) {
+               // It's an update. We expect only one item in data[0]
++              try {
++                // Modo estrito: só resolve com a linha atualizada devolvida pelo servidor.
++                await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...newTransactions[0] }, { strict: true });
++              } catch (err) {
++                // O modal continua aberto com os campos; a falha deixa de ficar sem aviso.
++                console.error('Erro ao atualizar lançamento:', err);
++                return classifyThrownSave(err, 'edit');
++              }
+               if (newTransactions[0].Categoria !== editingTransaction.Categoria) {
+                 retainIfLeavingCategoryFilter(editingTransaction, newTransactions[0].Categoria);
+               }
+-              await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...newTransactions[0] });
+             } else {
+               // It's a new transaction (or batch)
+-              await handleNewSave(newTransactions);
++              const outcome = await handleNewSave(newTransactions);
++              if (outcome.status !== 'saved') return outcome;
+             }
+             setNewTransactionModalOpen(false);
+             setEditingTransaction(null);
+             setPredefinedTransaction(null);
++            return { status: 'saved' };
+           }}
+           accounts={accounts.filter(a => !a.is_archived)}
+           categories={categories}
+diff --git a/src/hooks/useAppStore.ts b/src/hooks/useAppStore.ts
+index d053c99..c40749b 100644
+--- a/src/hooks/useAppStore.ts
++++ b/src/hooks/useAppStore.ts
+@@ -64,6 +64,7 @@ import { ClassificationRules } from '../domain/credit-card/classifiers';
+ import { comparableImportOriginKey } from '../utils/importOriginKey';
+ import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
+ import { collectPaginatedRows } from '../utils/paginatedFetch';
++import { NoRowsWrittenError } from '../utils/transactionSaveOutcome';
+ import { ECONOMIC_EVENT_COLUMNS } from '../services/economicEventService';
+ import {
+   EconomicIdentityError,
+@@ -339,7 +340,11 @@ interface AppState {
+       batchFingerprint?: string;
+     }
+   ) => Promise<{ imported: number, ignored: number }>;
+-  updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
++  /**
++   * `strict`: falhas (linha ausente, erro do servidor, nenhuma linha atualizada) viram exceção em vez de
++   * log. Usado pelo formulário, que só pode fechar com gravação confirmada. Sem `strict`, o contrato antigo.
++   */
++  updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }, options?: { strict?: boolean }) => Promise<void>;
+   deleteTransaction: (transactionId: string) => Promise<void>;
+   deleteManualTransactions: (transactionIds: string[]) => Promise<number>;
+   deleteTransactionsByOrigin: (origin: string) => Promise<void>;
+@@ -2267,6 +2272,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+ 
+   addTransaction: async (newTransactions) => {
+     const isAssetSessionCurrent = captureAssetSession(get);
++    const sessionGenerationAtStart = assetSessionGeneration;
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) return [];
+ 
+@@ -2300,6 +2306,12 @@ export const useAppStore = create<AppState>((set, get) => ({
+       throw error;
+     } else if (data) {
+       const addedTransactions = data as Transaction[];
++      // A resposta chegou depois de sair ou trocar de conta: as linhas são do usuário que enviou e já estão
++      // gravadas para ele; não entram no estado (nem disparam etapas) da sessão que está aberta agora.
++      const currentUser = get().user;
++      if (assetSessionGeneration !== sessionGenerationAtStart || (currentUser && currentUser.id !== user.id)) {
++        return addedTransactions;
++      }
+       set((state) => ({ transactions: [...state.transactions, ...addedTransactions] }));
+ 
+       // Automação: Atualizar saldo do patrimônio se houver vínculo
+@@ -2569,7 +2581,8 @@ export const useAppStore = create<AppState>((set, get) => ({
+     return { imported: imported_count_saved, ignored: allIgnoredDetails.length };
+   },
+ 
+-  updateTransaction: async (updatedTransaction) => {
++  updateTransaction: async (updatedTransaction, options) => {
++    const strict = options?.strict === true;
+     const isAssetSessionCurrent = captureAssetSession(get);
+     const { ID_Transacao, ...requestedFieldsToUpdate } = updatedTransaction;
+ 
+@@ -2578,6 +2591,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+     if (!oldTransaction) {
+       // Sem o registro atual não dá para saber se é importada: recusa em vez de gravar às cegas.
+       console.error('Transação não encontrada; atualização recusada.');
++      if (strict) throw new NoRowsWrittenError();
+       return;
+     }
+ 
+@@ -2614,6 +2628,12 @@ export const useAppStore = create<AppState>((set, get) => ({
+ 
+     if (error) {
+       console.error('Erro ao atualizar transação:', error);
++      if (strict) throw error;
++    } else if (data && data.length === 0) {
++      // O servidor respondeu sem erro, mas nenhuma linha foi atualizada (removida ou invisível para a sessão).
++      // Antes, `updated` ficava indefinido e entrava no store no lugar da linha.
++      console.error('Atualização de transação não afetou nenhuma linha.');
++      if (strict) throw new NoRowsWrittenError();
+     } else if (data) {
+       const updated = data[0] as Transaction;
+       set((state) => ({
+diff --git a/src/utils/transactionDraftStorage.ts b/src/utils/transactionDraftStorage.ts
+index 154b49a..7682340 100644
+--- a/src/utils/transactionDraftStorage.ts
++++ b/src/utils/transactionDraftStorage.ts
+@@ -2,6 +2,25 @@ import type { CardManualEntryKind } from '../services/creditCardDirectedPayment'
+ 
+ export const TRANSACTION_DRAFT_STORAGE_KEY = 'finelo_new_transaction_draft_v1';
+ 
++/**
++ * O rascunho pertence a UM usuário: a chave leva o id da conta. Sem usuário identificado nada é lido nem
++ * gravado. A chave antiga (sem id) não dá para atribuir a ninguém; é apagada e nunca carregada.
++ */
++export const transactionDraftKey = (userId: string) => `${TRANSACTION_DRAFT_STORAGE_KEY}:${userId}`;
++
++function removeLegacyDraft(): void {
++  try {
++    sessionStorage.removeItem(TRANSACTION_DRAFT_STORAGE_KEY);
++  } catch {
++    /* ignore */
++  }
++  try {
++    localStorage.removeItem(TRANSACTION_DRAFT_STORAGE_KEY);
++  } catch {
++    /* ignore */
++  }
++}
++
+ /** Rascunho válido por 4h (troca de app / recarga da PWA no celular). */
+ export const TRANSACTION_DRAFT_TTL_MS = 4 * 60 * 60 * 1000;
+ 
+@@ -41,43 +60,54 @@ function parseDraft(raw: string | null): NewTransactionDraft | null {
+   }
+ }
+ 
+-export function saveTransactionDraft(draft: Omit<NewTransactionDraft, 'savedAt'>): void {
++export function saveTransactionDraft(
++  userId: string | null | undefined,
++  draft: Omit<NewTransactionDraft, 'savedAt'>
++): void {
++  if (!userId) return;
++  const key = transactionDraftKey(userId);
+   const payload: NewTransactionDraft = { ...draft, savedAt: Date.now() };
+   const raw = JSON.stringify(payload);
+   try {
+-    sessionStorage.setItem(TRANSACTION_DRAFT_STORAGE_KEY, raw);
++    sessionStorage.setItem(key, raw);
+   } catch {
+     /* quota */
+   }
+   try {
+-    localStorage.setItem(TRANSACTION_DRAFT_STORAGE_KEY, raw);
++    localStorage.setItem(key, raw);
+   } catch {
+     /* quota */
+   }
+ }
+ 
+-export function loadTransactionDraft(): NewTransactionDraft | null {
++export function loadTransactionDraft(userId: string | null | undefined): NewTransactionDraft | null {
++  removeLegacyDraft();
++  if (!userId) return null;
++  const key = transactionDraftKey(userId);
+   try {
+-    const fromSession = parseDraft(sessionStorage.getItem(TRANSACTION_DRAFT_STORAGE_KEY));
++    const fromSession = parseDraft(sessionStorage.getItem(key));
+     if (fromSession) return fromSession;
+   } catch {
+     /* ignore */
+   }
+   try {
+-    return parseDraft(localStorage.getItem(TRANSACTION_DRAFT_STORAGE_KEY));
++    return parseDraft(localStorage.getItem(key));
+   } catch {
+     return null;
+   }
+ }
+ 
+-export function clearTransactionDraft(): void {
++export function clearTransactionDraft(userId: string | null | undefined): void {
++  removeLegacyDraft();
++  if (!userId) return;
++  const key = transactionDraftKey(userId);
+   try {
+-    sessionStorage.removeItem(TRANSACTION_DRAFT_STORAGE_KEY);
++    sessionStorage.removeItem(key);
+   } catch {
+     /* ignore */
+   }
+   try {
+-    localStorage.removeItem(TRANSACTION_DRAFT_STORAGE_KEY);
++    localStorage.removeItem(key);
+   } catch {
+     /* ignore */
+   }

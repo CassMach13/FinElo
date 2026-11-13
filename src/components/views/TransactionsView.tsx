@@ -104,6 +104,7 @@ import { formatInstallmentCell } from '../../domain/installments/installmentDisp
 import { formatDateCell } from '../../utils/formatDateCell';
 import { trackProductEvent } from '../../services/productAnalytics';
 import { buildManualEntryPayload } from '../../domain/transactions/manualEntryPayload';
+import { classifyThrownSave, saveNewTransactions, type TransactionSaveOutcome } from '../../utils/transactionSaveOutcome';
 import { carregarResolucoesAtivasPorConta } from '../../services/cardReconciliationService';
 import { SwipeableItem } from '../ui/SwipeableItem';
 import { SkeletonCard } from '../ui/Skeleton';
@@ -3206,21 +3207,24 @@ const TransactionsView: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => {
-    try {
-      const payloads = newTransactions.map(buildManualEntryPayload);
-      await addTransaction(payloads.length === 1 ? payloads[0] : payloads);
-      // Só depois de gravar. Nenhum conteúdo do lançamento.
+  /**
+   * Devolve o resultado classificado; o aviso fica com o modal, que mantém os campos e o rascunho.
+   * Fecha o modal só com gravação confirmada.
+   */
+  const handleNewSave = async (newTransactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]): Promise<TransactionSaveOutcome> => {
+    const payloads = newTransactions.map(buildManualEntryPayload);
+    const outcome = await saveNewTransactions(payloads, {
+      add: addTransaction,
+      readTransactions: () => useAppStore.getState().transactions,
+    });
+    if (outcome.status === 'saved') {
+      // Só depois de confirmar. Nenhum conteúdo do lançamento.
       void trackProductEvent('manual_transaction_created');
       setNewTransactionModalOpen(false);
-    } catch (err) {
-      console.error('Erro ao salvar lançamento manual:', err);
-      await appAlert(
-        'Não foi possível salvar o lançamento. Tente novamente.',
-        'Erro ao salvar',
-        'error'
-      );
+    } else {
+      console.error('Lançamento manual não confirmado:', outcome.status);
     }
+    return outcome;
   };
 
   const openNewMappingRuleModal = (transaction: Transaction) => {
@@ -4703,20 +4707,29 @@ const TransactionsView: React.FC = () => {
             setEditingTransaction(null);
             setPredefinedTransaction(null);
           }}
-          onSave={async (newTransactions) => {
+          onSave={async (newTransactions): Promise<TransactionSaveOutcome> => {
             if (editingTransaction) {
               // It's an update. We expect only one item in data[0]
+              try {
+                // Modo estrito: só resolve com a linha atualizada devolvida pelo servidor.
+                await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...newTransactions[0] }, { strict: true });
+              } catch (err) {
+                // O modal continua aberto com os campos; a falha deixa de ficar sem aviso.
+                console.error('Erro ao atualizar lançamento:', err);
+                return classifyThrownSave(err, 'edit');
+              }
               if (newTransactions[0].Categoria !== editingTransaction.Categoria) {
                 retainIfLeavingCategoryFilter(editingTransaction, newTransactions[0].Categoria);
               }
-              await updateTransaction({ ID_Transacao: editingTransaction.ID_Transacao, ...newTransactions[0] });
             } else {
               // It's a new transaction (or batch)
-              await handleNewSave(newTransactions);
+              const outcome = await handleNewSave(newTransactions);
+              if (outcome.status !== 'saved') return outcome;
             }
             setNewTransactionModalOpen(false);
             setEditingTransaction(null);
             setPredefinedTransaction(null);
+            return { status: 'saved' };
           }}
           accounts={accounts.filter(a => !a.is_archived)}
           categories={categories}

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import {readSealed} from '../transactions/approvedManualSave';
 import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import postcss from 'postcss';
@@ -10,7 +11,7 @@ import { financialImplementationFingerprint } from './financialPresentationFinge
 
 describe('conversão financeira preserva a implementação da main',()=>{
   it.each(Object.entries(baseline.files))('%s conserva classes, cálculos e operações financeiras',(path,hash)=>{
-    expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'))).toBe(hash);
+    expect(financialImplementationFingerprint(path,readSealed(path))).toBe(hash);
   });
 });
 

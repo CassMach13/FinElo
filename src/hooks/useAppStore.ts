@@ -64,6 +64,7 @@ import { ClassificationRules } from '../domain/credit-card/classifiers';
 import { comparableImportOriginKey } from '../utils/importOriginKey';
 import { parseDateOnlyLocal, toDateOnlyIso } from '../utils/dateOnly';
 import { collectPaginatedRows } from '../utils/paginatedFetch';
+import { NoRowsWrittenError } from '../utils/transactionSaveOutcome';
 import { ECONOMIC_EVENT_COLUMNS } from '../services/economicEventService';
 import {
   EconomicIdentityError,
@@ -339,7 +340,11 @@ interface AppState {
       batchFingerprint?: string;
     }
   ) => Promise<{ imported: number, ignored: number }>;
-  updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }) => Promise<void>;
+  /**
+   * `strict`: falhas (linha ausente, erro do servidor, nenhuma linha atualizada) viram exceção em vez de
+   * log. Usado pelo formulário, que só pode fechar com gravação confirmada. Sem `strict`, o contrato antigo.
+   */
+  updateTransaction: (updatedTransaction: Partial<Transaction> & { ID_Transacao: string }, options?: { strict?: boolean }) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   deleteManualTransactions: (transactionIds: string[]) => Promise<number>;
   deleteTransactionsByOrigin: (origin: string) => Promise<void>;
@@ -2267,6 +2272,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addTransaction: async (newTransactions) => {
     const isAssetSessionCurrent = captureAssetSession(get);
+    const sessionGenerationAtStart = assetSessionGeneration;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
@@ -2300,6 +2306,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     } else if (data) {
       const addedTransactions = data as Transaction[];
+      // A resposta chegou depois de sair ou trocar de conta: as linhas são do usuário que enviou e já estão
+      // gravadas para ele; não entram no estado (nem disparam etapas) da sessão que está aberta agora.
+      const currentUser = get().user;
+      if (assetSessionGeneration !== sessionGenerationAtStart || (currentUser && currentUser.id !== user.id)) {
+        return addedTransactions;
+      }
       set((state) => ({ transactions: [...state.transactions, ...addedTransactions] }));
 
       // Automação: Atualizar saldo do patrimônio se houver vínculo
@@ -2569,7 +2581,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { imported: imported_count_saved, ignored: allIgnoredDetails.length };
   },
 
-  updateTransaction: async (updatedTransaction) => {
+  updateTransaction: async (updatedTransaction, options) => {
+    const strict = options?.strict === true;
     const isAssetSessionCurrent = captureAssetSession(get);
     const { ID_Transacao, ...requestedFieldsToUpdate } = updatedTransaction;
 
@@ -2578,6 +2591,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!oldTransaction) {
       // Sem o registro atual não dá para saber se é importada: recusa em vez de gravar às cegas.
       console.error('Transação não encontrada; atualização recusada.');
+      if (strict) throw new NoRowsWrittenError();
       return;
     }
 
@@ -2614,6 +2628,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (error) {
       console.error('Erro ao atualizar transação:', error);
+      if (strict) throw error;
+    } else if (data && data.length === 0) {
+      // O servidor respondeu sem erro, mas nenhuma linha foi atualizada (removida ou invisível para a sessão).
+      // Antes, `updated` ficava indefinido e entrava no store no lugar da linha.
+      console.error('Atualização de transação não afetou nenhuma linha.');
+      if (strict) throw new NoRowsWrittenError();
     } else if (data) {
       const updated = data[0] as Transaction;
       set((state) => ({

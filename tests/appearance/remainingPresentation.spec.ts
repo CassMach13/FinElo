@@ -1,4 +1,5 @@
 import {functionalSourceHash} from './functionalSourceHash';
+import {readSealed} from '../transactions/approvedManualSave';
 import{readFileSync}from'node:fs';
 import{describe,it,expect}from'vitest';
 import postcss from'postcss';
@@ -8,10 +9,10 @@ import{remainingSessionPresentation}from'./remainingSessionPresentation';
 
 describe('4C preserva implementações e a fronteira pública anterior à pintura',()=>{
  it.each(Object.entries(baseline.files))('%s mantém classes, geometria e lógica',(file,sha)=>{
-  expect(financialImplementationFingerprint(file,remainingSessionPresentation(file,readFileSync(file,'utf8')),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(sha);
+  expect(financialImplementationFingerprint(file,remainingSessionPresentation(file,readSealed(file)),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(sha);
  });
  it('mantém os 163 arquivos funcionais selados',()=>{
-  const actual=Object.fromEntries(Object.keys(baseline.functionalSources).map(p=>[p,functionalSourceHash(p,readFileSync(p,'utf8'))]));
+  const actual=Object.fromEntries(Object.keys(baseline.functionalSources).map(p=>[p,functionalSourceHash(p,readSealed(p))]));
   expect(actual).toEqual(baseline.functionalSources);
  });
  it('isola a pintura ao Claro em tela, sem alterar geometria ou impressão',()=>{

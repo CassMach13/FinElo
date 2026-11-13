@@ -5,6 +5,7 @@ import {
   saveTransactionDraft,
   TRANSACTION_DRAFT_STORAGE_KEY,
   TRANSACTION_DRAFT_TTL_MS,
+  transactionDraftKey,
 } from '../src/utils/transactionDraftStorage';
 
 const baseDraft = {
@@ -27,8 +28,9 @@ const baseDraft = {
 };
 
 describe('transactionDraftStorage', () => {
+  let store: Map<string, string>;
   beforeEach(() => {
-    const store = new Map<string, string>();
+    store = new Map<string, string>();
     vi.stubGlobal('sessionStorage', {
       getItem: (k: string) => store.get(`s:${k}`) ?? null,
       setItem: (k: string, v: string) => store.set(`s:${k}`, v),
@@ -46,24 +48,59 @@ describe('transactionDraftStorage', () => {
   });
 
   it('salva e restaura rascunho', () => {
-    saveTransactionDraft(baseDraft);
-    const loaded = loadTransactionDraft();
+    saveTransactionDraft('user-A', baseDraft);
+    const loaded = loadTransactionDraft('user-A');
     expect(loaded?.transaction.Nome_Fantasia).toBe('Padaria');
     expect(loaded?.transaction.Valor).toBe('42.50');
   });
 
   it('descarta rascunho expirado', () => {
     vi.useFakeTimers();
-    saveTransactionDraft(baseDraft);
+    saveTransactionDraft('user-A', baseDraft);
     vi.advanceTimersByTime(TRANSACTION_DRAFT_TTL_MS + 1);
-    expect(loadTransactionDraft()).toBeNull();
+    expect(loadTransactionDraft('user-A')).toBeNull();
     vi.useRealTimers();
   });
 
   it('clear remove o rascunho', () => {
-    saveTransactionDraft(baseDraft);
-    clearTransactionDraft();
-    expect(sessionStorage.getItem(TRANSACTION_DRAFT_STORAGE_KEY)).toBeNull();
-    expect(loadTransactionDraft()).toBeNull();
+    saveTransactionDraft('user-A', baseDraft);
+    clearTransactionDraft('user-A');
+    expect(sessionStorage.getItem(transactionDraftKey('user-A'))).toBeNull();
+    expect(localStorage.getItem(transactionDraftKey('user-A'))).toBeNull();
+    expect(loadTransactionDraft('user-A')).toBeNull();
+  });
+
+  describe('troca de conta no mesmo navegador', () => {
+    it('o rascunho da conta A não aparece para a conta B (nem o de B para A)', () => {
+      saveTransactionDraft('user-A', baseDraft);
+      expect(loadTransactionDraft('user-B')).toBeNull();
+      saveTransactionDraft('user-B', { ...baseDraft, transaction: { ...baseDraft.transaction, Nome_Fantasia: 'Farmácia' } });
+      expect(loadTransactionDraft('user-A')?.transaction.Nome_Fantasia).toBe('Padaria');
+      expect(loadTransactionDraft('user-B')?.transaction.Nome_Fantasia).toBe('Farmácia');
+    });
+
+    it('limpar o rascunho de A não apaga o de B', () => {
+      saveTransactionDraft('user-A', baseDraft);
+      saveTransactionDraft('user-B', baseDraft);
+      clearTransactionDraft('user-A');
+      expect(loadTransactionDraft('user-A')).toBeNull();
+      expect(loadTransactionDraft('user-B')).not.toBeNull();
+    });
+
+    it('sem usuário identificado: nada é gravado nem lido', () => {
+      saveTransactionDraft(undefined, baseDraft);
+      saveTransactionDraft(null, baseDraft);
+      expect(store.size).toBe(0);
+      expect(loadTransactionDraft(undefined)).toBeNull();
+    });
+
+    it('o rascunho antigo (chave sem id de usuário) nunca é carregado e é apagado', () => {
+      const legacy = JSON.stringify({ ...baseDraft, savedAt: Date.now() });
+      store.set(`s:${TRANSACTION_DRAFT_STORAGE_KEY}`, legacy);
+      store.set(`l:${TRANSACTION_DRAFT_STORAGE_KEY}`, legacy);
+      expect(loadTransactionDraft('user-B')).toBeNull();
+      expect(store.has(`s:${TRANSACTION_DRAFT_STORAGE_KEY}`)).toBe(false);
+      expect(store.has(`l:${TRANSACTION_DRAFT_STORAGE_KEY}`)).toBe(false);
+    });
   });
 });
