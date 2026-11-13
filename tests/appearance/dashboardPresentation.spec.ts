@@ -1,4 +1,5 @@
 import {functionalSourceHash} from './functionalSourceHash';
+import {readSealed} from '../transactions/approvedManualSave';
 import {readFileSync} from 'node:fs';
 import postcss from 'postcss';
 import {describe,expect,it} from 'vitest';
@@ -7,10 +8,10 @@ import {financialImplementationFingerprint} from './financialPresentationFingerp
 
 describe('Ciclo 4A preserva os cálculos e a apresentação legada do Dashboard',()=>{
  it.each(Object.entries(baseline.files))('%s preserva o contrato anterior à pintura',(path,hash)=>{
-  expect(financialImplementationFingerprint(path,readFileSync(path,'utf8'),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(hash);
+  expect(financialImplementationFingerprint(path,readSealed(path),baseline.additionalPresentationAttributes,baseline.additionalPresentationComponents)).toBe(hash);
  });
  it('preserva todos os 156 módulos financeiros selados antes da conversão',()=>{
-  expect(Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[path,functionalSourceHash(path,readFileSync(path,'utf8'))]))).toEqual(baseline.financialSources);
+  expect(Object.fromEntries(Object.keys(baseline.financialSources).map(path=>[path,functionalSourceHash(path,readSealed(path))]))).toEqual(baseline.financialSources);
  });
  it('restringe a pintura à tela e ao Claro, exceto o acesso por teclado ao conteúdo existente',()=>{
   const css=postcss.parse(readFileSync('src/components/appearance/dashboard.css','utf8'));

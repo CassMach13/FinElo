@@ -1,4 +1,5 @@
 import{describe,it,expect}from'vitest';
+import {readSealed} from '../transactions/approvedManualSave';
 import{readFileSync}from'node:fs';
 import{createHash}from'node:crypto';
 import{isIntegratedQaAllowed}from'../../scripts/diagnostics/integrated-qa-gate';
@@ -22,7 +23,7 @@ describe('4D entrada sintética isolada, sem liberação do produto',()=>{
  });
  it('mantém os 284 selos do 4C, com as exceções exatas de apresentação reversíveis',()=>{
   expect(Object.fromEntries(Object.keys(product.files).map(file=>{
-   let source=authenticatedAppearancePresentation(file,readFileSync(file,'utf8'));
+   let source=authenticatedAppearancePresentation(file,readSealed(file));
    if(file==='src/components/views/DashboardView.tsx')source=source.replace('<p data-finance="info" className="text-highlight/80 text-sm">','<p className="text-highlight/80 text-sm">');
    if(file==='src/components/goals/GoalFormModal.tsx')source=source.replace('<Modal manageFocus','<Modal').replace('autoFocus={false}','autoFocus');
    return[file,createHash('sha256').update(source).digest('hex')];

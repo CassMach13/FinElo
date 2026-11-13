@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {readSealed} from '../transactions/approvedManualSave';
 import {readFileSync} from 'node:fs';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import {reverseSessionPatch} from './reverseSessionPatch';
@@ -66,7 +67,7 @@ describe('4C exceção de sessão autorizada, sem rede ou dados reais',()=>{
 describe('exceção exata mantém todos os selos anteriores auditáveis',()=>{
  const sha=(s:string)=>createHash('sha256').update(s.replaceAll('\r\n','\n')).digest('hex');
  it('reverte somente o patch aprovado e reconstrói o SHA original do store',()=>{
-  const current=readFileSync('src/hooks/useAppStore.ts','utf8').replaceAll('\r\n','\n');
+  const current=readSealed('src/hooks/useAppStore.ts').replaceAll('\r\n','\n');
   expect(sha(current)).toBe(SESSION_STORE_APPROVED);
   const authPatch=readFileSync('docs/temas/proposta-preferencias-auth-4c.patch','utf8');
   const c1=reverseSessionPatch(current,authPatch,'src/hooks/useAppStore.ts');expect(sha(c1)).toBe(SESSION_STORE_C1_APPROVED);
@@ -74,7 +75,7 @@ describe('exceção exata mantém todos os selos anteriores auditáveis',()=>{
   const client=readFileSync('src/supabaseClient.ts','utf8');expect(sha(client)).toBe(AUTH_CLIENT_APPROVED);expect(sha(reverseSessionPatch(client,authPatch,'src/supabaseClient.ts'))).toBe(AUTH_CLIENT_BEFORE);
  });
  it('qualquer alteração adicional no store continua quebrando o selo',()=>{
-  const source=readFileSync('src/hooks/useAppStore.ts','utf8');expect(functionalSourceHash('src/hooks/useAppStore.ts',source+'\n// unrelated')).not.toBe(SESSION_STORE_BEFORE);
+  const source=readSealed('src/hooks/useAppStore.ts');expect(functionalSourceHash('src/hooks/useAppStore.ts',source+'\n// unrelated')).not.toBe(SESSION_STORE_BEFORE);
  });
  it('a única exceção de estrutura é a chave exata do shell por titular',()=>{
   const source=readFileSync('src/App.tsx','utf8');expect(source.match(/<MainLayout key=\{user\?\.id\} \/>/g)).toHaveLength(1);

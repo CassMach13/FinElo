@@ -13,6 +13,8 @@ import {
   loadTransactionDraft,
   saveTransactionDraft,
 } from '../../utils/transactionDraftStorage';
+import type { TransactionSaveOutcome } from '../../utils/transactionSaveOutcome';
+import { saveGuardFor, submitTransactionSave } from '../../utils/transactionSaveFlow';
 import type { CompetenceHistoryCard } from '../../services/creditCardRebuildFromImportHistoryService';
 import {
   buildDirectedPurchaseDescription,
@@ -35,7 +37,11 @@ import {
 
 interface NewTransactionModalProps {
   onClose: () => void;
-  onSave: (transactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => void | Promise<void>;
+  /**
+   * Resolve com o resultado classificado. Só `saved` fecha o modal e apaga o rascunho; recusa e incerteza
+   * mantêm os campos e mostram o aviso aqui dentro. Promise resolvida não significa sucesso.
+   */
+  onSave: (transactions: Omit<Transaction, 'ID_Transacao' | 'Origem'>[]) => Promise<TransactionSaveOutcome>;
   accounts: Account[];
   categories: Category[];
   assets: Asset[];
@@ -52,7 +58,7 @@ interface NewTransactionModalProps {
   cardCreditKeywords?: string[];
 }
 
-const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
+const NewTransactionModalForm: React.FC<NewTransactionModalProps> = ({
   onClose,
   onSave,
   accounts,
@@ -69,6 +75,8 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   cardCreditKeywords = [],
 }) => {
   const { addMappingRule } = useAppStore();
+  // O rascunho e a lembrança de «resultado incerto» pertencem a esta conta: outra conta no mesmo navegador não os vê.
+  const userId = useAppStore((state) => state.user?.id);
   const editTransactionId = initialTransaction?.ID_Transacao ?? null;
   // Importada: só nome, categoria, vínculo e data de pagamento mudam (transactionEditPolicy). O resto
   // descreve a linha do banco e fica travado aqui, em vez de ser regravado a partir do formulário.
@@ -88,6 +96,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [cardEntryKind, setCardEntryKind] = useState<CardManualEntryKind | ''>('');
   const [competenceCards, setCompetenceCards] = useState<CompetenceHistoryCard[]>([]);
   const [competenceLoading, setCompetenceLoading] = useState(false);
@@ -244,7 +253,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   useEffect(() => {
     if (editTransactionId) return;
 
-    const draft = loadTransactionDraft();
+    const draft = loadTransactionDraft(userId);
     if (draft) {
       draftPersistSkipRef.current = false;
       setTransaction(draft.transaction);
@@ -271,7 +280,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     setCardEntryKind('');
     setRefundReferenceMonth('');
     setIsRecurrent(false);
-  }, [editTransactionId]);
+  }, [editTransactionId, userId]);
 
   const persistDraft = useCallback(() => {
     if (editTransactionId || draftPersistSkipRef.current) return;
@@ -282,7 +291,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       transaction.Categoria ||
       transaction.Tipo;
     if (!hasContent) return;
-    saveTransactionDraft({
+    saveTransactionDraft(userId, {
       transaction,
       cardEntryKind,
       refundReferenceMonth,
@@ -292,6 +301,7 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     });
   }, [
     editTransactionId,
+    userId,
     transaction,
     cardEntryKind,
     refundReferenceMonth,
@@ -494,6 +504,35 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Único caminho de gravação do formulário. Um envio por vez (também entre aberturas do modal); um
+   * lançamento novo de resultado incerto só é reenviado com confirmação; nada é reenviado sozinho.
+   * O rascunho só é apagado com gravação confirmada.
+   */
+  const submitSave = async (
+    items: Omit<Transaction, 'ID_Transacao' | 'Origem'>[],
+    key: string | null
+  ) => {
+    setSaveMessage(null);
+    const result = await submitTransactionSave({
+      guard: saveGuardFor(userId),
+      key,
+      confirmDuplicate: (message) =>
+        appConfirm(message, 'Confirmar novo envio', 'Salvar mesmo assim', 'warning', 'Voltar'),
+      save: () => onSave(items),
+      onSaved: () => {
+        if (!editTransactionId) {
+          clearTransactionDraft(userId);
+          draftPersistSkipRef.current = true;
+        }
+      },
+    });
+    if (result.status === 'busy' || result.status === 'refused' || result.status === 'uncertain') {
+      setSaveMessage(result.message);
+    }
+    return result;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -506,12 +545,15 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       if (Object.keys(paymentErrors).length > 0 || isSaving) return;
       setIsSaving(true);
       try {
-        await onSave([
-          {
-            Nome_Fantasia: transaction.Nome_Fantasia.trim(),
-            Categoria: transaction.Categoria,
-          } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
-        ]);
+        await submitSave(
+          [
+            {
+              Nome_Fantasia: transaction.Nome_Fantasia.trim(),
+              Categoria: transaction.Categoria,
+            } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
+          ],
+          null
+        );
       } finally {
         setIsSaving(false);
       }
@@ -530,14 +572,17 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       setIsSaving(true);
       try {
         const paymentDate = transaction.Data_Pagamento ? parseDateOnlyLocal(transaction.Data_Pagamento) : undefined;
-        await onSave([
-          {
-            Nome_Fantasia: transaction.Nome_Fantasia.trim(),
-            Categoria: transaction.Categoria,
-            linked_asset_id: transaction.linked_asset_id || undefined,
-            Data_Pagamento: paymentDate ?? undefined,
-          } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
-        ]);
+        await submitSave(
+          [
+            {
+              Nome_Fantasia: transaction.Nome_Fantasia.trim(),
+              Categoria: transaction.Categoria,
+              linked_asset_id: transaction.linked_asset_id || undefined,
+              Data_Pagamento: paymentDate ?? undefined,
+            } as unknown as Omit<Transaction, 'ID_Transacao' | 'Origem'>,
+          ],
+          null
+        );
       } finally {
         setIsSaving(false);
       }
@@ -698,11 +743,23 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     }
 
     try {
-      await onSave(transactionsToSave);
-      if (!editTransactionId) {
-        clearTransactionDraft();
-        draftPersistSkipRef.current = true;
-      }
+      // Edição é idempotente (mesma linha, mesmos campos): sem chave de duplicidade. Lançamento novo, com.
+      const key = editTransactionId
+        ? null
+        : JSON.stringify(
+            transactionsToSave.map((item) => [
+              item.ID_Conta,
+              item.Nome_Fantasia,
+              Math.round(Number(item.Valor) * 100),
+              item.Tipo,
+              item.Categoria,
+              item.Data instanceof Date ? item.Data.getTime() : String(item.Data),
+              item.Data_Pagamento instanceof Date ? item.Data_Pagamento.getTime() : String(item.Data_Pagamento ?? ''),
+              item.Parcela_Atual ?? null,
+              item.Total_Parcelas ?? null,
+            ])
+          );
+      await submitSave(transactionsToSave, key);
     } finally {
       setIsSaving(false);
     }
@@ -784,17 +841,29 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       overlayClassName="z-[55]"
       title={initialTransaction ? 'Editar Lançamento' : 'Adicionar Lançamento'}
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="new-transaction-form" disabled={submitDisabled}>
-            {isSaving
-              ? 'Salvando…'
-              : isRecurrent
-                ? `Gerar ${recurrenceCount || '?'} Lançamentos`
-                : 'Salvar'}
-          </Button>
+        <div className="space-y-2">
+          {saveMessage && (
+            <p
+              role="alert"
+              data-finance="warning"
+              data-testid="save-message"
+              className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90"
+            >
+              {saveMessage}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="new-transaction-form" disabled={submitDisabled}>
+              {isSaving
+                ? 'Salvando…'
+                : isRecurrent
+                  ? `Gerar ${recurrenceCount || '?'} Lançamentos`
+                  : 'Salvar'}
+            </Button>
+          </div>
         </div>
       }
     >
@@ -1285,6 +1354,15 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     ) : null}
     </>
   );
+};
+
+/**
+ * O formulário nasce de novo a cada troca de conta: o que foi digitado por uma conta nunca vira estado
+ * (nem rascunho) de outra.
+ */
+const NewTransactionModal: React.FC<NewTransactionModalProps> = (props) => {
+  const userId = useAppStore((state) => state.user?.id);
+  return <NewTransactionModalForm key={userId ?? 'anonymous'} {...props} />;
 };
 
 export default NewTransactionModal;

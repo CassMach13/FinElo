@@ -82,11 +82,17 @@ describe('fiação dos demais eventos (contrato)', () => {
   });
 
   it('lançamento manual: depois de gravar, nos dois lugares que criam', () => {
+    // O evento só depois de gravação CONFIRMADA (resultado saved), nunca por Promise resolvida.
     for (const source of [dashboard, transactions]) {
-      const gravou = source.indexOf('await addTransaction(payloads.length === 1 ? payloads[0] : payloads);');
+      const gravou = source.indexOf('const outcome = await saveNewTransactions(payloads, {');
+      const confirmou = source.indexOf("if (outcome.status === 'saved') {", gravou);
       const evento = source.indexOf("trackProductEvent('manual_transaction_created')", gravou);
       expect(gravou).toBeGreaterThan(0);
-      expect(evento).toBeGreaterThan(gravou);
+      expect(confirmou).toBeGreaterThan(gravou);
+      expect(evento).toBeGreaterThan(confirmou);
+      // O evento está dentro do ramo confirmado: nada entre o `if` e o evento fecha o bloco.
+      expect(source.slice(confirmou, evento)).not.toContain('}');
+      expect(source.slice(gravou, confirmou)).toContain('add: addTransaction,');
     }
   });
 
