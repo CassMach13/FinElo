@@ -1,0 +1,325 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index a813f10..09432ba 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -9,6 +9,7 @@ import { Analytics } from '@vercel/analytics/react';
+ import { SpeedInsights } from '@vercel/speed-insights/react';
+ import { captureAcquisition, cancelOAuthAcquisition } from './domain/auth/acquisitionAttribution';
+ import { resolveOAuthAcquisition } from './services/acquisitionAuth';
++import { observeSessionInstance, readBearerIdentity } from './domain/session/sessionScope';
+ 
+ // Vistas Públicas
+ import LandingPage from './components/views/LandingPage';
+@@ -123,6 +124,8 @@ const AppContent: React.FC = () => {
+ 
+       setIsPasswordRecovery(false);
+       setUser(session?.user ?? null);
++      // Mesmo usuário com novo session_id (novo login, não renovação de token) abre outra geração de sessão.
++      observeSessionInstance(session?.user?.id, readBearerIdentity(session?.access_token)?.sessionId);
+       setIsAuthReady(true);
+ 
+       if (_event === 'SIGNED_IN') {
+diff --git a/src/hooks/useAppStore.ts b/src/hooks/useAppStore.ts
+index ecc9570..27dce71 100644
+--- a/src/hooks/useAppStore.ts
++++ b/src/hooks/useAppStore.ts
+@@ -1,5 +1,7 @@
+-import { create } from 'zustand';
++import { create, type StateCreator } from 'zustand';
+ import { appAlert, useDialogStore } from './useDialogStore';
++import { withSessionCommitFence } from '../domain/session/sessionCommitFence';
++import { captureSession, commitSessionIdentity, endSession, getSessionEpoch, onSessionTransition } from '../domain/session/sessionScope';
+ import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
+ import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
+ import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
+@@ -576,7 +578,9 @@ let confirmedAppearance: { id: string; theme: 'dark' | 'light' | 'system' } | un
+ const captureAssetSession = (get: () => Pick<AppState, 'user'>) => {
+   const userId = get().user?.id;
+   const generation = assetSessionGeneration;
+-  return () => !!userId && get().user?.id === userId && generation === assetSessionGeneration;
++  // Geração global da sessão (identidade + instância): A → B → A não reabilita trabalho da primeira sessão de A.
++  const session = captureSession();
++  return () => !!userId && get().user?.id === userId && generation === assetSessionGeneration && session.isCurrent();
+ };
+ 
+ // Avança a cada troca de `transactions` (add/update/delete/importação, e também o snapshot aplicado). Um snapshot
+@@ -588,8 +592,11 @@ export const BACKGROUND_SYNC_MIN_INTERVAL_MS = 30_000;
+ 
+ // Carga completa em voo (uma por vez) e a recarga final compartilhada por quem pediu durante o voo.
+ // Ambas pertencem a UM usuário: a de A nunca é reaproveitada por B nem roda depois da troca.
+-let allDataRun: { userId: string | undefined; promise: Promise<void> } | null = null;
+-let allDataTrailing: { userId: string | undefined; promise: Promise<void> } | null = null;
++// Também pertencem a UMA geração de sessão: em A → B → A a segunda sessão de A não reaproveita a carga da primeira.
++let allDataRun: { userId: string | undefined; epoch: number; promise: Promise<void> } | null = null;
++let allDataTrailing: { userId: string | undefined; epoch: number; promise: Promise<void> } | null = null;
++const sameAllDataSession = (run: { userId: string | undefined; epoch: number } | null, userId: string | undefined) =>
++  !!run && run.userId === userId && run.epoch === getSessionEpoch();
+ 
+ // Cada parte da carga que falha (ou fica velha) avança isto; só uma carga sem avanço vira "recente".
+ let refreshFailureCount = 0;
+@@ -620,6 +627,36 @@ const EMPTY_USER_SCOPED_DATA: Partial<AppState> = {
+   isLoading: false,
+ };
+ 
++/**
++ * Limpeza central de TUDO que pertence à sessão: usada na troca de identidade (setUser) e no logout (signOut).
++ * Não toca no banco; preferências não sensíveis (tema, contador global do Founder's Pack) não ficam aqui.
++ */
++const sessionResetState = (state: Pick<AppState, 'creditCardEngineRevision'>): Partial<AppState> => ({
++  ...EMPTY_USER_SCOPED_DATA,
++  transactionsUserId: null,
++  fullSyncedAt: null,
++  atomicImportEnabled: false,
++  isPremium: false,
++  isWealth: false,
++  unlimitedSync: false,
++  budgetManagerRequested: false,
++  transactionFilters: getDefaultTransactionFilters(),
++  currentView: 'dashboard',
++  creditCardShadowDashboard: [],
++  creditCardReprocessJobs: [],
++  creditCardStatements: [],
++  creditCardStatementEntries: [],
++  selectedCreditCardStatementAudit: null,
++  // Avança (não zera): quem guardou a revisão anterior sempre vê mudança e recarrega.
++  creditCardEngineRevision: state.creditCardEngineRevision + 1,
++});
++
++// Diálogos abertos pela sessão anterior fecham como "cancelar": nunca autorizam a operação dela.
++onSessionTransition(() => {
++  useDialogStore.getState().closeDialog(false);
++  useDialogStore.setState({ options: null });
++});
++
+ const switched = (state: Pick<AppState, 'user'>, next: { id?: string } | null) =>
+   (next?.id ?? null) !== (state.user?.id ?? null);
+ 
+@@ -668,7 +705,7 @@ async function mutateGoal(
+   return true;
+ }
+ 
+-export const useAppStore = create<AppState>((set, get) => ({
++const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => ({
+   // ... existing code ...
+ 
+   // --- ESTADO INICIAL ---
+@@ -721,6 +758,9 @@ export const useAppStore = create<AppState>((set, get) => ({
+   // Filtros de Transação
+   setTransactionFilters: (filters) => set({ transactionFilters: filters }),
+   setUser: (user) => {
++    // Nova identidade (ou nenhuma) avança o epoch global ANTES de qualquer estado mudar: todo trabalho em voo da
++    // sessão anterior perde o direito de gravar no estado. O ouvinte central fecha os diálogos como "cancelar".
++    commitSessionIdentity(user?.id ?? null);
+     if (get().user?.id !== user?.id) {
+       // Cancelar uma confirmação nunca autoriza a operação da sessão anterior.
+       useDialogStore.getState().closeDialog(false);
+@@ -743,7 +783,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+       user,
+       // Outro usuário: nada do anterior pode aparecer nem contar como "dado utilizável".
+       ...((user?.id ?? null) !== (state.user?.id ?? null)
+-        ? { ...EMPTY_USER_SCOPED_DATA, transactionsUserId: null, fullSyncedAt: null }
++        ? sessionResetState(state)
+         : {}),
+       initialDataLoadStatus: deriveInitialDataLoadStatusForUser(
+         state.initialDataLoadStatus,
+@@ -1909,6 +1949,8 @@ export const useAppStore = create<AppState>((set, get) => ({
+   },
+ 
+   signOut: async () => {
++    // Encerra a geração da sessão ANTES de esperar o servidor: nada em voo grava no estado depois daqui.
++    endSession();
+     assetSessionGeneration += 1; // invalida antes de esperar a resposta do logout
+     set({ assets: [] });
+     const { error } = await supabase.auth.signOut();
+@@ -1919,52 +1961,33 @@ export const useAppStore = create<AppState>((set, get) => ({
+     goalsFetchGeneration += 1; // busca de objetivos em voo não vale mais depois do logout
+     economicEventsFetchGeneration += 1; // idem para eventos econômicos (vale mesmo se o mesmo usuário logar de novo)
+     transactionsFetchGeneration += 1; // e para o histórico de transações (sessão antiga nunca grava na nova)
+-    // Limpa o estado da aplicação SEMPRE, independente do erro no servidor
+-    set({
++    // Limpa o estado da aplicação SEMPRE, independente do erro no servidor — a MESMA limpeza da troca de identidade
++    // (assinatura, plano, convites, tickets, métricas admin, cartões, filtros), não uma lista paralela.
++    // isLoading: um fetch em voo da sessão que saiu não vai liberar o loading (ele é descartado).
++    set((state) => ({
++      ...sessionResetState(state),
+       user: null,
+-      atomicImportEnabled: false,
+-      transactions: [],
+-      transactionsUserId: null,
+-      fullSyncedAt: null,
+-      isLoading: false, // um fetch em voo da sessão que saiu não vai liberar o loading (ele é descartado)
+-      accounts: [],
+-      categories: [],
+-      budgets: [],
+-      budgetMonths: [],
+-      economicEvents: [],
+-      budgetManagerRequested: false,
+-      mappingRules: [],
+-      importConfigs: [],
+-      importLogs: [],
+-      creditCardShadowDashboard: [],
+-      creditCardReprocessJobs: [],
+-      creditCardStatements: [],
+-      creditCardStatementEntries: [],
+-      selectedCreditCardStatementAudit: null,
+-      creditCardEngineRevision: 0,
+-      goals: [],
+-      goalsStatus: 'idle',
+-      goalsUserId: null,
+       initialDataLoadStatus: 'idle',
+-    });
++    }));
+     // O redirecionamento será tratado no componente App.tsx
+   },
+ 
+   fetchAllData: async () => {
+     const requestedUserId = get().user?.id;
+-    if (allDataRun && allDataRun.userId === requestedUserId) {
++    const requestedSession = captureSession();
++    if (allDataRun && sameAllDataSession(allDataRun, requestedUserId)) {
+       // Já há uma carga em voo. Ela pode ter lido antes da mudança que motivou este pedido, então agenda UMA
+       // recarga ao final, compartilhada por todos que chegarem enquanto isso (nunca N requisições sobrepostas).
+-      if (!allDataTrailing || allDataTrailing.userId !== requestedUserId) {
++      if (!allDataTrailing || !sameAllDataSession(allDataTrailing, requestedUserId)) {
+         const trailing: Promise<void> = allDataRun.promise
+           .catch(() => undefined)
+           .then(() => {
+             if (allDataTrailing?.promise === trailing) allDataTrailing = null;
+             // A sessão mudou enquanto esperava: a recarga era do usuário anterior e não roda para o novo.
+-            if (get().user?.id !== requestedUserId) return undefined;
++            if (get().user?.id !== requestedUserId || !requestedSession.isCurrent()) return undefined;
+             return get().fetchAllData();
+           });
+-        allDataTrailing = { userId: requestedUserId, promise: trailing };
++        allDataTrailing = { userId: requestedUserId, epoch: requestedSession.epoch, promise: trailing };
+       }
+       return allDataTrailing.promise;
+     }
+@@ -2014,7 +2037,8 @@ export const useAppStore = create<AppState>((set, get) => ({
+               state.initialDataLoadStatus === 'ready' ? 'ready' : 'error',
+           }));
+         }
+-        if (isInitialLoad) {
++        // Falha de uma carga da sessão anterior não vira aviso na sessão atual.
++        if (isInitialLoad && requestedSession.isCurrent()) {
+           await appAlert(
+             'Não foi possível concluir a atualização. Seus dados anteriores foram preservados e nenhum registro foi apagado.',
+             'Atualização incompleta',
+@@ -2025,7 +2049,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+     })().finally(() => {
+       if (allDataRun?.promise === run) allDataRun = null;
+     });
+-    allDataRun = { userId: requestedUserId, promise: run };
++    allDataRun = { userId: requestedUserId, epoch: requestedSession.epoch, promise: run };
+     return run;
+   },
+ 
+@@ -2034,7 +2058,7 @@ export const useAppStore = create<AppState>((set, get) => ({
+     const userId = state.user?.id;
+     if (!userId) return Promise.resolve();
+     // Carga em voo do mesmo usuário: reaproveita (foco + visibilidade disparam juntos).
+-    if (allDataRun && allDataRun.userId === userId) return allDataRun.promise;
++    if (allDataRun && sameAllDataSession(allDataRun, userId)) return allDataRun.promise;
+     const maxAgeMs = options?.maxAgeMs ?? 0;
+     const isFresh =
+       maxAgeMs > 0 &&
+@@ -4148,7 +4172,28 @@ export const useAppStore = create<AppState>((set, get) => ({
+       await get().fetchAllData();
+     }
+   },
+-}));
++});
++
++/**
++ * Toda ação passa pela cerca de commit da sessão: depois de A → B (ou logout, ou A → B → A) nenhuma resposta
++ * atrasada de uma chamada iniciada na sessão anterior grava no estado. Ficam de fora só as ações que conduzem a
++ * transição (`setUser`, `signOut`) e o contador global, que não pertence a nenhum usuário.
++ */
++export const useAppStore = create<AppState>()(
++  withSessionCommitFence(appStoreCreator, {
++    unfenced: ['setUser', 'signOut', 'fetchFounderCount'],
++    onDroppedCommit: (action) => console.debug(`[session] resposta da sessão anterior descartada (${action})`),
++  })
++);
++
++// O store é a autoridade da identidade exibida: qualquer troca de `user` (não só via setUser) move o escopo da
++// sessão. Via setUser a transição já aconteceu antes do estado mudar, e aqui não há efeito. Fora do setUser, o
++// trabalho em voo da sessão que saiu perde o direito de gravar — inclusive de liberar o loading que deixou —, então
++// a própria transição o libera.
++useAppStore.subscribe((state, prev) => {
++  if ((state.user?.id ?? null) === (prev.user?.id ?? null)) return;
++  if (commitSessionIdentity(state.user?.id ?? null) && state.isLoading) useAppStore.setState({ isLoading: false });
++});
+ 
+ // Toda troca de `transactions` invalida snapshots já iniciados (os mais velhos já caem pela geração).
+ useAppStore.subscribe((state, prev) => {
+diff --git a/src/supabaseClient.ts b/src/supabaseClient.ts
+index 94e5592..926e798 100644
+--- a/src/supabaseClient.ts
++++ b/src/supabaseClient.ts
+@@ -1,5 +1,6 @@
+ import { createClient } from '@supabase/supabase-js'
+ import { APPEARANCE_THEME_KEY, type AppearanceTheme } from './domain/appearance/theme'
++import { createSessionFencedFetch } from './domain/session/sessionFence'
+ 
+ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+ const supabasePublishableKey =
+@@ -17,6 +18,8 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+         autoRefreshToken: true,
+         detectSessionInUrl: true,
+     },
++    // REST/Storage/Functions: nenhuma requisição sai com credencial de outra identidade (ver sessionFence.ts).
++    global: { fetch: createSessionFencedFetch(supabaseUrl) },
+ });
+ 
+ /** A captured bearer binds the write to its initiating account. The global SDK's updateUser
+diff --git a/src/utils/transactionPeriodFilters.ts b/src/utils/transactionPeriodFilters.ts
+index bba296d..7ca9a74 100644
+--- a/src/utils/transactionPeriodFilters.ts
++++ b/src/utils/transactionPeriodFilters.ts
+@@ -1,5 +1,6 @@
+ import type { Transaction } from '../types';
+ import { parseDateOnlyLocal, toDateOnlyIso } from './dateOnly';
++import { getActiveSessionUserId } from '../domain/session/sessionScope';
+ 
+ export type TransactionPeriodPreset =
+   | 'current_month'
+@@ -183,11 +184,25 @@ export function resolveTransactionFilters(
+   return merged;
+ }
+ 
++/**
++ * Os filtros pertencem a UM usuário (citam contas, responsável e o texto buscado): a chave leva o id da conta ativa.
++ * Sem usuário ativo nada é lido nem gravado. A chave antiga, sem dono, não dá para atribuir a ninguém: é apagada e
++ * nunca carregada (mesmo contrato do rascunho de lançamento).
++ */
++export const userScopedTransactionFiltersKey = (storageKey: string, userId: string) => `${storageKey}:${userId}`;
++
+ export function loadPersistedTransactionFilters(
+   storageKey = TRANSACTION_FILTERS_STORAGE_KEY
+ ): Partial<TransactionFiltersState> | null {
++  const userId = getActiveSessionUserId();
++  if (!userId) return null;
++  try {
++    localStorage.removeItem(storageKey);
++  } catch {
++    /* ignore */
++  }
+   try {
+-    const raw = localStorage.getItem(storageKey);
++    const raw = localStorage.getItem(userScopedTransactionFiltersKey(storageKey, userId));
+     if (!raw) return null;
+     const parsed = JSON.parse(raw) as Partial<TransactionFiltersState>;
+     return parsed && typeof parsed === 'object' ? parsed : null;
+@@ -200,8 +215,10 @@ export function savePersistedTransactionFilters(
+   filters: TransactionFiltersState,
+   storageKey = TRANSACTION_FILTERS_STORAGE_KEY
+ ): void {
++  const userId = getActiveSessionUserId();
++  if (!userId) return;
+   try {
+-    localStorage.setItem(storageKey, JSON.stringify(filters));
++    localStorage.setItem(userScopedTransactionFiltersKey(storageKey, userId), JSON.stringify(filters));
+   } catch {
+     /* quota / private mode */
+   }

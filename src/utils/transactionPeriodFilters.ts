@@ -1,5 +1,6 @@
 import type { Transaction } from '../types';
 import { parseDateOnlyLocal, toDateOnlyIso } from './dateOnly';
+import { getActiveSessionUserId } from '../domain/session/sessionScope';
 
 export type TransactionPeriodPreset =
   | 'current_month'
@@ -183,11 +184,25 @@ export function resolveTransactionFilters(
   return merged;
 }
 
+/**
+ * Os filtros pertencem a UM usuário (citam contas, responsável e o texto buscado): a chave leva o id da conta ativa.
+ * Sem usuário ativo nada é lido nem gravado. A chave antiga, sem dono, não dá para atribuir a ninguém: é apagada e
+ * nunca carregada (mesmo contrato do rascunho de lançamento).
+ */
+export const userScopedTransactionFiltersKey = (storageKey: string, userId: string) => `${storageKey}:${userId}`;
+
 export function loadPersistedTransactionFilters(
   storageKey = TRANSACTION_FILTERS_STORAGE_KEY
 ): Partial<TransactionFiltersState> | null {
+  const userId = getActiveSessionUserId();
+  if (!userId) return null;
   try {
-    const raw = localStorage.getItem(storageKey);
+    localStorage.removeItem(storageKey);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const raw = localStorage.getItem(userScopedTransactionFiltersKey(storageKey, userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<TransactionFiltersState>;
     return parsed && typeof parsed === 'object' ? parsed : null;
@@ -200,8 +215,10 @@ export function savePersistedTransactionFilters(
   filters: TransactionFiltersState,
   storageKey = TRANSACTION_FILTERS_STORAGE_KEY
 ): void {
+  const userId = getActiveSessionUserId();
+  if (!userId) return;
   try {
-    localStorage.setItem(storageKey, JSON.stringify(filters));
+    localStorage.setItem(userScopedTransactionFiltersKey(storageKey, userId), JSON.stringify(filters));
   } catch {
     /* quota / private mode */
   }
