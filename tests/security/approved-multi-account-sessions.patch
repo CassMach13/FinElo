@@ -1,0 +1,90 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 09432ba..36cb654 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -10,6 +10,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
+ import { captureAcquisition, cancelOAuthAcquisition } from './domain/auth/acquisitionAttribution';
+ import { resolveOAuthAcquisition } from './services/acquisitionAuth';
+ import { observeSessionInstance, readBearerIdentity } from './domain/session/sessionScope';
++import { useAccountSwitchBlocking } from './domain/session/accounts/accountSwitchGate';
+ 
+ // Vistas Públicas
+ import LandingPage from './components/views/LandingPage';
+@@ -28,6 +29,8 @@ import AuthenticatedAppearance from './components/appearance/AuthenticatedAppear
+ const AppContent: React.FC = () => {
+   const acquisitionLocation = useLocation();
+   const [isAuthReady, setIsAuthReady] = useState(false);
++  // Etapa 2: durante a troca de conta (passos 3–9) nada da conta anterior aparece nem aceita ação.
++  const isSwitchingAccount = useAccountSwitchBlocking();
+   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+   const { fetchAllData, syncAllData, setUser, user } = useAppStore();
+ 
+@@ -194,7 +197,7 @@ const AppContent: React.FC = () => {
+     return <UpdatePasswordView />;
+   }
+ 
+-  if (!isAuthReady) return <AuthLoadingScreen />;
++  if (!isAuthReady || isSwitchingAccount) return <AuthLoadingScreen />;
+ 
+   return (
+     <Routes>
+diff --git a/src/hooks/useAppStore.ts b/src/hooks/useAppStore.ts
+index c1a4f9f..6f56ae4 100644
+--- a/src/hooks/useAppStore.ts
++++ b/src/hooks/useAppStore.ts
+@@ -4,6 +4,8 @@ import { withSessionCommitFence } from '../domain/session/sessionCommitFence';
+ import { captureSession, commitSessionIdentity, endSession, getSessionEpoch, onSessionTransition } from '../domain/session/sessionScope';
+ import { signOutAndForgetLocalSession } from '../domain/session/sessionSignOut';
+ import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
++import { supabase as sharedSupabase } from '../supabaseClient';
++import { operationClient } from '../domain/session/operationBinding';
+ import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
+ import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
+ import {
+@@ -706,7 +708,11 @@ async function mutateGoal(
+   return true;
+ }
+ 
+-const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => ({
++const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => {
++  // Etapa 2: cliente da conta que INICIOU esta chamada de ação (capturado pela cerca de commit). Todo o código da
++  // ação, inclusive depois de await, usa este cliente mesmo que a aba troque de conta. Fora da cerca: o compartilhado.
++  const supabase = operationClient(sharedSupabase);
++  return ({
+   // ... existing code ...
+ 
+   // --- ESTADO INICIAL ---
+@@ -4178,6 +4184,7 @@ const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => ({
+     }
+   },
+ });
++};
+ 
+ /**
+  * Toda ação passa pela cerca de commit da sessão: depois de A → B (ou logout, ou A → B → A) nenhuma resposta
+diff --git a/src/supabaseClient.ts b/src/supabaseClient.ts
+index 926e798..f809901 100644
+--- a/src/supabaseClient.ts
++++ b/src/supabaseClient.ts
+@@ -1,6 +1,7 @@
+ import { createClient } from '@supabase/supabase-js'
+ import { APPEARANCE_THEME_KEY, type AppearanceTheme } from './domain/appearance/theme'
+ import { createSessionFencedFetch } from './domain/session/sessionFence'
++import { createMultiAccountSessions, watchForMultiAccountActivation } from './domain/session/accounts/multiAccountSessions'
+ 
+ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+ const supabasePublishableKey =
+@@ -12,7 +13,12 @@ if (!supabaseUrl || !supabasePublishableKey) {
+     );
+ }
+ 
+-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
++// Etapa 2 (várias contas): só com a trava de build E o opt-in deste navegador; senão, null e o cliente de sempre.
++const multiAccountEnabled = import.meta.env.VITE_MULTI_ACCOUNT_SESSIONS === 'true';
++const multiAccount = createMultiAccountSessions(supabaseUrl, supabasePublishableKey, multiAccountEnabled);
++if (!multiAccount) watchForMultiAccountActivation(multiAccountEnabled);
++
++export const supabase = multiAccount?.client ?? createClient(supabaseUrl, supabasePublishableKey, {
+     auth: {
+         persistSession: true,
+         autoRefreshToken: true,

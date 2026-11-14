@@ -4,6 +4,8 @@ import { withSessionCommitFence } from '../domain/session/sessionCommitFence';
 import { captureSession, commitSessionIdentity, endSession, getSessionEpoch, onSessionTransition } from '../domain/session/sessionScope';
 import { signOutAndForgetLocalSession } from '../domain/session/sessionSignOut';
 import { persistAppearanceTheme, persistUserMetadata, supabase } from '../supabaseClient';
+import { supabase as sharedSupabase } from '../supabaseClient';
+import { operationClient } from '../domain/session/operationBinding';
 import { APPEARANCE_THEME_KEY, isAppearancePilotEnabled, isAppearanceTheme } from '../domain/appearance/theme';
 import { cacheConfirmedAppearance, readConfirmedAppearance, signalAppearanceChange } from '../domain/appearance/session';
 import {
@@ -706,7 +708,11 @@ async function mutateGoal(
   return true;
 }
 
-const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => ({
+const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => {
+  // Etapa 2: cliente da conta que INICIOU esta chamada de ação (capturado pela cerca de commit). Todo o código da
+  // ação, inclusive depois de await, usa este cliente mesmo que a aba troque de conta. Fora da cerca: o compartilhado.
+  const supabase = operationClient(sharedSupabase);
+  return ({
   // ... existing code ...
 
   // --- ESTADO INICIAL ---
@@ -4178,6 +4184,7 @@ const appStoreCreator: StateCreator<AppState, [], []> = (set, get) => ({
     }
   },
 });
+};
 
 /**
  * Toda ação passa pela cerca de commit da sessão: depois de A → B (ou logout, ou A → B → A) nenhuma resposta

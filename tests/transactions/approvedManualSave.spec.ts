@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { APPROVED_MANUAL_SAVE, beforeApprovedManualSave, sha256Lf } from './approvedManualSave';
 import { beforeApprovedSessionIsolation } from '../security/approvedSessionIsolation';
+import { beforeApprovedMultiAccountSessions } from '../security/approvedMultiAccountSessions';
 
 // Conteúdo do arquivo antes da exceção mais nova (isolamento de sessões), que vem por cima desta na cadeia.
-const readBeneathNewerExceptions = (path: string) => beforeApprovedSessionIsolation(path, readFileSync(path, 'utf8'));
+const readBeneathNewerExceptions = (path: string) => beforeApprovedSessionIsolation(path, beforeApprovedMultiAccountSessions(path, readFileSync(path, 'utf8')));
 
 describe('exceção exata: confirmação de gravação de lançamentos manuais', () => {
   it.each(Object.entries(APPROVED_MANUAL_SAVE))('%s: o arquivo atual é exatamente o aprovado e o patch o reverte ao original', (path, entry) => {

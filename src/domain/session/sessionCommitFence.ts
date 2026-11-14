@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand';
+import { runWithOperationBinding } from './operationBinding';
 import { captureSession, trackSessionOperation } from './sessionScope';
 
 /**
@@ -32,7 +33,8 @@ export function withSessionCommitFence<T extends object>(
           }
           (set as (p: typeof partial, r?: boolean) => void)(partial, replace);
         }) as typeof set;
-        const scoped = creator(fencedSet, get, api) as Record<string, (...a: unknown[]) => unknown>;
+        // Etapa 2: o criador captura aqui o cliente da conta ativa; a ação inteira usa esse cliente (operationBinding.ts).
+        const scoped = runWithOperationBinding(() => creator(fencedSet, get, api)) as Record<string, (...a: unknown[]) => unknown>;
         const result = scoped[name](...args);
         if (result && typeof (result as Promise<unknown>).then === 'function') {
           return trackSessionOperation(ticket, result as Promise<unknown>, name);

@@ -43,15 +43,15 @@ export class SessionFenceError extends Error {
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const FENCED_PATHS = ['/rest/v1/', '/storage/v1/', '/functions/v1/'];
 
-type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-const requestUrl = (input: RequestInfo | URL): string =>
+export const requestUrl = (input: RequestInfo | URL): string =>
   typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
 
 const requestMethod = (input: RequestInfo | URL, init?: RequestInit): string =>
   (init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : undefined) ?? 'GET').toUpperCase();
 
-const requestBearer = (input: RequestInfo | URL, init?: RequestInit): string | null => {
+export const requestBearer = (input: RequestInfo | URL, init?: RequestInit): string | null => {
   const headers = new Headers(init?.headers ?? (typeof input === 'object' && 'headers' in input ? input.headers : undefined));
   const value = headers.get('Authorization');
   return value?.toLowerCase().startsWith('bearer ') ? value.slice(7).trim() : null;
