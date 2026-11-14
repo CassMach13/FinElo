@@ -10,6 +10,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { captureAcquisition, cancelOAuthAcquisition } from './domain/auth/acquisitionAttribution';
 import { resolveOAuthAcquisition } from './services/acquisitionAuth';
 import { observeSessionInstance, readBearerIdentity } from './domain/session/sessionScope';
+import { useAccountSwitchBlocking } from './domain/session/accounts/accountSwitchGate';
 
 // Vistas Públicas
 import LandingPage from './components/views/LandingPage';
@@ -28,6 +29,8 @@ import AuthenticatedAppearance from './components/appearance/AuthenticatedAppear
 const AppContent: React.FC = () => {
   const acquisitionLocation = useLocation();
   const [isAuthReady, setIsAuthReady] = useState(false);
+  // Etapa 2: durante a troca de conta (passos 3–9) nada da conta anterior aparece nem aceita ação.
+  const isSwitchingAccount = useAccountSwitchBlocking();
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const { fetchAllData, syncAllData, setUser, user } = useAppStore();
 
@@ -194,7 +197,7 @@ const AppContent: React.FC = () => {
     return <UpdatePasswordView />;
   }
 
-  if (!isAuthReady) return <AuthLoadingScreen />;
+  if (!isAuthReady || isSwitchingAccount) return <AuthLoadingScreen />;
 
   return (
     <Routes>

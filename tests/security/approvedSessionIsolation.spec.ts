@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { APPROVED_SESSION_ISOLATION, beforeApprovedSessionIsolation } from './approvedSessionIsolation';
+import { beforeApprovedMultiAccountSessions } from './approvedMultiAccountSessions';
 import { APPROVED_MANUAL_SAVE, sha256Lf } from '../transactions/approvedManualSave';
 
 describe('exceção exata: alternância de contas — Etapa 1 (isolamento de sessões)', () => {
   it.each(Object.entries(APPROVED_SESSION_ISOLATION))('%s: o arquivo atual é exatamente o aprovado e o patch o reverte ao anterior', (path, entry) => {
-    const current = readFileSync(path, 'utf8');
+    // Camada mais nova (Etapa 2) revertida primeiro, só se o arquivo for exatamente o submetido.
+    const current = beforeApprovedMultiAccountSessions(path, readFileSync(path, 'utf8'));
     expect(sha256Lf(current)).toBe(entry.approved);
     expect(sha256Lf(beforeApprovedSessionIsolation(path, current))).toBe(entry.before);
   });

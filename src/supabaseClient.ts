@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { APPEARANCE_THEME_KEY, type AppearanceTheme } from './domain/appearance/theme'
 import { createSessionFencedFetch } from './domain/session/sessionFence'
+import { createMultiAccountSessions, watchForMultiAccountActivation } from './domain/session/accounts/multiAccountSessions'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabasePublishableKey =
@@ -12,7 +13,12 @@ if (!supabaseUrl || !supabasePublishableKey) {
     );
 }
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+// Etapa 2 (várias contas): só com a trava de build E o opt-in deste navegador; senão, null e o cliente de sempre.
+const multiAccountEnabled = import.meta.env.VITE_MULTI_ACCOUNT_SESSIONS === 'true';
+const multiAccount = createMultiAccountSessions(supabaseUrl, supabasePublishableKey, multiAccountEnabled);
+if (!multiAccount) watchForMultiAccountActivation(multiAccountEnabled);
+
+export const supabase = multiAccount?.client ?? createClient(supabaseUrl, supabasePublishableKey, {
     auth: {
         persistSession: true,
         autoRefreshToken: true,
