@@ -9,6 +9,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { captureAcquisition, cancelOAuthAcquisition } from './domain/auth/acquisitionAttribution';
 import { resolveOAuthAcquisition } from './services/acquisitionAuth';
+import { observeSessionInstance, readBearerIdentity } from './domain/session/sessionScope';
 
 // Vistas Públicas
 import LandingPage from './components/views/LandingPage';
@@ -123,6 +124,8 @@ const AppContent: React.FC = () => {
 
       setIsPasswordRecovery(false);
       setUser(session?.user ?? null);
+      // Mesmo usuário com novo session_id (novo login, não renovação de token) abre outra geração de sessão.
+      observeSessionInstance(session?.user?.id, readBearerIdentity(session?.access_token)?.sessionId);
       setIsAuthReady(true);
 
       if (_event === 'SIGNED_IN') {

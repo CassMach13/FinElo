@@ -19,7 +19,9 @@ import {
 import {
   SMART_TRANSACTION_FILTERS_STORAGE_KEY,
   TRANSACTION_FILTERS_STORAGE_KEY,
+  userScopedTransactionFiltersKey,
 } from '../../src/utils/transactionPeriodFilters';
+import { commitSessionIdentity, resetSessionScopeForTests } from '../../src/domain/session/sessionScope';
 
 const TODAY = '2026-10-06';
 
@@ -313,15 +315,22 @@ describe('Próximos lançamentos — ordenação', () => {
 describe('CTA — Ver em Transações', () => {
   const store = new Map<string, string>();
   const original = (globalThis as { localStorage?: unknown }).localStorage;
+  // Os filtros persistidos pertencem à conta ativa (isolamento entre sessões): a chave leva o id do usuário.
+  const USER = 'user-agenda';
+  const v1 = userScopedTransactionFiltersKey(TRANSACTION_FILTERS_STORAGE_KEY, USER);
+  const v2 = userScopedTransactionFiltersKey(SMART_TRANSACTION_FILTERS_STORAGE_KEY, USER);
   beforeEach(() => {
     store.clear();
     (globalThis as { localStorage?: unknown }).localStorage = {
       getItem: (k: string) => store.get(k) ?? null,
       setItem: (k: string, v: string) => void store.set(k, v),
     };
+    resetSessionScopeForTests();
+    commitSessionIdentity(USER);
   });
   afterEach(() => {
     (globalThis as { localStorage?: unknown }).localStorage = original;
+    resetSessionScopeForTests();
   });
 
   const range = { startDate: '2026-10-07', endDate: '2026-11-05' };
@@ -348,12 +357,13 @@ describe('CTA — Ver em Transações', () => {
     openUpcomingInTransactions({
       range,
       smartFiltersEnabled: true,
-      navigate: (v) => order.push(`nav:${v}:${store.has(SMART_TRANSACTION_FILTERS_STORAGE_KEY)}`),
+      navigate: (v) => order.push(`nav:${v}:${store.has(v2)}`),
     });
     expect(SMART_TRANSACTION_FILTERS_STORAGE_KEY).toBe('finelo_transaction_filters_v2');
     expect(order).toEqual(['nav:transactions:true']); // gravou ANTES de navegar
-    expect(store.has(TRANSACTION_FILTERS_STORAGE_KEY)).toBe(false);
-    expect(JSON.parse(store.get(SMART_TRANSACTION_FILTERS_STORAGE_KEY)!)).toMatchObject({
+    expect(store.has(v1)).toBe(false);
+    expect(store.has(SMART_TRANSACTION_FILTERS_STORAGE_KEY)).toBe(false); // nunca na chave sem dono
+    expect(JSON.parse(store.get(v2)!)).toMatchObject({
       viewScope: 'operation',
       periodPreset: 'custom',
       dateField: 'Pagamento',
@@ -367,14 +377,23 @@ describe('CTA — Ver em Transações', () => {
     openUpcomingInTransactions({ range, smartFiltersEnabled: false, navigate: (v) => (navigated = v) });
     expect(TRANSACTION_FILTERS_STORAGE_KEY).toBe('finelo_transaction_filters_v1');
     expect(navigated).toBe('transactions');
-    expect(store.has(SMART_TRANSACTION_FILTERS_STORAGE_KEY)).toBe(false);
-    expect(JSON.parse(store.get(TRANSACTION_FILTERS_STORAGE_KEY)!)).toMatchObject({
+    expect(store.has(v2)).toBe(false);
+    expect(store.has(TRANSACTION_FILTERS_STORAGE_KEY)).toBe(false); // nunca na chave sem dono
+    expect(JSON.parse(store.get(v1)!)).toMatchObject({
       dateField: 'Pagamento',
       startDate: range.startDate,
       endDate: range.endDate,
       text: '',
       sourceScope: 'all',
     });
+  });
+
+  it('sem conta ativa nada é gravado (não há a quem atribuir o filtro)', () => {
+    resetSessionScopeForTests();
+    let navigated = '';
+    openUpcomingInTransactions({ range, smartFiltersEnabled: true, navigate: (v) => (navigated = v) });
+    expect(navigated).toBe('transactions');
+    expect(store.size).toBe(0);
   });
 
   it('o intervalo da Agenda é o mesmo aberto em Transações', () => {

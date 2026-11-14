@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { reverseSessionPatch } from '../appearance/reverseSessionPatch';
+import { beforeApprovedSessionIsolation } from '../security/approvedSessionIsolation';
 
 /**
  * Exceção exata e revisada: «confirmação de gravação de lançamentos manuais».
@@ -47,4 +48,6 @@ export function beforeApprovedManualSave(path: string, source: string): string {
 }
 
 /** Leitura de fonte para os testes de selo: conteúdo anterior à correção quando (e só quando) é o aprovado. */
-export const readSealed = (path: string) => beforeApprovedManualSave(path, readFileSync(path, 'utf8'));
+export const readSealed = (path: string) =>
+  // Exceções revisadas em cadeia, da mais nova para a mais antiga: cada uma só reverte o seu conteúdo aprovado exato.
+  beforeApprovedManualSave(path, beforeApprovedSessionIsolation(path, readFileSync(path, 'utf8')));

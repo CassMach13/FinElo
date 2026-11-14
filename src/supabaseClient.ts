@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { APPEARANCE_THEME_KEY, type AppearanceTheme } from './domain/appearance/theme'
+import { createSessionFencedFetch } from './domain/session/sessionFence'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabasePublishableKey =
@@ -17,6 +18,8 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
         autoRefreshToken: true,
         detectSessionInUrl: true,
     },
+    // REST/Storage/Functions: nenhuma requisição sai com credencial de outra identidade (ver sessionFence.ts).
+    global: { fetch: createSessionFencedFetch(supabaseUrl) },
 });
 
 /** A captured bearer binds the write to its initiating account. The global SDK's updateUser
