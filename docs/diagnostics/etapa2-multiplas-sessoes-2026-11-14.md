@@ -138,7 +138,8 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 
   Além desses: registro (limite de 5, sem duplicatas, saneamento); multiplexador de eventos; store **real** usando o cliente da conta que iniciou a ação; invariância do modo de conta única.
 - **Mutação:** **18/18 mutantes mortos** (script em scratchpad, cada mutante quebra uma garantia e roda a suíte focal). A 1ª rodada matou 13/18; os 5 sobreviventes (token de outra conta mascarado pela R1, sessão 401 não apagada pelo SDK, eventos no meio da troca, conta da aba × última usada, interface liberada antes da recarga) revelaram lacunas de TESTE — sem defeito de código — e ganharam cenários próprios (inclusive 7b: Auth responde 401); na 2ª rodada, 5/5 mortos..
-- **Suíte completa:** **224 arquivos, 3579 aprovados, 1 pulado, 0 falhas** (antes: 3546/1; +33 testes novos), com as variáveis placeholder do CI. Selos, segurança e transações: todos verdes com a nova camada encadeada..
+- **Correção da 2C (`fc379d9`, seção 11):** +6 cenários (login só resolve após a adoção; recarga no meio da adoção; aba com conta escolhida; rede caindo na adoção; Auth recusando no boot; aba duplicada). Focais **31/31**; mutação da correção **7/7 mortos**; suíte completa **3585 aprovados, 1 pulado, 0 falhas**; baseline TS 13 (nenhum novo); build OK. Nenhum arquivo selado alterado.
+- **Suíte completa (entrega original):** **224 arquivos, 3579 aprovados, 1 pulado, 0 falhas** (antes: 3546/1; +33 testes novos), com as variáveis placeholder do CI. Selos, segurança e transações: todos verdes com a nova camada encadeada..
 - **Baseline TypeScript:** 13 diagnósticos conhecidos, nenhum novo.
 - **Build:** `vite build` OK (PWA gerado, 49 entradas no precache)..
 
@@ -186,14 +187,37 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 
 ## 9. Riscos residuais
 
-1. **Sem homologação em navegador ainda.** Os testes usam o supabase-js real, mas `navigator.locks`, BroadcastChannel entre abas reais, `sessionStorage` em aba duplicada e o callback OAuth/recuperação real **não** foram exercitados. Isso é a 2C e precisa de login das contas QA. A recuperação de senha segue bloqueada no staging (domínio de exemplo recusado pelo Auth).
+1. **Homologação em navegador feita (seção 11), com lacunas.** `navigator.locks`, abas reais, `sessionStorage` por aba e login por senha foram exercitados contra o staging. **Não** foram exercitados no navegador: callback OAuth real (Google/GitHub), link de recuperação de senha (segue bloqueado no staging: domínio de exemplo recusado pelo Auth) e aba duplicada pelo navegador (só em teste). A troca com rede caindo e a sessão revogada de B ficaram só nos testes (cenários 7, 7b, 11).
 2. **Serviços e helpers de módulo pela fachada.** Ficam protegidos pelo ponto quieto, e não por vinculação explícita. Um fluxo de componente não rastreado que espere algo fora da rede (temporizador) por mais que a troca inteira poderia retomar depois dela pela fachada. Nesse caso, gravações de A sairiam com B só se B tiver acesso via RLS às linhas alvo; o caso comum é o bloqueio pela RLS. Mitigação futura: passar o cliente por parâmetro nos serviços e componentes de gravação.
 3. **Ação que chama outra ação depois de uma troca.** A ação interna captura o cliente no momento da chamada interna. A troca só acontece no ponto quieto, e a R2 bloqueia gravações enquanto houver operação de geração anterior.
 4. **`localStorage` não é cofre.** Um XSS lê todas as sessões lembradas (até 5), como já lia a sessão única.
-5. **Aba duplicada pelo navegador.** Copia o `sessionStorage`: abre na mesma conta (desejável) e com o mesmo slot de login pendente. Um login simultâneo nas duas cópias pode perder um dos logins; a atribuição continua correta, porque vem do Auth.
+5. **Aba duplicada pelo navegador.** Copia o `sessionStorage`: abre na mesma conta (desejável) e com o mesmo slot de login pendente. Se as duas cópias adotarem a mesma sessão pendente, só uma adota e a outra não derruba a sessão (teste próprio); a cópia que não adotou fica sem conta até recarregar. A atribuição continua correta, porque vem do Auth.
+8. **Login pela fachada agora espera a adoção** (uma chamada `getUser` a mais antes de o login resolver). Adoção recusada volta como erro de Auth na tela de login, com mensagem própria (limite de 5 contas, sessão não confirmada, rede).
 6. **Migração com validação falha depois de uma renovação.** Cenário contraditório, mas possível com queda de rede no meio: a sessão de conta única pode precisar de novo login.
 7. **Botão "Sair" existente usa escopo global.** É o comportamento atual; a escolha por `local` no modo de várias contas fica para a Etapa 3.
 
 ## 10. Veredito
 
-**GO para homologação (2C) — com limitações.** O gerenciador, a integração segura e a exceção de selo estão prontos e provados por teste local (cenários 1–15 com supabase-js real, mutação 18/18, suíte completa verde). A exceção de selo foi **aprovada** em 2026-11-14 (seção 6). Fica pendente antes de qualquer ativação: a **homologação em navegador real** contra o staging com as contas QA A/B — exige ligar a trava só no servidor local e o seu login nas contas, e cobre locks/abas/callback reais (risco 1). Nada foi mesclado, publicado ou ativado; a Etapa 3 não foi iniciada.
+**GO com limitações para a Etapa 2 (internamente; continua desligada).** O gerenciador, a integração segura e a exceção de selo (aprovada em 2026-11-14) estão provados por teste local e por homologação em navegador real contra o staging (seção 11). A 2C achou **um defeito real**: o login navega antes da adoção, deixando a sessão presa no slot pendente. Ele foi corrigido em `fc379d9`, sem tocar em arquivo selado, e reverificado no navegador. Limitações para qualquer ativação: OAuth real e link de recuperação não exercitados no navegador (risco 1); serviços protegidos por ponto quieto, e não por cliente explícito (risco 2); o botão "Sair" atual segue global (risco 7, Etapa 3). Nada foi mesclado, publicado ou ativado; a trava não está em nenhum ambiente versionado; a Etapa 3 não foi iniciada.
+
+## 11. Homologação 2C em navegador (2026-11-14)
+
+**Ambiente.** Servidor local `vite --mode staging` em `127.0.0.1:5199`, com `VITE_MULTI_ACCOUNT_SESSIONS=true` só nesse processo. O destino das chamadas foi confirmado como o projeto de staging. Contas QA A e B: login feito pelo responsável no painel do navegador; nenhuma senha foi digitada pelo agente. Identificadores aparecem só pelos 4 últimos caracteres e nenhum token foi registrado (comparação de token por prefixo de SHA-256). Nenhum dado financeiro foi gravado: só chamadas normais de Auth e leituras do app. Ao final: servidor parado, `.env.staging` copiado removido e chaves de teste apagadas da origem local.
+
+| # | Verificação | Resultado |
+|---|---|---|
+| B1 | Migração da sessão de conta única de A para o gerenciador | PASS: mesma sessão antes/depois, chave antiga removida, registro só com metadados |
+| B2 | Recarga após a migração | PASS: A ativa sem novo login, só A renova, painel de A |
+| B3 | Login de B numa aba sem conta | **FALHA → corrigido.** A tela de login navega (`location.assign`) assim que `signInWithPassword` resolve, e isso interrompia a adoção (`getUser` em rede). A sessão de B ficava presa no slot pendente e a aba voltava para A. Correção `fc379d9`: (a) login pela fachada/`pendingAuth()` só resolve depois da adoção, e recusa vira erro; (b) sessão pendente da aba é adotada no boot |
+| B3′ | Mesma sessão presa, depois de recarregar com a correção | PASS: B adotada no boot (registro [A, B], slot pendente vazio); a aba, que tinha escolhido A, continuou em A |
+| B4 | Troca A→B e B→A na mesma aba, sem novo login | PASS: `ok`; 20 requisições REST por troca, **todas** com o portador da conta de destino; `getUser` só da conta de destino; 0 `/token`; saudação da conta certa; só a conta ativa renova |
+| B5 | Duas abas ao mesmo tempo (A e B) | PASS: aba A com 16 REST, todas A; aba B com todas B; cada aba renova só a sua conta |
+| B6 | Recarga das duas abas | PASS: cada aba volta para a sua conta (A e B) |
+| B7 | Renovação simultânea da mesma conta em duas abas (`expires_at` vencido só no armazenamento local, `getSession` no mesmo instante) | PASS: **1** `refresh_token` no total; a outra aba fez 0 chamadas de token; as duas ficaram com o mesmo token novo |
+| B8 | Remover B do navegador a partir da aba de A | PASS: aba A intacta; chave de B apagada; a aba onde B estava ativa foi para `/login`, sem conta e sem dados |
+| B9 | Login real de B depois da correção (aba sem conta) | PASS: logo após a navegação, B ativa, registro [A, B], slot pendente vazio, painel de B |
+| B10 | Sair da conta atual (B) | PASS: sessão de B removida com confirmação do servidor (escopo local); B continua lembrada, marcada como saída; A intacta (32 REST, todas A) |
+| B11 | Sair de todas | PASS: A e B encerradas com confirmação do servidor; nenhuma chave `sb-`; registro vazio; as duas abas em `/login` |
+| B12 | Vazamento | PASS: nenhum token no console das duas abas, no registro, no `sessionStorage` ou na URL |
+
+**Não exercitado no navegador:** callback OAuth real, link de recuperação (bloqueado no staging), aba duplicada pelo navegador, queda de rede no meio da troca e sessão revogada pelo servidor. Esses casos estão cobertos só pelos testes (cenários 7, 7b, 11, 13 e o teste de aba duplicada).
