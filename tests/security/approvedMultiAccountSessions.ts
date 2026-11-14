@@ -7,7 +7,8 @@ const sha256Lf = (text: string) => createHash('sha256').update(text.replaceAll('
 /**
  * Exceção exata e revisada: «Alternância de contas — Etapa 2: gerenciador de múltiplas sessões autenticadas».
  *
- * PENDENTE DE APROVAÇÃO EXPLÍCITA DO RESPONSÁVEL. Mesmo contrato das exceções anteriores:
+ * APROVADA explicitamente pelo responsável em 2026-11-14 sobre o conteúdo exato do commit 2074af5 (hashes abaixo).
+ * Mesmo contrato das exceções anteriores:
  *  - o patch (`approved-multi-account-sessions.patch`) é revertido, só em teste, e SÓ quando o arquivo atual é
  *    exatamente o conteúdo submetido (`approved`);
  *  - revertido, o arquivo volta byte a byte ao conteúdo aprovado da Etapa 1 (`before`), sobre o qual a exceção da

@@ -97,7 +97,7 @@ São 27 arquivos que importam o cliente global, **todos selados**. Contagem por 
   - `signOutEveryAccount` (sair de todas);
   - `listRememberedAccounts`;
   - `authForAddingAccount`.
-- **Arquivos selados alterados** (exceção exata, pendente de aprovação; seção 6):
+- **Arquivos selados alterados** (exceção exata, aprovada em 2026-11-14; seção 6):
   - **`src/supabaseClient.ts`.** No modo de várias contas exporta a fachada; senão, o **mesmo** `createClient` de antes, com as mesmas opções.
   - **`src/App.tsx`.** Durante os passos 3–9, mostra a `AuthLoadingScreen` já existente.
   - **`src/hooks/useAppStore.ts`.** Captura do cliente por chamada de ação (+8/−1 linhas). Nenhuma regra financeira mudou.
@@ -142,7 +142,7 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 - **Baseline TypeScript:** 13 diagnósticos conhecidos, nenhum novo.
 - **Build:** `vite build` OK (PWA gerado, 49 entradas no precache)..
 
-## 6. Selo — exceção exata submetida (NÃO aprovada ainda)
+## 6. Selo — exceção exata APROVADA (2026-11-14)
 
 - **Patch.** `tests/security/approved-multi-account-sessions.patch` (91 linhas) toca **só** os três arquivos selados listados.
 - **Hashes.** `before` é o `approved` da Etapa 1 rev. 2:
@@ -160,7 +160,7 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
   - que uma edição extra reprova;
   - que o patch toca só os 3 arquivos;
   - que **nenhum outro arquivo selado mudou** desde a `main`.
-- **Pedido.** Aprovação explícita da exceção sobre o conteúdo exato do commit desta branch.
+- **Aprovação.** Aprovada explicitamente pelo responsável em 2026-11-14 sobre o conteúdo exato de `2074af5` (hashes acima, conferidos no commit antes do registro). Qualquer nova edição nesses três arquivos exige regenerar o patch e nova aprovação.
 
 ## 7. Impacto em login, logout e OAuth
 
@@ -196,4 +196,4 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 
 ## 10. Veredito
 
-**GO para homologação (2C) — com limitações.** O gerenciador, a integração segura e a exceção de selo estão prontos e provados por teste local (cenários 1–15 com supabase-js real, mutação 18/18, suíte completa verde). Ficam pendentes antes de qualquer ativação: (a) **aprovação explícita da exceção de selo** (seção 6); (b) **homologação em navegador real** contra o staging com as contas QA A/B — exige ligar a trava só no servidor local e o seu login nas contas, e cobre locks/abas/callback reais (risco 1). Nada foi mesclado, publicado ou ativado; a Etapa 3 não foi iniciada.
+**GO para homologação (2C) — com limitações.** O gerenciador, a integração segura e a exceção de selo estão prontos e provados por teste local (cenários 1–15 com supabase-js real, mutação 18/18, suíte completa verde). A exceção de selo foi **aprovada** em 2026-11-14 (seção 6). Fica pendente antes de qualquer ativação: a **homologação em navegador real** contra o staging com as contas QA A/B — exige ligar a trava só no servidor local e o seu login nas contas, e cobre locks/abas/callback reais (risco 1). Nada foi mesclado, publicado ou ativado; a Etapa 3 não foi iniciada.
