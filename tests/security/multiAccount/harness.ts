@@ -126,8 +126,12 @@ export class FakeSupabase {
     const headers = new Headers(init?.headers);
     const bearer = headers.get('Authorization')?.replace(/^Bearer /i, '') ?? null;
     const method = (init?.method ?? 'GET').toUpperCase();
-    if (!this.network) throw new TypeError('Failed to fetch');
     const path = url.pathname;
+    // Portão de Auth (ex.: '/auth/v1/user'): segura a chamada ANTES de checar a rede, para simular a página saindo
+    // ou a rede caindo no meio da adoção.
+    const authGate = path.startsWith('/auth/') ? this.gates.get(path) : undefined;
+    if (authGate) await authGate.promise;
+    if (!this.network) throw new TypeError('Failed to fetch');
 
     if (path === '/auth/v1/token') {
       const grant = url.searchParams.get('grant_type');

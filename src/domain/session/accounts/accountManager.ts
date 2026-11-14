@@ -1,4 +1,4 @@
-import type { AuthChangeEvent, Session, SupabaseClient, User } from '@supabase/supabase-js';
+import { AuthError, type AuthChangeEvent, type Session, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { signOutAndForgetLocalSession, type SignOutOutcome } from '../sessionSignOut';
 import { createSessionFencedFetch, requestBearer, requestUrl, SessionFenceError, type FetchLike } from '../sessionFence';
 import { readBearerIdentity } from '../sessionScope';
@@ -10,6 +10,7 @@ import {
   removeRememberedAccount,
   resolveTabAccount,
   SDK_KEY_SUFFIXES,
+  TAB_ACTIVE_ACCOUNT_KEY,
   TAB_PENDING_SLOT_KEY,
   upsertRememberedAccount,
   writeAccountRegistry,
@@ -74,6 +75,27 @@ const randomSlot = () => {
 const FENCED = ['/rest/v1/', '/storage/v1/', '/functions/v1/'];
 
 /**
+ * Métodos de Auth que criam sessão. Feitos no cliente pendente, só devolvem o resultado DEPOIS da adoção: quem chama
+ * (ex.: o login, que navega logo em seguida) nunca interrompe a adoção no meio, e uma adoção recusada vira erro.
+ */
+const SIGN_IN_METHODS = new Set(['signInWithPassword', 'signUp', 'verifyOtp', 'signInWithIdToken', 'exchangeCodeForSession']);
+
+const adoptionError = (outcome: AdoptionOutcome): AuthError | null => {
+  if (outcome.status === 'adopted') return null;
+  if (outcome.status === 'limit_reached') return new AuthError('Este navegador já tem o máximo de contas lembradas. Remova uma conta para incluir outra.');
+  if (outcome.reason === 'auth_rejected') return new AuthError('A sessão não foi confirmada pelo servidor. Entre novamente.');
+  return new AuthError('Não foi possível confirmar a conta agora. Verifique a conexão e tente novamente.');
+};
+
+const safeGet = (storage: KeyValueStorage, key: string): string | null => {
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Fetch do cliente de UMA conta: as regras R0–R2 da Etapa 1 e mais uma — o token que sai tem de ser desta conta (se
  * a chave de armazenamento contiver sessão de outro usuário, nada sai). Conta as requisições em voo (ponto quieto).
  */
@@ -111,6 +133,7 @@ export class SessionAccountManager {
   private readonly phaseListeners = new Set<() => void>();
   private inFlight = 0;
   private adoption: Promise<AdoptionOutcome> | null = null;
+  private adoptionSeq = 0;
   private readyFlag = true;
   readonly ready: Promise<void>;
   /** Último resultado de adoção de login (para a interface da Etapa 3 e para testes). */
@@ -119,14 +142,23 @@ export class SessionAccountManager {
   constructor(env: AccountManagerEnv) {
     this.env = env;
     const registry = readAccountRegistry(env.storage) ?? { version: 1 as const, accounts: [] };
-    this.tabUserId = resolveTabAccount(registry, env.tabStorage);
+    // Login desta aba interrompido antes da adoção (navegação ou recarga logo depois de entrar): a sessão ficou no
+    // slot pendente da aba. Ela é adotada agora, e a aba que ainda não tinha escolhido conta fica com ela, sem cair
+    // na conta usada por último.
+    const slot = safeGet(env.tabStorage, TAB_PENDING_SLOT_KEY);
+    const pendingStored = !!slot && /^[0-9a-z]{8,40}$/i.test(slot) && safeGet(env.storage, pendingStorageKey(env.supabaseUrl, slot)) !== null;
+    const tabChoseAccount = safeGet(env.tabStorage, TAB_ACTIVE_ACCOUNT_KEY) !== null;
+    this.tabUserId = pendingStored && !tabChoseAccount ? null : resolveTabAccount(registry, env.tabStorage);
     writeTabAccount(env.tabStorage, this.tabUserId);
     this.client = this.createFacade();
     env.visibility?.subscribe(() => this.applyRefreshPolicy());
 
-    if (env.isAuthCallbackUrl?.()) {
+    let boot: (() => Promise<void>) | null = null;
+    if (env.isAuthCallbackUrl?.()) boot = () => this.bootFromCallback();
+    else if (pendingStored) boot = () => this.bootFromStoredPending();
+    if (boot) {
       this.readyFlag = false;
-      this.ready = this.bootFromCallback().finally(() => {
+      this.ready = boot().finally(() => {
         this.readyFlag = true;
       });
     } else {
@@ -226,9 +258,42 @@ export class SessionAccountManager {
     return this.tabUserId ? this.clientFor(this.tabUserId) : this.ensurePending().client;
   }
 
-  /** Auth para INCLUIR outra conta sem tocar na conta ativa (interface da Etapa 3). */
+  /**
+   * Auth para INCLUIR outra conta sem tocar na conta ativa (interface da Etapa 3). Os métodos de login só resolvem
+   * depois da adoção (ver `SIGN_IN_METHODS`).
+   */
   pendingAuth(): SupabaseClient['auth'] {
-    return this.ensurePending().client.auth;
+    const manager = this;
+    return new Proxy({} as SupabaseClient['auth'], {
+      get(_t, prop) {
+        if (typeof prop === 'string' && SIGN_IN_METHODS.has(prop)) return (...args: unknown[]) => manager.signInAndAdopt(prop, args, true);
+        const auth = manager.ensurePending().client.auth;
+        const value = Reflect.get(auth, prop, auth) as unknown;
+        return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(auth) : value;
+      },
+    });
+  }
+
+  /**
+   * Chama um método de login e, se ele correu no cliente pendente e criou sessão, espera a adoção terminar. Adoção
+   * recusada (limite, Auth recusou, rede) volta como erro de Auth, sem sessão: quem chamou não segue como se tivesse
+   * entrado.
+   */
+  private async signInAndAdopt(method: string, args: unknown[], forcePending: boolean): Promise<unknown> {
+    if (!this.readyFlag) await this.ready;
+    const viaPending = forcePending || !this.tabUserId;
+    const auth = viaPending ? this.ensurePending().client.auth : this.currentClient().auth;
+    const seqBefore = this.adoptionSeq;
+    const fn = Reflect.get(auth, method, auth) as (...a: unknown[]) => Promise<{ data?: { session?: Session | null } | null; error: unknown }>;
+    const result = await fn.apply(auth, args);
+    if (!viaPending || result.error || !result.data?.session) return result;
+    let outcome: AdoptionOutcome | null;
+    if (this.adoption) outcome = await this.adoption;
+    else if (this.adoptionSeq !== seqBefore) outcome = this.lastAdoption;
+    else outcome = await this.adoptPending('SIGNED_IN');
+    const error = adoptionError(outcome ?? { status: 'failed', reason: 'no_session' });
+    if (!error) return result;
+    return { data: { user: null, session: null }, error };
   }
 
   private readonly track = <T>(promise: Promise<T>): Promise<T> => {
@@ -249,6 +314,7 @@ export class SessionAccountManager {
     const auth = new Proxy({} as SupabaseClient['auth'], {
       get(_t, prop) {
         if (prop === 'onAuthStateChange') return manager.onAuthStateChange;
+        if (typeof prop === 'string' && SIGN_IN_METHODS.has(prop)) return (...args: unknown[]) => manager.signInAndAdopt(prop, args, false);
         if (!manager.readyFlag) {
           // Antes de concluir um callback de login, nada consulta o Auth: espera a sessão ser atribuída à conta certa.
           return async (...args: unknown[]) => {
@@ -340,12 +406,18 @@ export class SessionAccountManager {
     if (this.adoption) await this.adoption;
   }
 
+  private async bootFromStoredPending(): Promise<void> {
+    this.ensurePending();
+    await this.adoptPending('SIGNED_IN');
+  }
+
   /**
    * Sessão recém-criada no cliente pendente → conta lembrada. A identidade vem do Auth (`getUser`, rede), nunca do
    * JWT local. Com outra conta já ativa nesta aba, a nova só é registrada: a troca é explícita (`switchAccount`).
    */
   adoptPending(event: AuthChangeEvent = 'SIGNED_IN'): Promise<AdoptionOutcome> {
     if (this.adoption) return this.adoption;
+    this.adoptionSeq += 1;
     const run = (async (): Promise<AdoptionOutcome> => {
       // Fora do callback do SDK (que roda com o lock de Auth): chamar o Auth ali dentro trava.
       await new Promise((r) => setTimeout(r, 0));
@@ -368,8 +440,12 @@ export class SessionAccountManager {
       }
       const accountKey = accountStorageKey(this.env.supabaseUrl, userId);
       const pendingKey = pendingStorageKey(this.env.supabaseUrl, entry.slot);
-      // Mesma conta já lembrada com outra sessão: a antiga sai deste navegador antes de a nova ocupar a chave.
-      if (outcome === 'updated' && this.env.storage.getItem(accountKey) !== null) {
+      const pendingValue = this.env.storage.getItem(pendingKey);
+      // Outra cópia desta aba (aba duplicada) já adotou esta sessão: nada a copiar nem a encerrar.
+      if (pendingValue === null) return { status: 'failed', reason: 'no_session' };
+      // Mesma conta já lembrada com OUTRA sessão: a antiga sai deste navegador antes de a nova ocupar a chave.
+      const storedValue = this.env.storage.getItem(accountKey);
+      if (outcome === 'updated' && storedValue !== null && storedValue !== pendingValue) {
         await signOutAndForgetLocalSession(this.clientFor(userId).auth, { scope: 'local' });
       }
       for (const suffix of SDK_KEY_SUFFIXES) {

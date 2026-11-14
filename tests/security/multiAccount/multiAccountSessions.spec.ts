@@ -115,13 +115,165 @@ describe('Etapa 2 — registro e chaves (sem tokens, sem duplicatas, limite de 5
     const mods = tab.mods;
     const fillers = Array.from({ length: 5 }, (_, i) => ({ userId: `b1a10909-1009-4e65-8a49-10000000002${i}`, email: null, addedAt: 1, lastUsedAt: 1, signedOut: false }));
     mods.store.writeAccountRegistry(storage, { version: 1, accounts: fillers });
-    const { error } = await tab.manager.pendingAuth().signInWithPassword({ email: USERS.C.email, password: USERS.C.password });
-    expect(error).toBeNull();
-    await waitUntil(() => tab.manager.lastAdoption !== null);
+    const { data, error } = await tab.manager.pendingAuth().signInWithPassword({ email: USERS.C.email, password: USERS.C.password });
+    // O login só resolve depois da adoção, e a recusa volta como erro (a interface não segue como se tivesse entrado).
+    expect(error?.message).toMatch(/máximo de contas/);
+    expect(data.session).toBeNull();
     expect(tab.manager.lastAdoption).toEqual({ status: 'limit_reached' });
     expect(tab.manager.rememberedAccounts()).toHaveLength(5);
     expect([...storage.map.values()].some((v) => v.includes(USERS.C.id))).toBe(false);
     expect(server.sessionsOf('C').every((s) => s.revoked)).toBe(true);
+  });
+});
+
+describe('Etapa 2 — login seguido de navegação (achado da homologação 2C)', () => {
+  const pendingKeys = (storage: MemoryStorage) => [...storage.map.keys()].filter((k) => k.includes('.pending.'));
+  const settled = async (p: Promise<unknown>) => {
+    let done = false;
+    void p.then(() => (done = true), () => (done = true));
+    await new Promise((r) => setTimeout(r, 30));
+    return done;
+  };
+
+  it('o login pela fachada só resolve depois da adoção: quem navega logo em seguida já encontra a conta', async () => {
+    const server = new FakeSupabase();
+    const storage = new MemoryStorage();
+    const tab = await openTab(server, storage);
+    const gate = deferred();
+    server.gates.set('/auth/v1/user', gate);
+    const signIn = tab.manager.client.auth.signInWithPassword({ email: USERS.A.email, password: USERS.A.password });
+    await waitUntil(() => pendingKeys(storage).length > 0);
+    // Sessão gravada no slot pendente, mas o Auth ainda não confirmou o dono: o login NÃO terminou.
+    expect(await settled(signIn)).toBe(false);
+    expect(tab.manager.rememberedAccounts()).toHaveLength(0);
+    server.gates.delete('/auth/v1/user');
+    gate.resolve();
+    const { error } = await signIn;
+    expect(error).toBeNull();
+    // Sem esperar mais nada: no instante em que o login resolve, a conta já foi adotada e é a ativa da aba.
+    expect(tab.manager.activeUserId()).toBe(USERS.A.id);
+    expect(tab.manager.rememberedAccounts().map((a) => a.userId)).toEqual([USERS.A.id]);
+    expect(pendingKeys(storage)).toEqual([]);
+  });
+
+  it('login interrompido por recarga: a sessão pendente da aba é adotada no boot e a aba fica com ela, não com a anterior', async () => {
+    const server = new FakeSupabase();
+    const storage = new MemoryStorage();
+    const tabStorage = new MemoryStorage();
+    const tab = await openTab(server, storage, { tabStorage });
+    await login(tab, 'A');
+    // A aba deixa de ter conta (como antes de "entrar com outra conta" sem a interface da Etapa 3).
+    tab.manager.selectTabAccount(null);
+    const stuck = deferred();
+    server.gates.set('/auth/v1/user', stuck);
+    void tab.manager.client.auth.signInWithPassword({ email: USERS.B.email, password: USERS.B.password });
+    await waitUntil(() => pendingKeys(storage).length > 0);
+    // A página sai: a adoção da página antiga nunca termina (o portão dela nunca abre).
+    server.gates.delete('/auth/v1/user');
+    const reloaded = await openTab(server, storage, { tabStorage });
+    expect(reloaded.manager.isReady()).toBe(false);
+    expect(reloaded.manager.activeUserId()).toBeNull();
+    await reloaded.manager.ready;
+    expect(reloaded.manager.activeUserId()).toBe(USERS.B.id);
+    expect(reloaded.manager.rememberedAccounts().map((a) => a.userId).sort()).toEqual([USERS.A.id, USERS.B.id].sort());
+    expect(pendingKeys(storage)).toEqual([]);
+    // A identidade veio do Auth (getUser com o token de B), não do JWT local.
+    expect(server.authCalls.some((c) => c.path === '/auth/v1/user' && c.sub === USERS.B.id)).toBe(true);
+    const { data } = await reloaded.manager.client.auth.getUser();
+    expect(data.user?.id).toBe(USERS.B.id);
+    // A continua lembrada e com sessão própria, sem novo login.
+    expect(storage.getItem(tab.mods.store.accountStorageKey(URL_BASE, USERS.A.id))).not.toBeNull();
+  });
+
+  it('aba que já tinha conta escolhida: a sessão pendente é registrada no boot, mas a aba continua na sua conta', async () => {
+    const server = new FakeSupabase();
+    const storage = new MemoryStorage();
+    const tabStorage = new MemoryStorage();
+    const tab = await openTab(server, storage, { tabStorage });
+    await login(tab, 'A');
+    const stuck = deferred();
+    server.gates.set('/auth/v1/user', stuck);
+    void tab.manager.pendingAuth().signInWithPassword({ email: USERS.B.email, password: USERS.B.password });
+    await waitUntil(() => pendingKeys(storage).length > 0);
+    server.gates.delete('/auth/v1/user');
+    const reloaded = await openTab(server, storage, { tabStorage });
+    expect(reloaded.manager.activeUserId()).toBe(USERS.A.id);
+    await reloaded.manager.ready;
+    expect(reloaded.manager.activeUserId()).toBe(USERS.A.id);
+    expect(reloaded.manager.lastAdoption).toEqual({ status: 'adopted', userId: USERS.B.id, activated: false });
+    expect(reloaded.manager.rememberedAccounts()).toHaveLength(2);
+  });
+
+  it('rede cai durante a adoção: o login devolve erro (sem seguir como se tivesse entrado) e a recarga adota depois', async () => {
+    const server = new FakeSupabase();
+    const storage = new MemoryStorage();
+    const tabStorage = new MemoryStorage();
+    const tab = await openTab(server, storage, { tabStorage });
+    const gate = deferred();
+    server.gates.set('/auth/v1/user', gate);
+    const signIn = tab.manager.client.auth.signInWithPassword({ email: USERS.A.email, password: USERS.A.password });
+    await waitUntil(() => pendingKeys(storage).length > 0);
+    server.network = false;
+    server.gates.delete('/auth/v1/user');
+    gate.resolve();
+    const { data, error } = await signIn;
+    expect(error?.message).toMatch(/Não foi possível confirmar a conta/);
+    expect(data.session).toBeNull();
+    expect(tab.manager.activeUserId()).toBeNull();
+    expect(tab.manager.rememberedAccounts()).toHaveLength(0);
+    server.network = true;
+    const reloaded = await openTab(server, storage, { tabStorage });
+    await reloaded.manager.ready;
+    expect(reloaded.manager.activeUserId()).toBe(USERS.A.id);
+    expect(pendingKeys(storage)).toEqual([]);
+  });
+
+  it('aba duplicada (mesmo slot pendente) adotando ao mesmo tempo: uma adota, a outra não derruba a sessão adotada', async () => {
+    const server = new FakeSupabase();
+    const storage = new MemoryStorage();
+    const tabStorage = new MemoryStorage();
+    const tab = await openTab(server, storage, { tabStorage });
+    const stuck = deferred();
+    server.gates.set('/auth/v1/user', stuck);
+    void tab.manager.client.auth.signInWithPassword({ email: USERS.A.email, password: USERS.A.password });
+    await waitUntil(() => pendingKeys(storage).length > 0);
+    const copy = new MemoryStorage();
+    for (const [k, v] of tabStorage.map) copy.setItem(k, v);
+    const release = deferred();
+    server.gates.set('/auth/v1/user', release);
+    const first = await openTab(server, storage, { tabStorage });
+    const second = await openTab(server, storage, { tabStorage: copy });
+    await new Promise((r) => setTimeout(r, 50)); // as duas adoções chegam ao portão antes de ele abrir
+    server.gates.delete('/auth/v1/user');
+    release.resolve();
+    await Promise.all([first.manager.ready, second.manager.ready]);
+    const outcomes = [first.manager.lastAdoption, second.manager.lastAdoption];
+    expect(outcomes).toContainEqual({ status: 'adopted', userId: USERS.A.id, activated: true });
+    expect(outcomes).toContainEqual({ status: 'failed', reason: 'no_session' });
+    expect(server.authCalls.filter((c) => c.path === '/auth/v1/logout')).toEqual([]);
+    expect(server.sessionsOf('A').some((s) => !s.revoked)).toBe(true);
+    const adopter = first.manager.lastAdoption?.status === 'adopted' ? first : second;
+    const { data } = await adopter.manager.client.auth.getUser();
+    expect(data.user?.id).toBe(USERS.A.id);
+  });
+
+  it('sessão pendente que o Auth recusa no boot: é descartada e a aba não ganha conta', async () => {
+    const server = new FakeSupabase();
+    const storage = new MemoryStorage();
+    const tabStorage = new MemoryStorage();
+    const tab = await openTab(server, storage, { tabStorage });
+    const stuck = deferred();
+    server.gates.set('/auth/v1/user', stuck);
+    void tab.manager.client.auth.signInWithPassword({ email: USERS.A.email, password: USERS.A.password });
+    await waitUntil(() => pendingKeys(storage).length > 0);
+    server.gates.delete('/auth/v1/user');
+    server.revokeAll('A');
+    const reloaded = await openTab(server, storage, { tabStorage });
+    await reloaded.manager.ready;
+    expect(reloaded.manager.activeUserId()).toBeNull();
+    expect(reloaded.manager.rememberedAccounts()).toHaveLength(0);
+    expect(reloaded.manager.lastAdoption).toEqual({ status: 'failed', reason: 'auth_rejected' });
+    expect(pendingKeys(storage)).toEqual([]);
   });
 });
 
