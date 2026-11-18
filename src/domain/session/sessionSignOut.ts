@@ -22,10 +22,15 @@ export interface SignOutOutcome {
  * `_removeSession` é interno ao SDK: `tests/security/sessionSignOut.spec.ts` usa o cliente real e falha se uma
  * atualização do pacote mudar esse contrato.
  */
-export async function signOutAndForgetLocalSession(auth: AuthClient): Promise<SignOutOutcome> {
+export async function signOutAndForgetLocalSession(
+  auth: AuthClient,
+  options: { scope?: 'local' } = {}
+): Promise<SignOutOutcome> {
   let error: string | null;
   try {
-    const result = await auth.signOut();
+    // Sem escopo: padrão do SDK (global) — comportamento da conta única. `local`: só esta sessão (Etapa 2: sair de
+    // uma das contas deste navegador sem derrubar as sessões dessa conta em outros dispositivos).
+    const result = options.scope ? await auth.signOut({ scope: options.scope }) : await auth.signOut();
     if (!result.error) return { serverConfirmed: true, localCleared: true, error: null };
     error = result.error.message || 'logout não confirmado';
   } catch (caught) {
