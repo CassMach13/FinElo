@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { supabase } from '../../../supabaseClient';
 import { ACCOUNT_REGISTRY_KEY, MAX_REMEMBERED_ACCOUNTS, type RememberedAccount } from './accountStore';
 import {
+  authForAddingAccount,
   listRememberedAccounts,
   removeRememberedAccount,
   signOutActiveAccount,
@@ -95,6 +96,7 @@ export function openDeviceAccountPanel(panel: AccountPanel): void {
 
 export function closeDeviceAccountPanel(): void {
   if (state.operation) return;
+  if (state.panel?.kind === 'add' && getSessionAccountManager()) authForAddingAccount().cancel();
   publish({ panel: null, error: null });
 }
 
@@ -235,4 +237,25 @@ export async function confirmDeviceSignOut(panel: SessionEndPanel): Promise<void
   } catch {
     publish({ panel: null, operation: null, notice: 'Não foi possível concluir a ação. Confira suas sessões e tente novamente.' });
   }
+}
+
+export function additionalAccountForm(account?: RememberedAccount): AdditionalAccountFormOptions {
+  const run = async (work: () => Promise<void>) => {
+    try {
+      await work();
+      return { error: null };
+    } catch {
+      return { error: 'Não foi possível confirmar a tentativa. Confira os dados e a conexão e tente novamente.' };
+    }
+  };
+  return {
+    email: account?.email ?? undefined,
+    signIn: (email, password) => run(async () => {
+      await authForAddingAccount().password(email, password, account?.userId);
+      publish({ panel: null, error: null, notice: 'Conta disponível neste dispositivo.' });
+      if (!getSessionAccountManager()?.activeUserId()) window.location.assign('/app');
+    }),
+    signInWithOAuth: provider => run(() => authForAddingAccount().redirect(provider, account?.userId)),
+    recoverPassword: email => run(() => authForAddingAccount().redirect('recovery', account?.userId, email)),
+  };
 }

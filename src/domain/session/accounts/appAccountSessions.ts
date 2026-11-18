@@ -9,7 +9,7 @@ import {
   type SwitchOptions,
   type SwitchResult,
 } from './accountSwitch';
-import { getSessionAccountManager } from './multiAccountSessions';
+import { getDeviceAuth, getSessionAccountManager } from './multiAccountSessions';
 import type { RememberedAccount } from './accountStore';
 
 /**
@@ -52,4 +52,8 @@ export const removeRememberedAccount = (userId: string) => removeAccountFromBrow
 export const signOutEveryAccount = () => signOutAllAccounts(requireManager(), appSwitchHost);
 
 /** Auth do login pendente, para incluir outra conta sem trocar a conta ativa desta aba. */
-export const authForAddingAccount = () => requireManager().pendingAuth();
+export function authForAddingAccount() {
+  const auth = getDeviceAuth();
+  if (!auth) throw new Error('Várias contas não estão ativas neste navegador.');
+  return auth;
+}
