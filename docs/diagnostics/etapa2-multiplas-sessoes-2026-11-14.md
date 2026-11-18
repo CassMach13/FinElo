@@ -188,7 +188,7 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 ## 9. Riscos residuais
 
 1. **Homologação em navegador feita (seção 11), com lacunas.** `navigator.locks`, abas reais, `sessionStorage` por aba e login por senha foram exercitados contra o staging. **Não** foram exercitados no navegador: callback OAuth real (Google/GitHub), link de recuperação de senha (segue bloqueado no staging: domínio de exemplo recusado pelo Auth) e aba duplicada pelo navegador (só em teste). A troca com rede caindo e a sessão revogada de B ficaram só nos testes (cenários 7, 7b, 11).
-2. **Serviços e helpers de módulo pela fachada.** Ficam protegidos pelo ponto quieto, e não por vinculação explícita. Um fluxo de componente não rastreado que espere algo fora da rede (temporizador) por mais que a troca inteira poderia retomar depois dela pela fachada. Nesse caso, gravações de A sairiam com B só se B tiver acesso via RLS às linhas alvo; o caso comum é o bloqueio pela RLS. Mitigação futura: passar o cliente por parâmetro nos serviços e componentes de gravação.
+2. **Serviços e helpers de módulo pela fachada — FECHADO na revisão (seção 12).** A avaliação original estava errada: uma continuação de A suspensa fora do cliente (Promise, timer, processamento local, confirmação) retomava depois da troca e gravava com o token de B. Inserção que depende de `auth.uid()`/`user_id` padrão seria aceita pela RLS dentro dos dados de B. Correção: a troca concluída reinicia a página, e a fase `switching` bloqueia a rede da aba até lá. Melhoria futura (exige exceção de selo): passar o cliente por parâmetro nos serviços de gravação, para trocar sem reiniciar a página.
 3. **Ação que chama outra ação depois de uma troca.** A ação interna captura o cliente no momento da chamada interna. A troca só acontece no ponto quieto, e a R2 bloqueia gravações enquanto houver operação de geração anterior.
 4. **`localStorage` não é cofre.** Um XSS lê todas as sessões lembradas (até 5), como já lia a sessão única.
 5. **Aba duplicada pelo navegador.** Copia o `sessionStorage`: abre na mesma conta (desejável) e com o mesmo slot de login pendente. Se as duas cópias adotarem a mesma sessão pendente, só uma adota e a outra não derruba a sessão (teste próprio); a cópia que não adotou fica sem conta até recarregar. A atribuição continua correta, porque vem do Auth.
@@ -197,6 +197,8 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 7. **Botão "Sair" existente usa escopo global.** É o comportamento atual; a escolha por `local` no modo de várias contas fica para a Etapa 3.
 
 ## 10. Veredito
+
+> **Atualizado na revisão de 2026-11-18 (seção 12):** a entrega de 2026-11-14 tinha uma falha real de concorrência (gravação de A com a identidade de B) e um teste de selo que falhava no CI. As duas estão corrigidas; o veredito vigente está na seção 12.
 
 **GO com limitações para a Etapa 2 (internamente; continua desligada).** O gerenciador, a integração segura e a exceção de selo (aprovada em 2026-11-14) estão provados por teste local e por homologação em navegador real contra o staging (seção 11). A 2C achou **um defeito real**: o login navega antes da adoção, deixando a sessão presa no slot pendente. Ele foi corrigido em `fc379d9`, sem tocar em arquivo selado, e reverificado no navegador. Limitações para qualquer ativação: OAuth real e link de recuperação não exercitados no navegador (risco 1); serviços protegidos por ponto quieto, e não por cliente explícito (risco 2); o botão "Sair" atual segue global (risco 7, Etapa 3). Nada foi mesclado, publicado ou ativado; a trava não está em nenhum ambiente versionado; a Etapa 3 não foi iniciada.
 
@@ -221,3 +223,57 @@ Os serviços **não** receberam cliente por parâmetro nesta etapa. Isso tocaria
 | B12 | Vazamento | PASS: nenhum token no console das duas abas, no registro, no `sessionStorage` ou na URL |
 
 **Não exercitado no navegador:** callback OAuth real, link de recuperação (bloqueado no staging), aba duplicada pelo navegador, queda de rede no meio da troca e sessão revogada pelo servidor. Esses casos estão cobertos só pelos testes (cenários 7, 7b, 11, 13 e o teste de aba duplicada).
+
+## 12. Revisão do PR #101 (2026-11-18): CI e concorrência
+
+### 12.1 Falha do CI (run 43608212142) — causa confirmada e corrigida (`1e91788`)
+
+- **Causa.** `approvedMultiAccountSessions.spec.ts` comparava com `origin/main` via `git diff`. O `actions/checkout@v5` usa `fetch-depth: 1` e não traz `origin/main`; o teste caía para `HEAD` e comparava a árvore com ela mesma: `[]` contra os 3 arquivos. O mesmo contrato quebraria depois do merge, porque `origin/main` já conteria os 3 arquivos.
+- **Correção (sem git).** O manifesto `tests/security/multi-account-sessions-sealed-base.json` fixa o sha256 (LF) dos **284** arquivos selados na base da Etapa 2 (`4e827b8`, o merge-base). O contrato exige que:
+  - revertida a exceção, todo arquivo selado tenha exatamente o hash da base;
+  - a exceção toque exatamente os 3 arquivos aprovados;
+  - o manifesto cubra exatamente o conjunto selado;
+  - o hash de base dos 3 arquivos seja o `before` aprovado.
+
+  Falta de arquivo, de entrada ou de referência reprova; nada é aprovado por ausência. Quando o commit base existe localmente, uma conferência extra (um único `git cat-file --batch`) valida o manifesto contra o git; em checkout raso ela aparece como **pulada**, nunca como aprovada.
+- **Prova.** Checkout raso (1 commit, sem `origin/main`): 25 aprovados + 1 pulado. Merge simulado na main (local, descartado): 26/26. Worktree: 11/11. Mutantes do contrato **5/5 mortos**, também no checkout raso: arquivo selado editado, arquivo da exceção editado além do aprovado, entrada removida, hash forjado e caminho a mais. Patch e hashes aprovados **inalterados**; nenhum arquivo selado mudou.
+
+### 12.2 Concorrência dirigida — FALHA REAL confirmada e corrigida
+
+**Teste** (`tests/security/multiAccount/switchConcurrency.spec.ts`, supabase-js real + servidor falso, operação de SERVIÇO pelo cliente global, fora do `useAppStore`):
+1. 1ª chamada Supabase como A;
+2. espera fora do cliente: Promise pendente, timer, processamento local em etapas, confirmação do usuário;
+3. a troca A → B começa nesse intervalo;
+4. a operação retoma e grava (`insert`, `rpc` ou `update`).
+
+**Resultado ANTES da correção (`1e91788`):** nas **12 combinações**, e também numa operação iniciada durante a fase `draining`, a gravação de A saiu com o **token de B** (`POST`/`PATCH` com `sub` = B, aceita pelo servidor). **Causa:** o ponto quieto só vê ações rastreadas do store e requisições em voo. A fachada resolve a conta no instante de cada chamada, e JavaScript não tem contexto assíncrono que distinga uma continuação antiga de uma ação nova. Ações do store não tinham o problema: capturam o cliente de A, e a R1/R2 bloqueia a continuação. Um builder capturado antes da espera também já era bloqueado (R1).
+
+**Correção mínima (só arquivos não selados):**
+- **A troca concluída reinicia a página no passo 8** (`SwitchHost.reload('switched')` → `location.reload()`). Toda continuação da conta anterior morre com a página, e a página nova nasce na conta da aba (`sessionStorage`). O rollback (`'rolled_back'`) não reinicia: as continuações pendentes são de A e terminam em A.
+- **Barreira da fase `switching`:** do passo 3 até a página sair, todos os clientes da aba recusam REST/Storage/Functions (`account_switch_in_progress`), leituras inclusive.
+- **Ponto quieto atômico:** a última verificação e a entrada em `switching` acontecem no mesmo instante, sem microtarefa no meio.
+
+Não foi aumentado nenhum tempo de espera. O app não tem `beforeunload`, então a recarga não pode ser cancelada; se fosse, a aba ficaria bloqueada, sem gravar.
+
+**Fase `draining`:** novas operações **podem** começar, como A (a fachada ainda é A). Se ficarem em voo, seguram a troca; se não houver ponto quieto em 15 s, a troca é recusada sem mudar nada. Se a operação nova sair da rede e retomar depois da troca, cai na barreira e depois na recarga: nunca grava como B. Uma gravação de A que retoma **antes** do ponto quieto termina como A e segura a troca: nada se perde e nada vira B.
+
+**Resultado DEPOIS:** focais **50/50** (31 + 17 de concorrência + 2 do anfitrião real do app). Mutação: concorrência **7/7** (sem barreira; barreira só para gravações; clientes sem o predicado; troca sem recarga; app sem recarga; app recarregando no rollback; rollback recarregando); M26 (fase `switching` depois do ponto quieto) morto; anteriores 18/18 (M2 e M18 redirecionados ao código novo) e 7/7. Suíte completa **3607 aprovados / 1 pulado / 0 falhas**; baseline TS **13** (nenhum novo); build OK.
+
+### 12.3 Produção
+
+- Nenhuma variável `VITE_MULTI_ACCOUNT_SESSIONS` existe no projeto Vercel, em nenhum ambiente (consulta só dos nomes).
+- Nenhum arquivo de ambiente versionado liga a trava, e um teste garante isso.
+- A produção é construída da `main` (`4e827b8`), que não contém a Etapa 2.
+
+### 12.4 Veredito para merge
+
+**GO com limitações**, condicionado ao CI verde no novo SHA e à sua revisão. O PR continua em rascunho; não foi mesclado nem publicado, e a Etapa 3 não começou.
+
+- **Riscos novos desta revisão:** nenhum em aberto. Os dois achados (CI e gravação como B) estão corrigidos e provados.
+- **Mudança de comportamento a aceitar:** a troca concluída reinicia a página. Estado de interface não salvo se perde, o que já acontecia com diálogos (passo 4). A troca leva o tempo de uma carga de página.
+- **Limitações já aceitas, inalteradas:**
+  - OAuth real e link de recuperação não exercitados no navegador;
+  - serviços sem cliente explícito (agora contidos pela recarga);
+  - botão "Sair" atual com escopo global (Etapa 3);
+  - `localStorage` não é cofre contra XSS;
+  - aba duplicada exercitada só por teste.
