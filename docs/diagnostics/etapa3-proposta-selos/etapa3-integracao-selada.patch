@@ -1,0 +1,313 @@
+diff --git a/src/App.tsx b/src/App.tsx
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -11,6 +11,9 @@
+ import { resolveOAuthAcquisition } from './services/acquisitionAuth';
+ import { observeSessionInstance, readBearerIdentity } from './domain/session/sessionScope';
+ import { useAccountSwitchBlocking } from './domain/session/accounts/accountSwitchGate';
++import { isMultiAccountActive } from './domain/session/accounts/appAccountSessions';
++import { DEVICE_ACCOUNTS_ENABLED } from './domain/session/accounts/deviceAccountActions';
++import { DeviceAccountBoundary, DeviceAccountRecovery } from './components/deviceAccounts/DeviceAccountIntegration';
+ 
+ // Vistas Públicas
+ import LandingPage from './components/views/LandingPage';
+@@ -193,17 +196,17 @@
+     };
+   }, [user, stableSyncAllData]);
+ 
+-  if (isPasswordRecovery) {
++  if (isPasswordRecovery && !isMultiAccountActive()) {
+     return <UpdatePasswordView />;
+   }
+ 
+-  if (!isAuthReady || isSwitchingAccount) return <AuthLoadingScreen />;
+-
+-  return (
++  if (!isAuthReady || (isSwitchingAccount && !DEVICE_ACCOUNTS_ENABLED)) return <AuthLoadingScreen />;
++
++  const routes = (
+     <Routes>
+       <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
+-      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <AuthView />} />
+-      <Route path="/update-password" element={<UpdatePasswordView />} />
++      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <AuthView showRememberedAccounts={isMultiAccountActive()} />} />
++      <Route path="/update-password" element={isMultiAccountActive() ? <DeviceAccountRecovery /> : <UpdatePasswordView />} />
+       {/* MainLayout reads /pricing from the URL to open the in-app pricing view. */}
+       <Route path="/pricing" element={user ? <Navigate to="/app?view=pricing" replace /> : <LandingPage />} />
+       <Route element={<ProtectedRoute isAuthReady={isAuthReady} user={user} />}>
+@@ -213,6 +216,9 @@
+       <Route path="*" element={<Navigate to="/" replace />} />
+     </Routes>
+   );
++  return DEVICE_ACCOUNTS_ENABLED
++    ? <DeviceAccountBoundary user={user} switching={isSwitchingAccount}>{routes}</DeviceAccountBoundary>
++    : routes;
+ };
+ 
+ const App: React.FC = () => (
+diff --git a/src/components/views/AuthView.tsx b/src/components/views/AuthView.tsx
+--- a/src/components/views/AuthView.tsx
++++ b/src/components/views/AuthView.tsx
+@@ -4,20 +4,25 @@
+ import Button from '../ui/Button';
+ import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
+ import Input from '../ui/Input';
++import { RememberedAccountLogin } from '../deviceAccounts/DeviceAccounts';
++import type { AdditionalAccountFormOptions } from '../../domain/session/accounts/deviceAccountActions';
+ import { metadadosDeCadastro, validarNomeDeCadastro } from '../../domain/auth/signupProfile';
+ import { signUpWithAcquisition, startOAuthWithAcquisition } from '../../services/acquisitionAuth';
+ import { cancelOAuthAcquisition, clearAcquisition } from '../../domain/auth/acquisitionAttribution';
+ 
+ // Combina a declaração da função com a exportação padrão.
+-export default function AuthView(): React.ReactElement {
++export default function AuthView({ additionalAccount, showRememberedAccounts = false }: {
++  additionalAccount?: AdditionalAccountFormOptions;
++  showRememberedAccounts?: boolean;
++} = {}): React.ReactElement {
+   const [searchParams] = useSearchParams();
+   const location = useLocation();
+   const [loading, setLoading] = useState(false);
+   const [showPassword, setShowPassword] = useState(false);
+-  const [isSignUp, setIsSignUp] = useState(searchParams.get('view') === 'signup');
++  const [isSignUp, setIsSignUp] = useState(!additionalAccount && searchParams.get('view') === 'signup');
+   const [isForgotPassword, setIsForgotPassword] = useState(false);
+   const [nome, setNome] = useState('');
+-  const [email, setEmail] = useState(searchParams.get('email') || '');
++  const [email, setEmail] = useState(additionalAccount ? additionalAccount.email ?? '' : searchParams.get('email') || '');
+   const [password, setPassword] = useState('');
+   const [confirmPassword, setConfirmPassword] = useState('');
+   const [error, setError] = useState<string | null>(null);
+@@ -25,13 +30,14 @@
+ 
+   // Sincroniza se o usuário mudar a URL manualmente ou voltar
+   useEffect(() => {
++    if (additionalAccount) return;
+     const view = searchParams.get('view');
+     const emailParam = searchParams.get('email');
+     
+     if (view === 'signup') setIsSignUp(true);
+     if (view === 'login') setIsSignUp(false);
+     if (emailParam) setEmail(emailParam);
+-  }, [searchParams]);
++  }, [searchParams, additionalAccount]);
+ 
+   const getRedirectUrl = (path: string) => {
+     const url = new URL(path, window.location.origin);
+@@ -44,6 +50,18 @@
+   const handleLogin = async (event: React.FormEvent) => {
+     event.preventDefault();
+     setError(null); setMessage(null); setLoading(true);
++    if (additionalAccount) {
++      try {
++        const result = await additionalAccount.signIn(email, password);
++        setError(result.error);
++      } catch {
++        setError('Não foi possível entrar. Verifique a conexão e tente novamente.');
++      } finally {
++        setPassword('');
++        setLoading(false);
++      }
++      return;
++    }
+     cancelOAuthAcquisition();
+     const { error } = await supabase.auth.signInWithPassword({ email, password });
+     if (error) setError(error.message);
+@@ -116,10 +134,10 @@
+   const handlePasswordReset = async (event: React.FormEvent) => {
+     event.preventDefault();
+     setError(null); setMessage(null); setLoading(true);
+-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+-      redirectTo: getRedirectUrl('/update-password'),
+-    });
+-    if (error) setError(error.message);
++    const error = additionalAccount
++      ? (await additionalAccount.recoverPassword(email)).error
++      : (await supabase.auth.resetPasswordForEmail(email, { redirectTo: getRedirectUrl('/update-password') })).error?.message;
++    if (error) setError(error);
+     else setMessage('Se o e-mail estiver correto, você receberá um link para redefinir sua senha.');
+     setLoading(false);
+   };
+@@ -127,24 +145,28 @@
+   // Aceita 'google' ou 'github' agora
+   const handleOAuthLogin = async (provider: 'google' | 'github') => {
+     setLoading(true);
+-    const { error } = await startOAuthWithAcquisition(supabase.auth, provider, isSignUp, getRedirectUrl('/app'));
++    const error = additionalAccount
++      ? (await additionalAccount.signInWithOAuth(provider)).error
++      : (await startOAuthWithAcquisition(supabase.auth, provider, isSignUp, getRedirectUrl('/app'))).error?.message;
+     if (error) {
+-      setError(error.message);
++      setError(error);
+       setLoading(false);
+     }
+   };
+ 
+   return (
+-    <div className="h-screen w-full flex items-center justify-center bg-[#0B1120] relative overflow-hidden px-4">
+-
++    <div className={additionalAccount ? undefined : "h-screen w-full flex items-center justify-center bg-[#0B1120] relative overflow-hidden px-4"}>
++
++      {!additionalAccount && <>
+       {/* Background Blobs */}
+       <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none opacity-40" />
+       <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none opacity-40" />
+ 
+-      <div className="w-full max-w-sm relative z-10 flex flex-col justify-center h-full"> {/* Flex column para centralizar verticalmente */}
++      </>}
++      <div className={additionalAccount ? undefined : "w-full max-w-sm relative z-10 flex flex-col justify-center h-full"}> {/* Flex column para centralizar verticalmente */}
+ 
+         {/* Cabeçalho Compacto */}
+-        <div className="text-center mb-4">
++        {!additionalAccount && <div className="text-center mb-4">
+           <Link 
+             to="/" 
+             className="inline-flex items-center justify-center w-32 h-32 rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600/50 shadow-2xl mb-2 overflow-hidden ring-4 ring-slate-800/50 transform hover:scale-105 transition-all duration-500 hover:shadow-cyan-500/20"
+@@ -152,10 +174,11 @@
+           >
+             <img src="/logo/Image_fx.png" alt="FinElo" className="w-full h-full object-cover transform scale-125" />
+           </Link>
+-        </div>
++        </div>}
+ 
+         {/* Card Super Compacto */}
+-        <div className="backdrop-blur-md bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 shadow-2xl ring-1 ring-white/5">
++        <div className={additionalAccount ? undefined : "backdrop-blur-md bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 shadow-2xl ring-1 ring-white/5"}>
++          {showRememberedAccounts && !isForgotPassword && !isSignUp && <RememberedAccountLogin />}
+ 
+           {isForgotPassword ? (
+             // --- TELA DE RECUPERAÇÃO DE SENHA ---
+@@ -191,16 +214,16 @@
+                     Voltar para o login
+                   </button>
+                 </div>
+-                <div className="pt-2 border-t border-slate-800/50">
++                {!additionalAccount && <div className="pt-2 border-t border-slate-800/50">
+                   <Link to="/" className="text-slate-600 hover:text-slate-400 transition-colors">
+                     Voltar ao início
+                   </Link>
+-                </div>
++                </div>}
+               </p>
+ 
+               {/* Mensagens Compactas (movidas para cá) */}
+               {(message || error) && (
+-                <div className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
++                <div role={additionalAccount ? (error ? "alert" : "status") : undefined} className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                   {message || error}
+                 </div>
+               )}
+@@ -208,9 +231,9 @@
+           ) : (
+             // --- TELA DE LOGIN / CADASTRO ---
+             <div>
+-              <h2 className="text-sm font-medium text-slate-400 mb-5 text-center uppercase tracking-wider">
++              {!additionalAccount && <h2 className="text-sm font-medium text-slate-400 mb-5 text-center uppercase tracking-wider">
+                 {isSignUp ? 'Criar Conta' : 'Acessar Conta'}
+-              </h2>
++              </h2>}
+               {/* Adicionado um <div> para agrupar todo o conteúdo abaixo do título */}
+               <div>
+                 <div className="space-y-4">
+@@ -331,13 +354,13 @@
+ 
+                 {/* Mensagens Compactas (movidas para cá) */}
+                 {(message || error) && (
+-                  <div className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
++                  <div role={additionalAccount ? (error ? "alert" : "status") : undefined} className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                     {message || error}
+                   </div>
+                 )}
+ 
+                 {/* Link para alternar entre Login e Cadastro (movido para cá) */}
+-                <div className="text-center mt-6 text-slate-500 text-xs flex flex-col gap-3">
++                {!additionalAccount && <div className="text-center mt-6 text-slate-500 text-xs flex flex-col gap-3">
+                   <div>
+                     {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}
+                     <button
+@@ -352,13 +375,13 @@
+                       Voltar ao início
+                     </Link>
+                   </div>
+-                </div>
++                </div>}
+               </div>
+             </div>
+           )}
+         </div>
+       </div>
+-      <div className="absolute bottom-2 right-2 text-[10px] text-slate-700 pointer-events-none">v0.0.1</div>
++      {!additionalAccount && <div className="absolute bottom-2 right-2 text-[10px] text-slate-700 pointer-events-none">v0.0.1</div>}
+     </div>
+   );
+ };
+diff --git a/src/components/views/UserAccountWidget.tsx b/src/components/views/UserAccountWidget.tsx
+--- a/src/components/views/UserAccountWidget.tsx
++++ b/src/components/views/UserAccountWidget.tsx
+@@ -1,6 +1,9 @@
+ import React, { useState, useEffect, useRef } from 'react';
+ import { useAppStore } from '../../hooks/useAppStore';
+ import { appConfirm } from '../../hooks/useDialogStore';
++import { DEVICE_ACCOUNTS_ENABLED } from '../../domain/session/accounts/deviceAccountActions';
++import { isMultiAccountActive } from '../../domain/session/accounts/appAccountSessions';
++import { DeviceAccountMenu, DeviceAccountSignOut } from '../deviceAccounts/DeviceAccounts';
+ import Avatar from '../../Avatar'; // Importando nosso novo componente
+ import { SettingsIcon, LogoutIcon, LifebuoyIcon, TicketIcon } from '../ui/icons';
+ 
+@@ -21,6 +24,7 @@
+ }) => {
+     const { user, signOut } = useAppStore();
+     const [isOpen, setIsOpen] = useState(false);
++    const multiAccountActive = DEVICE_ACCOUNTS_ENABLED && isMultiAccountActive();
+     const widgetRef = useRef<HTMLDivElement>(null);
+ 
+     const getFirstName = () => {
+@@ -33,6 +37,7 @@
+     };
+ 
+     const displayName = getFirstName();
++    const menuWidth = DEVICE_ACCOUNTS_ENABLED ? 'w-72 max-w-[calc(100vw-2rem)] max-h-[70dvh] overflow-y-auto' : 'w-56';
+ 
+     // Efeito para fechar o dropdown ao clicar fora dele
+     useEffect(() => {
+@@ -58,9 +63,9 @@
+ 
+ 
+     return (
+-        <div ref={widgetRef} onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); widgetRef.current?.querySelector('button')?.focus(); } }} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
++        <div ref={widgetRef} data-device-account-widget={DEVICE_ACCOUNTS_ENABLED || undefined} onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); widgetRef.current?.querySelector('button')?.focus(); } }} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
+             {/* Área clicável do usuário */}
+-            <button data-appearance-part="menu-item" aria-expanded={isOpen} aria-label="Menu da conta" onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
++            <button data-appearance-part="menu-item" data-device-account-trigger={DEVICE_ACCOUNTS_ENABLED || undefined} aria-expanded={isOpen} aria-label="Menu da conta" onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
+                 <Avatar user={user} className={position === 'top' ? 'h-8 w-8' : 'h-10 w-10'} />
+                 <div className={`hidden lg:block flex-1 overflow-hidden`}>
+                     <p data-appearance-part="title" className="text-sm font-semibold text-light truncate">{displayName}</p>
+@@ -70,12 +75,13 @@
+ 
+             {/* Menu Dropdown */}
+             {isOpen && (
+-                <div data-appearance-part="menu" className={`absolute ${position === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 lg:right-auto w-56 bg-secondary rounded-lg shadow-2xl border border-primary z-50`}>
+-                    <div data-appearance-part="divider" className="p-3 border-b border-primary">
++                <div data-appearance-part="menu" className={`absolute ${position === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 lg:right-auto ${menuWidth} bg-secondary rounded-lg shadow-2xl border border-primary z-50`}>
++                    {!multiAccountActive && <div data-appearance-part="divider" className="p-3 border-b border-primary">
+                         <p data-appearance-part="title" className="text-sm font-semibold text-light truncate">{displayName}</p>
+                         <p data-appearance-part="muted" className="text-xs text-gray-400 truncate">{user.email}</p>
+-                    </div>
++                    </div>}
+                     <nav className="p-1 space-y-1">
++                        {DEVICE_ACCOUNTS_ENABLED && <DeviceAccountMenu user={user} />}
+                         <button data-appearance-part="menu-item"
+                             onClick={() => { onNavigate?.('help'); setIsOpen(false); }}
+                             className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:bg-primary rounded-md transition-colors"
+@@ -118,10 +124,10 @@
+ 
+                         <div data-appearance-part="divider" className="border-t border-primary my-1"></div>
+ 
+-                        <button data-appearance-part="menu-danger" onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-primary rounded-md transition-colors">
++                        {multiAccountActive ? <DeviceAccountSignOut user={user} /> : <button data-appearance-part="menu-danger" onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-primary rounded-md transition-colors">
+                             <LogoutIcon className="h-5 w-5" />
+                             <span>Sair da Conta</span>
+-                        </button>
++                        </button>}
+                     </nav>
+                 </div>
+             )}
