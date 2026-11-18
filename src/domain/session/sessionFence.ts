@@ -26,14 +26,16 @@ import {
  */
 
 export class SessionFenceError extends Error {
-  readonly code: 'no_active_identity' | 'identity_mismatch' | 'stale_session_write';
+  readonly code: 'no_active_identity' | 'identity_mismatch' | 'stale_session_write' | 'account_switch_in_progress';
   constructor(code: SessionFenceError['code']) {
     super(
       code === 'no_active_identity'
         ? 'A sessão foi encerrada. Entre novamente para continuar.'
         : code === 'identity_mismatch'
           ? 'A sessão desta aba mudou. Atualize a página para continuar.'
-          : 'Há uma operação da sessão anterior em andamento. Tente novamente em instantes.'
+          : code === 'account_switch_in_progress'
+            ? 'A conta desta aba está sendo trocada. A página será recarregada.'
+            : 'Há uma operação da sessão anterior em andamento. Tente novamente em instantes.'
     );
     this.name = 'SessionFenceError';
     this.code = code;

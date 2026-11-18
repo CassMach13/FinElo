@@ -96,20 +96,28 @@ const safeGet = (storage: KeyValueStorage, key: string): string | null => {
 };
 
 /**
- * Fetch do cliente de UMA conta: as regras R0–R2 da Etapa 1 e mais uma — o token que sai tem de ser desta conta (se
- * a chave de armazenamento contiver sessão de outro usuário, nada sai). Conta as requisições em voo (ponto quieto).
+ * Fetch do cliente de UMA conta: as regras R0–R2 da Etapa 1 e mais duas — o token que sai tem de ser desta conta (se
+ * a chave de armazenamento contiver sessão de outro usuário, nada sai) e, enquanto a aba troca de conta (fase
+ * `switching`, do passo 3 até a página reiniciar), nada sai por REST/Storage/Functions: continuações antigas que
+ * retomem nessa janela não leem nem gravam com conta nenhuma. Conta as requisições em voo (ponto quieto).
  */
 export function createAccountFetch(
   supabaseUrl: string,
   accountUserId: string | null,
   track: <T>(promise: Promise<T>) => Promise<T>,
-  baseFetch?: FetchLike
+  baseFetch?: FetchLike,
+  isSwitching: () => boolean = () => false
 ): FetchLike {
   const fenced = createSessionFencedFetch(supabaseUrl, baseFetch);
   const base = supabaseUrl.replace(/\/+$/, '');
   return (input, init) => {
     const url = requestUrl(input);
-    if (accountUserId && url.startsWith(base) && FENCED.some((p) => url.slice(base.length).startsWith(p))) {
+    const guarded = url.startsWith(base) && FENCED.some((p) => url.slice(base.length).startsWith(p));
+    if (guarded && isSwitching()) {
+      console.warn('[session] requisição bloqueada (account_switch_in_progress)');
+      return Promise.reject(new SessionFenceError('account_switch_in_progress'));
+    }
+    if (accountUserId && guarded) {
       const identity = readBearerIdentity(requestBearer(input, init));
       if (identity && identity.sub !== accountUserId) {
         console.warn('[session] requisição bloqueada (identity_mismatch)');
@@ -215,7 +223,7 @@ export class SessionAccountManager {
       storageKey: accountStorageKey(this.env.supabaseUrl, id),
       detectSessionInUrl: false,
       accountUserId: id,
-      fetch: createAccountFetch(this.env.supabaseUrl, id, this.track, this.env.baseFetch),
+      fetch: createAccountFetch(this.env.supabaseUrl, id, this.track, this.env.baseFetch, this.isSwitching),
     });
     this.clients.set(id, client);
     client.auth.onAuthStateChange((event, session) => this.onAccountEvent(id, event, session));
@@ -242,7 +250,7 @@ export class SessionAccountManager {
       storageKey: pendingStorageKey(this.env.supabaseUrl, slot),
       detectSessionInUrl: true,
       accountUserId: null,
-      fetch: createAccountFetch(this.env.supabaseUrl, null, this.track, this.env.baseFetch),
+      fetch: createAccountFetch(this.env.supabaseUrl, null, this.track, this.env.baseFetch, this.isSwitching),
     });
     const entry = { slot, client };
     this.pending = entry;
@@ -295,6 +303,8 @@ export class SessionAccountManager {
     if (!error) return result;
     return { data: { user: null, session: null }, error };
   }
+
+  private readonly isSwitching = (): boolean => this.phase === 'switching';
 
   private readonly track = <T>(promise: Promise<T>): Promise<T> => {
     this.inFlight += 1;

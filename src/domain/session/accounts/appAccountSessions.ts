@@ -23,7 +23,13 @@ export const appSwitchHost: SwitchHost = {
     useDialogStore.getState().closeDialog(false);
   },
   commitUser: (user) => useAppStore.getState().setUser(user),
-  reload: () => useAppStore.getState().fetchAllData(),
+  // Troca concluída: a página reinicia na conta da aba (sessionStorage). Nenhuma continuação da conta anterior
+  // sobrevive; até a página sair, a fase `switching` mantém a interface e a rede bloqueadas.
+  reload: (after) => {
+    if (after === 'rolled_back') return useAppStore.getState().fetchAllData();
+    window.location.reload();
+    return new Promise<never>(() => undefined);
+  },
 };
 
 const requireManager = () => {

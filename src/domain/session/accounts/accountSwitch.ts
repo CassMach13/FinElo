@@ -15,8 +15,12 @@ import type { SessionAccountManager } from './accountManager';
  *  5. Seleciona a instância Supabase da nova conta.
  *  6. Valida a sessão com o Supabase Auth (`getUser`, rede). JWT local não basta.
  *  7. Atualiza a identidade ativa (store, epoch, conta da aba, instância da sessão).
- *  8. Recarrega os dados financeiros da nova conta.
- *  9. Libera a interface.
+ *  8. Recarrega os dados da nova conta. No app, REINICIANDO A PÁGINA: operações de serviço/componente usam o cliente
+ *     global (fachada), que resolve a conta no momento de cada chamada; uma continuação de A suspensa fora do cliente
+ *     (Promise, timer, processamento local, confirmação) não é vista pelo ponto quieto e, retomando depois da troca,
+ *     sairia com B. Reiniciar a página encerra todas essas continuações. Até lá, a fase `switching` bloqueia
+ *     REST/Storage/Functions de todos os clientes da aba.
+ *  9. Libera a interface (no app, a página nova já nasce na conta da aba).
  *
  * Falha em 6 (rede, sessão revogada/expirada, identidade divergente) volta à conta anterior (rollback): ela continua
  * logada e só ela é recarregada. Sessão inválida marca SOMENTE a conta de destino para novo login.
@@ -28,8 +32,12 @@ export interface SwitchHost {
   clearSessionState(): void;
   /** Passo 7: identidade confirmada pelo Auth. */
   commitUser(user: User): void;
-  /** Passo 8: carga de dados da conta ativa. */
-  reload(): Promise<unknown>;
+  /**
+   * Passo 8: carga de dados da conta ativa. `switched`: troca concluída — no app, reinicia a página (a promessa não
+   * resolve e a fase `switching` fica até a página sair). `rolled_back`: a conta anterior voltou; recarrega na
+   * mesma página (as continuações pendentes são dela).
+   */
+  reload(after: 'switched' | 'rolled_back'): Promise<unknown>;
 }
 
 export type SwitchFailure =
@@ -53,14 +61,30 @@ export interface SwitchOptions {
 
 const DEFAULT_DRAIN_TIMEOUT_MS = 15_000;
 
-/** Ponto quieto: nenhuma ação do store em voo e nenhuma requisição em voo, confirmado depois de uma volta do loop. */
-export async function waitForQuiescence(manager: Pick<SessionAccountManager, 'inFlightRequests'>, timeoutMs: number): Promise<boolean> {
+const isBusy = (manager: Pick<SessionAccountManager, 'inFlightRequests'>) =>
+  pendingSessionOperations().length > 0 || manager.inFlightRequests() > 0;
+
+/**
+ * Ponto quieto: nenhuma ação do store em voo e nenhuma requisição em voo, confirmado depois de uma volta do loop.
+ * `onQuiet` roda de forma SÍNCRONA no mesmo instante da última verificação (sem microtarefa no meio), para que nada
+ * comece entre "quieto" e o início da fase `switching`.
+ */
+export async function waitForQuiescence(
+  manager: Pick<SessionAccountManager, 'inFlightRequests'>,
+  timeoutMs: number,
+  onQuiet: () => void = () => undefined
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
-  const busy = () => pendingSessionOperations().length > 0 || manager.inFlightRequests() > 0;
   for (;;) {
-    if (!busy()) {
-      await new Promise((r) => setTimeout(r, 0));
-      if (!busy()) return true;
+    if (!isBusy(manager)) {
+      const confirmed = await new Promise<boolean>((resolve) =>
+        setTimeout(() => {
+          if (isBusy(manager)) return resolve(false);
+          onQuiet();
+          resolve(true);
+        }, 0)
+      );
+      if (confirmed) return true;
     }
     if (Date.now() >= deadline) return false;
     await new Promise((r) => setTimeout(r, 25));
@@ -92,16 +116,18 @@ export async function switchAccount(
 
   // 2. invalida a continuação: ponto quieto ou recusa (nada mudou ainda)
   manager.setSwitchPhase('draining');
-  if (!(await waitForQuiescence(manager, options.drainTimeoutMs ?? DEFAULT_DRAIN_TIMEOUT_MS))) {
+  // 3 começa no MESMO instante em que o ponto quieto é confirmado: geração visual anterior invalidada, interface e
+  // rede da aba bloqueadas.
+  const quiet = await waitForQuiescence(manager, options.drainTimeoutMs ?? DEFAULT_DRAIN_TIMEOUT_MS, () => {
+    manager.setSwitchPhase('switching');
+    endSession();
+  });
+  if (!quiet) {
     manager.setSwitchPhase('idle');
     trace('2:refused');
     return { ok: false, reason: 'operations_pending', restoredUserId: from };
   }
   trace('2:quiet');
-
-  // 3. geração visual anterior invalidada; interface bloqueada
-  manager.setSwitchPhase('switching');
-  endSession();
   trace('3');
   // 4. dados e diálogos da conta anterior
   host.clearSessionState();
@@ -135,7 +161,7 @@ export async function switchAccount(
       host.commitUser(previousUser);
       observeSessionInstance(from, await sessionInstanceOf(manager, from));
       manager.setSwitchPhase('idle');
-      await host.reload();
+      await host.reload('rolled_back');
     } else {
       manager.setSwitchPhase('idle');
     }
@@ -147,9 +173,9 @@ export async function switchAccount(
   host.commitUser(user);
   observeSessionInstance(target, await sessionInstanceOf(manager, target));
   trace('7');
-  // 8. dados da nova conta
+  // 8. dados da nova conta (no app: a página reinicia e esta promessa não resolve)
   try {
-    await host.reload();
+    await host.reload('switched');
   } finally {
     // 9. interface liberada só agora
     manager.setSwitchPhase('idle');
