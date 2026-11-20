@@ -11,6 +11,9 @@ import { captureAcquisition, cancelOAuthAcquisition } from './domain/auth/acquis
 import { resolveOAuthAcquisition } from './services/acquisitionAuth';
 import { observeSessionInstance, readBearerIdentity } from './domain/session/sessionScope';
 import { useAccountSwitchBlocking } from './domain/session/accounts/accountSwitchGate';
+import { isMultiAccountActive } from './domain/session/accounts/appAccountSessions';
+import { DEVICE_ACCOUNTS_ENABLED } from './domain/session/accounts/deviceAccountActions';
+import { DeviceAccountBoundary, DeviceAccountRecovery } from './components/deviceAccounts/DeviceAccountIntegration';
 
 // Vistas Públicas
 import LandingPage from './components/views/LandingPage';
@@ -193,17 +196,17 @@ const AppContent: React.FC = () => {
     };
   }, [user, stableSyncAllData]);
 
-  if (isPasswordRecovery) {
+  if (isPasswordRecovery && !isMultiAccountActive()) {
     return <UpdatePasswordView />;
   }
 
-  if (!isAuthReady || isSwitchingAccount) return <AuthLoadingScreen />;
+  if (!isAuthReady || (isSwitchingAccount && !DEVICE_ACCOUNTS_ENABLED)) return <AuthLoadingScreen />;
 
-  return (
+  const routes = (
     <Routes>
       <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
-      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <AuthView />} />
-      <Route path="/update-password" element={<UpdatePasswordView />} />
+      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <AuthView showRememberedAccounts={isMultiAccountActive()} />} />
+      <Route path="/update-password" element={isMultiAccountActive() ? <DeviceAccountRecovery /> : <UpdatePasswordView />} />
       {/* MainLayout reads /pricing from the URL to open the in-app pricing view. */}
       <Route path="/pricing" element={user ? <Navigate to="/app?view=pricing" replace /> : <LandingPage />} />
       <Route element={<ProtectedRoute isAuthReady={isAuthReady} user={user} />}>
@@ -213,9 +216,14 @@ const AppContent: React.FC = () => {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+  return DEVICE_ACCOUNTS_ENABLED
+    ? <DeviceAccountBoundary user={user} switching={isSwitchingAccount} renderLogin={options => <AuthView additionalAccount={options} />}>{routes}</DeviceAccountBoundary>
+    : routes;
 };
 
-const App: React.FC = () => (
+const App: React.FC = () => window.location.pathname === '/device-auth' ? (
+  <Router><AppLock><DeviceAccountRecovery /></AppLock></Router>
+) : (
   <Router>
     <AppLock>
       <AppContent />

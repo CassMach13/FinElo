@@ -4,20 +4,26 @@ import { supabase } from '../../supabaseClient';
 import Button from '../ui/Button';
 import { GoogleIcon, GithubIcon, EyeIcon, EyeSlashIcon } from '../ui/icons';
 import Input from '../ui/Input';
+import { RememberedAccountLogin } from '../deviceAccounts/DeviceAccounts';
+import { isMultiAccountActive } from '../../domain/session/accounts/appAccountSessions';
+import { additionalAccountForm, type AdditionalAccountFormOptions } from '../../domain/session/accounts/deviceAccountActions';
 import { metadadosDeCadastro, validarNomeDeCadastro } from '../../domain/auth/signupProfile';
 import { signUpWithAcquisition, startOAuthWithAcquisition } from '../../services/acquisitionAuth';
-import { cancelOAuthAcquisition, clearAcquisition } from '../../domain/auth/acquisitionAttribution';
+import { beginOAuthAcquisition, cancelOAuthAcquisition, clearAcquisition } from '../../domain/auth/acquisitionAttribution';
 
 // Combina a declaração da função com a exportação padrão.
-export default function AuthView(): React.ReactElement {
+export default function AuthView({ additionalAccount, showRememberedAccounts = false }: {
+  additionalAccount?: AdditionalAccountFormOptions;
+  showRememberedAccounts?: boolean;
+} = {}): React.ReactElement {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(searchParams.get('view') === 'signup');
+  const [isSignUp, setIsSignUp] = useState(!additionalAccount && searchParams.get('view') === 'signup');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [nome, setNome] = useState('');
-  const [email, setEmail] = useState(searchParams.get('email') || '');
+  const [email, setEmail] = useState(additionalAccount ? additionalAccount.email ?? '' : searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,13 +31,14 @@ export default function AuthView(): React.ReactElement {
 
   // Sincroniza se o usuário mudar a URL manualmente ou voltar
   useEffect(() => {
+    if (additionalAccount) return;
     const view = searchParams.get('view');
     const emailParam = searchParams.get('email');
     
     if (view === 'signup') setIsSignUp(true);
     if (view === 'login') setIsSignUp(false);
     if (emailParam) setEmail(emailParam);
-  }, [searchParams]);
+  }, [searchParams, additionalAccount]);
 
   const getRedirectUrl = (path: string) => {
     const url = new URL(path, window.location.origin);
@@ -44,6 +51,19 @@ export default function AuthView(): React.ReactElement {
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null); setMessage(null); setLoading(true);
+    const login = additionalAccount ?? (isMultiAccountActive() ? additionalAccountForm() : null);
+    if (login) {
+      try {
+        const result = await login.signIn(email, password);
+        setError(result.error);
+      } catch {
+        setError('Não foi possível entrar. Verifique a conexão e tente novamente.');
+      } finally {
+        setPassword('');
+        setLoading(false);
+      }
+      return;
+    }
     cancelOAuthAcquisition();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
@@ -116,35 +136,46 @@ export default function AuthView(): React.ReactElement {
   const handlePasswordReset = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null); setMessage(null); setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getRedirectUrl('/update-password'),
-    });
-    if (error) setError(error.message);
-    else setMessage('Se o e-mail estiver correto, você receberá um link para redefinir sua senha.');
+    const recovery = additionalAccount ?? (isMultiAccountActive() ? additionalAccountForm() : null);
+    const error = recovery
+      ? (await recovery.recoverPassword(email)).error
+      : (await supabase.auth.resetPasswordForEmail(email, { redirectTo: getRedirectUrl('/update-password') })).error?.message;
+    if (error) setError(error);
+    else setMessage(recovery ? 'Se o e-mail estiver correto, você receberá um link. Abra-o nesta mesma aba do FinElo.' : 'Se o e-mail estiver correto, você receberá um link para redefinir sua senha.');
     setLoading(false);
   };
 
   // Aceita 'google' ou 'github' agora
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
     setLoading(true);
-    const { error } = await startOAuthWithAcquisition(supabase.auth, provider, isSignUp, getRedirectUrl('/app'));
+    const login = additionalAccount ?? (isMultiAccountActive() ? additionalAccountForm() : null);
+    if (login && !additionalAccount) beginOAuthAcquisition(provider, isSignUp);
+    const error = login
+      ? (await login.signInWithOAuth(provider)).error
+      : (await startOAuthWithAcquisition(supabase.auth, provider, isSignUp, getRedirectUrl('/app'))).error?.message;
+    if (login) {
+      setLoading(false);
+      if (error && !additionalAccount) cancelOAuthAcquisition();
+    }
     if (error) {
-      setError(error.message);
+      setError(error);
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-[#0B1120] relative overflow-hidden px-4">
+    <div className={additionalAccount ? undefined : "h-screen w-full flex items-center justify-center bg-[#0B1120] relative overflow-hidden px-4"}>
 
+      {!additionalAccount && <>
       {/* Background Blobs */}
       <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none opacity-40" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none opacity-40" />
 
-      <div className="w-full max-w-sm relative z-10 flex flex-col justify-center h-full"> {/* Flex column para centralizar verticalmente */}
+      </>}
+      <div className={additionalAccount ? undefined : "w-full max-w-sm relative z-10 flex flex-col justify-center h-full"}> {/* Flex column para centralizar verticalmente */}
 
         {/* Cabeçalho Compacto */}
-        <div className="text-center mb-4">
+        {!additionalAccount && <div className="text-center mb-4">
           <Link 
             to="/" 
             className="inline-flex items-center justify-center w-32 h-32 rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600/50 shadow-2xl mb-2 overflow-hidden ring-4 ring-slate-800/50 transform hover:scale-105 transition-all duration-500 hover:shadow-cyan-500/20"
@@ -152,10 +183,11 @@ export default function AuthView(): React.ReactElement {
           >
             <img src="/logo/Image_fx.png" alt="FinElo" className="w-full h-full object-cover transform scale-125" />
           </Link>
-        </div>
+        </div>}
 
         {/* Card Super Compacto */}
-        <div className="backdrop-blur-md bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 shadow-2xl ring-1 ring-white/5">
+        <div className={additionalAccount ? undefined : "backdrop-blur-md bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 shadow-2xl ring-1 ring-white/5"}>
+          {showRememberedAccounts && !isForgotPassword && !isSignUp && <RememberedAccountLogin />}
 
           {isForgotPassword ? (
             // --- TELA DE RECUPERAÇÃO DE SENHA ---
@@ -191,16 +223,16 @@ export default function AuthView(): React.ReactElement {
                     Voltar para o login
                   </button>
                 </div>
-                <div className="pt-2 border-t border-slate-800/50">
+                {!additionalAccount && <div className="pt-2 border-t border-slate-800/50">
                   <Link to="/" className="text-slate-600 hover:text-slate-400 transition-colors">
                     Voltar ao início
                   </Link>
-                </div>
+                </div>}
               </p>
 
               {/* Mensagens Compactas (movidas para cá) */}
               {(message || error) && (
-                <div className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                <div role={additionalAccount ? (error ? "alert" : "status") : undefined} className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
                   {message || error}
                 </div>
               )}
@@ -208,9 +240,9 @@ export default function AuthView(): React.ReactElement {
           ) : (
             // --- TELA DE LOGIN / CADASTRO ---
             <div>
-              <h2 className="text-sm font-medium text-slate-400 mb-5 text-center uppercase tracking-wider">
+              {!additionalAccount && <h2 className="text-sm font-medium text-slate-400 mb-5 text-center uppercase tracking-wider">
                 {isSignUp ? 'Criar Conta' : 'Acessar Conta'}
-              </h2>
+              </h2>}
               {/* Adicionado um <div> para agrupar todo o conteúdo abaixo do título */}
               <div>
                 <div className="space-y-4">
@@ -331,13 +363,13 @@ export default function AuthView(): React.ReactElement {
 
                 {/* Mensagens Compactas (movidas para cá) */}
                 {(message || error) && (
-                  <div className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                  <div role={additionalAccount ? (error ? "alert" : "status") : undefined} className={`mt-4 p-2.5 rounded-lg text-xs text-center font-medium ${message ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
                     {message || error}
                   </div>
                 )}
 
                 {/* Link para alternar entre Login e Cadastro (movido para cá) */}
-                <div className="text-center mt-6 text-slate-500 text-xs flex flex-col gap-3">
+                {!additionalAccount && <div className="text-center mt-6 text-slate-500 text-xs flex flex-col gap-3">
                   <div>
                     {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}
                     <button
@@ -352,13 +384,13 @@ export default function AuthView(): React.ReactElement {
                       Voltar ao início
                     </Link>
                   </div>
-                </div>
+                </div>}
               </div>
             </div>
           )}
         </div>
       </div>
-      <div className="absolute bottom-2 right-2 text-[10px] text-slate-700 pointer-events-none">v0.0.1</div>
+      {!additionalAccount && <div className="absolute bottom-2 right-2 text-[10px] text-slate-700 pointer-events-none">v0.0.1</div>}
     </div>
   );
 };

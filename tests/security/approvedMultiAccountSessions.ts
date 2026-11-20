@@ -1,3 +1,4 @@
+import { beforeApprovedDeviceAccountIntegration } from './approvedDeviceAccountIntegration';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { reverseSessionPatch } from '../appearance/reverseSessionPatch';
@@ -32,8 +33,9 @@ export const APPROVED_MULTI_ACCOUNT_SESSIONS: Record<string, { before: string; a
 
 const patch = () => readFileSync(new URL('./approved-multi-account-sessions.patch', import.meta.url), 'utf8');
 
-/** O conteúdo anterior a esta etapa, se (e só se) `source` é exatamente o conteúdo submetido; senão, `source` intacto. */
+/** Reverte as exceções exatas em ordem, começando pela integração da Etapa 3. */
 export function beforeApprovedMultiAccountSessions(path: string, source: string): string {
+  source = beforeApprovedDeviceAccountIntegration(path, source);
   const entry = APPROVED_MULTI_ACCOUNT_SESSIONS[path];
   if (!entry || sha256Lf(source) !== entry.approved) return source;
   return reverseSessionPatch(source, patch(), path);

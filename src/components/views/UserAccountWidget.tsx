@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { appConfirm } from '../../hooks/useDialogStore';
+import { DEVICE_ACCOUNTS_ENABLED } from '../../domain/session/accounts/deviceAccountActions';
+import { isMultiAccountActive } from '../../domain/session/accounts/appAccountSessions';
+import { DeviceAccountMenu, DeviceAccountSignOut } from '../deviceAccounts/DeviceAccounts';
 import Avatar from '../../Avatar'; // Importando nosso novo componente
 import { SettingsIcon, LogoutIcon, LifebuoyIcon, TicketIcon } from '../ui/icons';
 
@@ -21,6 +24,7 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
 }) => {
     const { user, signOut } = useAppStore();
     const [isOpen, setIsOpen] = useState(false);
+    const multiAccountActive = DEVICE_ACCOUNTS_ENABLED && isMultiAccountActive();
     const widgetRef = useRef<HTMLDivElement>(null);
 
     const getFirstName = () => {
@@ -33,6 +37,7 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
     };
 
     const displayName = getFirstName();
+    const menuWidth = DEVICE_ACCOUNTS_ENABLED ? 'w-72 max-w-[calc(100vw-2rem)] max-h-[70dvh] overflow-y-auto' : 'w-56';
 
     // Efeito para fechar o dropdown ao clicar fora dele
     useEffect(() => {
@@ -58,9 +63,9 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
 
 
     return (
-        <div ref={widgetRef} onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); widgetRef.current?.querySelector('button')?.focus(); } }} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
+        <div ref={widgetRef} data-device-account-widget={DEVICE_ACCOUNTS_ENABLED || undefined} onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); widgetRef.current?.querySelector('button')?.focus(); } }} className={`relative ${position === 'bottom' ? 'mt-auto' : ''}`}>
             {/* Área clicável do usuário */}
-            <button data-appearance-part="menu-item" aria-expanded={isOpen} aria-label="Menu da conta" onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
+            <button data-appearance-part="menu-item" data-device-account-trigger={DEVICE_ACCOUNTS_ENABLED || undefined} aria-expanded={isOpen} aria-label="Menu da conta" onClick={() => setIsOpen(!isOpen)} className={`flex items-center gap-3 p-2 lg:p-3 text-left rounded-lg hover:bg-primary transition-colors duration-200 ${position === 'bottom' ? 'w-full landscape:justify-center lg:justify-start' : 'p-1'}`}>
                 <Avatar user={user} className={position === 'top' ? 'h-8 w-8' : 'h-10 w-10'} />
                 <div className={`hidden lg:block flex-1 overflow-hidden`}>
                     <p data-appearance-part="title" className="text-sm font-semibold text-light truncate">{displayName}</p>
@@ -70,12 +75,13 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
 
             {/* Menu Dropdown */}
             {isOpen && (
-                <div data-appearance-part="menu" className={`absolute ${position === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 lg:right-auto w-56 bg-secondary rounded-lg shadow-2xl border border-primary z-50`}>
-                    <div data-appearance-part="divider" className="p-3 border-b border-primary">
+                <div data-appearance-part="menu" className={`absolute ${position === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 lg:right-auto ${menuWidth} bg-secondary rounded-lg shadow-2xl border border-primary z-50`}>
+                    {!multiAccountActive && <div data-appearance-part="divider" className="p-3 border-b border-primary">
                         <p data-appearance-part="title" className="text-sm font-semibold text-light truncate">{displayName}</p>
                         <p data-appearance-part="muted" className="text-xs text-gray-400 truncate">{user.email}</p>
-                    </div>
+                    </div>}
                     <nav className="p-1 space-y-1">
+                        {DEVICE_ACCOUNTS_ENABLED && <DeviceAccountMenu user={user} />}
                         <button data-appearance-part="menu-item"
                             onClick={() => { onNavigate?.('help'); setIsOpen(false); }}
                             className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:bg-primary rounded-md transition-colors"
@@ -118,10 +124,10 @@ const UserAccountWidget: React.FC<UserAccountWidgetProps> = ({
 
                         <div data-appearance-part="divider" className="border-t border-primary my-1"></div>
 
-                        <button data-appearance-part="menu-danger" onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-primary rounded-md transition-colors">
+                        {multiAccountActive ? <DeviceAccountSignOut user={user} /> : <button data-appearance-part="menu-danger" onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-primary rounded-md transition-colors">
                             <LogoutIcon className="h-5 w-5" />
                             <span>Sair da Conta</span>
-                        </button>
+                        </button>}
                     </nav>
                 </div>
             )}

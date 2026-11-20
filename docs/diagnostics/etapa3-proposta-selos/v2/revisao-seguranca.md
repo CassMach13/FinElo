@@ -1,5 +1,26 @@
 # FinElo · revisão da integração de contas, proposta 2
 
+## Aplicação autorizada
+
+O comentário [7045356112 na PR #102](https://github.com/CassMach13/FinElo/pull/102#issuecomment-7045356112) autorizou o patch v2 sobre `93ba1f1fe610ab2ed59f68d877b689acdff5cac9`. A worktree estava limpa. A conferência dos bytes do patch e do manifesto, dos três hashes de origem e de `git apply --check --whitespace=error` precedeu a aplicação. Os três arquivos resultantes coincidiram com os hashes `proposed`. [Manifesto aprovado](./sha256-lf.json)
+
+A exceção de integridade confere os hashes fixos dos artefatos e reverte em memória somente fontes com o hash aprovado. Em `App.tsx`, a reversão entrega a saída aprovada da Etapa 2. Em `AuthView.tsx` e `UserAccountWidget.tsx`, entrega os hashes da base selada da Etapa 2. Os demais selos continuam sendo verificados pelos testes existentes. [Testes da exceção](../../../../tests/security/approvedDeviceAccountIntegration.spec.ts)
+
+### Validação dos arquivos aplicados
+
+- Baseline TypeScript aprovado com 13 diagnósticos conhecidos. Os 103 testes focais passaram. A suíte completa aprovou 3.634 testes, com um ignorado.
+- Os builds locais do Vite com `VITE_MULTI_ACCOUNT_SESSIONS` em `true` e `false` passaram. Cada um gerou o service worker e um precache de 49 entradas.
+- O ensaio no Edge usou os dois builds dos arquivos aplicados, com Supabase simulado e servidores de loopback. Com A ativa, houve um PUT autorizado para B e zero para A. A outra janela teve o callback recusado. Google e GitHub simulados concluíram por PKCE na aba original. A troca para B recarregou a PWA. Com a flag desligada, login e logout legados passaram. [Ensaio reproduzível](./navegador.py)
+
+**GO para iniciar a homologação em staging.** A validação em staging deve cobrir os retornos com Google e GitHub reais, a entrega do link de recuperação e a PWA instalada em aparelho físico.
+
+Os comandos da reprodução histórica abaixo usam o commit de auditoria `93ba1f1fe610ab2ed59f68d877b689acdff5cac9` para reconstruir a proposta em memória. Para reproduzir o ensaio a partir das fontes aplicadas, mantenha os mesmos placeholders de Supabase, produza cada diretório com `npm run build -- --outDir ../qa-candidato-on` ou `../qa-candidato-off` sob a flag correspondente e execute o mesmo teste de navegador.
+
+---
+
+
+## Parecer anterior à aplicação
+
 **GO técnico para aprovação específica do patch de SHA-256 `10ebb2c4f322c8ac46670fdb8a19004b750b41de349f7bacbf305486d5063a01`.** A decisão abrange as mudanças propostas em `src/App.tsx`, `src/components/views/AuthView.tsx` e `src/components/views/UserAccountWidget.tsx`. A PR mantém as fontes seladas nos hashes originais e a funcionalidade desativada por padrão. A aplicação depende da autorização do responsável. A homologação final continua pendente.
 
 Com A ativa, o formulário integrado solicitou a recuperação de B. O backend de teste conferiu o desafio PKCE e identificou o portador no envio da senha. Registrou **um PUT autorizado para B e zero para A**. A aba permaneceu em A. O ensaio de substituição da sessão entre a última consulta de identidade e o envio registrou **zero PUTs autorizados**. [Teste de segurança](../../../../tests/security/multiAccount/deviceAuth.spec.ts) · [Ensaio no navegador](./navegador.py)
