@@ -1,0 +1,22 @@
+{
+  "base": "afc4fb95ec1d2a6cc85f53de2ec6032de36f40c4",
+  "files": {
+    "src/App.tsx": {
+      "before": "d2edded6341f99a895a7a6f29b3cfd56c86cb89b0f5ff59ef0da429be76a2434",
+      "proposed": "1b552716217a9d2dab87ec7dcc16ceaefef9b7fd90111b4151a7d46913e6128f",
+      "previousProposal": "6bb4df93a98a59dc609d7cec32d9a8c07ec6dd1b1bee3f0d9149429a7ff4021f"
+    },
+    "src/components/views/AuthView.tsx": {
+      "before": "77db1e197d0a02f7f09271b02d49e0e55d8a42d2f63e73dc5260909b7b7f0159",
+      "proposed": "05526606fba65885dbb51cf4284110c2dc05362aaddbc1351717f1746c5c0569",
+      "previousProposal": "19d3dba5813bf416716915c3886b9582140099c14393b3bcd540bb817c75b9cd"
+    },
+    "src/components/views/UserAccountWidget.tsx": {
+      "before": "0951b96ff297e3a154fb710a4bf2fd9c62e15edd7a6a09405983629dbbfb4f0b",
+      "proposed": "cd002d137442f6a9015abff4a926f5575ddbff653044d19a6dc88a72f77404dd",
+      "previousProposal": "cd002d137442f6a9015abff4a926f5575ddbff653044d19a6dc88a72f77404dd"
+    }
+  },
+  "patchSha256": "10ebb2c4f322c8ac46670fdb8a19004b750b41de349f7bacbf305486d5063a01",
+  "previousPatchSha256": "8a3954c564f26b16fc66da5e6ee5cef6b3254a1675bbbe3e5a9d8a7d7657284d"
+}

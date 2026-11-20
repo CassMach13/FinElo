@@ -1,0 +1,108 @@
+.device-account-dialog {
+  box-sizing: border-box;
+  width: min(calc(100% - 2rem), 29rem);
+  max-height: min(90dvh, 42rem);
+  margin: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgb(var(--appearance-divider));
+  border-radius: 0.875rem;
+  background: rgb(var(--appearance-raised));
+  color: rgb(var(--appearance-content));
+}
+
+.device-account-dialog::backdrop {
+  background: rgb(var(--appearance-scrim) / 0.6);
+}
+
+.device-account-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.device-account-action, .device-account-menu-row {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.device-account-action {
+  border: 1px solid rgb(var(--appearance-divider));
+  font-weight: 600;
+}
+
+.device-account-menu-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(var(--appearance-content));
+  text-align: left;
+}
+
+.device-account-action:hover:not(:disabled), .device-account-menu-row:hover:not(:disabled) {
+  background: rgb(var(--appearance-hover));
+}
+
+.device-account-action:focus-visible, .device-account-menu-row:focus-visible {
+  outline: 2px solid rgb(var(--appearance-focus));
+  outline-offset: -2px;
+}
+
+.device-account-action:disabled, .device-account-menu-row:disabled {
+  color: rgb(var(--appearance-muted));
+  cursor: not-allowed;
+}
+
+.device-account-current {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  background: rgb(var(--appearance-selected));
+  color: rgb(var(--appearance-content));
+}
+
+.device-account-avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(var(--appearance-hover));
+  color: rgb(var(--appearance-content));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.device-account-detail {
+  color: rgb(var(--appearance-muted));
+}
+
+.device-account-primary, .device-account-primary:hover:not(:disabled) {
+  border-color: rgb(var(--appearance-action-end));
+  background: rgb(var(--appearance-action-end));
+  color: rgb(var(--appearance-on-action));
+}
+
+.device-account-danger, .device-account-error {
+  color: rgb(var(--appearance-danger));
+}
+
+.device-account-notice {
+  position: fixed;
+  z-index: 60;
+  inset: auto 1rem max(5rem, env(safe-area-inset-bottom)) auto;
+  display: flex;
+  width: min(calc(100% - 2rem), 25rem);
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgb(var(--appearance-divider));
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: rgb(var(--appearance-raised));
+  color: rgb(var(--appearance-content));
+}

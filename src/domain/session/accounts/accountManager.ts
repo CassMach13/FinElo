@@ -453,15 +453,13 @@ export class SessionAccountManager {
       const pendingValue = this.env.storage.getItem(pendingKey);
       // Outra cópia desta aba (aba duplicada) já adotou esta sessão: nada a copiar nem a encerrar.
       if (pendingValue === null) return { status: 'failed', reason: 'no_session' };
-      // Mesma conta já lembrada com OUTRA sessão: a antiga sai deste navegador antes de a nova ocupar a chave.
-      const storedValue = this.env.storage.getItem(accountKey);
-      if (outcome === 'updated' && storedValue !== null && storedValue !== pendingValue) {
-        await signOutAndForgetLocalSession(this.clientFor(userId).auth, { scope: 'local' });
-      }
-      for (const suffix of SDK_KEY_SUFFIXES) {
-        const value = this.env.storage.getItem(pendingKey + suffix);
-        if (suffix === '-code-verifier') continue;
-        if (value !== null) this.env.storage.setItem(accountKey + suffix, value);
+      // Uma sessão lembrada continua dona da chave até o encerramento explícito.
+      if (this.env.storage.getItem(accountKey) === null) {
+        for (const suffix of SDK_KEY_SUFFIXES) {
+          if (suffix === '-code-verifier') continue;
+          const value = this.env.storage.getItem(pendingKey + suffix);
+          if (value !== null) this.env.storage.setItem(accountKey + suffix, value);
+        }
       }
       this.clearKeys(pendingKey);
       writeAccountRegistry(this.env.storage, next);
@@ -496,6 +494,26 @@ export class SessionAccountManager {
   }
 
   // ---------------------------------------------------------------- conta da aba, renovação, troca
+
+  /** Commit síncrono após getUser no cliente temporário, sob o lock de adição. */
+  rememberConfirmedSession(user: User, session: Session): void {
+    const registry = readAccountRegistry(this.env.storage);
+    if (!registry || this.phase !== 'idle' || session.user.id !== user.id) throw new Error('Sessão alterada.');
+    const key = accountStorageKey(this.env.supabaseUrl, user.id);
+    const existing = this.env.storage.getItem(key);
+    const { registry: next, outcome } = upsertRememberedAccount(registry, { userId: user.id, email: user.email ?? null }, this.now());
+    if (outcome === 'limit_reached') throw new Error('Limite de contas atingido.');
+    if (existing !== null && outcome === 'updated') return;
+    if (existing !== null) throw new Error('A chave de sessão já existe.');
+    this.env.storage.setItem(key, JSON.stringify(session));
+    try {
+      writeAccountRegistry(this.env.storage, next);
+    } catch (error) {
+      this.env.storage.removeItem(key);
+      throw error;
+    }
+    this.env.channel?.post({ type: 'registry-changed' });
+  }
 
   selectTabAccount(userId: string | null): void {
     this.tabUserId = userId ? userId.toLowerCase() : null;

@@ -1,3 +1,4 @@
+import { beforeApprovedDeviceAccountIntegration } from './approvedDeviceAccountIntegration';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -30,7 +31,7 @@ const baseCommitAvailable = (() => {
 describe('exceção exata: alternância de contas — Etapa 2 (múltiplas sessões)', () => {
   it.each(Object.entries(APPROVED_MULTI_ACCOUNT_SESSIONS))('%s: o arquivo atual é exatamente o submetido e o patch o reverte ao anterior', (path, entry) => {
     const current = readFileSync(path, 'utf8');
-    expect(sha256Lf(current)).toBe(entry.approved);
+    expect(sha256Lf(beforeApprovedDeviceAccountIntegration(path, current))).toBe(entry.approved);
     expect(sha256Lf(beforeApprovedMultiAccountSessions(path, current))).toBe(entry.before);
   });
 
@@ -74,7 +75,7 @@ describe('exceção exata: alternância de contas — Etapa 2 (múltiplas sessõ
     for (const path of sealedPaths()) {
       const current = readFileSync(path, 'utf8');
       const before = beforeApprovedMultiAccountSessions(path, current);
-      if (before !== current) touchedByException.push(path);
+      if (before !== beforeApprovedDeviceAccountIntegration(path, current)) touchedByException.push(path);
       if (sha256Lf(before) !== SEALED_BASE.files[path]) mismatched.push(path);
     }
     expect(mismatched).toEqual([]);

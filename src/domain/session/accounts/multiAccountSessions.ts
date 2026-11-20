@@ -1,4 +1,5 @@
 import { createClient, isAuthRetryableFetchError, navigatorLock, type SupabaseClient } from '@supabase/supabase-js';
+import { browserAttemptContext, captureDeviceCallback, DeviceAuth, openProviderWindow } from './deviceAuth';
 import { setOperationClientResolver } from '../operationBinding';
 import { SessionAccountManager, type AccountManagerEnv, type AccountSyncMessage } from './accountManager';
 import {
@@ -7,6 +8,7 @@ import {
   isAccountUserId,
   legacyStorageKey,
   readAccountRegistry,
+  resolveTabAccount,
   SDK_KEY_SUFFIXES,
   writeAccountRegistry,
   writeTabAccount,
@@ -21,6 +23,9 @@ import {
  *
  * O modo é decidido UMA vez por carregamento de página: a passagem para o modo de várias contas recarrega as abas.
  */
+
+let deviceAuth: DeviceAuth | null = null;
+export const getDeviceAuth = () => deviceAuth;
 
 let manager: SessionAccountManager | null = null;
 
@@ -70,21 +75,28 @@ export interface MultiAccountBootstrap {
  * com a trava de build ligada E o registro de contas presente neste navegador.
  */
 export function createMultiAccountSessions(supabaseUrl: string, publishableKey: string, buildEnabled: boolean): MultiAccountBootstrap | null {
+  captureDeviceCallback();
   if (!buildEnabled) return null;
   const storage = browserStorage('localStorage');
   const tabStorage = browserStorage('sessionStorage');
   if (!storage || !tabStorage || readAccountRegistry(storage) === null) return null;
 
+  // O cadastro anterior ao opt-in pode confirmar e-mail em /app. Nenhum cliente de A aceita esse retorno.
+  const legacyLoginCallback = () => {
+    const registry = readAccountRegistry(storage);
+    return window.location.pathname === '/app' && registry !== null &&
+      resolveTabAccount(registry, tabStorage) === null && isCallbackUrl();
+  };
   const env: AccountManagerEnv = {
     supabaseUrl,
     storage,
     tabStorage,
     createClient: ({ storageKey, detectSessionInUrl, fetch }) =>
       createClient(supabaseUrl, publishableKey, {
-        auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl, storageKey },
+        auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: detectSessionInUrl && legacyLoginCallback(), storageKey },
         global: { fetch },
       }),
-    isAuthCallbackUrl: isCallbackUrl,
+    isAuthCallbackUrl: legacyLoginCallback,
     visibility:
       typeof document === 'undefined'
         ? null
@@ -99,6 +111,17 @@ export function createMultiAccountSessions(supabaseUrl: string, publishableKey: 
   };
   manager = new SessionAccountManager(env);
   const current = manager;
+  deviceAuth = new DeviceAuth({
+    url: supabaseUrl, key: publishableKey, tab: tabStorage, shared: storage, origin: window.location.origin,
+    current: () => current.activeUserId(), idle: () => current.switchPhase() === 'idle',
+    context: browserAttemptContext, openProvider: openProviderWindow, fetch: (input, init) => fetch(input, init),
+    exclusive: work => {
+      if (!navigator.locks) throw new Error('Este navegador precisa oferecer Web Locks para adicionar contas.');
+      return navigator.locks.request('finelo.deviceAuth.commit', work);
+    },
+    remember: (user, session) => current.rememberConfirmedSession(user, session),
+  });
+  deviceAuth.listenForProviderReturn(url => window.location.replace(url));
   setOperationClientResolver(() => current.activeAccountClient());
   return { client: manager.client, manager };
 }
